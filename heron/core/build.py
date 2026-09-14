@@ -87,6 +87,7 @@ def run(
     dist: Path | None = None,
     drafts: bool = False,
     with_media: bool = True,
+    strict: bool = False,
 ) -> Result:
     """Собрать сайт целиком."""
     collector = Collector()
@@ -108,7 +109,15 @@ def run(
 
     dist.mkdir(parents=True, exist_ok=True)
     manifest = (
-        media.build(site, site_root, dist, theme.images, collector, cache_dir=site_root / CACHE)
+        media.build(
+            site,
+            site_root,
+            dist,
+            theme.images,
+            collector,
+            cache_dir=site_root / CACHE,
+            strict=strict,
+        )
         if with_media
         else media.Manifest()
     )

@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# Сборка сайта. Без аргументов — папка dist/. С --image <tag> — образ nginx.
+# Сборка сайта.
+#
+#   ./build.sh                    → dist/, мягко: посмотреть на работу
+#   ./build.sh --strict           → dist/, строго: как соберёт прод
+#   ./build.sh --image мой:1.0    → образ nginx с сайтом внутри (всегда строго)
 #
 # Сборщику не нужно ничего: ни сети, ни прав, ни секретов. Так и запускаем.
 set -euo pipefail
@@ -11,6 +15,7 @@ if [ "${{1:-}}" = "--image" ]; then
   tag="${{2:?укажите тег: ./build.sh --image мой-сайт:1.0}}"
   docker build -t "$tag" .
   echo "готов образ $tag"
+  echo "запустить: docker run --rm -p 8080:8080 $tag"
   exit 0
 fi
 
@@ -20,6 +25,7 @@ docker run --rm \
   --cap-drop=ALL --security-opt=no-new-privileges \
   --user "$(id -u):$(id -g)" \
   -v "$PWD:/site" \
-  "$IMAGE" build --strict
+  "$IMAGE" build "$@"
 
 echo "готово: dist/"
+echo "посмотреть: docker compose up -d web  →  http://localhost:8080"

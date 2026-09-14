@@ -22,6 +22,7 @@ from heron.core.parser import blocks, frontmatter, markdown, sections
 SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 INDEX = "_index.md"
 HOME = "index.md"
+IGNORED = {"readme.md", "changelog.md", "license.md", "contributing.md"}
 DEFAULT_TYPE = "page"
 HOME_TYPE = "home"
 
@@ -76,6 +77,15 @@ def scan(
             rel = path.relative_to(content_root).as_posix()
             parts = list(path.relative_to(lang_root).parts)
             name = parts.pop()
+
+            # Служебные файлы репозитория и черновики страницами не считаются.
+            # README рядом с контентом — обычное дело, и объяснять человеку,
+            # что у него «недопустимый слаг», значит спорить с ним о том,
+            # чего он не просил.
+            if name.lower() in IGNORED or name.startswith("."):
+                continue
+            if name.startswith("_") and name != INDEX:
+                continue
 
             if name != INDEX and not SLUG.match(_slug_of(name)):
                 collector.error(

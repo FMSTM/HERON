@@ -69,3 +69,14 @@ def test_title_equal_h1_is_a_warning():
 
 def test_clean_page_has_no_warnings():
     assert PageMeta.model_validate(MIN).lint("a.md") == []
+
+
+def test_empty_optional_field_is_not_an_error():
+    """Контракт велит оставлять необязательные поля пустыми с комментарием."""
+    page = PageMeta.model_validate(
+        {**MIN, "redirect_from": None, "image": None, "order": None, "published": None}
+    )
+    assert page.redirect_from == []
+    assert page.image is None
+    assert page.order == 999
+    assert page.published is True

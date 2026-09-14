@@ -120,7 +120,7 @@ def check(path: Path, strict: bool, drafts: bool) -> None:
 def build(path: Path, strict: bool, drafts: bool, image: str | None, out: Path | None) -> None:
     """Собрать сайт в dist/ или в образ."""
     try:
-        result = pipeline.run(path, dist=out, drafts=drafts)
+        result = pipeline.run(path, dist=out, drafts=drafts, strict=strict)
     except HeronError as error:
         _fail(error)
 

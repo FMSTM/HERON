@@ -17,7 +17,7 @@ import re
 from datetime import date
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from heron.core.errors import Warning_
 
@@ -53,6 +53,23 @@ class PageMeta(BaseModel):
     noindex: bool = False
     redirect_from: list[str] = Field(default_factory=list)
     gone: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _empty_means_default(cls, data):
+        """Ключ без значения — это «не заполнено», а не ошибка.
+
+        Контракт данных прямо велит оставлять необязательные поля пустыми
+        вместе с комментарием-подсказкой, иначе через полгода никто
+        не вспомнит, что их можно заполнить. YAML отдаёт такой ключ как
+        None, и валиться на этом — значит воевать с собственным правилом.
+
+        Обязательные поля это не спасает: их отсутствие ловится раньше,
+        в parse_meta, и с внятным сообщением.
+        """
+        if isinstance(data, dict):
+            return {key: value for key, value in data.items() if value is not None}
+        return data
 
     @field_validator("title", "h1", "description")
     @classmethod

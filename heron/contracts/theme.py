@@ -58,9 +58,10 @@ class LinkSpec(BaseModel):
     field: str
     type: str | None = None
     back: str | None = None
+    on: str | None = None
     required: int = 0
 
-    @field_validator("field", "back")
+    @field_validator("field", "back", "on")
     @classmethod
     def _name(cls, v: str | None) -> str | None:
         if v is not None and not NAME_RE.match(v):

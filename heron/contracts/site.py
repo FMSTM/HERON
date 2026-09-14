@@ -26,7 +26,17 @@ LANG_RE = re.compile(r"^[a-z]{2}(-[a-z]{2})?$")
 DOMAIN_RE = re.compile(r"^(?!-)[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})+$")
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
-RESERVED = {"heron", "site", "seo", "nav", "build", "plugins", "forms", "sinks"}
+RESERVED = {
+    "heron",
+    "site",
+    "seo",
+    "nav",
+    "build",
+    "plugins",
+    "forms",
+    "sinks",
+    "analytics",
+}
 
 
 class Strict(BaseModel):
@@ -98,6 +108,29 @@ class NavBlock(BaseModel):
     main: list[str] = Field(default_factory=list)
 
 
+class AnalyticsBlock(Strict):
+    """Публичные идентификаторы счётчиков.
+
+    Это не секреты: они видны в исходнике любой страницы и вычитываются
+    краулерами. Поэтому им место здесь, рядом с доменом и языками, а не в
+    переменных окружения — иначе один и тот же сайт на двух машинах соберётся
+    с разными счётчиками, и никто не поймёт почему.
+
+    Вставляются в страницы только когда окружение сборки это разрешает:
+    на деве счётчик не должен портить статистику живого сайта.
+    """
+
+    metrika: str | None = None
+    gtm: str | None = None
+    ga4: str | None = None
+
+    @field_validator("metrika", "gtm", "ga4", mode="before")
+    @classmethod
+    def _as_text(cls, v: Any) -> Any:
+        # номер счётчика Метрики в YAML — число; шаблону нужна строка
+        return str(v) if isinstance(v, int) else v
+
+
 class BuildBlock(Strict):
     fail_on_warning: bool = False
     allow_raw_html: bool = False
@@ -134,6 +167,7 @@ class SiteConfig(BaseModel):
     seo: SeoBlock = Field(default_factory=SeoBlock)
     nav: NavBlock = Field(default_factory=NavBlock)
     build: BuildBlock = Field(default_factory=BuildBlock)
+    analytics: AnalyticsBlock = Field(default_factory=AnalyticsBlock)
     plugins: list[str] = Field(default_factory=list)
     forms: dict[str, FormSpec] = Field(default_factory=dict)
     sinks: dict[str, dict[str, Any]] = Field(default_factory=dict)

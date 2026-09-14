@@ -8,3 +8,8 @@ build/
 *.egg-info/
 .DS_Store
 .env
+
+# сборки сайтов и их окружения
+out/
+env/.env.*
+!env/.env.example

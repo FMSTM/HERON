@@ -112,6 +112,18 @@ def run(
 
     links.resolve(site, config, theme, collector)
 
+    # Сайт без страниц — нормальное состояние на деве: тему доводят раньше,
+    # чем пишут контент. В проде это всегда чья-то ошибка — пустой конвейер,
+    # не тот путь, забытый язык, — и выкладывать её наружу нельзя.
+    if env.is_prod and not site.pages:
+        collector.error(
+            "E017",
+            "в проде нечего собирать: ни одной страницы",
+            path=str(site_root / "content"),
+            hint="проверьте путь к контенту и языки в site.yaml; "
+            "пустую сборку можно делать только в деве",
+        )
+
     result = Result(
         config=config, theme=theme, theme_dir=theme_dir, site=site, collector=collector, env=env
     )

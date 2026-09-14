@@ -6,12 +6,40 @@ from heron.core import build as pipeline
 from heron.core.errors import HeronError
 from heron.scaffold import create
 
+HOME_MD = """---
+title: Демо — коротко о сайте
+h1: Демо
+description: Короткое описание сайта
+---
+
+Вводный абзац.
+"""
+
+NOT_FOUND_MD = """---
+title: Страница не найдена
+h1: Такой страницы нет
+description: Страница не найдена
+type: "404"
+noindex: true
+---
+
+Возможно, адрес устарел.
+"""
+
 
 @pytest.fixture
 def site(tmp_path):
+    """Скелет плюс две страницы.
+
+    Скелет контента не содержит: сайт начинается с конфига, страницы
+    появляются позже. Конвейеру же нужно что-то собирать, поэтому
+    минимальные страницы кладёт сам тест.
+    """
     root = tmp_path / "demo"
     root.mkdir()
     create(root, name="demo", languages=["uk"])
+    (root / "content" / "uk" / "index.md").write_text(HOME_MD, encoding="utf-8")
+    (root / "content" / "uk" / "404.md").write_text(NOT_FOUND_MD, encoding="utf-8")
     return root
 
 

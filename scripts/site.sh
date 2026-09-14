@@ -4,6 +4,8 @@
 #
 #   ./scripts/site.sh <сайт> <команда> [окружение]
 #
+#   new     создать папку сайта по указанному пути и завести его окружения
+#   init    достроить папку сайта под то, что написано в его site.yaml
 #   build   собрать в out/<сайт>-<окружение>
 #   image   упаковать собранное в образ nginx
 #   serve   поднять nginx на собранной папке
@@ -31,7 +33,56 @@ CMD="${2:-}"
 ENV_NAME="${3:-dev}"
 
 [ -n "$SITE" ] && [ -n "$CMD" ] || die "нужно: ./scripts/site.sh <сайт> <команда> [окружение]
-команды: build | image | serve | stop | push | check"
+команды: new <путь> | init | build | image | serve | stop | push | check"
+
+# Версия движка для новой папки: своего site.yaml у неё ещё нет.
+DEFAULT_ENGINE="ghcr.io/fmstm/heron:prod"
+
+do_new() {
+  local target="${3:-}"
+  [ -n "$target" ] || die "нужно: ./scripts/site.sh $SITE new <путь к папке сайта>"
+  target="${target/#\~/$HOME}"
+  [ -e "$target" ] && [ -n "$(ls -A "$target" 2>/dev/null)" ] \
+    && die "папка $target не пуста — для готового контента есть команда init"
+
+  local parent base
+  parent="$(cd "$(dirname "$target")" && pwd)" || die "нет папки $(dirname "$target")"
+  base="$(basename "$target")"
+
+  note "создаю папку сайта $parent/$base"
+  docker run --rm --network=none --cap-drop=ALL --security-opt=no-new-privileges \
+    --user "$(id -u):$(id -g)" --tmpfs /tmp \
+    -v "$parent":/work -w /work \
+    "${HERON_IMAGE:-$DEFAULT_ENGINE}" new "$base"
+
+  local written=0
+  for name in dev prod; do
+    local file="env/.env.${SITE}.${name}"
+    if [ -e "$file" ]; then note "уже есть $file — не трогаю"; continue; fi
+    sed -e "s|^SITE_PATH=.*|SITE_PATH=$parent/$base|" \
+        -e "s|^HERON_ENV=.*|HERON_ENV=$name|" \
+        -e "s|^IMAGE_NAME=.*|IMAGE_NAME=heron-site-$SITE|" \
+        -e "s|^IMAGE_TAG=.*|IMAGE_TAG=$name|" \
+        env/.env.example > "$file"
+    [ "$name" = prod ] && sed -i.bak -e "s|^STRICT=.*|STRICT=true|" "$file" && rm -f "$file.bak"
+    written=1
+  done
+  [ "$written" = 1 ] && ok "заведены env/.env.${SITE}.dev и env/.env.${SITE}.prod"
+
+  cat <<TXT
+
+дальше:
+  1. заполните $parent/$base/site.yaml — домен, языки, тема, меню
+  2. ./scripts/site.sh $SITE init
+  3. разложите контент и: ./scripts/site.sh $SITE build dev
+TXT
+}
+
+if [ "$CMD" = "new" ]; then
+  command -v docker >/dev/null || die "нужен docker"
+  do_new "$@"
+  exit 0
+fi
 
 ENV_FILE="env/.env.${SITE}.${ENV_NAME}"
 [ -f "$ENV_FILE" ] || die "нет файла $ENV_FILE
@@ -139,12 +190,24 @@ do_check() {
   run_engine check /site
 }
 
+do_init() {
+  note "достраиваю $SITE_PATH по его site.yaml"
+  # Единственная команда, которой папка сайта нужна на запись:
+  # она в эту папку и кладёт недостающее.
+  docker run --rm --network=none --cap-drop=ALL --security-opt=no-new-privileges \
+    --user "$(id -u):$(id -g)" --tmpfs /tmp \
+    -v "$SITE_PATH":/site -w /site \
+    "$(engine_image)" init /site
+  ok "готово"
+}
+
 case "$CMD" in
+  init)  do_init  ;;
   build) do_build ;;
   image) do_image ;;
   serve) do_serve ;;
   stop)  do_stop  ;;
   push)  do_push  ;;
   check) do_check ;;
-  *) die "не знаю команду $CMD. Есть: build, image, serve, stop, push, check" ;;
+  *) die "не знаю команду $CMD. Есть: new, init, build, image, serve, stop, push, check" ;;
 esac

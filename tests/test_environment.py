@@ -60,3 +60,71 @@ def test_new_site_holds_content_only(tmp_path):
     assert not (forbidden & present), sorted(forbidden & present)
     assert (root / "site.yaml").is_file()
     assert (root / "content").is_dir()
+
+
+def test_new_site_has_no_content_pages(tmp_path):
+    """Контента при старте может не быть: сначала конфиг, потом страницы."""
+    root = tmp_path / "demo"
+    root.mkdir()
+    create(root, name="demo")
+    assert not list((root / "content").rglob("*.md"))
+    assert (root / "content" / "uk").is_dir()
+
+
+def test_init_takes_languages_from_site_yaml(tmp_path):
+    """Языки объявляет site.yaml, а не то, какие папки уже завелись."""
+    from heron.scaffold import adopt
+
+    root = tmp_path / "demo"
+    root.mkdir()
+    create(root, name="demo")
+
+    config = root / "site.yaml"
+    config.write_text(
+        config.read_text(encoding="utf-8").replace(
+            "  default_lang: uk\n  languages: [uk]",
+            "  default_lang: ru\n  languages: [ru, uk, en]",
+        ),
+        encoding="utf-8",
+    )
+    adopt(root)
+
+    for lang in ("ru", "uk", "en"):
+        assert (root / "content" / lang).is_dir(), lang
+        assert (root / "theme" / "i18n" / f"{lang}.yaml").is_file(), lang
+
+
+def test_init_survives_broken_site_yaml(tmp_path):
+    """`init` зовут именно тогда, когда конфиг ещё сырой. Падать нельзя."""
+    from heron.scaffold import adopt
+
+    root = tmp_path / "demo"
+    root.mkdir()
+    create(root, name="demo")
+    (root / "site.yaml").write_text("site: [это не словарь\n", encoding="utf-8")
+    adopt(root)
+    assert (root / "content").is_dir()
+
+
+def test_empty_site_builds_in_dev(tmp_path):
+    """Тему доводят раньше, чем пишут контент — на деве это норма."""
+    from heron.core import build as pipeline
+
+    root = tmp_path / "demo"
+    root.mkdir()
+    create(root, name="demo")
+    result = pipeline.run(root, env=BuildEnv.named("dev"))
+    assert not result.failed
+    assert "robots.txt" in result.written
+
+
+def test_empty_site_refuses_to_build_in_prod(tmp_path):
+    """А наружу пустой сайт не выкладывают: это всегда чья-то ошибка."""
+    from heron.core import build as pipeline
+
+    root = tmp_path / "demo"
+    root.mkdir()
+    create(root, name="demo")
+    result = pipeline.run(root, env=BuildEnv.named("prod"))
+    assert result.failed
+    assert [e.code for e in result.collector.errors] == ["E017"]

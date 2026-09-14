@@ -27,15 +27,21 @@ GITIGNORE = """dist/
 __pycache__/
 """
 
-SITE_YAML = """# Версия движка, на которой собирается сайт. Обязательна.
+SITE_YAML = """# Единственная точка правды о сайте. Всё, что здесь написано,
+# определяет и сборку, и структуру папок: языки отсюда, тема отсюда.
+# Заполните файл, затем выполните `heron init` — папки догонят конфиг.
+
+# Версия движка, на которой собирается сайт. Обязательна.
 heron: "{spec}"
 
 site:
   domain: {domain}
   name: {name}
   theme: {theme}
-  default_lang: {default_lang}
-  languages: [{languages}]
+  default_lang: uk
+  languages: [uk]
+  # ↑ добавьте языки сюда, потом `heron init` — появятся content/<язык>/
+  #   и theme/i18n/<язык>.yaml. Первый язык должен быть в списке.
 
 seo:
   title_suffix: ""
@@ -44,12 +50,24 @@ seo:
 
 nav:
   main: []
+  # ↑ слаги страниц верхнего меню, в нужном порядке
+
+# Публичные идентификаторы счётчиков. Не секреты: видны в исходнике
+# страницы. Вставляются только в прод-сборке.
+analytics:
+  metrika:
+  gtm:
+  ga4:
 
 build:
   fail_on_warning: false
   allow_raw_html: false
 
 plugins: []
+
+# Пароли и токены сюда НЕ пишут. SMTP форм, ключи деплоя и прочее
+# живут в окружении сборки, в HERON/env/.env.<сайт>.<окружение>:
+# сборка статическая, и всё, что она видит, может оказаться в HTML.
 """
 
 THEME_YAML = """name: {theme}
@@ -76,31 +94,6 @@ images:
   formats: [avif, webp]
 """
 
-INDEX_MD = """---
-title: {name} — коротко о сайте
-h1: {name}
-description: Короткое описание сайта — оно попадёт в выдачу
----
-
-Вводный абзац. Всё, что написано до первого заголовка с якорем, тема получает
-как `intro`.
-
-## О чём этот сайт {{#about}}
-
-Заголовок с якорем начинает секцию. Якорь — адрес для темы, его не правят.
-Сам заголовок — контент, его правят свободно.
-"""
-
-NOT_FOUND_MD = """---
-title: Страница не найдена
-h1: Такой страницы нет
-description: Страница не найдена
-type: "404"
-noindex: true
----
-
-Возможно, адрес устарел. Вернитесь на главную или воспользуйтесь меню.
-"""
 
 STRINGS = """powered_by: Работает на
 read_more: Читать дальше
@@ -124,6 +117,18 @@ def slugify(name: str) -> str:
 def _version_spec() -> str:
     major, minor, *_ = __version__.split(".")
     return f">={major}.{minor},<{major}.{int(minor) + 1}"
+
+
+def _keep(root: Path, rel: str, plan: Plan) -> None:
+    """Пустая папка, которую переживёт git."""
+    path = root / rel
+    if path.is_dir() and any(path.iterdir()):
+        return
+    path.mkdir(parents=True, exist_ok=True)
+    marker = path / ".gitkeep"
+    if not marker.exists():
+        marker.write_text("", encoding="utf-8")
+        plan.created.append(f"{rel}/")
 
 
 def _put(root: Path, rel: str, text: str, plan: Plan, force: bool) -> None:
@@ -182,8 +187,7 @@ def create(
     )
 
     for lang in languages:
-        _put(root, f"content/{lang}/index.md", INDEX_MD.format(name=name), plan, force)
-        _put(root, f"content/{lang}/404.md", NOT_FOUND_MD, plan, force)
+        _keep(root, f"content/{lang}", plan)
 
     for folder in ("data", "img", "static", "plugins"):
         path = root / folder
@@ -203,23 +207,66 @@ def create(
 
 
 def adopt(root: Path, force: bool = False) -> Plan:
-    """Дополнить существующую папку тем, чего в ней нет.
+    """Дополнить папку тем, чего в ней нет, по написанному в `site.yaml`.
+
+    Языки и тему берём из конфига, а не из того, какие папки уже лежат:
+    иначе источников правды два, и рано или поздно они разойдутся. Дописал
+    язык в `site.yaml`, выполнил `init` — папка под него появилась.
 
     Ничего не перезаписывает без `--force`: чужой файл важнее нашего образца.
     """
     plan = Plan()
+    declared = _declared(root / "site.yaml")
+    if declared:
+        plan.found.append(
+            "site.yaml: языки " + ", ".join(declared["languages"]) + f", тема {declared['theme']}"
+        )
+
     content = root / "content"
-    langs: list[str] = []
+    present: list[str] = []
     if content.is_dir():
-        langs = sorted(p.name for p in content.iterdir() if p.is_dir())
+        present = sorted(p.name for p in content.iterdir() if p.is_dir())
         pages = len(list(content.rglob("*.md")))
-        plan.found.append(f"content/: {pages} страниц, языки: {', '.join(langs) or 'нет'}")
+        plan.found.append(f"content/: {pages} страниц, языки: {', '.join(present) or 'нет'}")
     for folder in ("data", "img", "static", "theme"):
         if (root / folder).is_dir():
             plan.found.append(f"{folder}/ на месте")
 
-    name = root.resolve().name
-    made = create(root, name=name, languages=langs or None, force=force)
+    languages = declared["languages"] if declared else present
+    theme = declared["theme"] if declared else None
+
+    made = create(
+        root,
+        name=root.resolve().name,
+        languages=languages or None,
+        theme=theme,
+        force=force,
+    )
     plan.created = made.created
     plan.skipped = made.skipped
     return plan
+
+
+def _declared(site_yaml: Path) -> dict | None:
+    """Языки и тема так, как их объявил сам сайт. Нет конфига — нет ответа.
+
+    Читаем мягко: `init` часто зовут именно потому, что конфиг ещё сырой,
+    и падать на нём в момент, когда человек просит помочь его достроить,
+    было бы издевательством. Полноценную проверку сделает сборка.
+    """
+    if not site_yaml.is_file():
+        return None
+    try:
+        import yaml
+
+        data = yaml.safe_load(site_yaml.read_text(encoding="utf-8")) or {}
+        block = data.get("site") or {}
+        languages = [str(x) for x in (block.get("languages") or []) if x]
+        default = block.get("default_lang")
+        if default and default not in languages:
+            languages.insert(0, str(default))
+    except Exception:
+        return None
+    if not languages:
+        return None
+    return {"languages": languages, "theme": block.get("theme")}

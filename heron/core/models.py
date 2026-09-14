@@ -44,6 +44,7 @@ class Page:
 
     lang: str
     source: str
+    key: str
     meta: PageMeta
     sections: dict[str, Section] = field(default_factory=dict)
     intro: Section | None = None
@@ -71,3 +72,28 @@ class Page:
     def has(self, section_id: str) -> bool:
         section = self.sections.get(section_id)
         return section is not None and not section.is_empty
+
+    @property
+    def slug(self) -> str:
+        return self.url.rstrip("/").rsplit("/", 1)[-1]
+
+    @property
+    def is_index(self) -> bool:
+        return self.source.endswith("_index.md") or self.key == ""
+
+
+@dataclass(slots=True)
+class Site:
+    """Сайт целиком: страницы, справочники, меню."""
+
+    pages: list[Page] = field(default_factory=list)
+    by_url: dict[str, Page] = field(default_factory=dict)
+    by_key: dict[tuple[str, str], Page] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
+    nav: dict[str, dict[str, list[Page]]] = field(default_factory=dict)
+
+    def of_lang(self, lang: str) -> list[Page]:
+        return [p for p in self.pages if p.lang == lang]
+
+    def of_type(self, page_type: str, lang: str | None = None) -> list[Page]:
+        return [p for p in self.pages if p.type == page_type and (lang is None or p.lang == lang)]

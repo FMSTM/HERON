@@ -44,6 +44,30 @@ class TypeSpec(BaseModel):
         return v
 
 
+class LinkSpec(BaseModel):
+    """Связь между страницами, объявленная темой.
+
+    Ядро не знает, что процедура «лечит» состояние, — оно знает, что поле
+    `treats` содержит слаги страниц типа `condition`, и умеет их найти,
+    проверить и построить обратную ссылку. Предметная область остаётся
+    в теме, механика в ядре.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    field: str
+    type: str | None = None
+    back: str | None = None
+    required: int = 0
+
+    @field_validator("field", "back")
+    @classmethod
+    def _name(cls, v: str | None) -> str | None:
+        if v is not None and not NAME_RE.match(v):
+            raise ValueError("имя поля связи — латиница, цифры, дефис и подчёркивание")
+        return v
+
+
 class ThemeConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -53,6 +77,7 @@ class ThemeConfig(BaseModel):
     modules: list[str] = Field(default_factory=list)
     types: dict[str, TypeSpec] = Field(default_factory=dict)
     requires: list[str] = Field(default_factory=list)
+    links: list[LinkSpec] = Field(default_factory=list)
     forms: list[str] = Field(default_factory=list)
 
     @field_validator("name")

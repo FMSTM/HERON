@@ -61,6 +61,17 @@ def resolve(site: Site, config: SiteConfig, theme: ThemeConfig, collector: Colle
     localize(site, config, collector)
 
 
+def _rewrite(value, replace):
+    """Пройти по разобранным данным секции и переписать ссылки в строках."""
+    if isinstance(value, str):
+        return HREF.sub(replace, value)
+    if isinstance(value, list):
+        return [_rewrite(item, replace) for item in value]
+    if isinstance(value, dict):
+        return {key: _rewrite(item, replace) for key, item in value.items()}
+    return value
+
+
 def localize(site: Site, config: SiteConfig, collector: Collector) -> None:
     """Подставить языковой префикс во внутренние ссылки контента.
 
@@ -104,8 +115,14 @@ def localize(site: Site, config: SiteConfig, collector: Collector) -> None:
             return match.group(0)
 
         for section in (page.intro, *page.sections.values()):
-            if section is not None and section.html:
+            if section is None:
+                continue
+            if section.html:
                 section.html = HREF.sub(localized, section.html)
+            # Структурированные секции — списки, шаги, вопросы, таблицы —
+            # хранят уже отрендеренные куски HTML, разобранные на этапе
+            # парсинга. Ссылки живут и там
+            section.data = _rewrite(section.data, localized)
 
 
 def _families(site: Site) -> None:

@@ -199,3 +199,24 @@ def test_language_root_has_no_parent_in_another_language(tmp_path):
     assert site.by_url["/ru/"].parent is None
     crumbs = [c.url for c in site.by_url["/ru/services/consulting/"].breadcrumbs]
     assert crumbs == ["/ru/", "/ru/services/"]
+
+
+def test_links_inside_structured_sections_are_localized(tmp_path):
+    """Списки, шаги и вопросы хранят готовый HTML — ссылки живут и там."""
+    files = {
+        "uk/index.md": sites.page("Головна"),
+        "uk/services/_index.md": sites.page("Послуги", type="category", children_type="service"),
+        "uk/services/consulting.md": sites.page("Консультація"),
+        "ru/index.md": sites.page("Главная"),
+        "ru/services/_index.md": sites.page("Услуги", type="category", children_type="service"),
+        "ru/services/consulting.md": sites.page("Консультация"),
+        "ru/about.md": (
+            "---\ntitle: О нас\nh1: О нас\ndescription: Описание\n---\n\n"
+            "## Направления {#scope}\n\n- [консультация](/services/consulting/)\n"
+            "\n## Как это устроено {#how}\n\n1. **Шаг.** Смотри [услуги](/services/)\n"
+        ),
+    }
+    site, _ = resolved(tmp_path, files)
+    page = site.by_url["/ru/about/"]
+    assert "/ru/services/consulting/" in str(page.sections["scope"].data)
+    assert "/ru/services/" in str(page.sections["how"].data)

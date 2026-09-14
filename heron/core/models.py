@@ -1,5 +1,73 @@
-"""Модели Site, Page, Section, Nav.
+"""Модели страницы и секции.
 
-НЕ РЕАЛИЗОВАНО. Задача E4.S1.T1 в registry/tasks.yaml проекта.
-Спецификация: docs/spec/21-engine.md, раздел 6
+Парсер заполняет содержательную часть, резолв связей — родителей, детей,
+переводы и крошки. Поэтому поля связей объявлены здесь, но остаются пустыми
+до этапа 4 конвейера.
+
+Спецификация: docs/spec/21-engine.md, раздел 6.
 """
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+from heron.contracts.frontmatter import PageMeta
+
+
+@dataclass(slots=True)
+class Section:
+    """Блок контента с идентификатором.
+
+    `id` — адрес для темы, его не правят. `title` — заголовок, который увидит
+    посетитель, его правят свободно. Разделение принципиальное.
+    """
+
+    id: str
+    title: str
+    level: int
+    classes: list[str] = field(default_factory=list)
+    raw: str = ""
+    html: str = ""
+    kind: str = "prose"
+    data: Any = None
+    line: int | None = None
+
+    @property
+    def is_empty(self) -> bool:
+        return not self.raw.strip()
+
+
+@dataclass(slots=True)
+class Page:
+    """Страница сайта."""
+
+    lang: str
+    source: str
+    meta: PageMeta
+    sections: dict[str, Section] = field(default_factory=dict)
+    intro: Section | None = None
+
+    url: str = ""
+    type: str = "page"
+
+    parent: Page | None = None
+    children: list[Page] = field(default_factory=list)
+    translations: dict[str, Page] = field(default_factory=dict)
+    breadcrumbs: list[Page] = field(default_factory=list)
+    related: dict[str, list[Page]] = field(default_factory=dict)
+
+    @property
+    def title(self) -> str:
+        return self.meta.title
+
+    @property
+    def h1(self) -> str:
+        return self.meta.h1
+
+    def section(self, section_id: str) -> Section | None:
+        return self.sections.get(section_id)
+
+    def has(self, section_id: str) -> bool:
+        section = self.sections.get(section_id)
+        return section is not None and not section.is_empty

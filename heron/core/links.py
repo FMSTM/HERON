@@ -12,6 +12,8 @@
 
 from __future__ import annotations
 
+import re
+
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core.errors import Collector
@@ -45,6 +47,10 @@ def _as_list(value: object) -> list[str]:
     return []
 
 
+HREF = re.compile(r'href="(/[^"]*)"')
+NOT_A_PAGE = ("/img/", "/static/", "/assets/", "/media/")
+
+
 def resolve(site: Site, config: SiteConfig, theme: ThemeConfig, collector: Collector) -> None:
     """Заполнить связи всех страниц. Ссылка в никуда останавливает сборку."""
     _families(site)
@@ -52,6 +58,54 @@ def resolve(site: Site, config: SiteConfig, theme: ThemeConfig, collector: Colle
     _breadcrumbs(site, config)
     _declared(site, theme, collector)
     _nav(site, config, collector)
+    localize(site, config, collector)
+
+
+def localize(site: Site, config: SiteConfig, collector: Collector) -> None:
+    """Подставить языковой префикс во внутренние ссылки контента.
+
+    Ссылка от корня внутри страницы относительна её языку: `/services/x/`
+    на русской странице ведёт на `/ru/services/x/`, на украинской — на
+    `/services/x/`. Автор пишет адрес один раз, перевод копируется как есть
+    и не требует переписывания ссылок.
+
+    Иначе перевод страницы означает ручную правку каждой ссылки в ней,
+    и одна забытая — битая ссылка в проде.
+
+    Не трогаются: внешние адреса, `mailto:`, `tel:`, якоря, пути к картинкам
+    и статике. И отдельно — `redirect_from` во фронтматтере: там лежат
+    реальные старые адреса, они не относительны языку, они историчны.
+    """
+    default = config.site.default_lang
+
+    for page in site.pages:
+        if page.lang == default:
+            continue
+
+        def localized(match: re.Match, page: Page = page) -> str:
+            href = match.group(1)
+            if href.startswith(NOT_A_PAGE):
+                return match.group(0)
+
+            path, sep, tail = href.partition("#")
+            path, query_sep, query = path.partition("?")
+            candidate = f"/{page.lang}{path}"
+
+            if candidate in site.by_url:
+                return f'href="{candidate}{query_sep}{query}{sep}{tail}"'
+
+            if path in site.by_url:
+                other = site.by_url[path]
+                collector.warn(
+                    f"ссылка {path} ведёт на страницу языка {other.lang!r}: "
+                    f"на {page.lang!r} этой страницы нет",
+                    path=page.source,
+                )
+            return match.group(0)
+
+        for section in (page.intro, *page.sections.values()):
+            if section is not None and section.html:
+                section.html = HREF.sub(localized, section.html)
 
 
 def _families(site: Site) -> None:

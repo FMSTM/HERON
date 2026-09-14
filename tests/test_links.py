@@ -116,3 +116,57 @@ def test_nav_pointing_at_nothing_is_a_warning(tmp_path):
     _, collector = resolved(tmp_path, {"uk/index.md": sites.page()}, nav={"main": ["нет"]})
     assert not collector.failed
     assert any("меню" in w.message for w in collector.warnings)
+
+
+LOCALIZE = {
+    "uk/index.md": sites.page("Головна"),
+    "uk/services/_index.md": sites.page("Послуги", type="category", children_type="service"),
+    "uk/services/consulting.md": sites.page("Консультація"),
+    "uk/privacy.md": sites.page("Політика"),
+    "ru/index.md": sites.page("Главная"),
+    "ru/services/_index.md": sites.page("Услуги", type="category", children_type="service"),
+    "ru/services/consulting.md": (
+        "---\ntitle: Консультация\nh1: Консультация\ndescription: Описание\n---\n\n"
+        "## Текст {#what}\n\n"
+        "[услуги](/services/) и [ещё](/services/consulting/#section), "
+        "[политика](/privacy/), [картинка](/img/a.png), "
+        "[внешняя](https://example.org/), [почта](mailto:a@example.com)\n"
+    ),
+}
+
+
+def test_language_prefix_added_to_content_links(tmp_path):
+    site, collector = resolved(tmp_path, LOCALIZE)
+    html = site.by_url["/ru/services/consulting/"].sections["what"].html
+    assert 'href="/ru/services/"' in html
+    assert 'href="/ru/services/consulting/#section"' in html
+
+
+def test_default_language_links_untouched(tmp_path):
+    site, _ = resolved(tmp_path, LOCALIZE)
+    files = {**LOCALIZE}
+    files["uk/about.md"] = (
+        "---\ntitle: Про нас\nh1: Про нас\ndescription: Опис\n---\n\n"
+        "## Текст {#what}\n\n[послуги](/services/)\n"
+    )
+    site, _ = resolved(tmp_path, files)
+    assert 'href="/services/"' in site.by_url["/about/"].sections["what"].html
+
+
+def test_assets_and_external_links_untouched(tmp_path):
+    site, _ = resolved(tmp_path, LOCALIZE)
+    html = site.by_url["/ru/services/consulting/"].sections["what"].html
+    assert 'href="/img/a.png"' in html
+    assert 'href="https://example.org/"' in html
+    assert "mailto:a@example.com" in html
+
+
+def test_link_to_page_missing_in_this_language_warns(tmp_path):
+    files = {k: v for k, v in LOCALIZE.items() if k != "ru/index.md"}
+    files["ru/index.md"] = sites.page("Главная")
+    del files["uk/privacy.md"]
+    files["uk/privacy.md"] = sites.page("Політика")
+    site, collector = resolved(tmp_path, files)
+    html = site.by_url["/ru/services/consulting/"].sections["what"].html
+    assert 'href="/privacy/"' in html  # ведём на украинскую версию, а не в 404
+    assert any("privacy" in w.message for w in collector.warnings)

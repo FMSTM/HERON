@@ -5,6 +5,7 @@ import json
 import pytest
 
 from heron.core import links, tree
+from heron.core.environment import BuildEnv
 from heron.modules import feed, jsonld, llms, redirects, robots, sitemap
 from tests import sites
 
@@ -67,14 +68,28 @@ def test_noindex_page_stays_out_of_sitemap(tmp_path):
 
 def test_robots_points_at_sitemap(built):
     _, config, _, _ = built
-    text = robots.generate(config)["robots.txt"]
+    text = robots.generate(config, BuildEnv.named("prod"))["robots.txt"]
     assert "Sitemap: https://example.com/sitemap.xml" in text
     assert text.startswith("User-agent: *")
 
 
 def test_robots_extra_lines(tmp_path):
     config = sites.config(seo={"robots_extra": ["Disallow: /tmp/"]})
-    assert "Disallow: /tmp/" in robots.generate(config)["robots.txt"]
+    text = robots.generate(config, BuildEnv.named("prod"))["robots.txt"]
+    assert "Disallow: /tmp/" in text
+
+
+def test_robots_closes_everything_outside_prod(built):
+    """Дев-сборка не должна попадать в индекс, даже если её кто-то выложил."""
+    _, config, _, _ = built
+    text = robots.generate(config, BuildEnv.named("dev"))["robots.txt"]
+    assert text == "User-agent: *\nDisallow: /\n"
+
+
+def test_robots_closed_by_default(built):
+    """Забыть указать окружение можно; получить открытый robots — нельзя."""
+    _, config, _, _ = built
+    assert "Disallow: /" in robots.generate(config)["robots.txt"]
 
 
 def test_llms_lists_catalogs_with_children(built):

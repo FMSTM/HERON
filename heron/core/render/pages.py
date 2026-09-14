@@ -15,6 +15,7 @@ from jinja2 import UndefinedError as JinjaUndefined
 
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
+from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError
 from heron.core.media import Manifest
 from heron.core.models import Page, Site
@@ -39,6 +40,7 @@ def render_page(
     strings: envmod.Strings,
     collector: Collector,
     media: Manifest | None = None,
+    build_env: BuildEnv | None = None,
 ) -> str:
     """Собрать HTML одной страницы."""
     name = template_name(page, theme)
@@ -52,7 +54,7 @@ def render_page(
             hint=f"создайте {name} в теме или задайте другой тип страницы",
         ) from exc
 
-    scope = envmod.context(env, page, site, config, theme, strings, collector, media)
+    scope = envmod.context(env, page, site, config, theme, strings, collector, media, build_env)
     try:
         return template.render(**scope)
     except JinjaUndefined as exc:
@@ -71,6 +73,7 @@ def render_site(
     theme: ThemeConfig,
     collector: Collector,
     media: Manifest | None = None,
+    build_env: BuildEnv | None = None,
 ) -> dict[str, str]:
     """Собрать HTML всех страниц. Ключ — адрес страницы."""
     env = envmod.make(theme_dir, config)
@@ -82,7 +85,7 @@ def render_site(
     for page in site.pages:
         try:
             out[page.url] = render_page(
-                env, page, site, config, theme, strings[page.lang], collector, media
+                env, page, site, config, theme, strings[page.lang], collector, media, build_env
             )
         except HeronError as error:
             collector.errors.append(error)

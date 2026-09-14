@@ -1,9 +1,10 @@
 """Скелет сайта: что кладут `heron new` и `heron init`.
 
 Команда неинтерактивна и детерминирована: одинаковый вызов даёт одинаковую
-папку. Вопросов о способе размещения не задаёт — кладёт и папочный путь,
-и докерный, всегда. Решение «папка или образ» принимается позже, флагом
-сборки, а не в момент, когда о сайте ещё ничего не известно.
+папку. Кладёт только контент: markdown, картинки, тему, site.yaml. Ни
+Dockerfile, ни compose, ни скриптов сборки, ни .env здесь нет и быть не
+может — сборка, окружения и упаковка живут в HERON, а папка сайта остаётся
+папкой сайта. Решение «папка или образ» принимается при сборке.
 
 Спецификация: docs/spec/23-distribution.md, раздел 4.
 """
@@ -18,21 +19,12 @@ from heron import __version__
 
 HERE = Path(__file__).parent
 TEMPLATES = HERE / "templates"
-DOCKER = HERE / "docker"
 SITE = HERE / "site"
 
 GITIGNORE = """dist/
 .heron-cache/
-.env
 .DS_Store
 __pycache__/
-"""
-
-ENV_EXAMPLE = """# Секреты сервисов. Сборке они не нужны: она идёт без сети.
-# Файл монтируется только в heron-relay, если на сайте есть формы.
-SMTP_URL=
-CRM_SECRET=
-TG_CHAT=
 """
 
 SITE_YAML = """# Версия движка, на которой собирается сайт. Обязательна.
@@ -156,7 +148,6 @@ def create(
     name: str,
     languages: list[str] | None = None,
     theme: str | None = None,
-    docker: bool = True,
     force: bool = False,
 ) -> Plan:
     """Разложить скелет сайта в папку."""
@@ -180,7 +171,6 @@ def create(
 
     _put(root, "site.yaml", SITE_YAML.format(**fields), plan, force)
     _put(root, ".gitignore", GITIGNORE, plan, force)
-    _put(root, ".env.example", ENV_EXAMPLE, plan, force)
     _copy(
         root,
         SITE / "README.md",
@@ -208,13 +198,6 @@ def create(
             _copy(root, source, f"theme/{source.relative_to(TEMPLATES).as_posix()}", plan, force)
     for lang in languages:
         _put(root, f"theme/i18n/{lang}.yaml", STRINGS, plan, force)
-
-    if docker:
-        for source in sorted(DOCKER.iterdir()):
-            _copy(root, source, source.name, plan, force, version=__version__)
-        script = root / "build.sh"
-        if script.is_file():
-            script.chmod(0o755)
 
     return plan
 

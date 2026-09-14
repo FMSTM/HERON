@@ -19,11 +19,12 @@ from typing import Any
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, TemplateNotFound
-from markupsafe import Markup
+from markupsafe import Markup, escape
 
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core.errors import Collector, HeronError
+from heron.core.media import Manifest
 from heron.core.models import Page, Site
 from heron.modules import jsonld
 
@@ -135,6 +136,53 @@ def make(theme_dir: Path, config: SiteConfig) -> Environment:
     return env
 
 
+def picture(
+    manifest: Manifest,
+    collector: Collector,
+) -> Any:
+    """Готовый `<picture>` по нарезанным вариантам.
+
+    `width` и `height` проставляются всегда: без них вёрстка прыгает при
+    загрузке и растёт CLS. `loading="lazy"` — на всё, кроме первого экрана.
+    """
+
+    def render(
+        src: str,
+        ratio: str = "1:1",
+        alt: str = "",
+        sizes: str = "100vw",
+        lazy: bool = True,
+        classes: str = "",
+    ) -> Markup:
+        rendition = manifest.get(src, ratio)
+        if rendition is None:
+            collector.warn(f"нет нарезанного варианта {ratio} для {src}")
+            return Markup("")
+
+        parts: list[str] = ["<picture>"]
+        for fmt, variants in rendition.sources.items():
+            if fmt == "origin":
+                continue
+            srcset = ", ".join(f"/{path} {width}w" for width, path in variants)
+            parts.append(f'<source type="image/{fmt}" srcset="{srcset}" sizes="{sizes}">')
+        attrs = [
+            f'src="/{rendition.fallback}"',
+            f'width="{rendition.width}"',
+            f'height="{rendition.height}"',
+            f'alt="{escape(alt)}"',
+            'decoding="async"',
+        ]
+        if lazy:
+            attrs.append('loading="lazy"')
+        if classes:
+            attrs.append(f'class="{escape(classes)}"')
+        parts.append("<img " + " ".join(attrs) + ">")
+        parts.append("</picture>")
+        return Markup("".join(parts))
+
+    return render
+
+
 def context(
     env: Environment,
     page: Page,
@@ -143,6 +191,7 @@ def context(
     theme: ThemeConfig,
     strings: Strings,
     collector: Collector,
+    media: Manifest | None = None,
 ) -> dict[str, Any]:
     """Всё, что видит шаблон страницы."""
     shared: dict[str, Any] = {
@@ -158,4 +207,5 @@ def context(
     }
     shared["mod"] = Modules(env, shared, collector)
     shared["jsonld"] = lambda: Markup(jsonld.render(page, config, theme))
+    shared["picture"] = picture(media or Manifest(), collector)
     return shared

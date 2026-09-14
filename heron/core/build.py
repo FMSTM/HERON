@@ -92,7 +92,12 @@ def run(
     strict: bool = False,
     env: BuildEnv | None = None,
 ) -> Result:
-    """Собрать сайт целиком."""
+    """Собрать сайт целиком.
+
+    Кэш нарезанных картинок кладётся рядом с результатом, а не рядом с
+    контентом: папка сайта монтируется только на чтение, и пачкать её
+    служебными файлами сборка не имеет права.
+    """
     collector = Collector()
     env = env or BuildEnv()
     site_root = site_root.resolve()
@@ -121,7 +126,7 @@ def run(
             dist,
             theme.images,
             collector,
-            cache_dir=site_root / CACHE,
+            cache_dir=dist.parent / CACHE,
             strict=strict,
         )
         if with_media

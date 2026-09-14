@@ -1,0 +1,21 @@
+services:
+  build:
+    image: ghcr.io/fmstm/heron:{version}
+    profiles: ["build"]
+    user: "${{UID:-1000}}:${{GID:-1000}}"
+    network_mode: "none"
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - .:/site
+    command: ["build", "--strict"]
+
+  web:
+    image: nginxinc/nginx-unprivileged:1.27-alpine
+    restart: unless-stopped
+    volumes:
+      - ./dist:/usr/share/nginx/html:ro
+    ports:
+      - "8080:8080"

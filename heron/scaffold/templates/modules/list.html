@@ -1,0 +1,4 @@
+<section id="{{ section.id }}" class="list {{ 'alert' if 'alert' in section.classes else '' }}">
+  {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
+  <ul>{% for item in items %}<li>{{ item|safe }}</li>{% endfor %}</ul>
+</section>

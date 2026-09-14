@@ -67,10 +67,17 @@ class Page:
         return self.meta.h1
 
     def section(self, section_id: str) -> Section | None:
+        """Секция по идентификатору.
+
+        `intro` живёт отдельным полем, потому что у него нет заголовка,
+        но для темы и для отчёта это такая же секция, как остальные.
+        """
+        if section_id == "intro" and self.intro is not None:
+            return self.intro
         return self.sections.get(section_id)
 
     def has(self, section_id: str) -> bool:
-        section = self.sections.get(section_id)
+        section = self.section(section_id)
         return section is not None and not section.is_empty
 
     @property

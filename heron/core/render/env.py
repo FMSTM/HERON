@@ -25,6 +25,7 @@ from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core.errors import Collector, HeronError
 from heron.core.models import Page, Site
+from heron.modules import jsonld
 
 MODULES = "modules"
 TEMPLATES = "templates"
@@ -156,4 +157,5 @@ def context(
         "languages": config.site.languages,
     }
     shared["mod"] = Modules(env, shared, collector)
+    shared["jsonld"] = lambda: Markup(jsonld.render(page, config, theme))
     return shared

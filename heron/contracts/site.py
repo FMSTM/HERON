@@ -86,6 +86,8 @@ class SeoBlock(Strict):
     twitter_card: str = "summary_large_image"
     llms_txt: bool = True
     robots_extra: list[str] = Field(default_factory=list)
+    feed: str | None = None
+    feed_limit: int = 20
 
 
 class NavBlock(BaseModel):

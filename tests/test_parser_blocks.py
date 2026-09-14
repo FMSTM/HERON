@@ -134,3 +134,11 @@ def test_broken_pair_line_does_not_break_the_build(md):
     )
     assert section.kind == "facts"
     assert len(section.data) == 2
+
+
+def test_step_body_is_rendered_markup(md):
+    body = "## Как {#h}\n\n1. **Шаг.** Смотри [услуги](/services/) и **важное**\n"
+    section, _ = one(md, body)
+    assert section.kind == "steps"
+    assert '<a href="/services/">' in section.data[0]["html"]
+    assert "<strong>важное</strong>" in section.data[0]["html"]

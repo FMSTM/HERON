@@ -150,9 +150,10 @@ def _steps(md: MarkdownIt, tokens: list[Token], env: dict) -> list[dict[str, str
         text = next((t.content for t in inner if t.type == "inline"), "")
         match = STEP_TITLE.match(text)
         if match:
-            steps.append(
-                {"title": match.group("title").strip(), "html": match.group("rest").strip()}
-            )
+            # Остаток строки — markdown, а поле называется html: ссылки
+            # и выделения внутри шага должны быть разметкой, а не текстом
+            rest = md.renderInline(match.group("rest").strip(), {})
+            steps.append({"title": match.group("title").strip(), "html": rest})
         else:
             steps.append({"title": "", "html": _render(md, inner, env)})
     return steps or None

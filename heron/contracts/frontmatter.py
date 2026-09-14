@@ -37,6 +37,7 @@ class PageMeta(BaseModel):
     h1: str
     description: str
 
+    nav_title: str | None = None
     slug: str | None = None
     type: str | None = None
     children_type: str | None = None
@@ -70,6 +71,23 @@ class PageMeta(BaseModel):
         if isinstance(data, dict):
             return {key: value for key, value in data.items() if value is not None}
         return data
+
+    @field_validator("nav_title")
+    @classmethod
+    def _nav_title(cls, v: str | None) -> str | None:
+        """Короткое имя для меню и хлебных крошек.
+
+        Имя файла — это адрес, и оно латиницей: `poslugi`, `bio`. В меню
+        нужно слово на языке страницы, а `title` для этого не годится —
+        он написан под поисковую выдачу и длинный. Поэтому страница
+        объявляет своё короткое имя сама, и живёт оно рядом с ней: на
+        украинской странице «Послуги», на русской «Услуги», и
+        синхронизировать нечего — это разные файлы.
+        """
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
 
     @field_validator("title", "h1", "description")
     @classmethod

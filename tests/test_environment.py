@@ -128,3 +128,26 @@ def test_empty_site_refuses_to_build_in_prod(tmp_path):
     result = pipeline.run(root, env=BuildEnv.named("prod"))
     assert result.failed
     assert [e.code for e in result.collector.errors] == ["E017"]
+
+
+def test_nav_title_falls_back_to_file_name():
+    """Не объявлено — берём имя файла: одноязычному сайту этого хватает."""
+    from heron.contracts.frontmatter import PageMeta
+    from heron.core.models import Page
+
+    meta = PageMeta(title="Услуги нейрохирурга в городе", h1="Услуги", description="о")
+    page = Page(lang="ru", source="ru/poslugi/_index.md", key="poslugi", meta=meta)
+    page.url = "/ru/poslugi/"
+    assert page.nav_title == "poslugi"
+
+
+def test_declared_nav_title_wins():
+    from heron.contracts.frontmatter import PageMeta
+    from heron.core.models import Page
+
+    meta = PageMeta(
+        title="Услуги нейрохирурга в городе", h1="Услуги", description="о", nav_title="Услуги"
+    )
+    page = Page(lang="ru", source="ru/poslugi/_index.md", key="poslugi", meta=meta)
+    page.url = "/ru/poslugi/"
+    assert page.nav_title == "Услуги"

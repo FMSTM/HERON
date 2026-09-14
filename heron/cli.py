@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import shutil
 import sys
 from pathlib import Path
 
@@ -17,6 +16,7 @@ import click
 from heron import __version__
 from heron.core import build as pipeline
 from heron.core import report as report_module
+from heron.core.environment import BuildEnv
 from heron.core.errors import HeronError
 from heron.scaffold import Plan, adopt, create
 
@@ -68,8 +68,7 @@ def main() -> None:
 @click.argument("name")
 @click.option("--lang", default="uk", help="Языки сайта через запятую. Первый — основной.")
 @click.option("--theme", default=None, help="Имя темы. По умолчанию main.")
-@click.option("--no-docker", is_flag=True, help="Не класть Dockerfile, compose.yml и build.sh.")
-def new(name: str, lang: str, theme: str | None, no_docker: bool) -> None:
+def new(name: str, lang: str, theme: str | None) -> None:
     """Создать папку сайта с нуля."""
     root = Path(name)
     if root.exists() and any(root.iterdir()):
@@ -81,7 +80,6 @@ def new(name: str, lang: str, theme: str | None, no_docker: bool) -> None:
         name=name,
         languages=[part.strip() for part in lang.split(",") if part.strip()],
         theme=theme,
-        docker=not no_docker,
     )
     click.secho(f"сайт {name} создан", fg="green")
     _report_plan(plan)
@@ -114,41 +112,28 @@ def check(path: Path, strict: bool, drafts: bool) -> None:
 @main.command()
 @click.option("--strict", is_flag=True, help="Считать предупреждения ошибками.")
 @click.option("--drafts", is_flag=True, help="Включить страницы с published: false.")
-@click.option("--image", default=None, metavar="TAG", help="Упаковать результат в образ nginx.")
 @click.option("--out", default=None, type=click.Path(path_type=Path), help="Куда собирать.")
+@click.option(
+    "--env",
+    "env_name",
+    default=None,
+    metavar="ИМЯ",
+    help="Окружение сборки: prod открывает индексацию и счётчики, всё прочее — нет.",
+)
 @click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
-def build(path: Path, strict: bool, drafts: bool, image: str | None, out: Path | None) -> None:
-    """Собрать сайт в dist/ или в образ."""
+def build(path: Path, strict: bool, drafts: bool, out: Path | None, env_name: str | None) -> None:
+    """Собрать сайт в dist/ или в указанную папку."""
+    env = BuildEnv.resolve(env_name)
     try:
-        result = pipeline.run(path, dist=out, drafts=drafts, strict=strict)
+        result = pipeline.run(path, dist=out, drafts=drafts, strict=strict, env=env)
     except HeronError as error:
         _fail(error)
 
     _finish(result, strict, "Сборка")
+    if not env.indexable:
+        click.secho(f"окружение {env.name}: индексация закрыта, счётчики выключены", fg="yellow")
     target = out or (path / DIST)
     click.secho(f"собрано файлов: {len(result.written)} → {target}", fg="green")
-
-    if image:
-        _pack(path, image)
-
-
-def _pack(path: Path, tag: str) -> None:
-    """Упаковать собранный сайт в образ. Выполняет хост, не контейнер."""
-    if shutil.which("docker") is None:
-        click.secho(
-            "собрать образ отсюда нельзя: docker недоступен.\n"
-            "Запустите ./build.sh --image " + tag + " на хосте — "
-            "сокет докера внутрь контейнера не пробрасывается никогда.",
-            fg="red",
-        )
-        sys.exit(1)
-    if not (path / "Dockerfile").is_file():
-        click.secho(f"нет {path}/Dockerfile — нечем упаковывать", fg="red")
-        sys.exit(1)
-    import subprocess
-
-    subprocess.run(["docker", "build", "-t", tag, str(path)], check=True)
-    click.secho(f"готов образ {tag}", fg="green")
 
 
 @main.command()

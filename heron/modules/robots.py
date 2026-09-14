@@ -10,10 +10,17 @@
 from __future__ import annotations
 
 from heron.contracts.site import SiteConfig
+from heron.core.environment import BuildEnv
 from heron.core.urls import absolute
 
 
-def generate(config: SiteConfig) -> dict[str, str]:
+def generate(config: SiteConfig, env: BuildEnv | None = None) -> dict[str, str]:
+    env = env or BuildEnv()
+    if not env.indexable:
+        # Закрытая сборка. Ни sitemap, ни дополнений: любая лишняя строка тут —
+        # приглашение краулеру заглянуть, а сборка не предназначена для сети.
+        return {"robots.txt": "User-agent: *\nDisallow: /\n"}
+
     lines = ["User-agent: *", "Allow: /"]
     lines.extend(config.seo.robots_extra)
     lines.append("")

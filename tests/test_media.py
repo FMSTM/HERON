@@ -144,3 +144,22 @@ def test_missing_image_is_a_warning_while_writing(tmp_path):
     media.build(site, tmp_path, tmp_path / "dist", ImagesSpec(), collector)
     assert not collector.failed
     assert any("нет.png" in w.message for w in collector.warnings)
+
+
+def test_opaque_alpha_is_dropped():
+    """Непрозрачная альфа уводит кодировщики на медленный путь — и не нужна."""
+    from PIL import Image
+
+    from heron.core.media import _opaque
+
+    assert _opaque(Image.new("RGBA", (8, 8), (10, 20, 30, 255))).mode == "RGB"
+
+
+def test_real_transparency_survives():
+    from PIL import Image
+
+    from heron.core.media import _opaque
+
+    image = Image.new("RGBA", (8, 8), (10, 20, 30, 255))
+    image.putpixel((0, 0), (0, 0, 0, 0))
+    assert _opaque(image).mode == "RGBA"

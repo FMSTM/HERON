@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page.title }}{{ site.seo.title_suffix }}</title>
+<meta name="description" content="{{ page.meta.description }}">
+<link rel="canonical" href="{{ absolute(page.url) }}">
+{% for code, other in page.translations.items() %}
+<link rel="alternate" hreflang="{{ code }}" href="{{ absolute(other.url) }}">
+{% endfor %}
+{% if page.meta.noindex %}<meta name="robots" content="noindex">{% endif %}
+<link rel="stylesheet" href="/assets/site.css">
+{% set ld = jsonld() %}
+{% if ld %}<script type="application/ld+json">{{ ld }}</script>{% endif %}
+</head>
+<body>
+{% include "partials/header.html" %}
+<main>
+{% block content %}{% endblock %}
+</main>
+{% include "partials/footer.html" %}
+</body>
+</html>

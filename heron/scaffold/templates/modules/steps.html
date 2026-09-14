@@ -1,0 +1,4 @@
+<section id="{{ section.id }}" class="steps">
+  {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
+  <ol>{% for step in items %}<li>{% if step.title %}<strong>{{ step.title }}</strong> {% endif %}{{ step.html|safe }}</li>{% endfor %}</ol>
+</section>

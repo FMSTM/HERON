@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+{{ mod.breadcrumbs() }}
+<h1>{{ page.h1 }}</h1>
+{% if page.intro %}<div class="intro">{{ page.intro.html|safe }}</div>{% endif %}
+{% for section in page.sections.values() %}
+  {% if section.kind == 'facts' %}{{ mod.facts(section.id) }}
+  {% elif section.kind == 'faq' %}{{ mod.faq(section.id) }}
+  {% elif section.kind in ('list', 'alert-list') %}{{ mod.list(section.id) }}
+  {% elif section.kind == 'steps' %}{{ mod.steps(section.id) }}
+  {% else %}{{ mod.prose(section.id) }}
+  {% endif %}
+{% endfor %}
+{% if page.children %}{{ mod.cards() }}{% endif %}
+{% endblock %}

@@ -154,7 +154,10 @@ def _declared(site: Site, theme: ThemeConfig, collector: Collector) -> None:
         for page in site.pages:
             slugs = _as_list(page.meta.extra.get(link.field))
             if not slugs:
-                if link.required and page.type == (link.type or page.type):
+                # Пустое поле — повод для замечания только там, где тема
+                # сказала, каким страницам оно положено. Иначе движок
+                # не знает, обязано ли оно быть, и молчит.
+                if link.required and link.on and page.type == link.on:
                     collector.warn(
                         f"поле {link.field!r} не заполнено, а тема ждёт минимум {link.required}",
                         path=page.source,

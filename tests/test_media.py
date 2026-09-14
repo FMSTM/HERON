@@ -54,11 +54,12 @@ def test_references_collected_from_frontmatter_and_body(tmp_path):
     assert media.references(site) == {"img/a.png", "img/in-body.png"}
 
 
-def test_missing_image_is_e007(tmp_path):
+def test_missing_image_is_e007_in_strict(tmp_path):
+    """В проде и в CI собирают со --strict: битая картинка дороже сборки."""
     files = {"uk/index.md": sites.page("Головна", image="img/нет.png")}
     content = sites.build(tmp_path, files)
     site, collector = tree.scan(content, sites.config())
-    media.build(site, tmp_path, tmp_path / "dist", ImagesSpec(), collector)
+    media.build(site, tmp_path, tmp_path / "dist", ImagesSpec(), collector, strict=True)
     assert [e.code for e in collector.errors] == ["E007"]
 
 
@@ -133,3 +134,13 @@ def test_changed_source_is_reprocessed(prepared):
     master(root / "img" / "bio" / "portrait.png", size=900)
     media.build(site, root, root / "dist", spec, collector)
     assert out.stat().st_mtime_ns != stamp
+
+
+def test_missing_image_is_a_warning_while_writing(tmp_path):
+    """Страницу пишут раньше, чем рисуют иллюстрацию."""
+    files = {"uk/index.md": sites.page("Головна", image="img/нет.png")}
+    content = sites.build(tmp_path, files)
+    site, collector = tree.scan(content, sites.config())
+    media.build(site, tmp_path, tmp_path / "dist", ImagesSpec(), collector)
+    assert not collector.failed
+    assert any("нет.png" in w.message for w in collector.warnings)

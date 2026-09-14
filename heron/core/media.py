@@ -124,8 +124,15 @@ def build(
     spec: ImagesSpec,
     collector: Collector,
     cache_dir: Path | None = None,
+    strict: bool = False,
 ) -> Manifest:
-    """Нарезать все картинки, на которые ссылается контент."""
+    """Нарезать все картинки, на которые ссылается контент.
+
+    Отсутствующая картинка в проде дороже упавшей сборки — поэтому
+    в `--strict`, которым собирают CI и прод, это ошибка. Но страницу
+    пишут раньше, чем рисуют иллюстрацию, и блокировать работу над текстом
+    очередью художника незачем: при обычной сборке это предупреждение.
+    """
     manifest = Manifest()
     cache_path = (cache_dir or site_root / ".heron-cache") / CACHE
     known: dict[str, str] = {}
@@ -139,12 +146,15 @@ def build(
     for src in sorted(references(site)):
         source = site_root / src
         if not source.is_file():
-            collector.error(
-                "E007",
-                f"картинки {src} нет на диске",
-                path=src,
-                hint="битая картинка в проде дороже упавшей сборки",
-            )
+            if strict:
+                collector.error(
+                    "E007",
+                    f"картинки {src} нет на диске",
+                    path=src,
+                    hint="битая картинка в проде дороже упавшей сборки",
+                )
+            else:
+                collector.warn(f"картинки {src} нет на диске", path=src)
             continue
 
         if source.suffix.lower() not in KEEP:

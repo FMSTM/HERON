@@ -170,3 +170,19 @@ def test_link_to_page_missing_in_this_language_warns(tmp_path):
     html = site.by_url["/ru/services/consulting/"].sections["what"].html
     assert 'href="/privacy/"' in html  # ведём на украинскую версию, а не в 404
     assert any("privacy" in w.message for w in collector.warnings)
+
+
+def test_required_without_on_judges_only_filled_fields(tmp_path):
+    """Без `on` движок не знает, каким страницам поле положено, и молчит."""
+    over = {"links": [{"field": "related", "type": "guide", "required": 2}]}
+    _, collector = resolved(tmp_path, CATALOG, theme_over=over)
+    messages = [w.message for w in collector.warnings if "related" in w.message]
+    assert len(messages) == 1  # только та страница, где поле заполнено не до конца
+
+
+def test_on_makes_the_field_expected_for_a_type(tmp_path):
+    """С `on` замечание получают и те страницы типа, где поля нет вовсе."""
+    over = {"links": [{"field": "related", "type": "guide", "on": "service", "required": 2}]}
+    _, collector = resolved(tmp_path, CATALOG, theme_over=over)
+    messages = [w.message for w in collector.warnings if "related" in w.message]
+    assert len(messages) == 2

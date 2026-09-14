@@ -113,3 +113,16 @@ def test_url_helper():
     assert tree.url_for("uk", "uk", []) == "/"
     assert tree.url_for("uk", "uk", ["a", "b"]) == "/a/b/"
     assert tree.url_for("ru", "uk", ["a"]) == "/ru/a/"
+
+
+def test_service_files_are_not_pages(tmp_path):
+    files = {
+        "uk/index.md": sites.page("Головна"),
+        "uk/README.md": "# Как устроен этот каталог\n\nОбычный readme репозитория.\n",
+        "uk/CHANGELOG.md": "# История\n",
+        "uk/_draft.md": sites.page("Чернетка"),
+        "uk/.hidden.md": sites.page("Прихована"),
+    }
+    site, collector = scan(tmp_path, files)
+    assert not collector.failed
+    assert sorted(site.by_url) == ["/"]

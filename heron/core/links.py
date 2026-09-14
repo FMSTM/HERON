@@ -112,6 +112,10 @@ def _families(site: Site) -> None:
     for page in site.pages:
         parent_url = _parent_url(page.url)
         parent = site.by_url.get(parent_url) if parent_url else None
+        # Корень языка родителя не имеет: над /ru/ лежит не украинская
+        # главная, а ничего. Иначе крошки уводят читателя в другой язык
+        if parent is not None and parent.lang != page.lang:
+            parent = None
         if parent is not None and parent is not page:
             page.parent = parent
             parent.children.append(page)

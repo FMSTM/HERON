@@ -186,3 +186,16 @@ def test_on_makes_the_field_expected_for_a_type(tmp_path):
     _, collector = resolved(tmp_path, CATALOG, theme_over=over)
     messages = [w.message for w in collector.warnings if "related" in w.message]
     assert len(messages) == 2
+
+
+def test_language_root_has_no_parent_in_another_language(tmp_path):
+    files = {
+        "uk/index.md": sites.page("Головна"),
+        "ru/index.md": sites.page("Главная"),
+        "ru/services/_index.md": sites.page("Услуги", type="category", children_type="service"),
+        "ru/services/consulting.md": sites.page("Консультация"),
+    }
+    site, _ = resolved(tmp_path, files)
+    assert site.by_url["/ru/"].parent is None
+    crumbs = [c.url for c in site.by_url["/ru/services/consulting/"].breadcrumbs]
+    assert crumbs == ["/ru/", "/ru/services/"]

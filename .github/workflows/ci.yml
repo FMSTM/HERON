@@ -84,9 +84,47 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: дымовая проверка образа
+      - name: образ реально собирает сайт
         run: |
           tag=$(echo "${{ steps.meta.outputs.tags }}" | head -1)
-          docker run --rm --network=none --read-only --tmpfs /tmp \
+          mkdir -p smoke && chmod 777 smoke
+
+          # ровно тот запуск, которым сайт собирается в проде:
+          # без сети, read-only, без capability, не от рута
+          run() {
+            docker run --rm \
+              --network=none \
+              --read-only --tmpfs /tmp \
+              --cap-drop=ALL --security-opt=no-new-privileges \
+              --user "$(id -u):$(id -g)" \
+              -v "$PWD/smoke:/out" -w /out \
+              "$tag" "$@"
+          }
+
+          run --version
+          run new demo
+          docker run --rm \
+            --network=none --read-only --tmpfs /tmp \
             --cap-drop=ALL --security-opt=no-new-privileges \
-            --user 65534:65534 "$tag" --version
+            --user "$(id -u):$(id -g)" \
+            -v "$PWD/smoke/demo:/site" \
+            "$tag" build --strict
+
+          for file in index.html sitemap.xml robots.txt llms.txt assets/site.css; do
+            test -s "smoke/demo/dist/$file" || { echo "нет dist/$file"; exit 1; }
+          done
+          grep -q "<h1>" smoke/demo/dist/index.html || { echo "в index.html нет заголовка"; exit 1; }
+          echo "образ собрал сайт: $(find smoke/demo/dist -type f | wc -l) файлов"
+
+          # то же самое дважды подряд должно дать те же байты
+          sha=$(sha256sum smoke/demo/dist/index.html | cut -d' ' -f1)
+          docker run --rm \
+            --network=none --read-only --tmpfs /tmp \
+            --cap-drop=ALL --security-opt=no-new-privileges \
+            --user "$(id -u):$(id -g)" \
+            -v "$PWD/smoke/demo:/site" \
+            "$tag" build --strict
+          test "$sha" = "$(sha256sum smoke/demo/dist/index.html | cut -d' ' -f1)" \
+            || { echo "две сборки подряд дали разный результат"; exit 1; }
+          echo "сборка воспроизводима"
+

@@ -104,3 +104,27 @@ def test_init_survives_broken_site_yaml(tmp_path):
     (root / "site.yaml").write_text("site: [это не словарь\n", encoding="utf-8")
     adopt(root)
     assert (root / "content").is_dir()
+
+
+def test_empty_site_builds_in_dev(tmp_path):
+    """Тему доводят раньше, чем пишут контент — на деве это норма."""
+    from heron.core import build as pipeline
+
+    root = tmp_path / "demo"
+    root.mkdir()
+    create(root, name="demo")
+    result = pipeline.run(root, env=BuildEnv.named("dev"))
+    assert not result.failed
+    assert "robots.txt" in result.written
+
+
+def test_empty_site_refuses_to_build_in_prod(tmp_path):
+    """А наружу пустой сайт не выкладывают: это всегда чья-то ошибка."""
+    from heron.core import build as pipeline
+
+    root = tmp_path / "demo"
+    root.mkdir()
+    create(root, name="demo")
+    result = pipeline.run(root, env=BuildEnv.named("prod"))
+    assert result.failed
+    assert [e.code for e in result.collector.errors] == ["E017"]

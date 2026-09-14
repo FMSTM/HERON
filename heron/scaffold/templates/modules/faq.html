@@ -1,0 +1,6 @@
+<section id="{{ section.id }}" class="faq">
+  {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
+  {% for pair in items %}
+  <details><summary>{{ pair.q }}</summary>{{ pair.a|safe }}</details>
+  {% endfor %}
+</section>

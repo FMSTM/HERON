@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from heron.contracts.loader import build, read_yaml
 
@@ -110,6 +110,24 @@ class ThemeConfig(BaseModel):
     links: list[LinkSpec] = Field(default_factory=list)
     images: ImagesSpec = Field(default_factory=ImagesSpec)
     forms: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _human_yaml(cls, data):
+        """`version: 0.1` и `404:` — не ошибки автора, а особенности YAML.
+
+        Число превращаем в строку, числовые ключи типов — тоже: падать
+        на этом значит воевать с человеком вместо того, чтобы ему помогать.
+        """
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        if "version" in data and not isinstance(data["version"], str):
+            data["version"] = str(data["version"])
+        types = data.get("types")
+        if isinstance(types, dict):
+            data["types"] = {str(key): value for key, value in types.items()}
+        return data
 
     @field_validator("name")
     @classmethod

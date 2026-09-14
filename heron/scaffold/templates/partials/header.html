@@ -1,0 +1,8 @@
+<header class="site-header">
+  <a class="logo" href="{{ '/' if lang == site.site.default_lang else '/' ~ lang ~ '/' }}">{{ site.site.name or site.site.domain }}</a>
+  <nav>
+    {% for item in nav.get('main', []) %}
+    <a href="{{ item.url }}">{{ item.h1 }}</a>
+    {% endfor %}
+  </nav>
+</header>

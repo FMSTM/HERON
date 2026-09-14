@@ -57,6 +57,7 @@ def scan(
     config: SiteConfig,
     md: MarkdownIt | None = None,
     collector: Collector | None = None,
+    drafts: bool = False,
 ) -> tuple[Site, Collector]:
     """Прочитать все языковые деревья и собрать страницы."""
     collector = collector or Collector()
@@ -132,7 +133,7 @@ def scan(
                 type=page_type,
             )
 
-            if not meta.published:
+            if not meta.published and not drafts:
                 continue
 
             clash = site.by_url.get(page.url)

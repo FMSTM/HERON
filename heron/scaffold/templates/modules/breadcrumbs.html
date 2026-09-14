@@ -1,0 +1,6 @@
+{% if page.breadcrumbs %}
+<nav class="breadcrumbs">
+  {% for crumb in page.breadcrumbs %}<a href="{{ crumb.url }}">{{ crumb.h1 }}</a> / {% endfor %}
+  <span>{{ page.h1 }}</span>
+</nav>
+{% endif %}

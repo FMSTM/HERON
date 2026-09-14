@@ -9,7 +9,7 @@
 {% for code, other in page.translations.items() %}
 <link rel="alternate" hreflang="{{ code }}" href="{{ absolute(other.url) }}">
 {% endfor %}
-{% if page.meta.noindex %}<meta name="robots" content="noindex">{% endif %}
+{% if page.meta.noindex or not env.indexable %}<meta name="robots" content="noindex, nofollow">{% endif %}
 <link rel="stylesheet" href="/assets/site.css">
 {% set ld = jsonld() %}
 {% if ld %}<script type="application/ld+json">{{ ld }}</script>{% endif %}
@@ -20,5 +20,6 @@
 {% block content %}{% endblock %}
 </main>
 {% include "partials/footer.html" %}
+{% if env.analytics %}{% include "partials/analytics.html" %}{% endif %}
 </body>
 </html>

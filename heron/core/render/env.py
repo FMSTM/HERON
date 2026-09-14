@@ -23,6 +23,7 @@ from markupsafe import Markup, escape
 
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
+from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError
 from heron.core.media import Manifest
 from heron.core.models import Page, Site
@@ -192,6 +193,7 @@ def context(
     strings: Strings,
     collector: Collector,
     media: Manifest | None = None,
+    build_env: BuildEnv | None = None,
 ) -> dict[str, Any]:
     """Всё, что видит шаблон страницы."""
     shared: dict[str, Any] = {
@@ -204,6 +206,7 @@ def context(
         "t": strings,
         "lang": page.lang,
         "languages": config.site.languages,
+        "env": build_env or BuildEnv(),
     }
     shared["mod"] = Modules(env, shared, collector)
     shared["jsonld"] = lambda: Markup(jsonld.render(page, config, theme))

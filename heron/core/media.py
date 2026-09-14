@@ -111,6 +111,21 @@ def _edge_warning(image: Image.Image, src: str, collector: Collector) -> None:
         )
 
 
+def _opaque(image: Image.Image) -> Image.Image:
+    """Убрать альфа-канал, если он ничего не скрывает.
+
+    Картинка, конвертированная из webp или снятая со сканера, часто несёт
+    полностью непрозрачную альфу. Пользы от неё никакой, а кодировщики из-за
+    неё уходят на медленный путь: тот же webp кодируется в десятки раз дольше.
+    Прозрачность, которая действительно используется, остаётся нетронутой.
+    """
+    if image.mode != "RGBA":
+        return image
+    alpha = image.getchannel("A")
+    low, _ = alpha.getextrema()
+    return image.convert("RGB") if low == 255 else image
+
+
 def _digest(path: Path, spec: ImagesSpec) -> str:
     payload = hashlib.sha1(path.read_bytes())
     payload.update(json.dumps(spec.model_dump(), sort_keys=True).encode())
@@ -167,7 +182,7 @@ def build(
         unchanged = known.get(src) == digest
 
         with Image.open(source) as opened:
-            image = opened.convert("RGBA" if opened.mode in ("RGBA", "LA", "P") else "RGB")
+            image = _opaque(opened.convert("RGBA" if opened.mode in ("RGBA", "LA", "P") else "RGB"))
             _edge_warning(image, src, collector)
 
             stem = Path(src)
@@ -198,7 +213,12 @@ def build(
                         if fmt in ("webp", "avif", "jpg", "jpeg"):
                             options["quality"] = 82
                         if fmt == "webp":
-                            options["method"] = 6
+                            # method=6 — самый медленный режим кодировщика. На
+                            # пилоте он давал 7 секунд на вариант вместо 0.1 при
+                            # выигрыше в размере около двух процентов: сборка
+                            # сайта на полсотни картинок уезжала в часы. Четыре —
+                            # умолчание кодировщика и разумный размен.
+                            options["method"] = 4
                         resized.save(out, **options)
                     if fmt in spec.formats:
                         rendition.sources[fmt] = variants

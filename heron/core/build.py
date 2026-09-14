@@ -20,6 +20,7 @@ from heron.contracts.site import SiteConfig, load_site
 from heron.contracts.theme import ThemeConfig, load_theme
 from heron.core import data as data_module
 from heron.core import links, media, report, resolver, tree
+from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError
 from heron.core.hooks import Hooks
 from heron.core.models import Site
@@ -43,6 +44,7 @@ class Result:
     theme_dir: Path
     site: Site
     collector: Collector
+    env: BuildEnv = field(default_factory=BuildEnv)
     report: report.Report | None = None
     written: list[str] = field(default_factory=list)
 
@@ -88,9 +90,16 @@ def run(
     drafts: bool = False,
     with_media: bool = True,
     strict: bool = False,
+    env: BuildEnv | None = None,
 ) -> Result:
-    """Собрать сайт целиком."""
+    """Собрать сайт целиком.
+
+    Кэш нарезанных картинок кладётся рядом с результатом, а не рядом с
+    контентом: папка сайта монтируется только на чтение, и пачкать её
+    служебными файлами сборка не имеет права.
+    """
     collector = Collector()
+    env = env or BuildEnv()
     site_root = site_root.resolve()
     dist = (dist or site_root / DIST).resolve()
 
@@ -103,7 +112,9 @@ def run(
 
     links.resolve(site, config, theme, collector)
 
-    result = Result(config=config, theme=theme, theme_dir=theme_dir, site=site, collector=collector)
+    result = Result(
+        config=config, theme=theme, theme_dir=theme_dir, site=site, collector=collector, env=env
+    )
     if collector.failed:
         return result
 
@@ -115,7 +126,7 @@ def run(
             dist,
             theme.images,
             collector,
-            cache_dir=site_root / CACHE,
+            cache_dir=dist.parent / CACHE,
             strict=strict,
         )
         if with_media
@@ -124,13 +135,13 @@ def run(
     if collector.failed:
         return result
 
-    html = renderer.render_site(theme_dir, site, config, theme, collector, manifest)
+    html = renderer.render_site(theme_dir, site, config, theme, collector, manifest, env)
     if collector.failed:
         return result
 
     files: dict[str, str] = {_page_path(url): text for url, text in html.items()}
     files.update(sitemap.generate(site, config))
-    files.update(robots.generate(config))
+    files.update(robots.generate(config, env))
     files.update(llms.generate(site, config))
     files.update(redirects.generate(site, collector))
     files.update(feed.generate(site, config))

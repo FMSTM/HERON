@@ -82,15 +82,15 @@
 **Путь файла определяет URL.** Никаких отдельных карт маршрутов.
 
 ```
-content/uk/index.md                      →  /
-content/uk/bio.md                        →  /bio/
-content/uk/kvalifikatsiya.md             →  /kvalifikatsiya/
-content/uk/patsiyentu/_index.md          →  /patsiyentu/
-content/uk/patsiyentu/vidnovlennya.md    →  /patsiyentu/vidnovlennya/
-content/uk/poslugi/_index.md             →  /poslugi/
-content/uk/poslugi/mikrodyskektomiya.md  →  /poslugi/mikrodyskektomiya/
-content/ru/poslugi/mikrodyskektomiya.md  →  /ru/poslugi/mikrodyskektomiya/
-content/en/index.md                      →  /en/
+content/uk/index.md                 →  /
+content/uk/about.md                 →  /about/
+content/uk/contacts.md              →  /contacts/
+content/uk/guides/_index.md         →  /guides/
+content/uk/guides/getting-started.md →  /guides/getting-started/
+content/uk/services/_index.md       →  /services/
+content/uk/services/consulting.md   →  /services/consulting/
+content/ru/services/consulting.md   →  /ru/services/consulting/
+content/en/index.md                 →  /en/
 ```
 
 Правила:
@@ -111,12 +111,12 @@ content/en/index.md                      →  /en/
 Три полноценных дерева одинаковой формы: `content/uk/`, `content/ru/`, `content/en/`. Все три языка живут с запуска.
 
 - `uk` — язык по умолчанию, отдаётся из корня без префикса
-- соответствие страниц между языками — **по совпадению относительного пути**. `poslugi/mikrodyskektomiya.md` в трёх деревьях — одна и та же страница на трёх языках
+- соответствие страниц между языками — **по совпадению относительного пути**. `services/consulting.md` в трёх деревьях — одна и та же страница на трёх языках
 - если перевода нет — страница просто отсутствует, а в переключателе языков её пункт неактивен. Молча вести на главную или показывать 404 запрещено
 - `hreflang` проставляется на все существующие языковые версии плюс `x-default` на украинскую
 - одна страница — один язык. Смешение языков внутри файла недопустимо
 
-Слаги в разных языках могут отличаться (`mikrodyskektomiya` / `mikrodiskektomiya` / `microdiscectomy`), связь идёт по пути папки и имени файла. Если слаг переопределён полем `slug`, связь сохраняется по имени файла.
+Слаги в разных языках могут отличаться (`konsultatsiya` / `consulting` / `beratung`), связь идёт по пути папки и имени файла. Если слаг переопределён полем `slug`, связь сохраняется по имени файла.
 
 ---
 
@@ -136,14 +136,14 @@ SEO-блок — это фронтматтер между `---`, разделё�
 | 2 | Ключевые запросы | только комментарий: основной ключ, дополнительные, сколько всего |
 | 3 | Open Graph | `og_type` `og_title` `og_description` `og_image` `og_image_alt` |
 | 4 | Twitter / X | `twitter_card` `twitter_title` `twitter_description` `twitter_image` |
-| 5 | Schema.org | `schema_type` `schema_specialty` `schema_same_as` |
+| 5 | Schema.org | блок `schema` — уточнения разметки для этой страницы |
 | 6 | Карточка и каталог | `image` `image_alt` `order` `children_type` `type` |
 | 7 | Служебное | `updated` `published` `priority` |
-| 8 | Связи | `treats` `procedures` `related` `redirect_from` |
+| 8 | Связи | поля связей, объявленные темой, плюс `redirect_from` и `gone` |
 
 Образец полностью заполненного блока кладёт `heron page` — он же служит шаблоном для новых страниц: скопировать, заменить значения, комментарии оставить как есть.
 
-**Что живёт в `site.yaml`, а не в файле страницы:** имя сайта, локаль, `twitter:site`, `og_default_image`, базовый `Organization` и `MedicalClinic`, ссылки на соцсети для `sameAs`, шаблон `title` вида `%s — MY SPINE`. В странице — только то, что у неё своё.
+**Что живёт в `site.yaml`, а не в файле страницы:** имя сайта, локаль, `twitter:site`, `og_default_image`, реквизиты организации для разметки, ссылки на соцсети для `sameAs`, суффикс `title`. В странице — только то, что у неё своё.
 
 **Что движок генерирует сам и в файле не пишется:** `hreflang` на все существующие языковые версии плюс `x-default`, `canonical` по собственному URL, `BreadcrumbList`, `FAQPage` при наличии секции `faq`, `dateModified` из `updated`, запись в `sitemap.xml` и в `llms.txt`.
 
@@ -483,9 +483,9 @@ images:
 
 ## 7. Картинки
 
-`img/` — одна общая папка, по языкам не делится. Ссылка и `alt` живут в md, поэтому для разных языков можно указать разные файлы — например скан диплома на украинском и на английском.
+`img/` — одна общая папка, по языкам не делится. Ссылка и `alt` живут в md, поэтому для разных языков можно указать разные файлы — например скан документа на каждом из языков.
 
-- ссылки в md относительные от корня: `img/poslugi/mikrodyskektomiya.png`
+- ссылки в md относительные от корня: `img/services/consulting.png`
 - `alt` обязателен. Картинка без `alt` — предупреждение сборки
 - движок сам делает варианты под брейкпоинты, конвертирует в WebP и AVIF, проставляет `width`, `height`, `srcset`, `loading="lazy"` кроме LCP-картинки. Оригиналы не трогаются
 - `og_image` не режется и не конвертируется — соцсети ждут JPEG или PNG 1200×630

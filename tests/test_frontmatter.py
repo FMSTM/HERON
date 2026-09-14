@@ -34,7 +34,7 @@ def test_bad_slug_rejected(slug):
 
 
 def test_good_slug_accepted():
-    assert PageMeta.model_validate({**MIN, "slug": "hryzha-dyska-2"}).slug == "hryzha-dyska-2"
+    assert PageMeta.model_validate({**MIN, "slug": "getting-started-2"}).slug == "getting-started-2"
 
 
 def test_redirect_from_must_be_paths():
@@ -47,8 +47,8 @@ def test_redirect_from_must_be_paths():
 
 
 def test_unknown_fields_kept_for_theme():
-    page = PageMeta.model_validate({**MIN, "treats": ["hryzha"], "procedures": ["mikro"]})
-    assert page.extra["treats"] == ["hryzha"]
+    page = PageMeta.model_validate({**MIN, "related": ["onboarding"], "mentions": ["consulting"]})
+    assert page.extra["related"] == ["onboarding"]
 
 
 def test_long_title_is_a_warning_not_an_error():

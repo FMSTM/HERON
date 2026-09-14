@@ -9,7 +9,7 @@ OK = """---
 title: Заголовок под выдачу
 h1: Заголовок на странице
 description: Описание страницы
-treats: [hryzha-dyska]
+related: [getting-started]
 ---
 
 Вступление.
@@ -70,8 +70,8 @@ def test_blank_required_field_is_e002():
 
 
 def test_unknown_fields_reach_the_theme():
-    meta = fm.parse_meta({"title": "t", "h1": "h", "description": "d", "treats": ["a"]}, "a.md")
-    assert meta.extra["treats"] == ["a"]
+    meta = fm.parse_meta({"title": "t", "h1": "h", "description": "d", "related": ["a"]}, "a.md")
+    assert meta.extra["related"] == ["a"]
 
 
 def test_read_file(tmp_path):

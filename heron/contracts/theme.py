@@ -68,6 +68,36 @@ class LinkSpec(BaseModel):
         return v
 
 
+class ImagesSpec(BaseModel):
+    """Что тема хочет от картинок.
+
+    Пропорции просит тема: это она решает, что карточка каталога квадратная,
+    а обложка статьи широкая. Ядро режет из мастера то, что попросили.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    widths: list[int] = Field(default_factory=lambda: [400, 800, 1200, 1600])
+    ratios: list[str] = Field(default_factory=lambda: ["1:1", "16:9", "4:3"])
+    formats: list[str] = Field(default_factory=lambda: ["avif", "webp"])
+
+    @field_validator("ratios")
+    @classmethod
+    def _ratios(cls, v: list[str]) -> list[str]:
+        for ratio in v:
+            parts = ratio.split(":")
+            if len(parts) != 2 or not all(p.isdigit() and int(p) > 0 for p in parts):
+                raise ValueError(f"пропорция {ratio!r} задаётся как 16:9")
+        return v
+
+    @field_validator("widths")
+    @classmethod
+    def _widths(cls, v: list[int]) -> list[int]:
+        if not v or any(width <= 0 for width in v):
+            raise ValueError("ширины — положительные числа")
+        return sorted(set(v))
+
+
 class ThemeConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -78,6 +108,7 @@ class ThemeConfig(BaseModel):
     types: dict[str, TypeSpec] = Field(default_factory=dict)
     requires: list[str] = Field(default_factory=list)
     links: list[LinkSpec] = Field(default_factory=list)
+    images: ImagesSpec = Field(default_factory=ImagesSpec)
     forms: list[str] = Field(default_factory=list)
 
     @field_validator("name")

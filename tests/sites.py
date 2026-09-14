@@ -43,3 +43,52 @@ def config(**over) -> SiteConfig:
 
 def theme(**over) -> ThemeConfig:
     return ThemeConfig.model_validate({"name": "demo", **over})
+
+
+BASE = """<!doctype html>
+<html lang="{{ lang }}">
+<head><title>{{ page.title }}</title><link rel="canonical" href="{{ absolute(page.url) }}"></head>
+<body>{% block content %}{% endblock %}</body>
+</html>
+"""
+
+PAGE_TEMPLATE = """{% extends "base.html" %}
+{% block content %}
+<h1>{{ page.h1 }}</h1>
+{{ mod.prose('what') }}
+{{ mod.facts('quick-facts') }}
+{{ mod.call() }}
+{% endblock %}
+"""
+
+MODULES = {
+    "prose.html": '<section class="prose">{{ html }}</section>\n',
+    "facts.html": (
+        "<dl>{% for row in items %}<dt>{{ row.key }}</dt><dd>{{ row.value }}</dd>"
+        "{% endfor %}</dl>\n"
+    ),
+    "call.html": '<a href="#">{{ t.book_now }}</a>\n',
+}
+
+
+def theme_dir(root: Path, templates: dict[str, str] | None = None, strings: dict | None = None):
+    """Разложить минимальную рабочую тему."""
+    path = root / "theme"
+    (path / "templates").mkdir(parents=True, exist_ok=True)
+    (path / "modules").mkdir(parents=True, exist_ok=True)
+    (path / "i18n").mkdir(parents=True, exist_ok=True)
+
+    (path / "base.html").write_text(BASE, encoding="utf-8")
+    for name, text in (
+        templates or {"page.html": PAGE_TEMPLATE, "home.html": PAGE_TEMPLATE}
+    ).items():
+        (path / "templates" / name).write_text(text, encoding="utf-8")
+    for name, text in MODULES.items():
+        (path / "modules" / name).write_text(text, encoding="utf-8")
+    (path / "i18n" / "uk.yaml").write_text(
+        yaml.safe_dump(
+            strings if strings is not None else {"book_now": "Записатися"}, allow_unicode=True
+        ),
+        encoding="utf-8",
+    )
+    return path

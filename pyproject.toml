@@ -34,6 +34,9 @@ packages = ["heron"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# Документация — проза, а не код. Фрагменты в ней иллюстрируют мысль:
+# выравнивание комментариев там осмысленно, и форматтеру в них делать нечего.
+extend-exclude = ["docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]

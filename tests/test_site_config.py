@@ -54,11 +54,11 @@ def test_unknown_top_level_blocks_pass_through(write_yaml):
     data = {
         **SITE_MIN,
         "contact": {"phone": "+1-555-0100", "city": "Вигадане"},
-        "organization": {"type": "Physician", "name": "Хтось"},
+        "organization": {"type": "Organization", "name": "Хтось"},
     }
     site = load_site(write_yaml("site.yaml", data))
     assert site.extras["contact"]["city"] == "Вигадане"
-    assert site.get_path("organization.type") == "Physician"
+    assert site.get_path("organization.type") == "Organization"
     assert site.get_path("organization.missing") is None
 
 

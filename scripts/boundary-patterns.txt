@@ -12,3 +12,28 @@ narodna.rada
 івахненко
 ivakhnenko
 \+380[0-9]{9}
+
+# Слаги и разделы конкретных сайтов. Добавлено 2026-09-14 после того,
+# как они всё-таки просочились в спецификации: проверка глазами
+# и грепом по кириллице их не поймала, потому что слаги латиницей.
+poslugi
+likuvannya
+kvalifikatsiya
+patsiyentu
+zapysatis
+mikrodyskektomiya
+mikrodiskektomiya
+microdiscectomy
+spondylodez
+hryzha
+vertebro
+nukleoplastyka
+
+# Предметная лексика, которой в движке быть не должно
+нейрохір
+нейрохир
+МедицинскийКонтентМаркер
+MedicalProcedure
+MedicalCondition
+MedicalClinic
+Physician

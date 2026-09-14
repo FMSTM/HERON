@@ -82,7 +82,7 @@ def scan(
                     "E005",
                     f"недопустимое имя файла {name!r}",
                     path=rel,
-                    hint="слаг — латиница, цифры и дефис: hryzha-dyska.md",
+                    hint="слаг — латиница, цифры и дефис: getting-started.md",
                 )
                 continue
 

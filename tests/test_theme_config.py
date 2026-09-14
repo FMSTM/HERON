@@ -30,10 +30,10 @@ def test_jsonld_lives_in_theme_not_core(write_yaml):
     """Предметные типы разметки объявляет тема — ядро в них не вникает."""
     data = {
         **THEME_MIN,
-        "types": {"procedure": {"uses": ["intro"], "jsonld": ["MedicalProcedure"]}},
+        "types": {"service": {"uses": ["intro"], "jsonld": ["Service"]}},
     }
     theme = load_theme(write_yaml("theme.yaml", data))
-    assert theme.types["procedure"].jsonld == ["MedicalProcedure"]
+    assert theme.types["service"].jsonld == ["Service"]
 
 
 def test_duplicate_sections_rejected(write_yaml):

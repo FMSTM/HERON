@@ -11,8 +11,8 @@ from tests import sites
 FILES = {
     "uk/index.md": sites.page("Головна"),
     "uk/bio.md": sites.page("Біографія", updated="2026-09-01"),
-    "uk/poslugi/_index.md": sites.page("Послуги", type="category", children_type="procedure"),
-    "uk/poslugi/mikro.md": sites.page("Мікродискектомія", order=1),
+    "uk/services/_index.md": sites.page("Послуги", type="category", children_type="service"),
+    "uk/services/consulting.md": sites.page("Консультація", order=1),
     "ru/index.md": sites.page("Главная"),
     "ru/bio.md": sites.page("Биография"),
 }
@@ -53,7 +53,7 @@ def test_hreflang_is_symmetric(built):
 def test_page_without_translation_has_no_alternates(built):
     site, config, _, _ = built
     uk = sitemap.generate(site, config)["sitemap-uk.xml"]
-    block = uk.split("<loc>https://example.com/poslugi/mikro/</loc>")[1].split("</url>")[0]
+    block = uk.split("<loc>https://example.com/services/consulting/</loc>")[1].split("</url>")[0]
     assert "xhtml:link" not in block
 
 
@@ -82,7 +82,7 @@ def test_llms_lists_catalogs_with_children(built):
     text = llms.generate(site, config)["llms.txt"]
     assert "# Головна" in text
     assert "## Послуги" in text
-    assert "[Мікродискектомія](https://example.com/poslugi/mikro/)" in text
+    assert "[Консультація](https://example.com/services/consulting/)" in text
 
 
 def test_llms_full_carries_the_text(built):
@@ -112,10 +112,10 @@ def test_jsonld_types_come_from_theme(built):
 
 def test_jsonld_without_declaration_still_has_breadcrumbs(built):
     site, config, theme, _ = built
-    graph = jsonld.build(site.by_url["/poslugi/mikro/"], config, theme)
+    graph = jsonld.build(site.by_url["/services/consulting/"], config, theme)
     crumbs = next(node for node in graph if node["@type"] == "BreadcrumbList")
     names = [item["name"] for item in crumbs["itemListElement"]]
-    assert names == ["Головна", "Послуги", "Мікродискектомія"]
+    assert names == ["Головна", "Послуги", "Консультація"]
 
 
 def test_jsonld_merges_site_and_page_overrides(tmp_path):
@@ -153,7 +153,7 @@ def test_jsonld_faq_built_from_section(tmp_path):
 
 def test_jsonld_render_is_valid_json(built):
     site, config, theme, _ = built
-    text = jsonld.render(site.by_url["/poslugi/mikro/"], config, theme)
+    text = jsonld.render(site.by_url["/services/consulting/"], config, theme)
     payload = json.loads(text)
     assert payload["@context"] == "https://schema.org"
 
@@ -161,13 +161,13 @@ def test_jsonld_render_is_valid_json(built):
 def test_redirects_map_format(tmp_path):
     files = {
         "uk/index.md": sites.page("Головна"),
-        "uk/poslugi/mikro.md": sites.page("Мікро", redirect_from=["/services/mikro/"]),
+        "uk/services/consulting.md": sites.page("Консультація", redirect_from=["/uslugi/mikro/"]),
     }
     content = sites.build(tmp_path, files)
     config = sites.config()
     site, collector = tree.scan(content, config)
     out = redirects.generate(site, collector)
-    assert out["redirects.map"] == "/services/mikro/  /poslugi/mikro/;\n"
+    assert out["redirects.map"] == "/uslugi/mikro/  /services/consulting/;\n"
     assert not collector.failed
 
 

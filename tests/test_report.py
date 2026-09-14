@@ -7,15 +7,15 @@ from tests import sites
 
 FILES = {
     "uk/index.md": sites.page("Головна"),
-    "uk/poslugi/_index.md": sites.page("Послуги", type="category", children_type="procedure"),
-    "uk/poslugi/mikro.md": (
-        "---\ntitle: Мікро\nh1: Мікродискектомія\ndescription: Опис\n---\n\n"
+    "uk/services/_index.md": sites.page("Послуги", type="category", children_type="service"),
+    "uk/services/consulting.md": (
+        "---\ntitle: Консультація\nh1: Консультація\ndescription: Опис\n---\n\n"
         "## Що це {#what}\n\nТекст.\n\n## Зайва {#leftover}\n\nТекст.\n"
     ),
     "ru/index.md": sites.page("Главная"),
 }
 
-THEME = {"types": {"procedure": {"uses": ["what", "contra", "faq"]}}}
+THEME = {"types": {"service": {"uses": ["what", "contra", "faq"]}}}
 
 
 @pytest.fixture
@@ -32,27 +32,27 @@ def test_counts_by_language_and_type(built):
     site, config, theme, _ = built
     result = report.build(site, config, theme)
     assert result.pages_by_lang["uk"] == 3
-    assert result.pages_by_type["procedure"] == 1
+    assert result.pages_by_type["service"] == 1
 
 
 def test_missing_sections_become_debts(built):
     site, config, theme, _ = built
     result = report.build(site, config, theme)
     assert set(result.missing_sections) == {"contra", "faq"}
-    assert "uk/poslugi/mikro.md" in result.missing_sections["contra"]
+    assert "uk/services/consulting.md" in result.missing_sections["contra"]
 
 
 def test_section_theme_does_not_use_is_reported(built):
     site, config, theme, _ = built
     result = report.build(site, config, theme)
-    assert ("uk/poslugi/mikro.md", "leftover") in result.unused_sections
+    assert ("uk/services/consulting.md", "leftover") in result.unused_sections
 
 
 def test_untranslated_pages_listed(built):
     site, config, theme, _ = built
     result = report.build(site, config, theme)
     assert "ru" in result.untranslated
-    assert "poslugi/mikro" in result.untranslated["ru"]
+    assert "services/consulting" in result.untranslated["ru"]
 
 
 def test_broken_internal_link(tmp_path):

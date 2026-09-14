@@ -16,12 +16,12 @@ def test_url_from_path(tmp_path):
         {
             "uk/index.md": sites.page("Головна"),
             "uk/bio.md": sites.page("Біографія"),
-            "uk/poslugi/_index.md": sites.page("Послуги", type="category"),
-            "uk/poslugi/mikro.md": sites.page("Мікродискектомія"),
+            "uk/services/_index.md": sites.page("Послуги", type="category"),
+            "uk/services/consulting.md": sites.page("Консультація"),
         },
     )
     assert not collector.failed
-    assert sorted(site.by_url) == ["/", "/bio/", "/poslugi/", "/poslugi/mikro/"]
+    assert sorted(site.by_url) == ["/", "/bio/", "/services/", "/services/consulting/"]
 
 
 def test_non_default_language_gets_prefix(tmp_path):
@@ -40,25 +40,25 @@ def test_children_type_inherited_from_folder(tmp_path):
     site, _ = scan(
         tmp_path,
         {
-            "uk/poslugi/_index.md": sites.page(
-                "Послуги", type="category", children_type="procedure"
+            "uk/services/_index.md": sites.page(
+                "Послуги", type="category", children_type="service"
             ),
-            "uk/poslugi/mikro.md": sites.page("Мікро"),
+            "uk/services/consulting.md": sites.page("Консультація"),
         },
     )
-    assert site.by_url["/poslugi/"].type == "category"
-    assert site.by_url["/poslugi/mikro/"].type == "procedure"
+    assert site.by_url["/services/"].type == "category"
+    assert site.by_url["/services/consulting/"].type == "service"
 
 
 def test_explicit_type_beats_inheritance(tmp_path):
     site, _ = scan(
         tmp_path,
         {
-            "uk/poslugi/_index.md": sites.page("Послуги", children_type="procedure"),
-            "uk/poslugi/special.md": sites.page("Особлива", type="page"),
+            "uk/services/_index.md": sites.page("Послуги", children_type="service"),
+            "uk/services/special.md": sites.page("Особлива", type="page"),
         },
     )
-    assert site.by_url["/poslugi/special/"].type == "page"
+    assert site.by_url["/services/special/"].type == "page"
 
 
 def test_slug_override(tmp_path):

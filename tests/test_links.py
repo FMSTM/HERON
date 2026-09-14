@@ -5,14 +5,14 @@ from tests import sites
 
 CATALOG = {
     "uk/index.md": sites.page("Головна"),
-    "uk/poslugi/_index.md": sites.page("Послуги", type="category", children_type="procedure"),
-    "uk/poslugi/mikro.md": sites.page("Мікро", order=2, treats=["hryzha"]),
-    "uk/poslugi/spondylodez.md": sites.page("Спондилодез", order=1),
-    "uk/likuvannya/_index.md": sites.page("Лікування", type="category", children_type="condition"),
-    "uk/likuvannya/hryzha.md": sites.page("Грижа"),
+    "uk/services/_index.md": sites.page("Послуги", type="category", children_type="service"),
+    "uk/services/consulting.md": sites.page("Консультація", order=2, related=["onboarding"]),
+    "uk/services/audit.md": sites.page("Аудит", order=1),
+    "uk/guides/_index.md": sites.page("Довідник", type="category", children_type="guide"),
+    "uk/guides/onboarding.md": sites.page("Перші кроки"),
 }
 
-LINKS = {"links": [{"field": "treats", "type": "condition", "back": "procedures_for"}]}
+LINKS = {"links": [{"field": "related", "type": "guide", "back": "mentioned_in"}]}
 
 
 def resolved(tmp_path, files, theme_over=None, **over):
@@ -25,19 +25,19 @@ def resolved(tmp_path, files, theme_over=None, **over):
 
 def test_children_collected_and_sorted_by_order(tmp_path):
     site, _ = resolved(tmp_path, CATALOG)
-    catalog = site.by_url["/poslugi/"]
-    assert [c.h1 for c in catalog.children] == ["Спондилодез", "Мікро"]
+    catalog = site.by_url["/services/"]
+    assert [c.h1 for c in catalog.children] == ["Аудит", "Консультація"]
 
 
 def test_parent_is_the_folder_page(tmp_path):
     site, _ = resolved(tmp_path, CATALOG)
-    assert site.by_url["/poslugi/mikro/"].parent is site.by_url["/poslugi/"]
+    assert site.by_url["/services/consulting/"].parent is site.by_url["/services/"]
 
 
 def test_breadcrumbs_start_at_home(tmp_path):
     site, _ = resolved(tmp_path, CATALOG)
-    crumbs = site.by_url["/poslugi/mikro/"].breadcrumbs
-    assert [c.url for c in crumbs] == ["/", "/poslugi/"]
+    crumbs = site.by_url["/services/consulting/"].breadcrumbs
+    assert [c.url for c in crumbs] == ["/", "/services/"]
 
 
 def test_home_has_no_breadcrumbs(tmp_path):
@@ -47,12 +47,12 @@ def test_home_has_no_breadcrumbs(tmp_path):
 
 def test_translations_match_by_path(tmp_path):
     files = {
-        "uk/poslugi/mikro.md": sites.page("Мікро"),
-        "ru/poslugi/mikro.md": sites.page("Микро"),
+        "uk/services/consulting.md": sites.page("Консультація"),
+        "ru/services/consulting.md": sites.page("Консультация"),
     }
     site, _ = resolved(tmp_path, files)
-    page = site.by_url["/poslugi/mikro/"]
-    assert page.translations["ru"].url == "/ru/poslugi/mikro/"
+    page = site.by_url["/services/consulting/"]
+    assert page.translations["ru"].url == "/ru/services/consulting/"
     assert page.translations["ru"].translations["uk"] is page
 
 
@@ -64,39 +64,39 @@ def test_missing_translation_is_simply_absent(tmp_path):
 def test_declared_link_resolves_and_builds_backlink(tmp_path):
     site, collector = resolved(tmp_path, CATALOG, theme_over=LINKS)
     assert not collector.failed
-    mikro = site.by_url["/poslugi/mikro/"]
-    hryzha = site.by_url["/likuvannya/hryzha/"]
-    assert [p.url for p in mikro.related["treats"]] == ["/likuvannya/hryzha/"]
-    assert [p.url for p in hryzha.related["procedures_for"]] == ["/poslugi/mikro/"]
+    consulting = site.by_url["/services/consulting/"]
+    onboarding = site.by_url["/guides/onboarding/"]
+    assert [p.url for p in consulting.related["related"]] == ["/guides/onboarding/"]
+    assert [p.url for p in onboarding.related["mentioned_in"]] == ["/services/consulting/"]
 
 
 def test_link_into_nowhere_is_e006(tmp_path):
     files = dict(CATALOG)
-    files["uk/poslugi/mikro.md"] = sites.page("Мікро", treats=["нет-такой"])
+    files["uk/services/consulting.md"] = sites.page("Консультація", related=["нет-такой"])
     _, collector = resolved(tmp_path, files, theme_over=LINKS)
     assert [e.code for e in collector.errors] == ["E006"]
 
 
 def test_link_to_wrong_type_is_e006(tmp_path):
     files = dict(CATALOG)
-    files["uk/poslugi/mikro.md"] = sites.page("Мікро", treats=["spondylodez"])
+    files["uk/services/consulting.md"] = sites.page("Консультація", related=["audit"])
     _, collector = resolved(tmp_path, files, theme_over=LINKS)
     assert collector.failed
-    assert "condition" in str(collector.errors[0])
+    assert "guide" in str(collector.errors[0])
 
 
 def test_link_field_unknown_to_core_is_ignored_without_declaration(tmp_path):
     files = dict(CATALOG)
     site, collector = resolved(tmp_path, files)
     assert not collector.failed
-    assert site.by_url["/poslugi/mikro/"].related == {}
+    assert site.by_url["/services/consulting/"].related == {}
 
 
 def test_required_count_is_a_warning_not_an_error(tmp_path):
-    theme_over = {"links": [{"field": "treats", "type": "condition", "required": 2}]}
+    theme_over = {"links": [{"field": "related", "type": "guide", "required": 2}]}
     site, collector = resolved(tmp_path, CATALOG, theme_over=theme_over)
     assert not collector.failed
-    assert any("treats" in w.message for w in collector.warnings)
+    assert any("related" in w.message for w in collector.warnings)
 
 
 def test_nav_resolved_per_language(tmp_path):

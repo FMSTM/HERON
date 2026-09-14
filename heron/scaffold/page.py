@@ -51,7 +51,7 @@ def write_page(
         raise HeronError(
             code="E005",
             message=f"недопустимый слаг {slug!r}",
-            hint="латиница, цифры и дефис: hryzha-dyska. Заголовок может быть любым",
+            hint="латиница, цифры и дефис: getting-started. Заголовок может быть любым",
         )
 
     config = load_site(root / "site.yaml")

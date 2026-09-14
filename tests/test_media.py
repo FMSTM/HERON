@@ -10,14 +10,18 @@ from heron.core import links, media, tree
 from tests import sites
 
 
-def master(path: Path, size: int = 1200, margin: int = 0.2) -> None:
-    """Квадратный мастер: объект по центру, запас по краям."""
+def master(path: Path, size: int = 1200, margin: float = 0.2) -> None:
+    """Квадратный мастер: объект по центру, запас по краям.
+
+    Рисуется вставкой прямоугольника, а не попиксельно: полмиллиона вызовов
+    putpixel на картинку — это секунды на ровном месте, помноженные
+    на число тестов.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     pad = int(size * margin)
-    for x in range(pad, size - pad):
-        for y in range(pad, size - pad):
-            image.putpixel((x, y), (30, 80, 160, 255))
+    body = Image.new("RGBA", (size - 2 * pad, size - 2 * pad), (30, 80, 160, 255))
+    image.paste(body, (pad, pad))
     image.save(path)
 
 

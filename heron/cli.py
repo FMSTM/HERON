@@ -66,24 +66,27 @@ def main() -> None:
 
 @main.command()
 @click.argument("name")
-@click.option("--lang", default="uk", help="Языки сайта через запятую. Первый — основной.")
-@click.option("--theme", default=None, help="Имя темы. По умолчанию main.")
-def new(name: str, lang: str, theme: str | None) -> None:
-    """Создать папку сайта с нуля."""
+def new(name: str) -> None:
+    """Создать папку сайта с нуля.
+
+    Ни языков, ни темы аргументами: всё это объявляет site.yaml, и он
+    единственный источник правды. Заполнили его — `heron init` достроит
+    папки под написанное.
+    """
     root = Path(name)
     if root.exists() and any(root.iterdir()):
         click.secho(f"папка {name} не пуста — используйте `heron init` внутри неё", fg="red")
         sys.exit(1)
     root.mkdir(parents=True, exist_ok=True)
-    plan = create(
-        root,
-        name=name,
-        languages=[part.strip() for part in lang.split(",") if part.strip()],
-        theme=theme,
-    )
+    plan = create(root, name=name)
     click.secho(f"сайт {name} создан", fg="green")
     _report_plan(plan)
-    click.echo("\nдальше: cd " + name + " && heron serve")
+    click.echo(
+        "\nдальше:\n"
+        f"  1. заполните {name}/site.yaml — домен, языки, тема, меню\n"
+        f"  2. heron init {name} — папки догонят конфиг\n"
+        "  3. разложите контент и собирайте"
+    )
 
 
 @main.command()

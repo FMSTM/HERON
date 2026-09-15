@@ -23,6 +23,38 @@ from heron.scaffold import Plan, adopt, create
 DIST = "dist"
 
 
+class _Terminal:
+    """Ход сборки в терминал. Одна строка на этап, дописывается по месту.
+
+    Не прогресс-бар: он красив, но бесполезен в логе CI и ломается, когда
+    вывод не в терминал. Здесь просто видно, что движок жив и на чём он.
+    """
+
+    def __init__(self) -> None:
+        self._title = ""
+        self._interactive = sys.stderr.isatty()
+
+    def step(self, title: str) -> None:
+        self._title = title
+        if self._interactive:
+            click.echo(f"  {title}… ", nl=False, err=True)
+
+    def done(self, detail: str = "") -> None:
+        text = detail or "готово"
+        if self._interactive:
+            click.secho(f"\r  {self._title}… \x1b[K", nl=False, err=True)
+            click.secho(text, fg="green", err=True)
+        else:
+            # В логе CI управляющих последовательностей быть не должно:
+            # строка пишется целиком и один раз.
+            click.echo(f"  {self._title}… {text}", err=True)
+
+    def tick(self, current: int, total: int, detail: str = "") -> None:
+        if not self._interactive:
+            return
+        click.echo(f"\r  {self._title}… {current}/{total} {detail[:48]}\x1b[K", nl=False, err=True)
+
+
 def _fail(error: HeronError) -> None:
     click.secho(str(error), fg="red", err=True)
     sys.exit(1)
@@ -127,8 +159,11 @@ def check(path: Path, strict: bool, drafts: bool) -> None:
 def build(path: Path, strict: bool, drafts: bool, out: Path | None, env_name: str | None) -> None:
     """Собрать сайт в dist/ или в указанную папку."""
     env = BuildEnv.resolve(env_name)
+    click.secho(f"HERON {__version__} · окружение {env.name}", bold=True, err=True)
     try:
-        result = pipeline.run(path, dist=out, drafts=drafts, strict=strict, env=env)
+        result = pipeline.run(
+            path, dist=out, drafts=drafts, strict=strict, env=env, progress=_Terminal()
+        )
     except HeronError as error:
         _fail(error)
 

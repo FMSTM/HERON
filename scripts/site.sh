@@ -106,8 +106,12 @@ CONTAINER="heron-serve-${SITE}-${ENV_NAME}"
 
 command -v docker >/dev/null || die "нужен docker"
 
-# Версия движка берётся из site.yaml: сайт сам знает, чем собирается.
-# Точная версия — точный тег; диапазон — подвижный тег окружения.
+# Каким движком собирать.
+#   1. HERON_IMAGE из окружения — последнее слово, для отладки;
+#   2. точная версия в site.yaml — точный тег, сайт сам знает, чем собирается;
+#   3. иначе подвижный тег по имени окружения: дев собирается дев-движком.
+# Третий пункт и есть ответ на «почему я не могу тестировать в деве»: можете,
+# для этого ничего не нужно гонять до прода.
 engine_image() {
   if [ -n "${HERON_IMAGE:-}" ]; then echo "$HERON_IMAGE"; return; fi
   local spec
@@ -115,9 +119,33 @@ engine_image() {
           "$SITE_PATH/site.yaml" | head -1 | tr -d ' ')"
   if printf '%s' "$spec" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
     echo "ghcr.io/fmstm/heron:$spec"
-  else
-    echo "ghcr.io/fmstm/heron:prod"
+    return
   fi
+  case "$HERON_ENV" in
+    dev|stage|prod) echo "ghcr.io/fmstm/heron:$HERON_ENV" ;;
+    *)              echo "ghcr.io/fmstm/heron:dev" ;;
+  esac
+}
+
+# Теги dev, stage и prod подвижные: за одним и тем же именем завтра стоит
+# другой образ. docker run этого не знает и молча берёт локальную копию,
+# поэтому свежий движок надо стянуть явно. Точная версия не двигается
+# никогда — её тянем только если её ещё нет.
+pull_engine() {
+  local image; image="$(engine_image)"
+  case "$image" in
+    *:dev|*:stage|*:prod|*:latest)
+      note "проверяю движок $image"
+      docker pull -q "$image" >/dev/null || die "не удалось стянуть $image"
+      ;;
+    *)
+      docker image inspect "$image" >/dev/null 2>&1 || docker pull -q "$image" >/dev/null \
+        || die "не удалось стянуть $image"
+      ;;
+  esac
+  local built
+  built="$(docker image inspect --format '{{.Created}}' "$image" 2>/dev/null | cut -c1-19 | tr T ' ')"
+  note "движок: $image (собран $built)"
 }
 
 # Сборка идёт без сети, без прав, не от рута и не может писать никуда,
@@ -144,7 +172,8 @@ strict_flag() {
 }
 
 do_build() {
-  note "сборка $SITE [$ENV_NAME] движком $(engine_image)"
+  pull_engine
+  note "сборка $SITE [$ENV_NAME]"
   note "контент: $SITE_PATH (только чтение)"
   rm -rf "$OUT"
   # shellcheck disable=SC2046
@@ -187,10 +216,12 @@ do_push() {
 }
 
 do_check() {
+  pull_engine
   run_engine check /site
 }
 
 do_init() {
+  pull_engine
   note "достраиваю $SITE_PATH по его site.yaml"
   # Единственная команда, которой папка сайта нужна на запись:
   # она в эту папку и кладёт недостающее.

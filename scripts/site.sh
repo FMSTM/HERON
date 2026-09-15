@@ -35,9 +35,6 @@ ENV_NAME="${3:-dev}"
 [ -n "$SITE" ] && [ -n "$CMD" ] || die "нужно: ./scripts/site.sh <сайт> <команда> [окружение]
 команды: new <путь> | init | build | image | serve | stop | push | check"
 
-# Версия движка для новой папки: своего site.yaml у неё ещё нет.
-DEFAULT_ENGINE="ghcr.io/fmstm/heron:prod"
-
 do_new() {
   local target="${3:-}"
   [ -n "$target" ] || die "нужно: ./scripts/site.sh $SITE new <путь к папке сайта>"
@@ -49,8 +46,8 @@ do_new() {
   parent="$(cd "$(dirname "$target")" && pwd)" || die "нет папки $(dirname "$target")"
   base="$(basename "$target")"
 
-  local engine="${HERON_IMAGE:-$DEFAULT_ENGINE}"
-  if is_source_checkout && [ -z "${HERON_IMAGE:-}" ]; then
+  local engine="$STABLE"
+  if is_source_checkout; then
     engine="heron:local"
     note "движок из исходников: $HERON_ROOT"
     docker build -q -t "$engine" "$HERON_ROOT" >/dev/null || die "не собрался образ движка"
@@ -114,28 +111,22 @@ command -v docker >/dev/null || die "нужен docker"
 
 # Каким движком собирать.
 #
-# ВАЖНО: это не имеет никакого отношения к окружению сайта. Дев-сборка
-# сайта — это сайт, закрытый от индексации и без счётчиков. Собирать её
-# сырым дев-движком незачем и вредно: человек правит контент, а получает
-# чужие ошибки разработки. Версию движка выбирают отдельно и осознанно.
+# Одна настройка, и она принимает ровно две вещи:
 #
-#   ENGINE=local              собрать образ из исходников этой папки;
-#   ENGINE=dev|stage|prod     опубликованный образ с этим тегом;
-#   ENGINE=0.1.0              конкретная версия.
+#   ENGINE=source                       собрать из исходников рядом с этим
+#                                       скриптом. Для тех, кто правит движок.
+#   ENGINE=ghcr.io/fmstm/heron:prod     готовый образ. Пишется полным именем,
+#                                       чтобы было видно: это образ, а не ветка.
 #
-# Ничего не задано — по порядку: точная версия из site.yaml сайта; иначе
-# исходники рядом, если они есть; иначе стабильный prod. Дев и стейдж
-# движка сами по себе не подхватываются никогда.
+# Короткие слова dev и prod тут не принимаются намеренно: человек читает их
+# как ветки репозитория, и это недоразумение стоит дороже экономии букв.
+#
+# Не задано — по порядку: точная версия из site.yaml сайта; иначе исходники,
+# если они лежат рядом; иначе стабильный ghcr.io/fmstm/heron:prod.
+STABLE="ghcr.io/fmstm/heron:prod"
+
 is_source_checkout() {
   [ -f "$HERON_ROOT/Dockerfile" ] && [ -d "$HERON_ROOT/heron" ] && [ -f "$HERON_ROOT/pyproject.toml" ]
-}
-
-engine_kind() {
-  if [ -n "${ENGINE:-}" ]; then echo "$ENGINE"; return; fi
-  if [ -n "${HERON_IMAGE:-}" ]; then echo "image"; return; fi
-  if [ -n "$(site_engine_version)" ]; then echo "pinned"; return; fi
-  if is_source_checkout; then echo "local"; return; fi
-  echo "prod"
 }
 
 # Точная версия, объявленная сайтом. Диапазон версией не считаем.
@@ -146,14 +137,26 @@ site_engine_version() {
   printf '%s' "$spec" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' && printf '%s' "$spec"
 }
 
+engine_is_source() { [ "$(engine_choice)" = "source" ]; }
+
+engine_choice() {
+  if [ -n "${ENGINE:-}" ]; then
+    case "$ENGINE" in
+      source) echo "source" ;;
+      */*|*:*) echo "$ENGINE" ;;
+      *) die "ENGINE=$ENGINE непонятно. Ожидается либо source — собрать из
+исходников рядом, либо полное имя образа, например $STABLE" ;;
+    esac
+    return
+  fi
+  local pinned; pinned="$(site_engine_version)"
+  if [ -n "$pinned" ]; then echo "ghcr.io/fmstm/heron:$pinned"; return; fi
+  if is_source_checkout; then echo "source"; return; fi
+  echo "$STABLE"
+}
+
 engine_image() {
-  local kind; kind="$(engine_kind)"
-  case "$kind" in
-    local)  echo "heron:local" ;;
-    image)  echo "$HERON_IMAGE" ;;
-    pinned) echo "ghcr.io/fmstm/heron:$(site_engine_version)" ;;
-    *)      echo "ghcr.io/fmstm/heron:$kind" ;;
-  esac
+  if engine_is_source; then echo "heron:local"; else engine_choice; fi
 }
 
 # Приготовить движок: собрать из исходников или стянуть опубликованный.
@@ -167,7 +170,7 @@ engine_image() {
 pull_engine() {
   local image; image="$(engine_image)"
 
-  if [ "$(engine_kind)" = "local" ]; then
+  if engine_is_source; then
     note "движок из исходников: $HERON_ROOT"
     docker build -q -t "$image" "$HERON_ROOT" >/dev/null || die "не собрался образ движка"
     local ver

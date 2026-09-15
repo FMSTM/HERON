@@ -25,6 +25,7 @@ from heron.core.errors import Collector, HeronError
 from heron.core.hooks import Hooks
 from heron.core.models import Site
 from heron.core.parser import markdown
+from heron.core.progress import Progress, Silent
 from heron.core.render import pages as renderer
 from heron.modules import feed, llms, redirects, robots, sitemap
 
@@ -76,6 +77,7 @@ def prepare(site_root: Path, collector: Collector) -> tuple[SiteConfig, ThemeCon
 
     found = resolver.theme(site_root, config.site.theme)
     theme = load_theme(found.path / "theme.yaml")
+    wiring.verify_engine(theme, str(found.path / "theme.yaml"))
     collector.warnings.extend(wiring.verify(theme, config, str(site_root / SITE_YAML)))
 
     hooks = Hooks()
@@ -91,6 +93,7 @@ def run(
     with_media: bool = True,
     strict: bool = False,
     env: BuildEnv | None = None,
+    progress: Progress | None = None,
 ) -> Result:
     """Собрать сайт целиком.
 
@@ -100,17 +103,24 @@ def run(
     """
     collector = Collector()
     env = env or BuildEnv()
+    say = progress or Silent()
     site_root = site_root.resolve()
     dist = (dist or site_root / DIST).resolve()
 
+    say.step("конфиг, тема и плагины")
     config, theme, theme_dir, hooks = prepare(site_root, collector)
+    say.done(f"тема {config.site.theme}, языков {len(config.site.languages)}")
 
+    say.step("обход контента")
     md = markdown.make(allow_raw_html=config.build.allow_raw_html)
     site, collector = tree.scan(site_root / "content", config, md, collector, drafts=drafts)
     site.data = data_module.load(site_root / "data", collector)
     hooks.call("on_tree_built", site)
+    say.done(f"{len(site.pages)} страниц")
 
+    say.step("связи, переводы и меню")
     links.resolve(site, config, theme, collector)
+    say.done()
 
     # Сайт без страниц — нормальное состояние на деве: тему доводят раньше,
     # чем пишут контент. В проде это всегда чья-то ошибка — пустой конвейер,
@@ -131,6 +141,7 @@ def run(
         return result
 
     dist.mkdir(parents=True, exist_ok=True)
+    say.step("картинки")
     manifest = (
         media.build(
             site,
@@ -140,17 +151,22 @@ def run(
             collector,
             cache_dir=dist.parent / CACHE,
             strict=strict,
+            progress=say,
         )
         if with_media
         else media.Manifest()
     )
+    say.done(f"{len(manifest.items)} мастеров")
     if collector.failed:
         return result
 
+    say.step("шаблоны")
     html = renderer.render_site(theme_dir, site, config, theme, collector, manifest, env)
+    say.done(f"{len(html)} страниц")
     if collector.failed:
         return result
 
+    say.step("карта сайта, robots и ленты")
     files: dict[str, str] = {_page_path(url): text for url, text in html.items()}
     files.update(sitemap.generate(site, config))
     files.update(robots.generate(config, env))
@@ -158,6 +174,7 @@ def run(
     files.update(redirects.generate(site, collector))
     files.update(feed.generate(site, config))
 
+    say.done()
     not_found = html.get("/404/")
     if not_found:
         files["404.html"] = not_found
@@ -169,11 +186,13 @@ def run(
     if collector.failed:
         return result
 
+    say.step("запись")
     for name, text in sorted(files.items()):
         _write(dist, name, text)
     _copy_tree(site_root / STATIC, dist)
     _copy_tree(theme_dir / ASSETS, dist / ASSETS)
 
+    say.done(f"{len(files)} файлов")
     result.written = sorted(files)
     result.report = report.build(site, config, theme, theme_dir=theme_dir)
     return result

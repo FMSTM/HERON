@@ -6,6 +6,12 @@
 Здесь же тема объявляет две вещи, которые ядру знать не положено:
 `requires` — какие блоки `site.yaml` ей нужны (`contact.phone` и подобное),
 `types[*].jsonld` — какой разметкой размечается тип страницы.
+
+Отдельно тема объявляет, чего она ждёт от самого движка: `heron` — версию,
+`fields` — поля фронтматтера, к которым обращаются её шаблоны. Без этого
+тема, написанная под новый движок, запускается на старом и разваливается
+на каждой странице сообщением про опечатку во фронтматтере — хотя опечатки
+нет, а есть несовпадение версий.
 Ядро проверяет наличие и подставляет, не вникая в предметную область.
 
 Спецификация: docs/spec/20-data-contract.md, раздел 8.
@@ -108,6 +114,8 @@ class ThemeConfig(BaseModel):
     modules: list[str] = Field(default_factory=list)
     types: dict[str, TypeSpec] = Field(default_factory=dict)
     requires: list[str] = Field(default_factory=list)
+    heron: str | None = None
+    fields: list[str] = Field(default_factory=list)
     links: list[LinkSpec] = Field(default_factory=list)
     images: ImagesSpec = Field(default_factory=ImagesSpec)
     forms: list[str] = Field(default_factory=list)

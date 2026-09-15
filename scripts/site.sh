@@ -66,7 +66,7 @@ do_new() {
     local file="env/.env.${SITE}.${name}"
     if [ -e "$file" ]; then note "уже есть $file — не трогаю"; continue; fi
     sed -e "s|^SITE_PATH=.*|SITE_PATH=$parent/$base|" \
-        -e "s|^HERON_ENV=.*|HERON_ENV=$name|" \
+        -e "s|^SITE_ENV=.*|SITE_ENV=$name|" \
         -e "s|^IMAGE_NAME=.*|IMAGE_NAME=heron-site-$SITE|" \
         -e "s|^IMAGE_TAG=.*|IMAGE_TAG=$name|" \
         env/.env.example > "$file"
@@ -103,7 +103,7 @@ set +a
 [ -d "$SITE_PATH" ]      || die "папки контента нет: $SITE_PATH"
 [ -f "$SITE_PATH/site.yaml" ] || die "в $SITE_PATH нет site.yaml — это не папка сайта"
 
-HERON_ENV="${HERON_ENV:-$ENV_NAME}"
+SITE_ENV="${SITE_ENV:-$ENV_NAME}"
 IMAGE_NAME="${IMAGE_NAME:-heron-site-$SITE}"
 IMAGE_TAG="${IMAGE_TAG:-$ENV_NAME}"
 PORT="${PORT:-8080}"
@@ -112,17 +112,20 @@ CONTAINER="heron-serve-${SITE}-${ENV_NAME}"
 
 command -v docker >/dev/null || die "нужен docker"
 
-# Каким движком собирать. Два разных случая, и путать их не надо.
+# Каким движком собирать.
 #
-#   ENGINE=local  — собрать образ из исходников ЭТОЙ папки. Для того, кто
-#                   правит сам движок: работает код, который лежит рядом,
-#                   а не то, что кто-то когда-то опубликовал.
-#   ENGINE=dev|stage|prod|0.1.0 — взять опубликованный образ с этим тегом.
-#                   Для того, кто движок не трогает, а делает сайт.
+# ВАЖНО: это не имеет никакого отношения к окружению сайта. Дев-сборка
+# сайта — это сайт, закрытый от индексации и без счётчиков. Собирать её
+# сырым дев-движком незачем и вредно: человек правит контент, а получает
+# чужие ошибки разработки. Версию движка выбирают отдельно и осознанно.
 #
-# По умолчанию: есть рядом исходники движка — local, нет — тег по имени
-# окружения. Клонировали репозиторий и правите код — собираетесь своим
-# кодом, и никакой реестр в это не вмешивается.
+#   ENGINE=local              собрать образ из исходников этой папки;
+#   ENGINE=dev|stage|prod     опубликованный образ с этим тегом;
+#   ENGINE=0.1.0              конкретная версия.
+#
+# Ничего не задано — по порядку: точная версия из site.yaml сайта; иначе
+# исходники рядом, если они есть; иначе стабильный prod. Дев и стейдж
+# движка сами по себе не подхватываются никогда.
 is_source_checkout() {
   [ -f "$HERON_ROOT/Dockerfile" ] && [ -d "$HERON_ROOT/heron" ] && [ -f "$HERON_ROOT/pyproject.toml" ]
 }
@@ -130,23 +133,26 @@ is_source_checkout() {
 engine_kind() {
   if [ -n "${ENGINE:-}" ]; then echo "$ENGINE"; return; fi
   if [ -n "${HERON_IMAGE:-}" ]; then echo "image"; return; fi
+  if [ -n "$(site_engine_version)" ]; then echo "pinned"; return; fi
   if is_source_checkout; then echo "local"; return; fi
-  echo "$HERON_ENV"
+  echo "prod"
+}
+
+# Точная версия, объявленная сайтом. Диапазон версией не считаем.
+site_engine_version() {
+  local spec
+  spec="$(sed -n 's/^heron:[[:space:]]*["'"'"']\{0,1\}\([^"'"'"']*\)["'"'"']\{0,1\}[[:space:]]*$/\1/p' \
+          "$SITE_PATH/site.yaml" 2>/dev/null | head -1 | tr -d ' ')"
+  printf '%s' "$spec" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' && printf '%s' "$spec"
 }
 
 engine_image() {
-  if [ "$(engine_kind)" = "local" ]; then echo "heron:local"; return; fi
-  if [ -n "${HERON_IMAGE:-}" ]; then echo "$HERON_IMAGE"; return; fi
-  local spec
-  spec="$(sed -n 's/^heron:[[:space:]]*["'"'"']\{0,1\}\([^"'"'"']*\)["'"'"']\{0,1\}[[:space:]]*$/\1/p' \
-          "$SITE_PATH/site.yaml" | head -1 | tr -d ' ')"
-  if printf '%s' "$spec" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-    echo "ghcr.io/fmstm/heron:$spec"
-    return
-  fi
-  case "$HERON_ENV" in
-    dev|stage|prod) echo "ghcr.io/fmstm/heron:$HERON_ENV" ;;
-    *)              echo "ghcr.io/fmstm/heron:dev" ;;
+  local kind; kind="$(engine_kind)"
+  case "$kind" in
+    local)  echo "heron:local" ;;
+    image)  echo "$HERON_IMAGE" ;;
+    pinned) echo "ghcr.io/fmstm/heron:$(site_engine_version)" ;;
+    *)      echo "ghcr.io/fmstm/heron:$kind" ;;
   esac
 }
 
@@ -196,9 +202,9 @@ run_engine() {
     --security-opt=no-new-privileges \
     --user "$(id -u):$(id -g)" \
     --tmpfs /tmp \
-    -e HERON_ENV="$HERON_ENV" \
-    ${HERON_INDEXABLE:+-e HERON_INDEXABLE="$HERON_INDEXABLE"} \
-    ${HERON_ANALYTICS:+-e HERON_ANALYTICS="$HERON_ANALYTICS"} \
+    -e SITE_ENV="$SITE_ENV" \
+    ${SITE_INDEXABLE:+-e SITE_INDEXABLE="$SITE_INDEXABLE"} \
+    ${SITE_ANALYTICS:+-e SITE_ANALYTICS="$SITE_ANALYTICS"} \
     -v "$SITE_PATH":/site:ro \
     -v "$HERON_ROOT/out":/out \
     "$(engine_image)" "$@"
@@ -214,7 +220,7 @@ do_build() {
   note "контент: $SITE_PATH (только чтение)"
   rm -rf "$OUT"
   # shellcheck disable=SC2046
-  run_engine build --env "$HERON_ENV" $(strict_flag) --out "/out/${SITE}-${ENV_NAME}" /site
+  run_engine build --env "$SITE_ENV" $(strict_flag) --out "/out/${SITE}-${ENV_NAME}" /site
   ok "готово: out/${SITE}-${ENV_NAME}"
 }
 

@@ -26,18 +26,18 @@ def test_default_is_closed():
 
 
 def test_env_var_picks_environment(monkeypatch):
-    monkeypatch.setenv("HERON_ENV", "prod")
+    monkeypatch.setenv("SITE_ENV", "prod")
     assert BuildEnv.resolve().indexable
 
 
 def test_flag_wins_over_env_var(monkeypatch):
-    monkeypatch.setenv("HERON_ENV", "prod")
+    monkeypatch.setenv("SITE_ENV", "prod")
     assert not BuildEnv.resolve("dev").indexable
 
 
 def test_keys_override_environment_default(monkeypatch):
     """Прод-подобное превью: собрано как прод, но закрыто от индексации."""
-    monkeypatch.setenv("HERON_INDEXABLE", "false")
+    monkeypatch.setenv("SITE_INDEXABLE", "false")
     env = BuildEnv.resolve("prod")
     assert not env.indexable
     assert env.analytics

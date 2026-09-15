@@ -68,7 +68,11 @@ def scan(
     for lang in config.site.languages:
         lang_root = content_root / lang
         if not lang_root.is_dir():
-            collector.warn(f"нет дерева контента для языка {lang!r}", path=f"content/{lang}")
+            collector.warn(
+                f"нет дерева контента для языка {lang!r}",
+                path=f"content/{lang}",
+                kind="языки",
+            )
             continue
 
         folder_types = _folder_types(lang_root, collector)

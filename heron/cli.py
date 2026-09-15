@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import sys
 import threading
+import time
 from pathlib import Path
 
 import click
@@ -25,30 +26,38 @@ DIST = "dist"
 
 
 class _Terminal:
-    """Ход сборки в терминал: одна строка на этап, живая, пока этап идёт.
+    """Ход сборки в терминал: одна живая строка на этап.
 
     Этапы неравномерные: обход контента и рендер идут секунды, нарезка
     картинок — минуту. Статичная строка на долгом этапе неотличима от
-    зависшей программы, поэтому строка крутится, пока этап не закончится.
+    зависшей программы, поэтому строка крутится и показывает, что именно
+    сейчас обрабатывается и сколько это уже длится.
 
     В не-терминал (лог CI, перенаправление в файл) ничего не крутится:
-    там строка пишется целиком и один раз, без управляющих
+    там этап пишется одной строкой по завершении, без управляющих
     последовательностей.
     """
 
     FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    WIDTH = 22
 
     def __init__(self) -> None:
         self._title = ""
         self._detail = ""
+        self._started = 0.0
         self._interactive = sys.stderr.isatty()
         self._stop: threading.Event | None = None
         self._spinner: threading.Thread | None = None
 
+    def _elapsed(self) -> str:
+        seconds = time.monotonic() - self._started
+        return f"{seconds:4.1f}s"
+
     def _line(self, frame: str = "") -> None:
         mark = f"{frame} " if frame else "  "
-        tail = f" {self._detail}" if self._detail else ""
-        click.echo(f"\r{mark}{self._title}…{tail}\x1b[K", nl=False, err=True)
+        head = self._title.ljust(self.WIDTH)
+        tail = f"  {self._detail}" if self._detail else ""
+        click.echo(f"\r{mark}{head} {self._elapsed()}{tail}\x1b[K", nl=False, err=True)
 
     def _spin(self) -> None:
         index = 0
@@ -59,6 +68,7 @@ class _Terminal:
     def step(self, title: str) -> None:
         self._title = title
         self._detail = ""
+        self._started = time.monotonic()
         if not self._interactive:
             return
         self._stop = threading.Event()
@@ -75,17 +85,25 @@ class _Terminal:
 
     def done(self, detail: str = "") -> None:
         text = detail or "готово"
+        head = self._title.ljust(self.WIDTH)
         if self._interactive:
             self._park()
             self._detail = ""
-            self._line()
+            click.echo("\r\x1b[K", nl=False, err=True)
+            click.secho("✓ ", fg="green", nl=False, err=True)
+            click.echo(f"{head} {self._elapsed()}  ", nl=False, err=True)
             click.secho(text, fg="green", err=True)
         else:
-            click.echo(f"  {self._title}… {text}", err=True)
+            click.echo(f"  {head} {self._elapsed()}  {text}", err=True)
 
     def tick(self, current: int, total: int, detail: str = "") -> None:
-        if self._interactive:
-            self._detail = f"{current}/{total} {detail[:44]}"
+        """Продвижение внутри этапа: счётчик, полоска и что сейчас в работе."""
+        if not self._interactive:
+            return
+        filled = round(10 * current / total) if total else 0
+        bar = "━" * filled + "─" * (10 - filled)
+        room = max(0, 46 - len(bar))
+        self._detail = f"{bar} {current:>3}/{total:<3} {detail[-room:] if room else ''}"
 
 
 def _fail(error: HeronError) -> None:
@@ -93,9 +111,9 @@ def _fail(error: HeronError) -> None:
     sys.exit(1)
 
 
-def _finish(result: pipeline.Result, strict: bool, what: str) -> None:
+def _finish(result: pipeline.Result, strict: bool, what: str, full: Path | None = None) -> None:
     """Напечатать сводку и выйти с нужным кодом."""
-    summary = report_module.summary(result.collector)
+    summary = report_module.summary(result.collector, full=full)
     if result.collector.errors:
         click.secho(summary, fg="red", err=True)
         click.secho(f"\n{what} не выполнена: ошибок {len(result.collector.errors)}", fg="red")
@@ -200,10 +218,10 @@ def build(path: Path, strict: bool, drafts: bool, out: Path | None, env_name: st
     except HeronError as error:
         _fail(error)
 
-    _finish(result, strict, "Сборка")
+    target = out or (path / DIST)
+    _finish(result, strict, "Сборка", full=target.parent / ".heron-cache" / "warnings.txt")
     if not env.indexable:
         click.secho(f"окружение {env.name}: индексация закрыта, счётчики выключены", fg="yellow")
-    target = out or (path / DIST)
     click.secho(f"собрано файлов: {len(result.written)} → {target}", fg="green")
 
 

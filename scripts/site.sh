@@ -49,11 +49,17 @@ do_new() {
   parent="$(cd "$(dirname "$target")" && pwd)" || die "нет папки $(dirname "$target")"
   base="$(basename "$target")"
 
+  local engine="${HERON_IMAGE:-$DEFAULT_ENGINE}"
+  if is_source_checkout && [ -z "${HERON_IMAGE:-}" ]; then
+    engine="heron:local"
+    note "движок из исходников: $HERON_ROOT"
+    docker build -q -t "$engine" "$HERON_ROOT" >/dev/null || die "не собрался образ движка"
+  fi
   note "создаю папку сайта $parent/$base"
   docker run --rm --network=none --cap-drop=ALL --security-opt=no-new-privileges \
     --user "$(id -u):$(id -g)" --tmpfs /tmp \
     -v "$parent":/work -w /work \
-    "${HERON_IMAGE:-$DEFAULT_ENGINE}" new "$base"
+    "$engine" new "$base"
 
   local written=0
   for name in dev prod; do
@@ -106,13 +112,30 @@ CONTAINER="heron-serve-${SITE}-${ENV_NAME}"
 
 command -v docker >/dev/null || die "нужен docker"
 
-# Каким движком собирать.
-#   1. HERON_IMAGE из окружения — последнее слово, для отладки;
-#   2. точная версия в site.yaml — точный тег, сайт сам знает, чем собирается;
-#   3. иначе подвижный тег по имени окружения: дев собирается дев-движком.
-# Третий пункт и есть ответ на «почему я не могу тестировать в деве»: можете,
-# для этого ничего не нужно гонять до прода.
+# Каким движком собирать. Два разных случая, и путать их не надо.
+#
+#   ENGINE=local  — собрать образ из исходников ЭТОЙ папки. Для того, кто
+#                   правит сам движок: работает код, который лежит рядом,
+#                   а не то, что кто-то когда-то опубликовал.
+#   ENGINE=dev|stage|prod|0.1.0 — взять опубликованный образ с этим тегом.
+#                   Для того, кто движок не трогает, а делает сайт.
+#
+# По умолчанию: есть рядом исходники движка — local, нет — тег по имени
+# окружения. Клонировали репозиторий и правите код — собираетесь своим
+# кодом, и никакой реестр в это не вмешивается.
+is_source_checkout() {
+  [ -f "$HERON_ROOT/Dockerfile" ] && [ -d "$HERON_ROOT/heron" ] && [ -f "$HERON_ROOT/pyproject.toml" ]
+}
+
+engine_kind() {
+  if [ -n "${ENGINE:-}" ]; then echo "$ENGINE"; return; fi
+  if [ -n "${HERON_IMAGE:-}" ]; then echo "image"; return; fi
+  if is_source_checkout; then echo "local"; return; fi
+  echo "$HERON_ENV"
+}
+
 engine_image() {
+  if [ "$(engine_kind)" = "local" ]; then echo "heron:local"; return; fi
   if [ -n "${HERON_IMAGE:-}" ]; then echo "$HERON_IMAGE"; return; fi
   local spec
   spec="$(sed -n 's/^heron:[[:space:]]*["'"'"']\{0,1\}\([^"'"'"']*\)["'"'"']\{0,1\}[[:space:]]*$/\1/p' \
@@ -127,12 +150,26 @@ engine_image() {
   esac
 }
 
+# Приготовить движок: собрать из исходников или стянуть опубликованный.
+#
 # Теги dev, stage и prod подвижные: за одним и тем же именем завтра стоит
 # другой образ. docker run этого не знает и молча берёт локальную копию,
 # поэтому свежий движок надо стянуть явно. Точная версия не двигается
-# никогда — её тянем только если её ещё нет.
+# никогда — её тянем только если её ещё нет. Чистить докер руками не нужно
+# ни в одном из случаев: и сборка, и докачка идут по слоям, меняется только
+# то, что изменилось.
 pull_engine() {
   local image; image="$(engine_image)"
+
+  if [ "$(engine_kind)" = "local" ]; then
+    note "движок из исходников: $HERON_ROOT"
+    docker build -q -t "$image" "$HERON_ROOT" >/dev/null || die "не собрался образ движка"
+    local ver
+    ver="$(docker run --rm --entrypoint heron "$image" --version 2>/dev/null | tr -d '\r')"
+    ok "движок: $image ${ver:+($ver)}"
+    return
+  fi
+
   case "$image" in
     *:dev|*:stage|*:prod|*:latest)
       note "проверяю движок $image"
@@ -145,7 +182,7 @@ pull_engine() {
   esac
   local built
   built="$(docker image inspect --format '{{.Created}}' "$image" 2>/dev/null | cut -c1-19 | tr T ' ')"
-  note "движок: $image (собран $built)"
+  ok "движок: $image (собран $built)"
 }
 
 # Сборка идёт без сети, без прав, не от рута и не может писать никуда,

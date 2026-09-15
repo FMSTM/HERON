@@ -140,6 +140,7 @@ def build(
     collector: Collector,
     cache_dir: Path | None = None,
     strict: bool = False,
+    progress=None,
 ) -> Manifest:
     """Нарезать все картинки, на которые ссылается контент.
 
@@ -158,7 +159,10 @@ def build(
             known = {}
     fresh: dict[str, str] = {}
 
-    for src in sorted(references(site)):
+    sources = sorted(references(site))
+    for index, src in enumerate(sources, 1):
+        if progress is not None:
+            progress.tick(index, len(sources), src)
         source = site_root / src
         if not source.is_file():
             if strict:

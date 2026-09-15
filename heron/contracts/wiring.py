@@ -7,9 +7,46 @@
 
 from __future__ import annotations
 
+from heron import __version__
+from heron.contracts import version as version_contract
+from heron.contracts.frontmatter import PageMeta
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core.errors import HeronError, Warning_
+
+
+def verify_engine(theme: ThemeConfig, theme_path: str = "theme.yaml") -> None:
+    """Проверить, что движок даёт теме то, на что она рассчитывает.
+
+    Тема живёт в репозитории сайта и обновляется отдельно от движка. Если
+    она написана под новое поле контракта, а собирают её старым движком,
+    без этой проверки сборка падает на каждой странице с сообщением про
+    опечатку во фронтматтере — самым бесполезным из возможных. Здесь это
+    ловится один раз, до рендера, и называется своим именем.
+    """
+    if theme.heron and not version_contract.satisfies(__version__, theme.heron):
+        raise HeronError(
+            code="E012",
+            message=(f"тема {theme.name!r} требует движок {theme.heron}, а этот — {__version__}"),
+            path=theme_path,
+            hint="обновите образ движка или ослабьте требование `heron` в theme.yaml",
+        )
+
+    known = set(PageMeta.model_fields)
+    unknown = [name for name in theme.fields if name not in known]
+    if unknown:
+        raise HeronError(
+            code="E012",
+            message=(
+                f"тема {theme.name!r} обращается к полям, которых движок {__version__} "
+                "не знает:\n    " + "\n    ".join(unknown)
+            ),
+            path=theme_path,
+            hint=(
+                "поле появилось в более новом движке — обновите образ; "
+                "либо это опечатка в `fields` в theme.yaml"
+            ),
+        )
 
 
 def verify(theme: ThemeConfig, site: SiteConfig, site_path: str = "site.yaml") -> list[Warning_]:

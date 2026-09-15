@@ -9,6 +9,11 @@
 контента. Поэтому окружение приходит снаружи — флагом или переменной среды,
 а в HERON лежит файлом `env/.env.<сайт>.<окружение>`.
 
+Окружение сайта и версия движка — разные вещи, и путать их нельзя.
+Дев-сборка сайта означает «закрыто от индексации, без счётчиков», а не
+«собрать сырым движком»: человек, который правит контент, не должен
+получать чужие ошибки разработки. Версию движка выбирают отдельно.
+
 Ошибка «залили дев в сеть, его сожрал гугл, склейка дублей на полгода» стоит
 дороже любого удобства, поэтому по умолчанию индексация ЗАКРЫТА: открыть её
 нужно осознанно, а забыть закрыть — нельзя.
@@ -61,15 +66,15 @@ class BuildEnv:
 
     @classmethod
     def resolve(cls, name: str | None = None) -> BuildEnv:
-        """Имя из флага, затем из HERON_ENV; отдельные ключи перебивают дефолт.
+        """Имя из флага, затем из SITE_ENV; отдельные ключи перебивают дефолт.
 
-        Явные HERON_INDEXABLE и HERON_ANALYTICS нужны для прод-подобного
+        Явные SITE_INDEXABLE и SITE_ANALYTICS нужны для прод-подобного
         превью: собрать как прод, но закрыть от индексации.
         """
-        chosen = (name or os.environ.get("HERON_ENV") or DEV).strip().lower() or DEV
+        chosen = (name or os.environ.get("SITE_ENV") or DEV).strip().lower() or DEV
         base = cls.named(chosen)
         return cls(
             name=base.name,
-            indexable=_flag("HERON_INDEXABLE", base.indexable),
-            analytics=_flag("HERON_ANALYTICS", base.analytics),
+            indexable=_flag("SITE_INDEXABLE", base.indexable),
+            analytics=_flag("SITE_ANALYTICS", base.analytics),
         )

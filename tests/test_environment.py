@@ -135,10 +135,10 @@ def test_nav_title_falls_back_to_file_name():
     from heron.contracts.frontmatter import PageMeta
     from heron.core.models import Page
 
-    meta = PageMeta(title="Услуги нейрохирурга в городе", h1="Услуги", description="о")
-    page = Page(lang="ru", source="ru/poslugi/_index.md", key="poslugi", meta=meta)
-    page.url = "/ru/poslugi/"
-    assert page.nav_title == "poslugi"
+    meta = PageMeta(title="Каталог товаров и цены", h1="Каталог", description="о")
+    page = Page(lang="ru", source="ru/katalog/_index.md", key="katalog", meta=meta)
+    page.url = "/ru/katalog/"
+    assert page.nav_title == "katalog"
 
 
 def test_declared_nav_title_wins():
@@ -146,8 +146,8 @@ def test_declared_nav_title_wins():
     from heron.core.models import Page
 
     meta = PageMeta(
-        title="Услуги нейрохирурга в городе", h1="Услуги", description="о", nav_title="Услуги"
+        title="Каталог товаров и цены", h1="Каталог", description="о", nav_title="Каталог"
     )
-    page = Page(lang="ru", source="ru/poslugi/_index.md", key="poslugi", meta=meta)
-    page.url = "/ru/poslugi/"
-    assert page.nav_title == "Услуги"
+    page = Page(lang="ru", source="ru/katalog/_index.md", key="katalog", meta=meta)
+    page.url = "/ru/katalog/"
+    assert page.nav_title == "Каталог"

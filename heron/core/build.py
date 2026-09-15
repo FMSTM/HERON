@@ -77,6 +77,7 @@ def prepare(site_root: Path, collector: Collector) -> tuple[SiteConfig, ThemeCon
 
     found = resolver.theme(site_root, config.site.theme)
     theme = load_theme(found.path / "theme.yaml")
+    wiring.verify_engine(theme, str(found.path / "theme.yaml"))
     collector.warnings.extend(wiring.verify(theme, config, str(site_root / SITE_YAML)))
 
     hooks = Hooks()

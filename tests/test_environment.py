@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from heron.core.environment import BuildEnv
 from heron.scaffold import create
 
@@ -151,3 +153,46 @@ def test_declared_nav_title_wins():
     page = Page(lang="ru", source="ru/katalog/_index.md", key="katalog", meta=meta)
     page.url = "/ru/katalog/"
     assert page.nav_title == "Каталог"
+
+
+def _theme(tmp_path, extra: str) -> object:
+    from heron.contracts.theme import load_theme
+
+    root = tmp_path / "theme"
+    root.mkdir()
+    (root / "theme.yaml").write_text(
+        'name: demo\nversion: "0.1"\nmodules: [prose]\ntypes:\n  page:\n    uses: [intro]\n'
+        + extra,
+        encoding="utf-8",
+    )
+    return load_theme(root / "theme.yaml")
+
+
+def test_theme_can_demand_newer_engine(tmp_path):
+    """Тема под новый движок не должна разваливаться на каждой странице."""
+    from heron.contracts import wiring
+    from heron.core.errors import HeronError
+
+    theme = _theme(tmp_path, 'heron: ">=9.0"\n')
+    with pytest.raises(HeronError) as exc:
+        wiring.verify_engine(theme)
+    assert exc.value.code == "E012"
+    assert "требует движок" in exc.value.message
+
+
+def test_theme_field_unknown_to_engine_stops_build(tmp_path):
+    """Поле, которого в контракте нет, называется своим именем и один раз."""
+    from heron.contracts import wiring
+    from heron.core.errors import HeronError
+
+    theme = _theme(tmp_path, "fields: [nav_title, ne_sushchestvuet]\n")
+    with pytest.raises(HeronError) as exc:
+        wiring.verify_engine(theme)
+    assert "ne_sushchestvuet" in exc.value.message
+    assert "nav_title" not in exc.value.message
+
+
+def test_theme_requirements_satisfied(tmp_path):
+    from heron.contracts import wiring
+
+    wiring.verify_engine(_theme(tmp_path, 'heron: ">=0.1"\nfields: [nav_title, image]\n'))

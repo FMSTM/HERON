@@ -161,7 +161,9 @@ def run(
         return result
 
     say.step("шаблоны")
-    html = renderer.render_site(theme_dir, site, config, theme, collector, manifest, env)
+    html = renderer.render_site(
+        theme_dir, site, config, theme, collector, manifest, env, progress=say
+    )
     say.done(f"{len(html)} страниц")
     if collector.failed:
         return result
@@ -187,8 +189,10 @@ def run(
         return result
 
     say.step("запись")
-    for name, text in sorted(files.items()):
-        _write(dist, name, text)
+    names = sorted(files)
+    for index, name in enumerate(names, 1):
+        say.tick(index, len(names), name)
+        _write(dist, name, files[name])
     _copy_tree(site_root / STATIC, dist)
     _copy_tree(theme_dir / ASSETS, dist / ASSETS)
 

@@ -111,6 +111,7 @@ def localize(site: Site, config: SiteConfig, collector: Collector) -> None:
                     f"ссылка {path} ведёт на страницу языка {other.lang!r}: "
                     f"на {page.lang!r} этой страницы нет",
                     path=page.source,
+                    kind="ссылки",
                 )
             return match.group(0)
 
@@ -182,6 +183,7 @@ def _declared(site: Site, theme: ThemeConfig, collector: Collector) -> None:
                     collector.warn(
                         f"поле {link.field!r} не заполнено, а тема ждёт минимум {link.required}",
                         path=page.source,
+                        kind="связи",
                     )
                 continue
 
@@ -221,6 +223,7 @@ def _declared(site: Site, theme: ThemeConfig, collector: Collector) -> None:
                 collector.warn(
                     f"{link.field}: ссылок {len(targets)}, тема ждёт минимум {link.required}",
                     path=page.source,
+                    kind="связи",
                 )
 
     for page in site.pages:
@@ -248,6 +251,7 @@ def _nav(site: Site, config: SiteConfig, collector: Collector) -> None:
                     collector.warn(
                         f"меню {group!r}: нет страницы {key!r} на языке {lang!r}",
                         path="site.yaml",
+                        kind="меню",
                     )
                     continue
                 pages.append(page)

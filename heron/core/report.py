@@ -14,6 +14,7 @@ from __future__ import annotations
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from pathlib import Path
 from urllib.parse import unquote
 
 from heron.contracts.site import SiteConfig
@@ -170,17 +171,57 @@ def build(site: Site, config: SiteConfig, theme: ThemeConfig, theme_dir=None) ->
     return report
 
 
-def summary(collector: Collector) -> str:
-    """Короткая сводка ошибок и предупреждений."""
+# Порядок видов в сводке: сверху то, что ломает страницу для посетителя,
+# снизу то, что заметит только редактор.
+ORDER = ["картинки", "связи", "ссылки", "меню", "переводы", "языки", "прочее"]
+
+# Сколько примеров показывать в каждой группе. Остальное — в файле.
+EXAMPLES = 6
+
+
+def summary(collector: Collector, full: Path | None = None) -> str:
+    """Короткая сводка ошибок и предупреждений.
+
+    Предупреждения группируются по виду. Сто однотипных замечаний про
+    переводы не должны прятать десяток важных про картинки, которых нет
+    на диске: раньше сводка резалась на тридцатом по порядку появления,
+    и важное просто не доходило до глаз.
+    """
     lines: list[str] = []
     for error in collector.errors:
         lines.append(str(error))
-    if collector.warnings:
-        lines.append("")
-        lines.append(f"Предупреждений — {len(collector.warnings)}:")
-        for warning in collector.warnings[:30]:
+    if not collector.warnings:
+        return "\n".join(lines)
+
+    groups: dict[str, list] = {}
+    for warning in collector.warnings:
+        groups.setdefault(getattr(warning, "kind", "прочее") or "прочее", []).append(warning)
+
+    lines.append("")
+    lines.append(f"Предупреждений — {len(collector.warnings)}:")
+    for kind in [*ORDER, *sorted(set(groups) - set(ORDER))]:
+        batch = groups.get(kind)
+        if not batch:
+            continue
+        lines.append(f"  {kind} — {len(batch)}:")
+        for warning in batch[:EXAMPLES]:
             where = f"{warning.path}: " if warning.path else ""
-            lines.append(f"  {where}{warning.message}")
-        if len(collector.warnings) > 30:
-            lines.append(f"  … и ещё {len(collector.warnings) - 30}")
+            lines.append(f"    {where}{warning.message}")
+        if len(batch) > EXAMPLES:
+            lines.append(f"    … и ещё {len(batch) - EXAMPLES}")
+
+    if full is not None:
+        try:
+            full.parent.mkdir(parents=True, exist_ok=True)
+            full.write_text(
+                "\n".join(
+                    f"{getattr(w, 'kind', '') or 'прочее'}\t{w.path or ''}\t{w.message}"
+                    for w in collector.warnings
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            lines.append(f"  полный список: {full}")
+        except OSError:
+            pass
     return "\n".join(lines)

@@ -25,6 +25,10 @@ from heron.contracts.theme import ImagesSpec
 from heron.core.errors import Collector
 from heron.core.models import Site
 
+# Путь к картинке в произвольном поле фронтматтера: тема вправе объявить
+# своё поле (вторая фотография, обложка), и такой файл тоже надо нарезать.
+IMAGE_FIELD = re.compile(r"^\.?/?img/[^\s]+\.(?:png|jpe?g|webp|avif|gif|svg)$", re.I)
+
 REFERENCE = re.compile(r"""(?:\(|["'\s])((?:\./)?img/[^)"'\s]+\.[a-zA-Z0-9]+)""")
 MARGIN = 0.15
 CACHE = "media.json"
@@ -61,17 +65,55 @@ def _label(ratio: str) -> str:
     return ratio.replace(":", "x")
 
 
+def declared_by(site: Site) -> dict[str, list[str]]:
+    """Кто ссылается на картинку: путь → страницы, где он объявлен.
+
+    Нужно для внятного предупреждения: «нет на диске» без имени страницы
+    заставляет искать объявление руками по всему контенту.
+    """
+    where: dict[str, list[str]] = {}
+    for page in site.pages:
+        for src in _page_images(page):
+            where.setdefault(src, []).append(page.source)
+    return where
+
+
+def _page_images(page) -> set[str]:
+    """Картинки одной страницы: поля фронтматтера и пути из текста."""
+    found: set[str] = set()
+    for value in (page.meta.image, page.meta.og_image):
+        if value:
+            found.add(value.lstrip("./"))
+    for _name, value in (page.meta.model_extra or {}).items():
+        if isinstance(value, str) and IMAGE_FIELD.match(value):
+            found.add(value.lstrip("./"))
+        elif isinstance(value, list):
+            found.update(
+                item.lstrip("./")
+                for item in value
+                if isinstance(item, str) and IMAGE_FIELD.match(item)
+            )
+    chunks = [page.intro.raw if page.intro else "", *(s.raw for s in page.sections.values())]
+    for chunk in chunks:
+        found.update(match.group(1).lstrip("./") for match in REFERENCE.finditer(chunk))
+    return found
+
+
 def references(site: Site) -> set[str]:
     """Все картинки, на которые ссылается контент."""
     found: set[str] = set()
     for page in site.pages:
-        for value in (page.meta.image, page.meta.og_image):
-            if value:
-                found.add(value.lstrip("./"))
-        chunks = [page.intro.raw if page.intro else "", *(s.raw for s in page.sections.values())]
-        for chunk in chunks:
-            found.update(match.group(1).lstrip("./") for match in REFERENCE.finditer(chunk))
+        found.update(_page_images(page))
     return found
+
+
+def _owner(declared: dict[str, list[str]], src: str) -> str:
+    """Где объявлена картинка: первая страница и сколько ещё."""
+    pages = declared.get(src) or []
+    if not pages:
+        return src
+    tail = f" и ещё {len(pages) - 1}" if len(pages) > 1 else ""
+    return f"{pages[0]}{tail}"
 
 
 def _crop(image: Image.Image, ratio: tuple[int, int]) -> Image.Image:
@@ -160,6 +202,7 @@ def build(
     fresh: dict[str, str] = {}
 
     sources = sorted(references(site))
+    declared = declared_by(site)
     for index, src in enumerate(sources, 1):
         if progress is not None:
             progress.tick(index, len(sources), src)
@@ -169,11 +212,11 @@ def build(
                 collector.error(
                     "E007",
                     f"картинки {src} нет на диске",
-                    path=src,
+                    path=_owner(declared, src),
                     hint="битая картинка в проде дороже упавшей сборки",
                 )
             else:
-                collector.warn(f"картинки {src} нет на диске", path=src)
+                collector.warn(f"нет файла {src}", path=_owner(declared, src), kind="картинки")
             continue
 
         if source.suffix.lower() not in KEEP:

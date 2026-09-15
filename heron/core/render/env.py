@@ -59,7 +59,9 @@ class Strings:
             return self._values[key]
         if key not in self._missed:
             self._missed.add(key)
-            self._collector.warn(f"нет строки перевода {key!r} для языка {self._lang!r}")
+            self._collector.warn(
+                f"нет строки перевода {key!r} для языка {self._lang!r}", kind="переводы"
+            )
         return key
 
     def __contains__(self, key: str) -> bool:
@@ -118,7 +120,9 @@ def load_strings(theme_dir: Path, lang: str, collector: Collector) -> Strings:
         if isinstance(loaded, dict):
             values = loaded
     else:
-        collector.warn(f"в теме нет строк интерфейса для языка {lang!r}", path=str(path))
+        collector.warn(
+            f"в теме нет строк интерфейса для языка {lang!r}", path=str(path), kind="переводы"
+        )
     return Strings(values, lang, collector)
 
 
@@ -158,7 +162,7 @@ def picture(
     ) -> Markup:
         rendition = manifest.get(src, ratio)
         if rendition is None:
-            collector.warn(f"нет нарезанного варианта {ratio} для {src}")
+            collector.warn(f"нет нарезанного варианта {ratio} для {src}", kind="картинки")
             return Markup("")
 
         parts: list[str] = ["<picture>"]

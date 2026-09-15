@@ -3,6 +3,7 @@
 import pytest
 
 from heron.core import links, report, tree
+from heron.core.errors import Collector
 from tests import sites
 
 FILES = {
@@ -112,3 +113,28 @@ def test_summary_lists_errors_and_warnings(built):
     text = report.summary(collector)
     assert "E001 a.md:2" in text
     assert "b.md: title длиннее" in text
+
+
+def test_summary_groups_warnings_by_kind():
+    """Сотня замечаний про переводы не должна прятать десяток про картинки."""
+    collector = Collector()
+    for index in range(40):
+        collector.warn(f"нет строки перевода {index}", kind="переводы")
+    collector.warn("нет файла img/a.png", path="uk/index.md", kind="картинки")
+
+    text = report.summary(collector)
+    assert "картинки — 1:" in text
+    assert "переводы — 40:" in text
+    assert text.index("картинки —") < text.index("переводы —")
+    assert "uk/index.md: нет файла img/a.png" in text
+
+
+def test_summary_writes_full_list(tmp_path):
+    collector = Collector()
+    for index in range(20):
+        collector.warn(f"замечание {index}", kind="картинки")
+    target = tmp_path / "warnings.txt"
+
+    text = report.summary(collector, full=target)
+    assert str(target) in text
+    assert len(target.read_text(encoding="utf-8").strip().splitlines()) == 20

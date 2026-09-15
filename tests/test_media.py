@@ -163,3 +163,30 @@ def test_real_transparency_survives():
     image = Image.new("RGBA", (8, 8), (10, 20, 30, 255))
     image.putpixel((0, 0), (0, 0, 0, 0))
     assert _opaque(image).mode == "RGBA"
+
+
+def test_references_include_theme_fields(tmp_path):
+    """Тема вправе объявить своё поле с картинкой — её тоже надо нарезать."""
+    files = {
+        "uk/index.md": sites.page(
+            "Головна",
+            image="img/a.png",
+            photo_second="img/b.jpg",
+            gallery=["img/g1.png", "img/g2.png"],
+            not_an_image="просто строка",
+        )
+    }
+    content = sites.build(tmp_path, files)
+    site, _ = tree.scan(content, sites.config())
+    assert media.references(site) == {"img/a.png", "img/b.jpg", "img/g1.png", "img/g2.png"}
+
+
+def test_missing_image_warning_names_the_page(tmp_path):
+    """«Нет на диске» без имени страницы заставляет искать объявление руками."""
+    files = {"uk/index.md": sites.page("Головна", image="img/нет.png")}
+    content = sites.build(tmp_path, files)
+    site, collector = tree.scan(content, sites.config())
+    media.build(site, tmp_path, tmp_path / "dist", ImagesSpec(), collector)
+    missing = [w for w in collector.warnings if w.kind == "картинки"]
+    assert [w.path for w in missing] == ["uk/index.md"]
+    assert "img/нет.png" in missing[0].message

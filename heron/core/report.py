@@ -36,6 +36,7 @@ class Report:
     unused_modules: list[str] = field(default_factory=list)
     broken_links: list[tuple[str, str]] = field(default_factory=list)
     orphans: list[str] = field(default_factory=list)
+    nameless_in_nav: list[str] = field(default_factory=list)
     untranslated: dict[str, list[str]] = field(default_factory=dict)
 
     def render(self) -> str:
@@ -64,6 +65,12 @@ class Report:
             for section, pages in sorted(self.missing_sections.items()):
                 shown = ", ".join(pages[:5]) + (" …" if len(pages) > 5 else "")
                 lines.append(f"  {section:12} — {len(pages)} страниц: {shown}")
+
+        if self.nameless_in_nav:
+            lines.append("")
+            lines.append("В меню, но без короткого имени — покажется имя файла:")
+            for source in self.nameless_in_nav[:20]:
+                lines.append(f"  {source}")
 
         if self.unused_sections:
             lines.append("")
@@ -110,6 +117,14 @@ def build(site: Site, config: SiteConfig, theme: ThemeConfig, theme_dir=None) ->
                 if section_id not in wanted:
                     report.unused_sections.append((page.source, section_id))
     report.missing_sections = dict(missing)
+
+    # страницы меню без короткого имени: в меню уедет латинский слаг
+    for groups in site.nav.values():
+        for pages in groups.values():
+            for page in pages:
+                if not page.meta.nav_title and page.source not in report.nameless_in_nav:
+                    report.nameless_in_nav.append(page.source)
+    report.nameless_in_nav.sort()
 
     # переводы
     default = config.site.default_lang

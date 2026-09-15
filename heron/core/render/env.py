@@ -154,6 +154,7 @@ def picture(
         sizes: str = "100vw",
         lazy: bool = True,
         classes: str = "",
+        attrs: str = "",
     ) -> Markup:
         rendition = manifest.get(src, ratio)
         if rendition is None:
@@ -166,7 +167,7 @@ def picture(
                 continue
             srcset = ", ".join(f"/{path} {width}w" for width, path in variants)
             parts.append(f'<source type="image/{fmt}" srcset="{srcset}" sizes="{sizes}">')
-        attrs = [
+        img = [
             f'src="/{rendition.fallback}"',
             f'width="{rendition.width}"',
             f'height="{rendition.height}"',
@@ -174,10 +175,16 @@ def picture(
             'decoding="async"',
         ]
         if lazy:
-            attrs.append('loading="lazy"')
+            img.append('loading="lazy"')
         if classes:
-            attrs.append(f'class="{escape(classes)}"')
-        parts.append("<img " + " ".join(attrs) + ">")
+            img.append(f'class="{escape(classes)}"')
+        if attrs:
+            # Тема переносит вёрстку из макета один в один, вместе с
+            # инлайновыми стилями и data-атрибутами. Их некуда девать,
+            # кроме как отдать сюда: собирать <picture> руками в шаблоне
+            # значит потерять нарезанные варианты.
+            img.append(attrs)
+        parts.append("<img " + " ".join(img) + ">")
         parts.append("</picture>")
         return Markup("".join(parts))
 

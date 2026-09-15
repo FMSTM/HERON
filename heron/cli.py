@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import sys
+import threading
 from pathlib import Path
 
 import click
@@ -24,35 +25,67 @@ DIST = "dist"
 
 
 class _Terminal:
-    """Ход сборки в терминал. Одна строка на этап, дописывается по месту.
+    """Ход сборки в терминал: одна строка на этап, живая, пока этап идёт.
 
-    Не прогресс-бар: он красив, но бесполезен в логе CI и ломается, когда
-    вывод не в терминал. Здесь просто видно, что движок жив и на чём он.
+    Этапы неравномерные: обход контента и рендер идут секунды, нарезка
+    картинок — минуту. Статичная строка на долгом этапе неотличима от
+    зависшей программы, поэтому строка крутится, пока этап не закончится.
+
+    В не-терминал (лог CI, перенаправление в файл) ничего не крутится:
+    там строка пишется целиком и один раз, без управляющих
+    последовательностей.
     """
+
+    FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
     def __init__(self) -> None:
         self._title = ""
+        self._detail = ""
         self._interactive = sys.stderr.isatty()
+        self._stop: threading.Event | None = None
+        self._spinner: threading.Thread | None = None
+
+    def _line(self, frame: str = "") -> None:
+        mark = f"{frame} " if frame else "  "
+        tail = f" {self._detail}" if self._detail else ""
+        click.echo(f"\r{mark}{self._title}…{tail}\x1b[K", nl=False, err=True)
+
+    def _spin(self) -> None:
+        index = 0
+        while self._stop is not None and not self._stop.wait(0.09):
+            self._line(self.FRAMES[index % len(self.FRAMES)])
+            index += 1
 
     def step(self, title: str) -> None:
         self._title = title
-        if self._interactive:
-            click.echo(f"  {title}… ", nl=False, err=True)
+        self._detail = ""
+        if not self._interactive:
+            return
+        self._stop = threading.Event()
+        self._spinner = threading.Thread(target=self._spin, daemon=True)
+        self._spinner.start()
+
+    def _park(self) -> None:
+        if self._stop is not None:
+            self._stop.set()
+        if self._spinner is not None:
+            self._spinner.join(timeout=0.3)
+        self._stop = None
+        self._spinner = None
 
     def done(self, detail: str = "") -> None:
         text = detail or "готово"
         if self._interactive:
-            click.secho(f"\r  {self._title}… \x1b[K", nl=False, err=True)
+            self._park()
+            self._detail = ""
+            self._line()
             click.secho(text, fg="green", err=True)
         else:
-            # В логе CI управляющих последовательностей быть не должно:
-            # строка пишется целиком и один раз.
             click.echo(f"  {self._title}… {text}", err=True)
 
     def tick(self, current: int, total: int, detail: str = "") -> None:
-        if not self._interactive:
-            return
-        click.echo(f"\r  {self._title}… {current}/{total} {detail[:48]}\x1b[K", nl=False, err=True)
+        if self._interactive:
+            self._detail = f"{current}/{total} {detail[:44]}"
 
 
 def _fail(error: HeronError) -> None:

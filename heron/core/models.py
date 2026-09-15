@@ -66,6 +66,16 @@ class Page:
     def h1(self) -> str:
         return self.meta.h1
 
+    @property
+    def nav_title(self) -> str:
+        """Как страница называется в меню и хлебных крошках.
+
+        Объявлено — берём объявленное. Не объявлено — имя файла: на
+        одноязычном сайте с человеческими именами файлов этого хватает,
+        и заполнять ничего не нужно.
+        """
+        return self.meta.nav_title or self.slug or self.h1
+
     def section(self, section_id: str) -> Section | None:
         """Секция по идентификатору.
 

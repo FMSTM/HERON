@@ -198,7 +198,11 @@ pull_engine() {
 # кроме out. Сокет докера внутрь не пробрасывается никогда.
 run_engine() {
   mkdir -p "$OUT"
-  docker run --rm \
+  # -t только когда запускают из терминала: внутри контейнера движок
+  # смотрит на isatty и решает, крутить ему строку или писать лог.
+  local tty=()
+  [ -t 2 ] && tty=(-t)
+  docker run --rm "${tty[@]}" \
     --network=none \
     --read-only \
     --cap-drop=ALL \

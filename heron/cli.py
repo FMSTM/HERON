@@ -33,21 +33,30 @@ class _Terminal:
     зависшей программы, поэтому строка крутится и показывает, что именно
     сейчас обрабатывается и сколько это уже длится.
 
-    В не-терминал (лог CI, перенаправление в файл) ничего не крутится:
-    там этап пишется одной строкой по завершении, без управляющих
-    последовательностей.
+    В не-терминал (лог CI, сборка внутри докера без -t, перенаправление в
+    файл) крутиться нечему: там этап объявляется сразу, как начался,
+    длинные этапы отмечаются раз в секунду, и в конце пишется итог.
+    Молчать до конца этапа нельзя ни в том, ни в другом случае — это
+    неотличимо от зависшей сборки.
     """
 
     FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
     WIDTH = 22
+    QUIET = 2.0  # как часто отмечаться в логе, секунды
 
     def __init__(self) -> None:
         self._title = ""
         self._detail = ""
         self._started = 0.0
+        self._said = 0.0
         self._interactive = sys.stderr.isatty()
         self._stop: threading.Event | None = None
         self._spinner: threading.Thread | None = None
+
+    def _say(self, text: str) -> None:
+        """Строка в лог немедленно: буфер держал бы её до конца сборки."""
+        click.echo(text, err=True)
+        sys.stderr.flush()
 
     def _elapsed(self) -> str:
         seconds = time.monotonic() - self._started
@@ -69,7 +78,9 @@ class _Terminal:
         self._title = title
         self._detail = ""
         self._started = time.monotonic()
+        self._said = self._started
         if not self._interactive:
+            self._say(f"→ {title}…")
             return
         self._stop = threading.Event()
         self._spinner = threading.Thread(target=self._spin, daemon=True)
@@ -94,11 +105,19 @@ class _Terminal:
             click.echo(f"{head} {self._elapsed()}  ", nl=False, err=True)
             click.secho(text, fg="green", err=True)
         else:
-            click.echo(f"  {head} {self._elapsed()}  {text}", err=True)
+            self._say(f"✓ {head} {self._elapsed()}  {text}")
 
     def tick(self, current: int, total: int, detail: str = "") -> None:
         """Продвижение внутри этапа: счётчик, полоска и что сейчас в работе."""
         if not self._interactive:
+            now = time.monotonic()
+            if current < total and now - self._said < self.QUIET:
+                return
+            self._said = now
+            tail = f"  {detail[-40:]}" if detail else ""
+            self._say(
+                f"  {self._title.ljust(self.WIDTH)} {self._elapsed()}  {current}/{total}{tail}"
+            )
             return
         filled = round(10 * current / total) if total else 0
         bar = "━" * filled + "─" * (10 - filled)

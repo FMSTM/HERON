@@ -17,7 +17,8 @@ import re
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core.errors import Collector
-from heron.core.models import Linked, Page, Site
+from heron.core.models import Linked, Page, Pair, Site
+from heron.core.parser import blocks
 
 
 def _parent_url(url: str) -> str | None:
@@ -94,13 +95,28 @@ def resolve(site: Site, config: SiteConfig, theme: ThemeConfig, collector: Colle
 
 
 def _rewrite(value, replace):
-    """Пройти по разобранным данным секции и переписать ссылки в строках."""
+    """Пройти по разобранным данным секции и переписать ссылки в строках.
+
+    Пара «термин — пояснение» — это строка с полями, поэтому её нельзя
+    подменять обычной строкой: тема потеряет и термин, и список ссылок.
+    """
+    if isinstance(value, Pair):
+        html = HREF.sub(replace, str(value))
+        return Pair(
+            html,
+            term=HREF.sub(replace, value.term),
+            text=HREF.sub(replace, value.text),
+            links=blocks.links_of(html),
+        )
     if isinstance(value, str):
         return HREF.sub(replace, value)
     if isinstance(value, list):
         return [_rewrite(item, replace) for item in value]
     if isinstance(value, dict):
-        return {key: _rewrite(item, replace) for key, item in value.items()}
+        out = {key: _rewrite(item, replace) for key, item in value.items()}
+        if "links" in out and isinstance(out.get("text"), str):
+            out["links"] = blocks.links_of(out["text"])
+        return out
     return value
 
 

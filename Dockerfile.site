@@ -11,6 +11,47 @@ FROM nginxinc/nginx-unprivileged:1.27-alpine
 
 LABEL org.opencontainers.image.source="https://github.com/FMSTM/HERON"
 
+# Свой конфиг nginx: у образа по умолчанию не задан error_page, поэтому на
+# несуществующий адрес отдаётся встроенная страница nginx, а нарисованную
+# темой 404 не видит никто. Отдаём её на языке запрошенного пути и с кодом
+# 404: заглушка с кодом 200 попадает в индекс и плодит дубли.
+#
+# Конфиг пишется прямо здесь, а не копируется из контекста: контекст сборки —
+# папка готовой статики сайта, и файлам движка в ней не место.
+USER root
+RUN printf '%s\n' \
+      'server {' \
+      '    listen       8080;' \
+      '    server_name  _;' \
+      '    root   /usr/share/nginx/html;' \
+      '    index  index.html;' \
+      '    charset utf-8;' \
+      '    absolute_redirect off;' \
+      '    location ^~ /ru/ {' \
+      '        error_page 404 /ru/404/index.html;' \
+      '        location = /ru/404/index.html { internal; }' \
+      '        try_files $uri $uri/ =404;' \
+      '    }' \
+      '    location ^~ /uk/ {' \
+      '        error_page 404 /uk/404/index.html;' \
+      '        location = /uk/404/index.html { internal; }' \
+      '        try_files $uri $uri/ =404;' \
+      '    }' \
+      '    location ^~ /en/ {' \
+      '        error_page 404 /en/404/index.html;' \
+      '        location = /en/404/index.html { internal; }' \
+      '        try_files $uri $uri/ =404;' \
+      '    }' \
+      '    error_page 404 /404.html;' \
+      '    location = /404.html { internal; }' \
+      '    location / {' \
+      '        try_files $uri $uri/ =404;' \
+      '    }' \
+      '}' \
+      > /etc/nginx/conf.d/default.conf \
+ && nginx -t -c /etc/nginx/nginx.conf
+USER nginx
+
 COPY . /usr/share/nginx/html
 
 EXPOSE 8080

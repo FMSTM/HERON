@@ -118,6 +118,17 @@ def load_strings(theme_dir: Path, lang: str, collector: Collector) -> Strings:
     if path.is_file():
         loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
         if isinstance(loaded, dict):
+            # YAML читает голые off, on, yes, no как булевы значения, и строка
+            # 'off' тихо теряется. Молчать нельзя: в вёрстке останется имя
+            # ключа, а причина будет неочевидна до самого осмотра страницы.
+            for key in [k for k in loaded if not isinstance(k, str)]:
+                collector.warn(
+                    f"ключ {key!r} прочитан как {type(key).__name__}, а не как строка — "
+                    "возьмите его в кавычки",
+                    path=str(path),
+                    kind="переводы",
+                )
+                del loaded[key]
             values = loaded
     else:
         collector.warn(

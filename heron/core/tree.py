@@ -135,6 +135,9 @@ def scan(
             collector.warnings.extend(blocks.apply(md, found))
             if intro is not None:
                 intro.kind, intro.data = "prose", intro.html
+                for warning in blocks.intro_parts(md, intro):
+                    warning.path = rel
+                    collector.warnings.append(warning)
 
             page = Page(
                 lang=lang,

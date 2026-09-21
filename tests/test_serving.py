@@ -106,3 +106,30 @@ def test_built_site_is_readable_by_any_server(tmp_path):
         assert mode & 0o044, path
         if path.is_dir():
             assert mode & 0o011, path
+
+
+def test_nginx_conf_follows_site_languages():
+    """Основной язык живёт в корне, остальные — в своих папках."""
+    from heron.modules import nginx
+
+    conf = nginx.generate(sites.config())[nginx.NAME]
+    assert "location ^~ /ru/ {" in conf
+    assert "/uk/" not in conf  # основной язык, папки с таким именем нет
+    assert "error_page 404 /404.html;" in conf
+    assert conf.count("internal;") == 2
+
+
+def test_nginx_conf_when_default_language_changes():
+    from heron.modules import nginx
+
+    config = sites.config(
+        site={
+            "domain": "example.com",
+            "theme": "demo",
+            "default_lang": "ru",
+            "languages": ["uk", "ru"],
+        }
+    )
+    conf = nginx.generate(config)[nginx.NAME]
+    assert "location ^~ /uk/ {" in conf
+    assert "/ru/" not in conf

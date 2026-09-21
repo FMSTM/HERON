@@ -30,7 +30,6 @@ from heron.core.models import Site
 IMAGE_FIELD = re.compile(r"^\.?/?img/[^\s]+\.(?:png|jpe?g|webp|avif|gif|svg)$", re.I)
 
 REFERENCE = re.compile(r"""(?:\(|["'\s])((?:\./)?img/[^)"'\s]+\.[a-zA-Z0-9]+)""")
-MARGIN = 0.15
 CACHE = "media.json"
 KEEP = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -116,8 +115,36 @@ def _owner(declared: dict[str, list[str]], src: str) -> str:
     return f"{pages[0]}{tail}"
 
 
+def _fit(image: Image.Image, ratio: tuple[int, int]) -> Image.Image:
+    """Вписать мастер в пропорцию, добив прозрачными полями.
+
+    Иллюстрацию кропать нельзя: рисунок доходит до края кадра, и любой
+    центральный кроп срезает его часть. Поля прозрачные, поэтому на любой
+    подложке темы вписанная картинка выглядит как исходная.
+    """
+    want = ratio[0] / ratio[1]
+    have = image.width / image.height
+    if abs(want - have) < 0.001:
+        return image
+    if have > want:
+        width, height = image.width, round(image.width / want)
+    else:
+        width, height = round(image.height * want), image.height
+    canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    canvas.paste(image, ((width - image.width) // 2, (height - image.height) // 2))
+    return canvas
+
+
+def _has_alpha(image: Image.Image) -> bool:
+    """Есть ли в картинке настоящая прозрачность."""
+    if image.mode not in ("RGBA", "LA"):
+        return False
+    alpha = image.getchannel("A")
+    return alpha.getextrema()[0] < 255
+
+
 def _crop(image: Image.Image, ratio: tuple[int, int]) -> Image.Image:
-    """Центральный кроп под нужную пропорцию."""
+    """Центральный кроп под нужную пропорцию. Только для фотографий."""
     want = ratio[0] / ratio[1]
     have = image.width / image.height
     if abs(want - have) < 0.001:
@@ -129,28 +156,6 @@ def _crop(image: Image.Image, ratio: tuple[int, int]) -> Image.Image:
     new_height = round(image.width / want)
     top = (image.height - new_height) // 2
     return image.crop((0, top, image.width, top + new_height))
-
-
-def _edge_warning(image: Image.Image, src: str, collector: Collector) -> None:
-    """Объект упирается в край мастера — при кропе его срежет."""
-    if image.mode not in ("RGBA", "LA"):
-        return
-    box = image.getbbox()
-    if box is None:
-        return
-    left, top, right, bottom = box
-    margins = [
-        left / image.width,
-        top / image.height,
-        (image.width - right) / image.width,
-        (image.height - bottom) / image.height,
-    ]
-    if min(margins) < MARGIN:
-        collector.warn(
-            f"объект почти упирается в край мастера — при кропе его срежет (запас "
-            f"{min(margins):.0%}, нужно {MARGIN:.0%})",
-            path=src,
-        )
 
 
 def _opaque(image: Image.Image) -> Image.Image:
@@ -230,11 +235,13 @@ def build(
 
         with Image.open(source) as opened:
             image = _opaque(opened.convert("RGBA" if opened.mode in ("RGBA", "LA", "P") else "RGB"))
-            _edge_warning(image, src, collector)
 
             stem = Path(src)
+            # Иллюстрацию вписываем, фотографию кропаем. Признак —
+            # прозрачность: у фотографии её нет и поля взять неоткуда.
+            fits = _has_alpha(image) and not any(src.startswith(rule) for rule in spec.crop)
             for ratio in spec.ratios:
-                cropped = _crop(image, _ratio_of(ratio))
+                cropped = (_fit if fits else _crop)(image, _ratio_of(ratio))
                 widths = [w for w in spec.widths if w <= cropped.width] or [cropped.width]
                 rendition = Rendition(
                     ratio=ratio,

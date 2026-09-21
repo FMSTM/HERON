@@ -107,12 +107,39 @@ def test_width_larger_than_source_is_not_invented(prepared):
     assert widths == [400]
 
 
-def test_object_touching_the_edge_warns(tmp_path):
+def test_illustration_is_fitted_not_cropped(tmp_path):
+    """Рисунок доходит до края кадра — кроп срезал бы его, вписывание нет."""
     content = sites.build(tmp_path, FILES)
     master(tmp_path / "img" / "bio" / "portrait.png", margin=0.02)
     site, collector = tree.scan(content, sites.config())
-    media.build(site, tmp_path, tmp_path / "dist", ImagesSpec(widths=[400]), collector)
-    assert any("упирается в край" in w.message for w in collector.warnings)
+    spec = ImagesSpec(widths=[800], ratios=["16:9", "4:3", "1:1"], formats=["webp"])
+    media.build(site, tmp_path, tmp_path / "dist", spec, collector)
+
+    for ratio, label in (("16:9", "16x9"), ("4:3", "4x3"), ("1:1", "1x1")):
+        path = tmp_path / "dist" / "img" / "bio" / f"portrait-{label}-800.webp"
+        with Image.open(path) as out:
+            left, right = (int(part) for part in ratio.split(":"))
+            assert round(out.width / out.height, 2) == round(left / right, 2)
+            box = out.convert("RGBA").getbbox()
+            # рисунок квадратный: если бы его кропнули, он перестал бы им быть
+            assert abs((box[2] - box[0]) - (box[3] - box[1])) <= 2
+            # и добивка прозрачная, а не залитая
+            assert out.convert("RGBA").getpixel((0, 0))[3] == 0
+    assert not any("упирается в край" in w.message for w in collector.warnings)
+
+
+def test_photo_without_alpha_is_cropped(tmp_path):
+    """У фотографии полей взять неоткуда, поэтому её по-прежнему кропает."""
+    content = sites.build(tmp_path, FILES)
+    path = tmp_path / "img" / "bio" / "portrait.png"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (1200, 900), (20, 60, 120)).save(path)
+    site, collector = tree.scan(content, sites.config())
+    spec = ImagesSpec(widths=[400], ratios=["1:1"], formats=["webp"])
+    media.build(site, tmp_path, tmp_path / "dist", spec, collector)
+
+    with Image.open(tmp_path / "dist" / "img" / "bio" / "portrait-1x1-400.webp") as out:
+        assert out.width == out.height
 
 
 def test_cache_skips_unchanged_source(prepared):

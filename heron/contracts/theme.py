@@ -90,7 +90,11 @@ class ImagesSpec(BaseModel):
     """Что тема хочет от картинок.
 
     Пропорции просит тема: это она решает, что карточка каталога квадратная,
-    а обложка статьи широкая. Ядро режет из мастера то, что попросили.
+    а обложка статьи широкая. Ядро вписывает в них мастер, добивая
+    прозрачными полями, а фотографии режет кропом.
+
+    `crop` — исключения: пути, которые кропать всё равно, даже если
+    прозрачность у них есть. Пишутся началом пути: `img/bio/`.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -98,6 +102,7 @@ class ImagesSpec(BaseModel):
     widths: list[int] = Field(default_factory=lambda: [400, 800, 1200, 1600])
     ratios: list[str] = Field(default_factory=lambda: ["1:1", "16:9", "4:3"])
     formats: list[str] = Field(default_factory=lambda: ["avif", "webp"])
+    crop: list[str] = Field(default_factory=list)
 
     @field_validator("ratios")
     @classmethod

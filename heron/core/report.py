@@ -165,7 +165,9 @@ def build(site: Site, config: SiteConfig, theme: ThemeConfig, theme_dir=None) ->
                     report.broken_links.append((page.source, href))
 
     for page in site.pages:
-        if page.url == "/" or page.parent is not None or page.url in linked:
+        # Главная языка — не сирота: на неё ведёт переключатель языков,
+        # а он живёт в теме, а не в тексте страниц.
+        if page.url in ("/", f"/{page.lang}/") or page.parent is not None or page.url in linked:
             continue
         in_nav = any(page in group for groups in site.nav.values() for group in groups.values())
         if not in_nav:
@@ -186,7 +188,17 @@ def build(site: Site, config: SiteConfig, theme: ThemeConfig, theme_dir=None) ->
 
 # Порядок видов в сводке: сверху то, что ломает страницу для посетителя,
 # снизу то, что заметит только редактор.
-ORDER = ["картинки", "связи", "ссылки", "меню", "переводы", "языки", "прочее"]
+ORDER = [
+    "картинки",
+    "связи",
+    "ссылки",
+    "меню",
+    "переводы",
+    "языки",
+    "прочее",
+    # Ниже — не поломка, а работа, которая ещё не сделана: перевод.
+    "нет перевода",
+]
 
 # Сколько примеров показывать в каждой группе. Остальное — в файле.
 EXAMPLES = 6

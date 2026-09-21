@@ -298,11 +298,26 @@ def _nav(site: Site, config: SiteConfig, collector: Collector) -> None:
             for key in keys:
                 page = site.by_key.get((lang, str(key)))
                 if page is None:
-                    collector.warn(
-                        f"меню {group!r}: нет страницы {key!r} на языке {lang!r}",
-                        path="site.yaml",
-                        kind="меню",
+                    # Страница есть на основном языке — значит это не опечатка
+                    # в site.yaml, а непереведённый раздел. Разные беды: одну
+                    # правят сейчас, вторую переводчик закроет когда-нибудь.
+                    elsewhere = any(
+                        (other, str(key)) in site.by_key
+                        for other in config.site.languages
+                        if other != lang
                     )
+                    if elsewhere:
+                        collector.warn(
+                            f"меню {group!r}: {key!r} ещё не переведено на {lang!r}",
+                            path="site.yaml",
+                            kind="нет перевода",
+                        )
+                    else:
+                        collector.warn(
+                            f"меню {group!r}: нет страницы {key!r} на языке {lang!r}",
+                            path="site.yaml",
+                            kind="меню",
+                        )
                     continue
                 pages.append(page)
             site.nav[lang][group] = pages

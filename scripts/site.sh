@@ -239,12 +239,13 @@ do_image() {
 }
 
 do_serve() {
-  [ -d "$OUT" ] || do_build
+  # Смотрим ровно тот образ, который поедет в сеть: иначе просмотр идёт на
+  # чистом nginx, без нашего error_page, и нарисованную 404 никто не видит.
+  do_image
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
   docker run -d --rm --name "$CONTAINER" \
     -p "${PORT}:8080" \
-    -v "$OUT":/usr/share/nginx/html:ro \
-    nginxinc/nginx-unprivileged:1.27-alpine >/dev/null
+    "$IMAGE_NAME:$IMAGE_TAG" >/dev/null
   ok "смотрите: http://localhost:${PORT}"
   note "погасить: ./scripts/site.sh $SITE stop $ENV_NAME"
 }

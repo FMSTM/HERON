@@ -105,6 +105,7 @@ def run(
     env = env or BuildEnv()
     say = progress or Silent()
     site_root = site_root.resolve()
+    env = env.stamped(site_root)
     dist = (dist or site_root / DIST).resolve()
 
     say.step("конфиг, тема и плагины")

@@ -49,6 +49,33 @@ def once(root: Path, drafts: bool) -> None:
         click.secho(f"предупреждений: {len(result.collector.warnings)}", fg="yellow")
 
 
+def not_found(dist: Path, path: str) -> Path | None:
+    """Наша страница 404 для этого адреса: сначала на его языке.
+
+    Локальный просмотр должен показывать то же, что покажет сеть, иначе
+    нарисованную 404 никто не увидит до самого прода.
+    """
+    lang = path.strip("/").split("/", 1)[0]
+    for candidate in (dist / lang / "404" / "index.html", dist / "404.html"):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _send_404(handler: http.server.SimpleHTTPRequestHandler, dist: Path) -> bool:
+    page = not_found(dist, handler.path)
+    if page is None:
+        return False
+    body = page.read_bytes()
+    handler.send_response(404)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    if handler.command != "HEAD":
+        handler.wfile.write(body)
+    return True
+
+
 def serve(root: Path, port: int = 8000, drafts: bool = True) -> None:
     """Собрать, поднять сервер и пересобирать при изменениях."""
     root = Path(root).resolve()
@@ -64,6 +91,11 @@ def serve(root: Path, port: int = 8000, drafts: bool = True) -> None:
                 self, *a, directory=str(dist), **kw
             ),
             "log_message": lambda self, *a: None,
+            "send_error": lambda self, code, message=None, explain=None: (
+                None
+                if code == 404 and _send_404(self, dist)
+                else http.server.SimpleHTTPRequestHandler.send_error(self, code, message, explain)
+            ),
         },
     )
 

@@ -97,7 +97,7 @@ def test_version_mismatch_stops_everything(site):
     # Требование берём не буквой, а строкой: иначе тест отваливается при
     # каждом подъёме версии движка, хотя проверяет он совсем другое.
     (site / "site.yaml").write_text(
-        re.sub(r'^heron: .*$', 'heron: ">=9.0"', config, count=1, flags=re.M), "utf-8"
+        re.sub(r"^heron: .*$", 'heron: ">=9.0"', config, count=1, flags=re.M), "utf-8"
     )
     with pytest.raises(HeronError) as exc:
         pipeline.run(site)

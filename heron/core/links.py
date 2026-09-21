@@ -17,7 +17,7 @@ import re
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core.errors import Collector
-from heron.core.models import Page, Site
+from heron.core.models import Linked, Page, Site
 
 
 def _parent_url(url: str) -> str | None:
@@ -45,6 +45,38 @@ def _as_list(value: object) -> list[str]:
     if isinstance(value, list):
         return [str(v) for v in value]
     return []
+
+
+TAGS = re.compile(r"<[^>]+>")
+
+
+def _as_links(value: object) -> list[tuple[str, str]]:
+    """Поле связи: слаги, карты `{slug, note}` или и то и другое вперемешку.
+
+    Подпись рядом со слагом нужна там, где карточка связи несёт не только
+    название: «основная операция при грыже с болью в ноге» пишется в том
+    файле, где эта связь объявлена, а не в теме.
+    """
+    if value is None:
+        return []
+    items = value if isinstance(value, list) else [value]
+    out: list[tuple[str, str]] = []
+    for item in items:
+        if isinstance(item, dict):
+            slug = str(item.get("slug") or "").strip()
+            if slug:
+                out.append((slug, str(item.get("note") or "").strip()))
+        elif item is not None:
+            out.append((str(item).strip(), ""))
+    return [pair for pair in out if pair[0]]
+
+
+def _default_note(page: Page) -> str:
+    """Подпись по умолчанию: обещание страницы, иначе её описание."""
+    promise = page.intro.promise if page.intro else ""
+    if promise:
+        return TAGS.sub("", promise).strip()
+    return page.meta.description or ""
 
 
 HREF = re.compile(r'href="(/[^"]*)"')
@@ -174,7 +206,7 @@ def _declared(site: Site, theme: ThemeConfig, collector: Collector) -> None:
 
     for link in theme.links:
         for page in site.pages:
-            slugs = _as_list(page.meta.extra.get(link.field))
+            slugs = _as_links(page.meta.extra.get(link.field))
             if not slugs:
                 # Пустое поле — повод для замечания только там, где тема
                 # сказала, каким страницам оно положено. Иначе движок
@@ -187,8 +219,8 @@ def _declared(site: Site, theme: ThemeConfig, collector: Collector) -> None:
                     )
                 continue
 
-            targets: list[Page] = []
-            for slug in slugs:
+            targets: list[Linked] = []
+            for slug, note in slugs:
                 found = [
                     candidate
                     for candidate in by_slug.get((page.lang, slug), [])
@@ -212,12 +244,14 @@ def _declared(site: Site, theme: ThemeConfig, collector: Collector) -> None:
                         hint="уточните тип связи в theme.yaml или переименуйте страницу",
                     )
                     continue
-                targets.append(found[0])
+                targets.append(Linked(found[0], note or _default_note(found[0])))
 
             page.related.setdefault(link.field, []).extend(targets)
             if link.back:
                 for target in targets:
-                    target.related.setdefault(link.back, []).append(page)
+                    target.page.related.setdefault(link.back, []).append(
+                        Linked(page, _default_note(page))
+                    )
 
             if link.required and len(targets) < link.required:
                 collector.warn(

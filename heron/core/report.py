@@ -33,6 +33,7 @@ class Report:
     pages_by_lang: Counter = field(default_factory=Counter)
     pages_by_type: Counter = field(default_factory=Counter)
     missing_sections: dict[str, list[str]] = field(default_factory=dict)
+    format_mismatch: list[tuple[str, str, str, str]] = field(default_factory=list)
     unused_sections: list[tuple[str, str]] = field(default_factory=list)
     unused_modules: list[str] = field(default_factory=list)
     broken_links: list[tuple[str, str]] = field(default_factory=list)
@@ -62,10 +63,16 @@ class Report:
 
         if self.missing_sections:
             lines.append("")
-            lines.append("Не заполнено:")
+            lines.append("Тема ждёт секцию, а в файле её нет:")
             for section, pages in sorted(self.missing_sections.items()):
                 shown = ", ".join(pages[:5]) + (" …" if len(pages) > 5 else "")
                 lines.append(f"  {section:12} — {len(pages)} страниц: {shown}")
+
+        if self.format_mismatch:
+            lines.append("")
+            lines.append("Формат секции не тот, которого ждёт тема (это не ошибка):")
+            for source, section, want, got in self.format_mismatch[:20]:
+                lines.append(f"  {source}: {section} — ждали {want}, пришло {got}")
 
         if self.nameless_in_nav:
             lines.append("")
@@ -110,9 +117,15 @@ def build(site: Site, config: SiteConfig, theme: ThemeConfig, theme_dir=None) ->
     missing: dict[str, list[str]] = defaultdict(list)
     for page in site.pages:
         wanted = theme.sections_of(page.type)
+        formats = theme.formats_of(page.type)
         for section_id in wanted:
             if not page.has(section_id):
                 missing[section_id].append(page.source)
+                continue
+            want = formats.get(section_id)
+            section = page.section(section_id)
+            if want and section is not None and section.kind != want:
+                report.format_mismatch.append((page.source, section_id, want, section.kind))
         if wanted:
             for section_id in page.sections:
                 if section_id not in wanted:

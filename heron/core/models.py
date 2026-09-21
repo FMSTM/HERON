@@ -134,6 +134,22 @@ class Page:
 
 
 @dataclass(slots=True)
+class Linked:
+    """Страница в поле связи, с подписью.
+
+    Тема обращается к ней как к обычной странице — `url`, `h1`, `nav_title`
+    доезжают до неё насквозь, — а `note` добавляет подпись, которую автор
+    написал рядом со слагом или которую движок взял со страницы-цели.
+    """
+
+    page: Page
+    note: str = ""
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.page, name)
+
+
+@dataclass(slots=True)
 class Site:
     """Сайт целиком: страницы, справочники, меню."""
 

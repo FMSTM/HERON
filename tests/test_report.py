@@ -102,7 +102,7 @@ def test_render_is_readable(built):
     site, config, theme, _ = built
     text = report.build(site, config, theme).render()
     assert "Страниц —" in text
-    assert "Не заполнено:" in text
+    assert "Тема ждёт секцию, а в файле её нет:" in text
     assert "contra" in text
 
 

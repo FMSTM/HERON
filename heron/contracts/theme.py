@@ -29,6 +29,11 @@ from heron.contracts.loader import build, read_yaml
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 SECTION_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
+# Тема вправе назвать ожидаемый формат секции: `recovery:timeline`.
+# Расхождение — не ошибка сборки, а строка в отчёте: одна и та же секция
+# на разных страницах бывает то таблицей, то прозой, и это нормально.
+USES_RE = re.compile(r"^(?P<id>[a-z0-9][a-z0-9-]*)(?::(?P<kind>[a-z0-9][a-z0-9-]*))?$")
+
 
 class TypeSpec(BaseModel):
     """Тип страницы: какие секции использует и чем размечается."""
@@ -42,10 +47,16 @@ class TypeSpec(BaseModel):
     @field_validator("uses")
     @classmethod
     def _uses(cls, v: list[str]) -> list[str]:
+        names = []
         for section in v:
-            if not SECTION_RE.match(section):
-                raise ValueError(f"идентификатор секции {section!r} — латиница, цифры и дефис")
-        if len(set(v)) != len(v):
+            match = USES_RE.match(section)
+            if not match:
+                raise ValueError(
+                    f"секция {section!r} — латиница, цифры и дефис, "
+                    "необязательный формат через двоеточие"
+                )
+            names.append(match.group("id"))
+        if len(set(names)) != len(names):
             raise ValueError("секции повторяются")
         return v
 
@@ -155,7 +166,21 @@ class ThemeConfig(BaseModel):
 
     def sections_of(self, page_type: str) -> list[str]:
         spec = self.types.get(page_type)
-        return list(spec.uses) if spec else []
+        if not spec:
+            return []
+        return [USES_RE.match(name).group("id") for name in spec.uses]  # type: ignore[union-attr]
+
+    def formats_of(self, page_type: str) -> dict[str, str]:
+        """Какой формат секции тема считает ожидаемым. Пусто — любой."""
+        spec = self.types.get(page_type)
+        if not spec:
+            return {}
+        out: dict[str, str] = {}
+        for name in spec.uses:
+            match = USES_RE.match(name)
+            if match and match.group("kind"):
+                out[match.group("id")] = match.group("kind")
+        return out
 
 
 def load_theme(path: Path) -> ThemeConfig:

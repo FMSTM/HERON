@@ -24,6 +24,25 @@ RAW_HTML = re.compile(r"<\s*/?\s*[a-zA-Z][a-zA-Z0-9:-]*(\s[^<>]*)?/?>")
 ALLOWED_INLINE = re.compile(r"^\s*<(br|wbr)\s*/?>\s*$", re.I)
 
 
+COMMENT = re.compile(r"<!--.*?-->", re.S)
+FENCE = re.compile(r"(^```.*?^```|^~~~.*?^~~~)", re.S | re.M)
+
+
+def strip_comments(text: str) -> str:
+    """Убрать комментарии автора из markdown.
+
+    Контент пишут с пояснениями для себя: чем этот блок занят, что сюда
+    добавить, чего не делать. Это заметки, а не текст страницы. Сырой HTML
+    в контенте выключен по умолчанию, поэтому комментарий не исчезает, а
+    экранируется и выезжает на страницу как видимая строка — что и
+    случилось на пилоте.
+
+    Внутри блоков кода комментарии не трогаем: там они и есть содержимое.
+    """
+    parts = FENCE.split(text)
+    return "".join(part if index % 2 else COMMENT.sub("", part) for index, part in enumerate(parts))
+
+
 def parse_attrs(body: str) -> tuple[str | None, list[str], dict[str, str]]:
     """Разобрать `#id .class key=value` в идентификатор, классы и прочие атрибуты."""
     anchor: str | None = None

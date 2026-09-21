@@ -15,12 +15,34 @@ from typing import Any
 from heron.contracts.frontmatter import PageMeta
 
 
+class Pair(str):
+    """Пункт списка вида `**Термин.** Пояснение`.
+
+    Значение строки — html пункта целиком, поэтому тема, написанная до
+    этого правила (`{{ item|safe }}`), продолжает работать. Разобранные
+    части доступны атрибутами: `term`, `text`, `links`.
+    """
+
+    __slots__ = ("term", "text", "links")
+
+    def __new__(cls, html: str, term: str = "", text: str = "", links: Any = None):
+        item = super().__new__(cls, html)
+        item.term = term
+        item.text = text
+        item.links = links or []
+        return item
+
+
 @dataclass(slots=True)
 class Section:
     """Блок контента с идентификатором.
 
     `id` — адрес для темы, его не правят. `title` — заголовок, который увидит
     посетитель, его правят свободно. Разделение принципиальное.
+
+    Секция приезжает в тему разобранной: подводка до основного узла,
+    сам узел, примечание после него и цитата-врезка. Макет рисует их
+    по-разному, поэтому склеенный кусок html темe не годится.
     """
 
     id: str
@@ -32,6 +54,18 @@ class Section:
     kind: str = "prose"
     data: Any = None
     line: int | None = None
+
+    lead: str = ""
+    note: str = ""
+    note_title: str = ""
+    callout: str = ""
+    promise: str = ""
+    links: list[dict[str, str]] = field(default_factory=list)
+
+    @property
+    def body(self) -> Any:
+        """Основной узел секции: разобранные данные или проза."""
+        return self.html if self.data is None else self.data
 
     @property
     def is_empty(self) -> bool:
@@ -97,6 +131,22 @@ class Page:
     @property
     def is_index(self) -> bool:
         return self.source.endswith("_index.md") or self.key == ""
+
+
+@dataclass(slots=True)
+class Linked:
+    """Страница в поле связи, с подписью.
+
+    Тема обращается к ней как к обычной странице — `url`, `h1`, `nav_title`
+    доезжают до неё насквозь, — а `note` добавляет подпись, которую автор
+    написал рядом со слагом или которую движок взял со страницы-цели.
+    """
+
+    page: Page
+    note: str = ""
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.page, name)
 
 
 @dataclass(slots=True)

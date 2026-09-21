@@ -27,7 +27,7 @@ from heron.core.models import Site
 from heron.core.parser import markdown
 from heron.core.progress import Progress, Silent
 from heron.core.render import pages as renderer
-from heron.modules import feed, llms, redirects, robots, sitemap
+from heron.modules import feed, llms, nginx, redirects, robots, sitemap
 
 SITE_YAML = "site.yaml"
 CACHE = ".heron-cache"
@@ -70,6 +70,23 @@ def _copy_tree(source: Path, target: Path) -> None:
         shutil.copytree(source, target, dirs_exist_ok=True)
 
 
+def _readable(dist: Path) -> None:
+    """Сделать собранное читаемым для любого сервера.
+
+    Права приезжают вместе с файлами из папки сайта, а отдаёт их потом
+    чужой процесс: nginx в образе работает не под root. Папка, закрытая
+    умаском машины сборки, превращается в 403 на весь сайт — и выглядит
+    это как «образ собрался неправильно», хотя собралось всё верно.
+    """
+    for path in (dist, *dist.rglob("*")):
+        try:
+            mode = path.stat().st_mode & 0o777
+            # папке нужен ещё и вход внутрь, файлу — только чтение
+            path.chmod(mode | (0o755 if path.is_dir() else 0o444))
+        except OSError:
+            continue
+
+
 def prepare(site_root: Path, collector: Collector) -> tuple[SiteConfig, ThemeConfig, Path, Hooks]:
     """Этап 1: конфиги, версия движка, тема, плагины."""
     config = load_site(site_root / SITE_YAML)
@@ -105,6 +122,7 @@ def run(
     env = env or BuildEnv()
     say = progress or Silent()
     site_root = site_root.resolve()
+    env = env.stamped(site_root)
     dist = (dist or site_root / DIST).resolve()
 
     say.step("конфиг, тема и плагины")
@@ -161,7 +179,9 @@ def run(
         return result
 
     say.step("шаблоны")
-    html = renderer.render_site(theme_dir, site, config, theme, collector, manifest, env)
+    html = renderer.render_site(
+        theme_dir, site, config, theme, collector, manifest, env, progress=say
+    )
     say.done(f"{len(html)} страниц")
     if collector.failed:
         return result
@@ -172,6 +192,7 @@ def run(
     files.update(robots.generate(config, env))
     files.update(llms.generate(site, config))
     files.update(redirects.generate(site, collector))
+    files.update(nginx.generate(config))
     files.update(feed.generate(site, config))
 
     say.done()
@@ -187,13 +208,16 @@ def run(
         return result
 
     say.step("запись")
-    for name, text in sorted(files.items()):
-        _write(dist, name, text)
+    names = sorted(files)
+    for index, name in enumerate(names, 1):
+        say.tick(index, len(names), name)
+        _write(dist, name, files[name])
     _copy_tree(site_root / STATIC, dist)
     _copy_tree(theme_dir / ASSETS, dist / ASSETS)
 
     say.done(f"{len(files)} файлов")
     result.written = sorted(files)
+    _readable(dist)
     result.report = report.build(site, config, theme, theme_dir=theme_dir)
     return result
 
@@ -212,6 +236,7 @@ def check(site_root: Path, drafts: bool = False) -> Result:
     site, collector = tree.scan(site_root / "content", config, md, collector, drafts=drafts)
     site.data = data_module.load(site_root / "data", collector)
     links.resolve(site, config, theme, collector)
+    media.verify(site, site_root, collector)
     redirects.generate(site, collector)
 
     return Result(

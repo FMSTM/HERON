@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 
 DEV = "dev"
 PROD = "prod"
@@ -53,10 +55,37 @@ class BuildEnv:
     name: str = DEV
     indexable: bool = False
     analytics: bool = False
+    version: str = ""
+    built_at: str = ""
+    revision: str = ""
 
     @property
     def is_prod(self) -> bool:
         return self.name == PROD
+
+    @property
+    def stamp(self) -> str:
+        """Короткая метка сборки для служебного флажка в теме.
+
+        Нужна, чтобы по одному взгляду на страницу понимать, какая именно
+        статика сейчас отдаётся: «почему правка не видна» чаще всего значит
+        «крутится вчерашний образ», а не «сборка сломалась».
+        """
+        parts = [p for p in (self.version, self.built_at, self.revision) if p]
+        return " · ".join(parts)
+
+    def stamped(self, site_root: Path | None = None) -> BuildEnv:
+        """То же окружение, но с версией, временем и ревизией контента."""
+        from heron import __version__
+
+        return BuildEnv(
+            name=self.name,
+            indexable=self.indexable,
+            analytics=self.analytics,
+            version=__version__,
+            built_at=datetime.now().astimezone().strftime("%d.%m.%Y %H:%M"),
+            revision=_revision(site_root) if site_root else "",
+        )
 
     @classmethod
     def named(cls, name: str) -> BuildEnv:
@@ -78,3 +107,29 @@ class BuildEnv:
             indexable=_flag("SITE_INDEXABLE", base.indexable),
             analytics=_flag("SITE_ANALYTICS", base.analytics),
         )
+
+
+def _revision(site_root: Path) -> str:
+    """Короткий коммит папки контента, если рядом есть git.
+
+    Читаем файлы, а не зовём git: папка монтируется только на чтение,
+    а в образе движка git может отсутствовать вовсе. Нет .git — нет и
+    ревизии, это не ошибка.
+    """
+    git = site_root / ".git"
+    try:
+        if git.is_file():  # рабочее дерево вынесено, в файле путь к настоящей папке
+            git = (site_root / git.read_text(encoding="utf-8").split(":", 1)[1].strip()).resolve()
+        head = (git / "HEAD").read_text(encoding="utf-8").strip()
+        if not head.startswith("ref:"):
+            return head[:7]
+        ref = head.split(" ", 1)[1].strip()
+        direct = git / ref
+        if direct.exists():
+            return direct.read_text(encoding="utf-8").strip()[:7]
+        for line in (git / "packed-refs").read_text(encoding="utf-8").splitlines():
+            if line.endswith(" " + ref):
+                return line.split(" ", 1)[0][:7]
+    except (OSError, IndexError, UnicodeDecodeError):
+        return ""
+    return ""

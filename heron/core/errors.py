@@ -51,11 +51,17 @@ class HeronError(Exception):
 
 @dataclass(slots=True)
 class Warning_:
-    """Предупреждение. Не останавливает сборку, попадает в отчёт check."""
+    """Предупреждение. Не останавливает сборку, попадает в отчёт check.
+
+    `kind` — вид предупреждения. Сводка группирует по нему, иначе сотня
+    однотипных замечаний про переводы прячет десяток важных про файлы,
+    которых нет на диске.
+    """
 
     message: str
     path: str | None = None
     line: int | None = None
+    kind: str = "прочее"
 
 
 @dataclass(slots=True)

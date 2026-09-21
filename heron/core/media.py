@@ -25,8 +25,11 @@ from heron.contracts.theme import ImagesSpec
 from heron.core.errors import Collector
 from heron.core.models import Site
 
+# Путь к картинке в произвольном поле фронтматтера: тема вправе объявить
+# своё поле (вторая фотография, обложка), и такой файл тоже надо нарезать.
+IMAGE_FIELD = re.compile(r"^\.?/?img/[^\s]+\.(?:png|jpe?g|webp|avif|gif|svg)$", re.I)
+
 REFERENCE = re.compile(r"""(?:\(|["'\s])((?:\./)?img/[^)"'\s]+\.[a-zA-Z0-9]+)""")
-MARGIN = 0.15
 CACHE = "media.json"
 KEEP = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -61,21 +64,87 @@ def _label(ratio: str) -> str:
     return ratio.replace(":", "x")
 
 
+def declared_by(site: Site) -> dict[str, list[str]]:
+    """Кто ссылается на картинку: путь → страницы, где он объявлен.
+
+    Нужно для внятного предупреждения: «нет на диске» без имени страницы
+    заставляет искать объявление руками по всему контенту.
+    """
+    where: dict[str, list[str]] = {}
+    for page in site.pages:
+        for src in _page_images(page):
+            where.setdefault(src, []).append(page.source)
+    return where
+
+
+def _page_images(page) -> set[str]:
+    """Картинки одной страницы: поля фронтматтера и пути из текста."""
+    found: set[str] = set()
+    for value in (page.meta.image, page.meta.og_image):
+        if value:
+            found.add(value.lstrip("./"))
+    for _name, value in (page.meta.model_extra or {}).items():
+        if isinstance(value, str) and IMAGE_FIELD.match(value):
+            found.add(value.lstrip("./"))
+        elif isinstance(value, list):
+            found.update(
+                item.lstrip("./")
+                for item in value
+                if isinstance(item, str) and IMAGE_FIELD.match(item)
+            )
+    chunks = [page.intro.raw if page.intro else "", *(s.raw for s in page.sections.values())]
+    for chunk in chunks:
+        found.update(match.group(1).lstrip("./") for match in REFERENCE.finditer(chunk))
+    return found
+
+
 def references(site: Site) -> set[str]:
     """Все картинки, на которые ссылается контент."""
     found: set[str] = set()
     for page in site.pages:
-        for value in (page.meta.image, page.meta.og_image):
-            if value:
-                found.add(value.lstrip("./"))
-        chunks = [page.intro.raw if page.intro else "", *(s.raw for s in page.sections.values())]
-        for chunk in chunks:
-            found.update(match.group(1).lstrip("./") for match in REFERENCE.finditer(chunk))
+        found.update(_page_images(page))
     return found
 
 
+def _owner(declared: dict[str, list[str]], src: str) -> str:
+    """Где объявлена картинка: первая страница и сколько ещё."""
+    pages = declared.get(src) or []
+    if not pages:
+        return src
+    tail = f" и ещё {len(pages) - 1}" if len(pages) > 1 else ""
+    return f"{pages[0]}{tail}"
+
+
+def _fit(image: Image.Image, ratio: tuple[int, int]) -> Image.Image:
+    """Вписать мастер в пропорцию, добив прозрачными полями.
+
+    Иллюстрацию кропать нельзя: рисунок доходит до края кадра, и любой
+    центральный кроп срезает его часть. Поля прозрачные, поэтому на любой
+    подложке темы вписанная картинка выглядит как исходная.
+    """
+    want = ratio[0] / ratio[1]
+    have = image.width / image.height
+    if abs(want - have) < 0.001:
+        return image
+    if have > want:
+        width, height = image.width, round(image.width / want)
+    else:
+        width, height = round(image.height * want), image.height
+    canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    canvas.paste(image, ((width - image.width) // 2, (height - image.height) // 2))
+    return canvas
+
+
+def _has_alpha(image: Image.Image) -> bool:
+    """Есть ли в картинке настоящая прозрачность."""
+    if image.mode not in ("RGBA", "LA"):
+        return False
+    alpha = image.getchannel("A")
+    return alpha.getextrema()[0] < 255
+
+
 def _crop(image: Image.Image, ratio: tuple[int, int]) -> Image.Image:
-    """Центральный кроп под нужную пропорцию."""
+    """Центральный кроп под нужную пропорцию. Только для фотографий."""
     want = ratio[0] / ratio[1]
     have = image.width / image.height
     if abs(want - have) < 0.001:
@@ -87,28 +156,6 @@ def _crop(image: Image.Image, ratio: tuple[int, int]) -> Image.Image:
     new_height = round(image.width / want)
     top = (image.height - new_height) // 2
     return image.crop((0, top, image.width, top + new_height))
-
-
-def _edge_warning(image: Image.Image, src: str, collector: Collector) -> None:
-    """Объект упирается в край мастера — при кропе его срежет."""
-    if image.mode not in ("RGBA", "LA"):
-        return
-    box = image.getbbox()
-    if box is None:
-        return
-    left, top, right, bottom = box
-    margins = [
-        left / image.width,
-        top / image.height,
-        (image.width - right) / image.width,
-        (image.height - bottom) / image.height,
-    ]
-    if min(margins) < MARGIN:
-        collector.warn(
-            f"объект почти упирается в край мастера — при кропе его срежет (запас "
-            f"{min(margins):.0%}, нужно {MARGIN:.0%})",
-            path=src,
-        )
 
 
 def _opaque(image: Image.Image) -> Image.Image:
@@ -130,6 +177,25 @@ def _digest(path: Path, spec: ImagesSpec) -> str:
     payload = hashlib.sha1(path.read_bytes())
     payload.update(json.dumps(spec.model_dump(), sort_keys=True).encode())
     return payload.hexdigest()
+
+
+def verify(site: Site, site_root: Path, collector: Collector) -> None:
+    """Проверить, что каждая объявленная картинка лежит на диске.
+
+    В сборке это предупреждение: страницу пишут раньше, чем рисуют
+    иллюстрацию, и блокировать работу над текстом очередью художника
+    незачем. В `heron check` — ошибка: команду зовут именно затем, чтобы
+    узнать, что сайт не готов.
+    """
+    declared = declared_by(site)
+    for src in sorted(declared):
+        if not (site_root / src).is_file():
+            collector.error(
+                "E007",
+                f"нет файла {src}",
+                path=_owner(declared, src),
+                hint="поправьте путь во фронтматтере или положите картинку",
+            )
 
 
 def build(
@@ -160,6 +226,7 @@ def build(
     fresh: dict[str, str] = {}
 
     sources = sorted(references(site))
+    declared = declared_by(site)
     for index, src in enumerate(sources, 1):
         if progress is not None:
             progress.tick(index, len(sources), src)
@@ -169,11 +236,11 @@ def build(
                 collector.error(
                     "E007",
                     f"картинки {src} нет на диске",
-                    path=src,
+                    path=_owner(declared, src),
                     hint="битая картинка в проде дороже упавшей сборки",
                 )
             else:
-                collector.warn(f"картинки {src} нет на диске", path=src)
+                collector.warn(f"нет файла {src}", path=_owner(declared, src), kind="картинки")
             continue
 
         if source.suffix.lower() not in KEEP:
@@ -187,11 +254,13 @@ def build(
 
         with Image.open(source) as opened:
             image = _opaque(opened.convert("RGBA" if opened.mode in ("RGBA", "LA", "P") else "RGB"))
-            _edge_warning(image, src, collector)
 
             stem = Path(src)
+            # Иллюстрацию вписываем, фотографию кропаем. Признак —
+            # прозрачность: у фотографии её нет и поля взять неоткуда.
+            fits = _has_alpha(image) and not any(src.startswith(rule) for rule in spec.crop)
             for ratio in spec.ratios:
-                cropped = _crop(image, _ratio_of(ratio))
+                cropped = (_fit if fits else _crop)(image, _ratio_of(ratio))
                 widths = [w for w in spec.widths if w <= cropped.width] or [cropped.width]
                 rendition = Rendition(
                     ratio=ratio,

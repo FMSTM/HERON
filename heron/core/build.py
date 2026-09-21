@@ -171,6 +171,7 @@ def run(
             cache_dir=dist.parent / CACHE,
             strict=strict,
             progress=say,
+            config=config,
         )
         if with_media
         else media.Manifest()
@@ -219,7 +220,7 @@ def run(
     say.done(f"{len(files)} файлов")
     result.written = sorted(files)
     _readable(dist)
-    result.report = report.build(site, config, theme, theme_dir=theme_dir)
+    result.report = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
     return result
 
 
@@ -238,7 +239,7 @@ def check(site_root: Path, drafts: bool = False) -> Result:
     site.data = data_module.load(site_root / "data", collector)
     links.resolve(site, config, theme, collector)
     media.folder(site_root, collector)
-    media.verify(site, site_root, collector)
+    media.verify(site, site_root, collector, config)
     redirects.generate(site, collector)
 
     return Result(
@@ -247,5 +248,5 @@ def check(site_root: Path, drafts: bool = False) -> Result:
         theme_dir=theme_dir,
         site=site,
         collector=collector,
-        report=report.build(site, config, theme, theme_dir=theme_dir),
+        report=report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root),
     )

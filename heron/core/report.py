@@ -161,7 +161,7 @@ def build(site: Site, config: SiteConfig, theme: ThemeConfig, theme_dir=None) ->
                 target = href if href.endswith("/") else href + "/"
                 if target in site.by_url:
                     linked.add(target)
-                elif not href.startswith(("/img/", "/static/", "/assets/")):
+                elif not href.startswith(("/media/", "/img/", "/static/", "/assets/")):
                     report.broken_links.append((page.source, href))
 
     for page in site.pages:

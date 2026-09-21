@@ -189,7 +189,7 @@ def create(
     for lang in languages:
         _keep(root, f"content/{lang}", plan)
 
-    for folder in ("data", "img", "static", "plugins"):
+    for folder in ("data", "media", "static", "plugins"):
         path = root / folder
         if not path.exists():
             path.mkdir(parents=True, exist_ok=True)
@@ -228,7 +228,7 @@ def adopt(root: Path, force: bool = False) -> Plan:
         present = sorted(p.name for p in content.iterdir() if p.is_dir())
         pages = len(list(content.rglob("*.md")))
         plan.found.append(f"content/: {pages} страниц, языки: {', '.join(present) or 'нет'}")
-    for folder in ("data", "img", "static", "theme"):
+    for folder in ("data", "media", "static", "theme"):
         if (root / folder).is_dir():
             plan.found.append(f"{folder}/ на месте")
 

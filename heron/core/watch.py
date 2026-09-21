@@ -21,7 +21,7 @@ from heron.core import build as pipeline
 from heron.core import report as report_module
 from heron.core.errors import HeronError
 
-WATCHED = ("content", "data", "img", "static", "theme")
+WATCHED = ("content", "data", "media", "img", "static", "theme")
 POLL = 1.0
 
 

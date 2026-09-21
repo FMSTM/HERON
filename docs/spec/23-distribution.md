@@ -107,7 +107,7 @@ heron build --image мой-сайт:1.0
 ├── site.yaml              версия движка, домен, языки, тема, плагины
 ├── content/<lang>/        index.md, 404.md — заготовки
 ├── data/                  пусто
-├── img/  static/          пусто
+├── media/  static/        пусто
 ├── theme/                 скелет: theme.yaml, base.html, templates/, modules/, i18n/, assets/
 ├── plugins/               пусто
 ├── .gitignore             dist/, .heron-cache/, .env

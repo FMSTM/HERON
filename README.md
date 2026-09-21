@@ -50,7 +50,7 @@ docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" \
   ghcr.io/fmstm/heron:prod new мой-сайт
 ```
 
-В папке появятся `site.yaml`, `content/`, `img/`, `static/`, `theme/`. Откройте
+В папке появятся `site.yaml`, `content/`, `media/`, `static/`, `theme/`. Откройте
 `site.yaml` и впишите домен, языки и меню — это единственное место, где сайт
 описан. Затем догоните структуру под написанное:
 

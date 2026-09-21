@@ -22,12 +22,21 @@ from pathlib import Path
 from PIL import Image
 
 from heron.contracts.theme import ImagesSpec
-from heron.core.errors import Collector
+from heron.core.errors import Collector, HeronError
 from heron.core.models import Site
+
+# Папка ресурсов сайта. Имя `img` обещало только изображения, и видео класть
+# было некуда — оно оседало в `static/` и ехало в сборку без обработки.
+MEDIA = "media"
+LEGACY = "img"
+FOLDERS = (MEDIA, LEGACY)
 
 # Путь к картинке в произвольном поле фронтматтера: тема вправе объявить
 # своё поле (вторая фотография, обложка), и такой файл тоже надо нарезать.
-IMAGE_FIELD = re.compile(r"^\.?/?img/[^\s]+\.(?:png|jpe?g|webp|avif|gif|svg)$", re.I)
+# Старое имя папки принимается наравне с новым: сайт переезжает одним
+# проходом, а собираться он должен и до него, и после.
+_IN = "|".join(FOLDERS)
+IMAGE_FIELD = re.compile(rf"^\.?/?(?:{_IN})/[^\s]+\.(?:png|jpe?g|webp|avif|gif|svg)$", re.I)
 
 # Чужой адрес: схема или протокол-относительная ссылка. Проверяется отдельно
 # от IMAGE_FIELD, а не «само не совпадёт»: поля со ссылкой на сторонний
@@ -39,7 +48,7 @@ EXTERNAL = re.compile(r"^(?:[a-z][a-z0-9+.\-]*:)?//", re.I)
 # один дурной файл данных уводит обход в бесконечность.
 MAX_DEPTH = 8
 
-REFERENCE = re.compile(r"""(?:\(|["'\s])((?:\./)?img/[^)"'\s]+\.[a-zA-Z0-9]+)""")
+REFERENCE = re.compile(rf"""(?:\(|["'\s])((?:\./)?(?:{_IN})/[^)"'\s]+\.[a-zA-Z0-9]+)""")
 CACHE = "media.json"
 KEEP = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -72,6 +81,59 @@ def _ratio_of(ratio: str) -> tuple[int, int]:
 
 def _label(ratio: str) -> str:
     return ratio.replace(":", "x")
+
+
+def folder(site_root: Path, collector: Collector) -> str:
+    """Какая папка ресурсов у сайта: новая, старая или беда.
+
+    Переименование `img/` в `media/` — разовый проход по сайту, и пока он
+    не сделан, сайт обязан собираться: ронять чужую работу ради своего
+    переименования движок не вправе. Но две папки сразу — не переходное
+    состояние, а развилка: в какой из них лежит правда, движок не знает,
+    и гадать здесь дороже, чем остановиться.
+
+    Статика копируется в корень как есть, поэтому `static/media` метит
+    в те же адреса, что и `media/`. Совпадение имён там — тихая перезапись
+    файла, которую замечают уже в сети.
+    """
+    new, old = site_root / MEDIA, site_root / LEGACY
+    if new.is_dir() and old.is_dir():
+        raise HeronError(
+            code="E018",
+            message=f"в сайте есть и {MEDIA}/, и {LEGACY}/ — движок не знает, какая настоящая",
+            path=str(site_root),
+            hint=f"перенесите файлы в {MEDIA}/ и удалите {LEGACY}/",
+        )
+    shadow = site_root / "static" / MEDIA
+    if shadow.is_dir() and new.is_dir():
+        # Обе папки метят в /media/. Само по себе это ещё не беда: пока
+        # имена не совпадают, файлы просто ложатся рядом. Беда начинается
+        # на совпадении — один файл молча затирает другой уже в сети.
+        clash = sorted(
+            {f.relative_to(shadow).as_posix() for f in shadow.rglob("*") if f.is_file()}
+            & {f.relative_to(new).as_posix() for f in new.rglob("*") if f.is_file()}
+        )
+        if clash:
+            raise HeronError(
+                code="E018",
+                message=f"static/{MEDIA} и {MEDIA}/ дают один адрес: {', '.join(clash[:3])}",
+                path=str(site_root),
+                hint=f"держите ресурсы в одном месте: {MEDIA}/",
+            )
+        collector.warn(
+            f"в /{MEDIA}/ отдаются две папки сразу: {MEDIA}/ и static/{MEDIA} — "
+            "перенесите содержимое второй в первую",
+            path=str(shadow),
+            kind="картинки",
+        )
+    if old.is_dir():
+        collector.warn(
+            f"папка ресурсов называется {LEGACY}/ — переименуйте в {MEDIA}/, туда же ложится видео",
+            path=str(site_root / LEGACY),
+            kind="картинки",
+        )
+        return LEGACY
+    return MEDIA
 
 
 def declared_by(site: Site) -> dict[str, list[str]]:

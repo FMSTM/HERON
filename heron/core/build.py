@@ -216,6 +216,7 @@ def check(site_root: Path, drafts: bool = False) -> Result:
     site, collector = tree.scan(site_root / "content", config, md, collector, drafts=drafts)
     site.data = data_module.load(site_root / "data", collector)
     links.resolve(site, config, theme, collector)
+    media.verify(site, site_root, collector)
     redirects.generate(site, collector)
 
     return Result(

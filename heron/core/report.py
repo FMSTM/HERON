@@ -126,7 +126,7 @@ def build(site: Site, config: SiteConfig, theme: ThemeConfig, theme_dir=None) ->
             section = page.section(section_id)
             if want and section is not None and section.kind != want:
                 report.format_mismatch.append((page.source, section_id, want, section.kind))
-        if wanted:
+        if wanted and not theme.any_sections(page.type):
             for section_id in page.sections:
                 if section_id not in wanted:
                     report.unused_sections.append((page.source, section_id))

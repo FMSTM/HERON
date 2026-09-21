@@ -27,7 +27,7 @@ from heron.core.models import Site
 from heron.core.parser import markdown
 from heron.core.progress import Progress, Silent
 from heron.core.render import pages as renderer
-from heron.modules import feed, llms, redirects, robots, sitemap
+from heron.modules import feed, llms, nginx, redirects, robots, sitemap
 
 SITE_YAML = "site.yaml"
 CACHE = ".heron-cache"
@@ -192,6 +192,7 @@ def run(
     files.update(robots.generate(config, env))
     files.update(llms.generate(site, config))
     files.update(redirects.generate(site, collector))
+    files.update(nginx.generate(config))
     files.update(feed.generate(site, config))
 
     say.done()

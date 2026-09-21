@@ -59,7 +59,9 @@ class Strings:
             return self._values[key]
         if key not in self._missed:
             self._missed.add(key)
-            self._collector.warn(f"нет строки перевода {key!r} для языка {self._lang!r}")
+            self._collector.warn(
+                f"нет строки перевода {key!r} для языка {self._lang!r}", kind="переводы"
+            )
         return key
 
     def __contains__(self, key: str) -> bool:
@@ -116,9 +118,22 @@ def load_strings(theme_dir: Path, lang: str, collector: Collector) -> Strings:
     if path.is_file():
         loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
         if isinstance(loaded, dict):
+            # YAML читает голые off, on, yes, no как булевы значения, и строка
+            # 'off' тихо теряется. Молчать нельзя: в вёрстке останется имя
+            # ключа, а причина будет неочевидна до самого осмотра страницы.
+            for key in [k for k in loaded if not isinstance(k, str)]:
+                collector.warn(
+                    f"ключ {key!r} прочитан как {type(key).__name__}, а не как строка — "
+                    "возьмите его в кавычки",
+                    path=str(path),
+                    kind="переводы",
+                )
+                del loaded[key]
             values = loaded
     else:
-        collector.warn(f"в теме нет строк интерфейса для языка {lang!r}", path=str(path))
+        collector.warn(
+            f"в теме нет строк интерфейса для языка {lang!r}", path=str(path), kind="переводы"
+        )
     return Strings(values, lang, collector)
 
 
@@ -154,10 +169,11 @@ def picture(
         sizes: str = "100vw",
         lazy: bool = True,
         classes: str = "",
+        attrs: str = "",
     ) -> Markup:
         rendition = manifest.get(src, ratio)
         if rendition is None:
-            collector.warn(f"нет нарезанного варианта {ratio} для {src}")
+            collector.warn(f"нет нарезанного варианта {ratio} для {src}", kind="картинки")
             return Markup("")
 
         parts: list[str] = ["<picture>"]
@@ -166,7 +182,7 @@ def picture(
                 continue
             srcset = ", ".join(f"/{path} {width}w" for width, path in variants)
             parts.append(f'<source type="image/{fmt}" srcset="{srcset}" sizes="{sizes}">')
-        attrs = [
+        img = [
             f'src="/{rendition.fallback}"',
             f'width="{rendition.width}"',
             f'height="{rendition.height}"',
@@ -174,10 +190,16 @@ def picture(
             'decoding="async"',
         ]
         if lazy:
-            attrs.append('loading="lazy"')
+            img.append('loading="lazy"')
         if classes:
-            attrs.append(f'class="{escape(classes)}"')
-        parts.append("<img " + " ".join(attrs) + ">")
+            img.append(f'class="{escape(classes)}"')
+        if attrs:
+            # Тема переносит вёрстку из макета один в один, вместе с
+            # инлайновыми стилями и data-атрибутами. Их некуда девать,
+            # кроме как отдать сюда: собирать <picture> руками в шаблоне
+            # значит потерять нарезанные варианты.
+            img.append(attrs)
+        parts.append("<img " + " ".join(img) + ">")
         parts.append("</picture>")
         return Markup("".join(parts))
 

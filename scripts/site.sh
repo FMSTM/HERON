@@ -198,7 +198,11 @@ pull_engine() {
 # кроме out. Сокет докера внутрь не пробрасывается никогда.
 run_engine() {
   mkdir -p "$OUT"
-  docker run --rm \
+  # -t только когда запускают из терминала: внутри контейнера движок
+  # смотрит на isatty и решает, крутить ему строку или писать лог.
+  local tty=()
+  [ -t 2 ] && tty=(-t)
+  docker run --rm "${tty[@]}" \
     --network=none \
     --read-only \
     --cap-drop=ALL \
@@ -235,12 +239,23 @@ do_image() {
 }
 
 do_serve() {
-  [ -d "$OUT" ] || do_build
+  # Смотрим ровно тот образ, который поедет в сеть: иначе просмотр идёт на
+  # чистом nginx, без нашего error_page, и нарисованную 404 никто не видит.
+  do_image
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
-  docker run -d --rm --name "$CONTAINER" \
+  # Без --rm: упавший контейнер должен остаться, иначе логи пропадают
+  # вместе с ним, и человеку показывают «смотрите» на мёртвый адрес.
+  docker run -d --name "$CONTAINER" \
     -p "${PORT}:8080" \
-    -v "$OUT":/usr/share/nginx/html:ro \
-    nginxinc/nginx-unprivileged:1.27-alpine >/dev/null
+    "$IMAGE_NAME:$IMAGE_TAG" >/dev/null || die "контейнер не запустился"
+
+  sleep 1
+  if [ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null)" != "true" ]; then
+    printf '\033[31m%s\033[0m\n' "контейнер упал сразу после старта:" >&2
+    docker logs --tail 30 "$CONTAINER" >&2 || true
+    docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+    exit 1
+  fi
   ok "смотрите: http://localhost:${PORT}"
   note "погасить: ./scripts/site.sh $SITE stop $ENV_NAME"
 }

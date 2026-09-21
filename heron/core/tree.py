@@ -68,7 +68,11 @@ def scan(
     for lang in config.site.languages:
         lang_root = content_root / lang
         if not lang_root.is_dir():
-            collector.warn(f"нет дерева контента для языка {lang!r}", path=f"content/{lang}")
+            collector.warn(
+                f"нет дерева контента для языка {lang!r}",
+                path=f"content/{lang}",
+                kind="языки",
+            )
             continue
 
         folder_types = _folder_types(lang_root, collector)
@@ -131,6 +135,9 @@ def scan(
             collector.warnings.extend(blocks.apply(md, found))
             if intro is not None:
                 intro.kind, intro.data = "prose", intro.html
+                for warning in blocks.intro_parts(md, intro):
+                    warning.path = rel
+                    collector.warnings.append(warning)
 
             page = Page(
                 lang=lang,

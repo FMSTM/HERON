@@ -7,8 +7,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import http.server
 import socketserver
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -35,9 +37,21 @@ def _stamp(root: Path) -> float:
     return latest
 
 
-def once(root: Path, drafts: bool) -> None:
+def preview_dist(root: Path) -> Path:
+    """Куда собирать просмотр.
+
+    Не в папку сайта: она монтируется только на чтение и принадлежит тому,
+    кто правит контент. Локальный просмотр не имеет права оставлять в ней
+    ни dist, ни кэш — иначе человек видит в своём репозитории мусор,
+    которого не просил, и рано или поздно коммитит его.
+    """
+    key = hashlib.sha1(str(root).encode("utf-8")).hexdigest()[:10]
+    return Path(tempfile.gettempdir()) / f"heron-serve-{root.name}-{key}" / "dist"
+
+
+def once(root: Path, drafts: bool, dist: Path | None = None) -> None:
     try:
-        result = pipeline.run(root, drafts=drafts)
+        result = pipeline.run(root, dist=dist, drafts=drafts)
     except HeronError as error:
         click.secho(str(error), fg="red")
         return
@@ -49,11 +63,39 @@ def once(root: Path, drafts: bool) -> None:
         click.secho(f"предупреждений: {len(result.collector.warnings)}", fg="yellow")
 
 
+def not_found(dist: Path, path: str) -> Path | None:
+    """Наша страница 404 для этого адреса: сначала на его языке.
+
+    Локальный просмотр должен показывать то же, что покажет сеть, иначе
+    нарисованную 404 никто не увидит до самого прода.
+    """
+    lang = path.strip("/").split("/", 1)[0]
+    for candidate in (dist / lang / "404" / "index.html", dist / "404.html"):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _send_404(handler: http.server.SimpleHTTPRequestHandler, dist: Path) -> bool:
+    page = not_found(dist, handler.path)
+    if page is None:
+        return False
+    body = page.read_bytes()
+    handler.send_response(404)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    if handler.command != "HEAD":
+        handler.wfile.write(body)
+    return True
+
+
 def serve(root: Path, port: int = 8000, drafts: bool = True) -> None:
     """Собрать, поднять сервер и пересобирать при изменениях."""
     root = Path(root).resolve()
-    dist = root / "dist"
-    once(root, drafts)
+    dist = preview_dist(root)
+    once(root, drafts, dist)
+    click.secho(f"собрано в {dist}", fg="cyan")
 
     handler = type(
         "Handler",
@@ -64,6 +106,11 @@ def serve(root: Path, port: int = 8000, drafts: bool = True) -> None:
                 self, *a, directory=str(dist), **kw
             ),
             "log_message": lambda self, *a: None,
+            "send_error": lambda self, code, message=None, explain=None: (
+                None
+                if code == 404 and _send_404(self, dist)
+                else http.server.SimpleHTTPRequestHandler.send_error(self, code, message, explain)
+            ),
         },
     )
 
@@ -80,7 +127,7 @@ def serve(root: Path, port: int = 8000, drafts: bool = True) -> None:
             if current > last:
                 last = current
                 click.echo("изменения — пересобираю")
-                once(root, drafts)
+                once(root, drafts, dist)
     except KeyboardInterrupt:
         click.echo("\nостановлено")
     finally:

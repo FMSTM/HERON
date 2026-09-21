@@ -34,6 +34,10 @@ SECTION_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 # на разных страницах бывает то таблицей, то прозой, и это нормально.
 USES_RE = re.compile(r"^(?P<id>[a-z0-9][a-z0-9-]*)(?::(?P<kind>[a-z0-9][a-z0-9-]*))?$")
 
+# Звёздочка вместо перечня: страница принимает любые секции. Так устроены
+# статьи — у каждой свой набор блоков, и перечислять их в теме нечем.
+ANY = "*"
+
 
 class TypeSpec(BaseModel):
     """Тип страницы: какие секции использует и чем размечается."""
@@ -49,6 +53,9 @@ class TypeSpec(BaseModel):
     def _uses(cls, v: list[str]) -> list[str]:
         names = []
         for section in v:
+            if section == ANY:
+                names.append(section)
+                continue
             match = USES_RE.match(section)
             if not match:
                 raise ValueError(
@@ -173,7 +180,16 @@ class ThemeConfig(BaseModel):
         spec = self.types.get(page_type)
         if not spec:
             return []
-        return [USES_RE.match(name).group("id") for name in spec.uses]  # type: ignore[union-attr]
+        return [
+            USES_RE.match(name).group("id")  # type: ignore[union-attr]
+            for name in spec.uses
+            if name != ANY
+        ]
+
+    def any_sections(self, page_type: str) -> bool:
+        """Тема согласна на любые секции этого типа страниц."""
+        spec = self.types.get(page_type)
+        return bool(spec) and ANY in spec.uses
 
     def formats_of(self, page_type: str) -> dict[str, str]:
         """Какой формат секции тема считает ожидаемым. Пусто — любой."""
@@ -182,6 +198,8 @@ class ThemeConfig(BaseModel):
             return {}
         out: dict[str, str] = {}
         for name in spec.uses:
+            if name == ANY:
+                continue
             match = USES_RE.match(name)
             if match and match.group("kind"):
                 out[match.group("id")] = match.group("kind")

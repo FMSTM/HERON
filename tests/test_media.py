@@ -217,3 +217,16 @@ def test_missing_image_warning_names_the_page(tmp_path):
     missing = [w for w in collector.warnings if w.kind == "картинки"]
     assert [w.path for w in missing] == ["uk/index.md"]
     assert "img/нет.png" in missing[0].message
+
+
+def test_check_makes_a_missing_image_an_error(tmp_path):
+    """`heron check` зовут, чтобы узнать о недоделках, — тут это ошибка."""
+    from heron.core.errors import Collector
+
+    files = {"uk/index.md": sites.page("Головна", image="img/нет.png")}
+    content = sites.build(tmp_path, files)
+    site, _ = tree.scan(content, sites.config())
+    collector = Collector()
+    media.verify(site, tmp_path, collector)
+    assert [e.code for e in collector.errors] == ["E007"]
+    assert "uk/index.md" in str(collector.errors[0])

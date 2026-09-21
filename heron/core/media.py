@@ -179,6 +179,25 @@ def _digest(path: Path, spec: ImagesSpec) -> str:
     return payload.hexdigest()
 
 
+def verify(site: Site, site_root: Path, collector: Collector) -> None:
+    """Проверить, что каждая объявленная картинка лежит на диске.
+
+    В сборке это предупреждение: страницу пишут раньше, чем рисуют
+    иллюстрацию, и блокировать работу над текстом очередью художника
+    незачем. В `heron check` — ошибка: команду зовут именно затем, чтобы
+    узнать, что сайт не готов.
+    """
+    declared = declared_by(site)
+    for src in sorted(declared):
+        if not (site_root / src).is_file():
+            collector.error(
+                "E007",
+                f"нет файла {src}",
+                path=_owner(declared, src),
+                hint="поправьте путь во фронтматтере или положите картинку",
+            )
+
+
 def build(
     site: Site,
     site_root: Path,

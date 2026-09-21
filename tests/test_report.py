@@ -138,3 +138,24 @@ def test_summary_writes_full_list(tmp_path):
     text = report.summary(collector, full=target)
     assert str(target) in text
     assert len(target.read_text(encoding="utf-8").strip().splitlines()) == 20
+
+
+def test_format_mismatch_is_information_not_error(tmp_path):
+    """Секция пришла прозой, а тема ждала таблицу — это строка отчёта."""
+    files = {
+        "uk/index.md": sites.page("Головна"),
+        "uk/one.md": (
+            "---\ntitle: Одна\nh1: Одна\ndescription: Опис\ntype: service\n---\n\n"
+            "Вступ.\n\n## Відновлення {#recovery}\n\nПроза замість шкали.\n"
+        ),
+    }
+    content = sites.build(tmp_path, files)
+    config = sites.config()
+    site, collector = tree.scan(content, config)
+    theme = sites.theme(types={"service": {"uses": ["intro", "recovery:timeline"]}})
+    links.resolve(site, config, theme, collector)
+
+    result = report.build(site, config, theme)
+    assert result.format_mismatch == [("uk/one.md", "recovery", "timeline", "prose")]
+    assert "ждали timeline, пришло prose" in result.render()
+    assert not collector.errors

@@ -117,6 +117,9 @@ def test_nginx_conf_follows_site_languages():
     assert "/uk/" not in conf  # основной язык, папки с таким именем нет
     assert "error_page 404 /404.html;" in conf
     assert conf.count("internal;") == 2
+    # служебное рядом со статикой наружу не уезжает, проверка домена живёт
+    assert "location ~ /\\." in conf
+    assert "/.well-known/" in conf
 
 
 def test_nginx_conf_when_default_language_changes():
@@ -133,3 +136,12 @@ def test_nginx_conf_when_default_language_changes():
     conf = nginx.generate(config)[nginx.NAME]
     assert "location ^~ /uk/ {" in conf
     assert "/ru/" not in conf
+
+
+def test_preview_builds_outside_the_site_folder(tmp_path):
+    """Папка сайта — чужая: просмотр не имеет права оставлять в ней dist."""
+    from heron.core.watch import preview_dist
+
+    dist = preview_dist(tmp_path / "site")
+    assert (tmp_path / "site") not in dist.parents
+    assert dist.name == "dist"

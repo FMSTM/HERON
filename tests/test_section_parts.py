@@ -81,8 +81,8 @@ def test_list_without_bold_stays_strings(md):
 def test_links_survive_and_are_collected(md):
     section = one(
         md,
-        "## Как {#how}\n\n1. **Подготовка.** Сдайте [анализы](/patsiyentu/pidgotovka/).\n",
+        "## Как {#how}\n\n1. **Подготовка.** Сдайте [анализы](/guides/preparation/).\n",
     )
     step = section.data[0]
-    assert '<a href="/patsiyentu/pidgotovka/">' in step["text"]
-    assert step["links"] == [{"title": "анализы", "href": "/patsiyentu/pidgotovka/"}]
+    assert '<a href="/guides/preparation/">' in step["text"]
+    assert step["links"] == [{"title": "анализы", "href": "/guides/preparation/"}]

@@ -7,8 +7,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import http.server
 import socketserver
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -35,9 +37,21 @@ def _stamp(root: Path) -> float:
     return latest
 
 
-def once(root: Path, drafts: bool) -> None:
+def preview_dist(root: Path) -> Path:
+    """Куда собирать просмотр.
+
+    Не в папку сайта: она монтируется только на чтение и принадлежит тому,
+    кто правит контент. Локальный просмотр не имеет права оставлять в ней
+    ни dist, ни кэш — иначе человек видит в своём репозитории мусор,
+    которого не просил, и рано или поздно коммитит его.
+    """
+    key = hashlib.sha1(str(root).encode("utf-8")).hexdigest()[:10]
+    return Path(tempfile.gettempdir()) / f"heron-serve-{root.name}-{key}" / "dist"
+
+
+def once(root: Path, drafts: bool, dist: Path | None = None) -> None:
     try:
-        result = pipeline.run(root, drafts=drafts)
+        result = pipeline.run(root, dist=dist, drafts=drafts)
     except HeronError as error:
         click.secho(str(error), fg="red")
         return
@@ -79,8 +93,9 @@ def _send_404(handler: http.server.SimpleHTTPRequestHandler, dist: Path) -> bool
 def serve(root: Path, port: int = 8000, drafts: bool = True) -> None:
     """Собрать, поднять сервер и пересобирать при изменениях."""
     root = Path(root).resolve()
-    dist = root / "dist"
-    once(root, drafts)
+    dist = preview_dist(root)
+    once(root, drafts, dist)
+    click.secho(f"собрано в {dist}", fg="cyan")
 
     handler = type(
         "Handler",
@@ -112,7 +127,7 @@ def serve(root: Path, port: int = 8000, drafts: bool = True) -> None:
             if current > last:
                 last = current
                 click.echo("изменения — пересобираю")
-                once(root, drafts)
+                once(root, drafts, dist)
     except KeyboardInterrupt:
         click.echo("\nостановлено")
     finally:

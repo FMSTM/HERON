@@ -17,7 +17,10 @@ def build(tmp_path, field: str) -> tuple:
             "Вступление.", "Вступ.\n\nОбіцянка першої послуги."
         ),
         "uk/services/two.md": sites.page("Друга послуга", description="Опис другої"),
-        "uk/conditions.md": f"---\ntitle: Стан\nh1: Стан\ndescription: Опис\n{field}\n---\n\nТекст.\n",
+        "uk/conditions.md": (
+            "---\ntitle: Стан\nh1: Стан\ndescription: Опис\n"
+            f"{field}\n---\n\nТекст.\n"
+        ),
     }
     content = sites.build(tmp_path, files)
     config = sites.config()

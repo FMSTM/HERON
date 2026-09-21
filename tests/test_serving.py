@@ -82,3 +82,27 @@ def test_language_home_is_not_orphan(tmp_path):
     site, collector = tree.scan(content, config)
     links.resolve(site, config, sites.theme(), collector)
     assert report.build(site, config, sites.theme()).orphans == []
+
+
+def test_built_site_is_readable_by_any_server(tmp_path):
+    """Собранное должно читаться чужим процессом: nginx работает не под root."""
+    import os
+
+    from heron.core import build as pipeline
+    from heron.scaffold import create
+
+    root = tmp_path / "demo"
+    root.mkdir()
+    create(root, name="demo", languages=["uk"])
+    (root / "content" / "uk" / "index.md").write_text(sites.page("Головна"), encoding="utf-8")
+    closed = root / "static" / "closed"
+    closed.mkdir(parents=True, exist_ok=True)
+    (closed / "a.txt").write_text("текст", encoding="utf-8")
+    os.chmod(closed, 0o700)
+
+    pipeline.run(root)
+    for path in (root / "dist").rglob("*"):
+        mode = path.stat().st_mode & 0o777
+        assert mode & 0o044, path
+        if path.is_dir():
+            assert mode & 0o011, path

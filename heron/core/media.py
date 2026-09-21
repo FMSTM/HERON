@@ -29,6 +29,16 @@ from heron.core.models import Site
 # своё поле (вторая фотография, обложка), и такой файл тоже надо нарезать.
 IMAGE_FIELD = re.compile(r"^\.?/?img/[^\s]+\.(?:png|jpe?g|webp|avif|gif|svg)$", re.I)
 
+# Чужой адрес: схема или протокол-относительная ссылка. Проверяется отдельно
+# от IMAGE_FIELD, а не «само не совпадёт»: поля со ссылкой на сторонний
+# хостинг будут появляться, и молчаливое совпадение однажды перестанет быть
+# молчаливым — движок пойдёт искать чужой файл у себя на диске.
+EXTERNAL = re.compile(r"^(?:[a-z][a-z0-9+.\-]*:)?//", re.I)
+
+# Предел вложенности обхода. YAML-якоря дают общие объекты, и без предела
+# один дурной файл данных уводит обход в бесконечность.
+MAX_DEPTH = 8
+
 REFERENCE = re.compile(r"""(?:\(|["'\s])((?:\./)?img/[^)"'\s]+\.[a-zA-Z0-9]+)""")
 CACHE = "media.json"
 KEEP = {".jpg", ".jpeg", ".png", ".webp"}
@@ -74,7 +84,39 @@ def declared_by(site: Site) -> dict[str, list[str]]:
     for page in site.pages:
         for src in _page_images(page):
             where.setdefault(src, []).append(page.source)
+    # Сквозные блоки живут в data/ — картинка оттуда такая же настоящая.
+    # Владельцем называем файл справочника: искать объявление всё равно там.
+    for name, node in (getattr(site, "data", None) or {}).items():
+        found: set[str] = set()
+        walk(node, found)
+        for src in found:
+            where.setdefault(src, []).append(f"data/{name}")
     return where
+
+
+def walk(value, found: set[str], depth: int = 0) -> None:
+    """Собрать пути к картинкам из любой структуры.
+
+    Тема вправе объявить своё поле, и поле это бывает не строкой: карта
+    с подписью, список карт, карта со списками внутри. Разбирать только
+    две верхние формы значит молча терять картинку — ни ошибки, ни
+    предупреждения, просто пустое место на странице.
+
+    Картинку узнаём по значению, а не по имени поля: имена движок не
+    угадывает, а `IMAGE_FIELD` якорится на папку медиа и список расширений,
+    поэтому строка из прозы под него не попадает.
+    """
+    if depth > MAX_DEPTH:
+        return
+    if isinstance(value, str):
+        if not EXTERNAL.match(value) and IMAGE_FIELD.match(value):
+            found.add(value.lstrip("./"))
+    elif isinstance(value, dict):
+        for item in value.values():
+            walk(item, found, depth + 1)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            walk(item, found, depth + 1)
 
 
 def _page_images(page) -> set[str]:
@@ -83,15 +125,7 @@ def _page_images(page) -> set[str]:
     for value in (page.meta.image, page.meta.og_image):
         if value:
             found.add(value.lstrip("./"))
-    for _name, value in (page.meta.model_extra or {}).items():
-        if isinstance(value, str) and IMAGE_FIELD.match(value):
-            found.add(value.lstrip("./"))
-        elif isinstance(value, list):
-            found.update(
-                item.lstrip("./")
-                for item in value
-                if isinstance(item, str) and IMAGE_FIELD.match(item)
-            )
+    walk(page.meta.model_extra or {}, found)
     chunks = [page.intro.raw if page.intro else "", *(s.raw for s in page.sections.values())]
     for chunk in chunks:
         found.update(match.group(1).lstrip("./") for match in REFERENCE.finditer(chunk))
@@ -99,11 +133,8 @@ def _page_images(page) -> set[str]:
 
 
 def references(site: Site) -> set[str]:
-    """Все картинки, на которые ссылается контент."""
-    found: set[str] = set()
-    for page in site.pages:
-        found.update(_page_images(page))
-    return found
+    """Все картинки, на которые ссылается контент, включая data/."""
+    return set(declared_by(site))
 
 
 def _owner(declared: dict[str, list[str]], src: str) -> str:

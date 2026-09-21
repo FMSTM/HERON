@@ -7,7 +7,15 @@ set -euo pipefail
 patterns_file="$(dirname "$0")/boundary-patterns.txt"
 [ -f "$patterns_file" ] || { echo "нет файла образцов: $patterns_file" >&2; exit 1; }
 
-files=("$@")
+# Без аргументов проверяем всё дерево. Раньше здесь стоял тихий выход, и
+# запуск «на всякий случай» ничего не проверял: упоминания сайта доехали
+# до ревью, потому что локально скрипт отвечал «всё хорошо».
+if [ "$#" -eq 0 ]; then
+  files=()
+  while IFS= read -r line; do files+=("$line"); done < <(git ls-files)
+else
+  files=("$@")
+fi
 [ ${#files[@]} -eq 0 ] && exit 0
 
 found=0

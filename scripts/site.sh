@@ -9,6 +9,7 @@
 #   build   собрать в out/<сайт>-<окружение>
 #   image   упаковать собранное в образ nginx
 #   serve   поднять nginx на собранной папке
+#   smoke   поднять собранный образ и проверить, что он отвечает
 #   stop    погасить просмотр
 #   push    отправить образ в реестр
 #   check   проверить контент, ничего не собирая
@@ -33,7 +34,7 @@ CMD="${2:-}"
 ENV_NAME="${3:-dev}"
 
 [ -n "$SITE" ] && [ -n "$CMD" ] || die "нужно: ./scripts/site.sh <сайт> <команда> [окружение]
-команды: new <путь> | init | build | image | serve | stop | push | check"
+команды: new <путь> | init | build | image | serve | smoke | stop | push | check"
 
 do_new() {
   local target="${3:-}"
@@ -260,6 +261,65 @@ do_serve() {
   note "погасить: ./scripts/site.sh $SITE stop $ENV_NAME"
 }
 
+# Дымовая проверка собранного образа. Заводится потому, что «контейнер
+# умирает на старте» мы ловили браузером заказчика, а не сборкой: права на
+# файлы, неподхваченный конфиг и упавший nginx снаружи выглядят одинаково —
+# пустой страницей.
+do_smoke() {
+  do_image
+  local name="heron-smoke-${SITE}-${ENV_NAME}"
+  local port="${SMOKE_PORT:-18080}"
+  docker rm -f "$name" >/dev/null 2>&1 || true
+  docker run -d --name "$name" -p "${port}:8080" "$IMAGE_NAME:$IMAGE_TAG" >/dev/null \
+    || die "контейнер не запустился"
+
+  local failed=0
+  # nginx поднимается не мгновенно; ждём его, а не спим наугад.
+  local ready=0 i
+  for i in $(seq 1 30); do
+    if curl -sS -o /dev/null "http://localhost:${port}/" 2>/dev/null; then ready=1; break; fi
+    sleep 0.5
+  done
+  if [ "$ready" = 0 ]; then
+    printf '\033[31m%s\033[0m\n' "сервер не ответил за 15 секунд. Логи:" >&2
+    docker logs --tail 30 "$name" >&2 || true
+    docker rm -f "$name" >/dev/null 2>&1 || true
+    exit 1
+  fi
+
+  check_code() {
+    local path="$1" want="$2" got
+    got="$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${port}${path}")"
+    if [ "$got" = "$want" ]; then
+      ok "  $path → $got"
+    else
+      printf '\033[31m%s\033[0m\n' "  $path → $got, ждали $want" >&2
+      failed=1
+    fi
+  }
+
+  note "проверяю $IMAGE_NAME:$IMAGE_TAG на порту $port"
+  check_code "/" 200
+  check_code "/robots.txt" 200
+  check_code "/heron-smoke-нет-такой-страницы/" 404
+  # язык из сборки: первая папка с index.html внутри
+  local lang
+  lang="$(find "$OUT" -mindepth 2 -maxdepth 2 -name index.html -print -quit 2>/dev/null)"
+  if [ -n "$lang" ]; then
+    lang="$(basename "$(dirname "$lang")")"
+    check_code "/${lang}/" 200
+    check_code "/${lang}/heron-smoke-нет-такой/" 404
+  fi
+  # служебное наружу не отдаём
+  check_code "/.heron-nginx.conf" 404
+
+  docker logs --tail 5 "$name" 2>&1 | sed 's/^/  /' >&2 || true
+  docker rm -f "$name" >/dev/null 2>&1 || true
+
+  [ "$failed" = 0 ] || die "дымовая проверка не прошла"
+  ok "образ отвечает как надо"
+}
+
 do_stop() {
   docker rm -f "$CONTAINER" >/dev/null 2>&1 && ok "просмотр погашен" || note "не запущен"
 }
@@ -298,8 +358,9 @@ case "$CMD" in
   build) do_build ;;
   image) do_image ;;
   serve) do_serve ;;
+  smoke) do_smoke ;;
   stop)  do_stop  ;;
   push)  do_push  ;;
   check) do_check ;;
-  *) die "не знаю команду $CMD. Есть: new, init, build, image, serve, stop, push, check" ;;
+  *) die "не знаю команду $CMD. Есть: new, init, build, image, serve, smoke, stop, push, check" ;;
 esac

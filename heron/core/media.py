@@ -205,8 +205,11 @@ def walk(value, found: set[str], depth: int = 0) -> None:
 def _page_images(page) -> set[str]:
     """Картинки одной страницы: поля фронтматтера и пути из текста."""
     found: set[str] = set()
-    for value in (page.meta.image, page.meta.og_image):
-        if value:
+    known_fields = (page.meta.image, page.meta.og_image, page.meta.video, page.meta.video_poster)
+    for value in known_fields:
+        # Поле объявлено в контракте, но значением может быть и чужой адрес:
+        # ролик на стороннем хостинге искать у себя на диске незачем.
+        if value and not EXTERNAL.match(value):
             found.add(value.lstrip("./"))
     walk(page.meta.model_extra or {}, found)
     chunks = [page.intro.raw if page.intro else "", *(s.raw for s in page.sections.values())]
@@ -301,6 +304,26 @@ def _weigh(source: Path, src: str, declared: dict[str, list[str]], collector: Co
             f"{src} весит {megabytes:.0f} МБ",
             path=_owner(declared, src),
             kind="картинки",
+        )
+
+
+def check_video(site: Site, collector: Collector) -> None:
+    """Локальный ролик обязан нести постер.
+
+    Без постера браузер тянет первый кадр — то есть грузит видео до того,
+    как посетитель нажал «играть». На мобильном интернете это десятки
+    мегабайт за просмотр страницы, которую листают дальше. У стороннего
+    плеера свой постер, там требовать нечего.
+    """
+    for page in site.pages:
+        video = page.video
+        if video is None or video.external or video.poster:
+            continue
+        collector.error(
+            "E019",
+            "у видео нет постера",
+            path=page.source,
+            hint="добавьте video_poster: без него браузер грузит ролик ради первого кадра",
         )
 
 
@@ -403,6 +426,13 @@ def build(
             (dist / src).parent.mkdir(parents=True, exist_ok=True)
             (dist / src).write_bytes(source.read_bytes())
             continue
+
+        # Мастер кладём как есть рядом с вариантами. Ссылка «открыть скан»,
+        # адрес для скачивания, картинка в разметке для соцсетей — всё это
+        # просит адрес файла, а не набор нарезок. Без копии такого адреса
+        # в сборке просто нет, и его приходится дублировать через static/.
+        (dist / src).parent.mkdir(parents=True, exist_ok=True)
+        (dist / src).write_bytes(source.read_bytes())
 
         digest = _digest(source, spec)
         fresh[src] = digest

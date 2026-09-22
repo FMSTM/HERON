@@ -152,6 +152,51 @@ def make(theme_dir: Path, config: SiteConfig) -> Environment:
     return env
 
 
+def media_url(
+    manifest: Manifest,
+    collector: Collector,
+) -> Any:
+    """Адрес файла в сборке — для ссылки, скачивания и разметки соцсетей.
+
+    Тема умела получить от движка только готовый `<picture>`, а адрес нужен
+    постоянно: «открыть скан», `href` модального окна, og:image, ссылка на
+    памятку из текста. Без этого файл приходилось дублировать в `static/` —
+    полтора мегабайта мусора и два места, которые надо не забыть поправить
+    вместе.
+
+    Без параметров отдаётся сам файл, с `ratio` — конкретный нарезанный
+    вариант. `width` выбирает ближайший вариант не меньше запрошенного:
+    отдать картинку крупнее и дать браузеру её сжать честнее, чем показать
+    мыло.
+    """
+
+    def render(src: str, ratio: str = "", width: int = 0, format: str = "") -> str:
+        clean = src.lstrip("./")
+        if not ratio and not width and not format:
+            return f"/{clean}"
+
+        rendition = manifest.get(clean, ratio or "1:1")
+        if rendition is None:
+            # Молча отдать пустоту нельзя: именно на этом теряются картинки,
+            # и замечают это глазами, через неделю после выката.
+            collector.warn(
+                f"нет нарезанного варианта {ratio or '1:1'} для {clean}", kind="картинки"
+            )
+            return f"/{clean}"
+
+        variants = rendition.sources.get(format) if format else None
+        if variants is None:
+            variants = rendition.sources.get("origin") or next(iter(rendition.sources.values()), [])
+        if not variants:
+            collector.warn(f"нет файлов варианта {ratio} для {clean}", kind="картинки")
+            return f"/{clean}"
+
+        chosen = next((path for w, path in variants if w >= width), variants[-1][1])
+        return f"/{chosen}"
+
+    return render
+
+
 def picture(
     manifest: Manifest,
     collector: Collector,
@@ -233,4 +278,9 @@ def context(
     shared["mod"] = Modules(env, shared, collector)
     shared["jsonld"] = lambda: Markup(jsonld.render(page, config, theme))
     shared["picture"] = picture(media or Manifest(), collector)
+    shared["media_url"] = media_url(media or Manifest(), collector)
+    # Тот же адрес доступен и фильтром: в разметке чаще пишут
+    # `{{ src|media_url }}`, чем вызов функции, и заставлять выбирать
+    # одну из двух форм ради устройства движка незачем.
+    env.filters["media_url"] = shared["media_url"]
     return shared

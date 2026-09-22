@@ -161,6 +161,7 @@ def run(
     dist.mkdir(parents=True, exist_ok=True)
     say.step("картинки")
     media.folder(site_root, collector)
+    media.check_video(site, collector)
     manifest = (
         media.build(
             site,
@@ -239,6 +240,7 @@ def check(site_root: Path, drafts: bool = False) -> Result:
     site.data = data_module.load(site_root / "data", collector)
     links.resolve(site, config, theme, collector)
     media.folder(site_root, collector)
+    media.check_video(site, collector)
     media.verify(site, site_root, collector, config)
     redirects.generate(site, collector)
 

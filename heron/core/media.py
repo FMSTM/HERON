@@ -424,7 +424,11 @@ def build(
         # Файл не из списка обрабатываемых — не ошибка. Движок его не трогает,
         # а просто кладёт в сборку: так в media/ живут видео, памятки и всё
         # прочее, а не оседают в static/ мимо всех проверок.
-        if source.suffix.lower() not in KEEP:
+        #
+        # Тем же путём идёт то, что тема попросила не трогать: скан документа
+        # не иллюстрация, его открывают целиком и в одном виде.
+        untouched = any(src.startswith(rule) for rule in spec.as_is)
+        if untouched or source.suffix.lower() not in KEEP:
             (dist / src).parent.mkdir(parents=True, exist_ok=True)
             (dist / src).write_bytes(source.read_bytes())
             continue

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
+
+from heron.core import notes
 from heron.core.environment import BuildEnv
 from heron.scaffold import create
 
@@ -24,18 +27,18 @@ def test_default_is_closed():
 
 
 def test_env_var_picks_environment(monkeypatch):
-    monkeypatch.setenv("HERON_ENV", "prod")
+    monkeypatch.setenv("SITE_ENV", "prod")
     assert BuildEnv.resolve().indexable
 
 
 def test_flag_wins_over_env_var(monkeypatch):
-    monkeypatch.setenv("HERON_ENV", "prod")
+    monkeypatch.setenv("SITE_ENV", "prod")
     assert not BuildEnv.resolve("dev").indexable
 
 
 def test_keys_override_environment_default(monkeypatch):
     """Прод-подобное превью: собрано как прод, но закрыто от индексации."""
-    monkeypatch.setenv("HERON_INDEXABLE", "false")
+    monkeypatch.setenv("SITE_INDEXABLE", "false")
     env = BuildEnv.resolve("prod")
     assert not env.indexable
     assert env.analytics
@@ -67,8 +70,11 @@ def test_new_site_has_no_content_pages(tmp_path):
     root = tmp_path / "demo"
     root.mkdir()
     create(root, name="demo")
-    assert not list((root / "content").rglob("*.md"))
+    # Записка движка — не страница: она объясняет, что класть в папку.
+    pages = [p for p in (root / "content").rglob("*.md") if not notes.is_note(p)]
+    assert pages == []
     assert (root / "content" / "uk").is_dir()
+    assert (root / "content" / notes.NOTE).is_file()
 
 
 def test_init_takes_languages_from_site_yaml(tmp_path):
@@ -151,3 +157,46 @@ def test_declared_nav_title_wins():
     page = Page(lang="ru", source="ru/katalog/_index.md", key="katalog", meta=meta)
     page.url = "/ru/katalog/"
     assert page.nav_title == "Каталог"
+
+
+def _theme(tmp_path, extra: str) -> object:
+    from heron.contracts.theme import load_theme
+
+    root = tmp_path / "theme"
+    root.mkdir()
+    (root / "theme.yaml").write_text(
+        'name: demo\nversion: "0.1"\nmodules: [prose]\ntypes:\n  page:\n    uses: [intro]\n'
+        + extra,
+        encoding="utf-8",
+    )
+    return load_theme(root / "theme.yaml")
+
+
+def test_theme_can_demand_newer_engine(tmp_path):
+    """Тема под новый движок не должна разваливаться на каждой странице."""
+    from heron.contracts import wiring
+    from heron.core.errors import HeronError
+
+    theme = _theme(tmp_path, 'heron: ">=9.0"\n')
+    with pytest.raises(HeronError) as exc:
+        wiring.verify_engine(theme)
+    assert exc.value.code == "E012"
+    assert "требует движок" in exc.value.message
+
+
+def test_theme_field_unknown_to_engine_stops_build(tmp_path):
+    """Поле, которого в контракте нет, называется своим именем и один раз."""
+    from heron.contracts import wiring
+    from heron.core.errors import HeronError
+
+    theme = _theme(tmp_path, "fields: [nav_title, ne_sushchestvuet]\n")
+    with pytest.raises(HeronError) as exc:
+        wiring.verify_engine(theme)
+    assert "ne_sushchestvuet" in exc.value.message
+    assert "nav_title" not in exc.value.message
+
+
+def test_theme_requirements_satisfied(tmp_path):
+    from heron.contracts import wiring
+
+    wiring.verify_engine(_theme(tmp_path, 'heron: ">=0.1"\nfields: [nav_title, image]\n'))

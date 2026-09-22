@@ -15,6 +15,7 @@ from pathlib import Path
 from markdown_it import MarkdownIt
 
 from heron.contracts.site import SiteConfig
+from heron.core import notes
 from heron.core.errors import Collector, HeronError
 from heron.core.models import Page, Site
 from heron.core.parser import blocks, frontmatter, markdown, sections
@@ -68,7 +69,11 @@ def scan(
     for lang in config.site.languages:
         lang_root = content_root / lang
         if not lang_root.is_dir():
-            collector.warn(f"нет дерева контента для языка {lang!r}", path=f"content/{lang}")
+            collector.warn(
+                f"нет дерева контента для языка {lang!r}",
+                path=f"content/{lang}",
+                kind="языки",
+            )
             continue
 
         folder_types = _folder_types(lang_root, collector)
@@ -82,7 +87,7 @@ def scan(
             # README рядом с контентом — обычное дело, и объяснять человеку,
             # что у него «недопустимый слаг», значит спорить с ним о том,
             # чего он не просил.
-            if name.lower() in IGNORED or name.startswith("."):
+            if name.lower() in IGNORED or name.startswith(".") or notes.skip(name):
                 continue
             if name.startswith("_") and name != INDEX:
                 continue
@@ -131,6 +136,9 @@ def scan(
             collector.warnings.extend(blocks.apply(md, found))
             if intro is not None:
                 intro.kind, intro.data = "prose", intro.html
+                for warning in blocks.intro_parts(md, intro):
+                    warning.path = rel
+                    collector.warnings.append(warning)
 
             page = Page(
                 lang=lang,

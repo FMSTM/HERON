@@ -19,6 +19,7 @@ from markdown_it.token import Token
 
 from heron.core.errors import HeronError
 from heron.core.models import Section
+from heron.core.parser import markdown
 
 SECTION_ID = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
@@ -55,6 +56,7 @@ def split(
     offset: int = 0,
 ) -> tuple[Section | None, dict[str, Section]]:
     """Разрезать тело на вводную часть и секции по идентификаторам."""
+    body = markdown.strip_comments(body)
     env: dict = {}
     tokens = md.parse(body, env)
     lines = body.splitlines()

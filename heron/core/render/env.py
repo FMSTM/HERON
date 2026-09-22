@@ -59,7 +59,9 @@ class Strings:
             return self._values[key]
         if key not in self._missed:
             self._missed.add(key)
-            self._collector.warn(f"нет строки перевода {key!r} для языка {self._lang!r}")
+            self._collector.warn(
+                f"нет строки перевода {key!r} для языка {self._lang!r}", kind="переводы"
+            )
         return key
 
     def __contains__(self, key: str) -> bool:
@@ -116,9 +118,22 @@ def load_strings(theme_dir: Path, lang: str, collector: Collector) -> Strings:
     if path.is_file():
         loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
         if isinstance(loaded, dict):
+            # YAML читает голые off, on, yes, no как булевы значения, и строка
+            # 'off' тихо теряется. Молчать нельзя: в вёрстке останется имя
+            # ключа, а причина будет неочевидна до самого осмотра страницы.
+            for key in [k for k in loaded if not isinstance(k, str)]:
+                collector.warn(
+                    f"ключ {key!r} прочитан как {type(key).__name__}, а не как строка — "
+                    "возьмите его в кавычки",
+                    path=str(path),
+                    kind="переводы",
+                )
+                del loaded[key]
             values = loaded
     else:
-        collector.warn(f"в теме нет строк интерфейса для языка {lang!r}", path=str(path))
+        collector.warn(
+            f"в теме нет строк интерфейса для языка {lang!r}", path=str(path), kind="переводы"
+        )
     return Strings(values, lang, collector)
 
 
@@ -135,6 +150,51 @@ def make(theme_dir: Path, config: SiteConfig) -> Environment:
     env.globals["absolute"] = lambda url: f"https://{config.site.domain}{url}"
     env.filters["absolute"] = env.globals["absolute"]
     return env
+
+
+def media_url(
+    manifest: Manifest,
+    collector: Collector,
+) -> Any:
+    """Адрес файла в сборке — для ссылки, скачивания и разметки соцсетей.
+
+    Тема умела получить от движка только готовый `<picture>`, а адрес нужен
+    постоянно: «открыть скан», `href` модального окна, og:image, ссылка на
+    памятку из текста. Без этого файл приходилось дублировать в `static/` —
+    полтора мегабайта мусора и два места, которые надо не забыть поправить
+    вместе.
+
+    Без параметров отдаётся сам файл, с `ratio` — конкретный нарезанный
+    вариант. `width` выбирает ближайший вариант не меньше запрошенного:
+    отдать картинку крупнее и дать браузеру её сжать честнее, чем показать
+    мыло.
+    """
+
+    def render(src: str, ratio: str = "", width: int = 0, format: str = "") -> str:
+        clean = src.lstrip("./")
+        if not ratio and not width and not format:
+            return f"/{clean}"
+
+        rendition = manifest.get(clean, ratio or "1:1")
+        if rendition is None:
+            # Молча отдать пустоту нельзя: именно на этом теряются картинки,
+            # и замечают это глазами, через неделю после выката.
+            collector.warn(
+                f"нет нарезанного варианта {ratio or '1:1'} для {clean}", kind="картинки"
+            )
+            return f"/{clean}"
+
+        variants = rendition.sources.get(format) if format else None
+        if variants is None:
+            variants = rendition.sources.get("origin") or next(iter(rendition.sources.values()), [])
+        if not variants:
+            collector.warn(f"нет файлов варианта {ratio} для {clean}", kind="картинки")
+            return f"/{clean}"
+
+        chosen = next((path for w, path in variants if w >= width), variants[-1][1])
+        return f"/{chosen}"
+
+    return render
 
 
 def picture(
@@ -154,10 +214,11 @@ def picture(
         sizes: str = "100vw",
         lazy: bool = True,
         classes: str = "",
+        attrs: str = "",
     ) -> Markup:
         rendition = manifest.get(src, ratio)
         if rendition is None:
-            collector.warn(f"нет нарезанного варианта {ratio} для {src}")
+            collector.warn(f"нет нарезанного варианта {ratio} для {src}", kind="картинки")
             return Markup("")
 
         parts: list[str] = ["<picture>"]
@@ -166,7 +227,7 @@ def picture(
                 continue
             srcset = ", ".join(f"/{path} {width}w" for width, path in variants)
             parts.append(f'<source type="image/{fmt}" srcset="{srcset}" sizes="{sizes}">')
-        attrs = [
+        img = [
             f'src="/{rendition.fallback}"',
             f'width="{rendition.width}"',
             f'height="{rendition.height}"',
@@ -174,10 +235,16 @@ def picture(
             'decoding="async"',
         ]
         if lazy:
-            attrs.append('loading="lazy"')
+            img.append('loading="lazy"')
         if classes:
-            attrs.append(f'class="{escape(classes)}"')
-        parts.append("<img " + " ".join(attrs) + ">")
+            img.append(f'class="{escape(classes)}"')
+        if attrs:
+            # Тема переносит вёрстку из макета один в один, вместе с
+            # инлайновыми стилями и data-атрибутами. Их некуда девать,
+            # кроме как отдать сюда: собирать <picture> руками в шаблоне
+            # значит потерять нарезанные варианты.
+            img.append(attrs)
+        parts.append("<img " + " ".join(img) + ">")
         parts.append("</picture>")
         return Markup("".join(parts))
 
@@ -211,4 +278,9 @@ def context(
     shared["mod"] = Modules(env, shared, collector)
     shared["jsonld"] = lambda: Markup(jsonld.render(page, config, theme))
     shared["picture"] = picture(media or Manifest(), collector)
+    shared["media_url"] = media_url(media or Manifest(), collector)
+    # Тот же адрес доступен и фильтром: в разметке чаще пишут
+    # `{{ src|media_url }}`, чем вызов функции, и заставлять выбирать
+    # одну из двух форм ради устройства движка незачем.
+    env.filters["media_url"] = shared["media_url"]
     return shared

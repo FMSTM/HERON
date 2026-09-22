@@ -6,8 +6,13 @@ from pathlib import Path
 
 import yaml
 
+from heron import __version__
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
+
+_MAJOR, _MINOR = __version__.split(".")[:2]
+# Требование под текущий движок: тесты не должны падать от подъёма версии.
+_SPEC = f">={_MAJOR}.{_MINOR},<{_MAJOR}.{int(_MINOR) + 1}"
 
 
 def page(title: str = "Заголовок", **fields) -> str:
@@ -29,7 +34,7 @@ def build(root: Path, files: dict[str, str]) -> Path:
 
 def config(**over) -> SiteConfig:
     data = {
-        "heron": ">=0.1,<0.2",
+        "heron": _SPEC,
         "site": {
             "domain": "example.com",
             "theme": "demo",

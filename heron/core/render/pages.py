@@ -74,6 +74,7 @@ def render_site(
     collector: Collector,
     media: Manifest | None = None,
     build_env: BuildEnv | None = None,
+    progress=None,
 ) -> dict[str, str]:
     """Собрать HTML всех страниц. Ключ — адрес страницы."""
     env = envmod.make(theme_dir, config)
@@ -82,7 +83,9 @@ def render_site(
     }
 
     out: dict[str, str] = {}
-    for page in site.pages:
+    for index, page in enumerate(site.pages, 1):
+        if progress is not None:
+            progress.tick(index, len(site.pages), page.url or "/")
         try:
             out[page.url] = render_page(
                 env, page, site, config, theme, strings[page.lang], collector, media, build_env

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "heron"
-version = "0.1.0"
+version = "0.4.0"
 description = "Файловый движок сайтов: markdown и Jinja2 на входе, статический сайт на выходе"
 readme = "README.md"
 requires-python = ">=3.12"

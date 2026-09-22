@@ -24,7 +24,7 @@ from markdown_it import MarkdownIt
 from markdown_it.token import Token
 
 from heron.core.errors import Warning_
-from heron.core.models import Section
+from heron.core.models import Pair, Section
 
 BY_CLASS = {
     "alert": "alert-list",
@@ -42,7 +42,43 @@ BY_CLASS = {
 }
 
 PAIR = re.compile(r"^\s*(?P<key>[^|]+?)\s*\|\s*(?P<value>.+?)\s*$")
-STEP_TITLE = re.compile(r"^\s*\*\*(?P<title>[^*]+?)\.?\*\*\.?\s*(?P<rest>.*)$", re.S)
+
+# Жирный зачин: **Текст.** или **Текст:** в самом начале абзаца или пункта.
+# Знак в конце — точка, двоеточие или тире: по ним человек и отделяет
+# термин от пояснения, когда пишет.
+BOLD_LEAD = re.compile(r"^\s*\*\*(?P<lead>.+?)\*\*\s*(?P<rest>.*)$", re.S)
+LEAD_END = ".:—–-"
+
+# Метка шага: [ЧАЩЕ ВСЕГО] в самом начале, целиком в верхнем регистре.
+STEP_TAG = re.compile(r"^\s*\[(?P<tag>[^\[\]]+)\]\s*(?P<rest>.*)$", re.S)
+
+LINK = re.compile(r'<a\s[^>]*href="(?P<href>[^"]+)"[^>]*>(?P<title>.*?)</a>', re.S)
+TAGS = re.compile(r"<[^>]+>")
+
+
+def links_of(html: str) -> list[dict[str, str]]:
+    """Ссылки куска разметки списком: тема вправе показать их отдельно."""
+    return [
+        {"title": TAGS.sub("", match.group("title")).strip(), "href": match.group("href")}
+        for match in LINK.finditer(html or "")
+    ]
+
+
+def split_bold_lead(text: str) -> tuple[str, str]:
+    """Отделить жирный зачин от остатка. Нет зачина — пустой заголовок."""
+    match = BOLD_LEAD.match(text or "")
+    if not match:
+        return "", (text or "").strip()
+    lead = match.group("lead").strip()
+    rest = match.group("rest").strip()
+    if lead.endswith(tuple(LEAD_END)):
+        lead = lead.rstrip("".join(LEAD_END)).strip()
+    elif rest.startswith(tuple(LEAD_END)):
+        rest = rest.lstrip("".join(LEAD_END)).strip()
+    else:
+        # жирный фрагмент без знака в конце — это выделение, а не зачин
+        return "", (text or "").strip()
+    return lead, rest
 
 
 def _render(md: MarkdownIt, tokens: list[Token], env: dict) -> str:
@@ -67,11 +103,28 @@ def _blocks(tokens: list[Token], open_type: str, close_type: str) -> list[tuple[
 
 
 def _items(md: MarkdownIt, tokens: list[Token], env: dict) -> list[str]:
-    """Содержимое пунктов списка как HTML."""
-    return [
-        _render(md, tokens[start + 1 : end], env)
-        for start, end in _blocks(tokens, "list_item_open", "list_item_close")
-    ]
+    """Пункты списка.
+
+    Пункт вида `**Термин.** Пояснение` разбирается в пару. Если зачин есть
+    хотя бы у одного пункта, парами отдаётся весь список: половина строк,
+    половина пар — это забота темы, которой у неё быть не должно. Список
+    без зачинов остаётся списком строк, как раньше.
+    """
+    raw: list[tuple[str, str]] = []
+    for start, end in _blocks(tokens, "list_item_open", "list_item_close"):
+        inner = tokens[start + 1 : end]
+        source = next((t.content for t in inner if t.type == "inline"), "")
+        raw.append((source, _render(md, inner, env)))
+
+    parsed = [split_bold_lead(source) for source, _ in raw]
+    if not any(term for term, _ in parsed):
+        return [html for _, html in raw]
+
+    items: list[str] = []
+    for (term, rest), (_source, html) in zip(parsed, raw, strict=True):
+        text = md.renderInline(rest, {}) if rest else ""
+        items.append(Pair(html, term=term, text=text, links=links_of(html)))
+    return items
 
 
 def _headed_groups(md: MarkdownIt, tokens: list[Token], env: dict) -> list[dict[str, Any]]:
@@ -141,22 +194,68 @@ def _table(md: MarkdownIt, tokens: list[Token], env: dict) -> dict[str, Any] | N
     return {"head": head, "rows": rows}
 
 
-def _steps(md: MarkdownIt, tokens: list[Token], env: dict) -> list[dict[str, str]] | None:
+def _steps(md: MarkdownIt, tokens: list[Token], env: dict) -> list[dict[str, Any]] | None:
+    """Нумерованный список в шаги.
+
+    Пункт `1. **[ЧАЩЕ ВСЕГО] Без операции.** Текст` разбирается на метку,
+    заголовок и текст. Метка — скобки в самом начале, целиком в верхнем
+    регистре; всё, что в скобках вперемешку с нижним регистром, — обычный
+    текст, а не метка.
+    """
     if not any(t.type == "ordered_list_open" for t in tokens):
         return None
-    steps: list[dict[str, str]] = []
-    for start, end in _blocks(tokens, "list_item_open", "list_item_close"):
+
+    steps: list[dict[str, Any]] = []
+    for number, (start, end) in enumerate(_blocks(tokens, "list_item_open", "list_item_close"), 1):
         inner = tokens[start + 1 : end]
-        text = next((t.content for t in inner if t.type == "inline"), "")
-        match = STEP_TITLE.match(text)
-        if match:
-            # Остаток строки — markdown, а поле называется html: ссылки
-            # и выделения внутри шага должны быть разметкой, а не текстом
-            rest = md.renderInline(match.group("rest").strip(), {})
-            steps.append({"title": match.group("title").strip(), "html": rest})
+        source = next((t.content for t in inner if t.type == "inline"), "")
+        classes = _classes_of(tokens[start])
+
+        title, rest = split_bold_lead(source)
+        tag = ""
+        if title:
+            match = STEP_TAG.match(title)
+            if match and match.group("tag").strip() == match.group("tag").strip().upper():
+                tag = match.group("tag").strip()
+                title = match.group("rest").strip()
         else:
-            steps.append({"title": "", "html": _render(md, inner, env)})
+            rest_html = _render(md, inner, env)
+            steps.append(
+                {
+                    "n": number,
+                    "tag": "",
+                    "title": "",
+                    "text": rest_html,
+                    "html": rest_html,
+                    "links": links_of(rest_html),
+                    "top": "top" in classes,
+                }
+            )
+            continue
+
+        # Остаток — markdown, а поле называется html: ссылки и выделения
+        # внутри шага должны быть разметкой, а не текстом
+        text = md.renderInline(rest, {}) if rest else ""
+        steps.append(
+            {
+                "n": number,
+                "tag": tag,
+                "title": title,
+                "text": text,
+                "html": text,
+                "links": links_of(text),
+                "top": "top" in classes,
+            }
+        )
+
+    if steps and not any(step["top"] for step in steps):
+        steps[0]["top"] = True
     return steps or None
+
+
+def _classes_of(token: Token) -> list[str]:
+    raw = token.attrGet("class") or ""
+    return [name for name in raw.split() if name]
 
 
 def detect(md: MarkdownIt, section: Section) -> tuple[str, Any, list[Warning_]]:
@@ -241,11 +340,120 @@ def detect(md: MarkdownIt, section: Section) -> tuple[str, Any, list[Warning_]]:
     return "prose", section.html, warnings
 
 
+MAIN_NODE = ("bullet_list_open", "ordered_list_open", "table_open")
+CLOSE_OF = {
+    "bullet_list_open": "bullet_list_close",
+    "ordered_list_open": "ordered_list_close",
+    "table_open": "table_close",
+}
+
+
+def _lines_between(lines: list[str], start: int, end: int, skip: set[int]) -> str:
+    chunk = [
+        line for number, line in enumerate(lines) if start <= number < end and number not in skip
+    ]
+    return "\n".join(chunk).strip()
+
+
+def structure(md: MarkdownIt, section: Section) -> None:
+    """Разложить секцию на подводку, основной узел, примечание и врезку.
+
+    Макет рисует их по-разному: подводка крупнее, примечание мельче,
+    цитата — врезкой в рамке. Склеенный html тему устроить не может.
+    """
+    env: dict = {}
+    tokens = md.parse(section.raw, env)
+    lines = section.raw.splitlines()
+    if not lines:
+        return
+
+    # цитата — врезка, где бы она ни стояла; из подводки и примечания уходит
+    quoted: set[int] = set()
+    for start, end in _blocks(tokens, "blockquote_open", "blockquote_close"):
+        if not section.callout:
+            section.callout = _render(md, tokens[start + 1 : end], env)
+        span = tokens[start].map
+        tail = tokens[end].map
+        if span:
+            stop = tail[1] if tail else span[1]
+            quoted.update(range(span[0], stop))
+
+    # основной узел: первый список, таблица или группа `###`
+    main_start = main_end = None
+    depth = 0
+    for index, token in enumerate(tokens):
+        if token.type in MAIN_NODE and depth == 0 and token.map:
+            if token.map[0] in quoted:
+                continue
+            main_start, main_end = token.map
+            close = CLOSE_OF[token.type]
+            level = 0
+            for follow in tokens[index:]:
+                if follow.type == token.type:
+                    level += 1
+                elif follow.type == close:
+                    level -= 1
+                    if level == 0:
+                        # у закрывающего токена карты строк нет, поэтому
+                        # конец берём с открывающего: он знает весь блок
+                        main_end = follow.map[1] if follow.map else main_end
+                        break
+            break
+        if token.type == "heading_open" and token.tag == "h3" and token.map:
+            main_start, main_end = token.map[0], len(lines)
+            break
+
+    if main_start is None:
+        section.lead = ""
+        section.note = ""
+        section.links = links_of(section.html)
+        return
+
+    lead_md = _lines_between(lines, 0, main_start, quoted)
+    note_md = _lines_between(lines, main_end or len(lines), len(lines), quoted)
+
+    if note_md:
+        head, *rest = re.split(r"\n\s*\n", note_md, maxsplit=1)
+        term, tail = split_bold_lead(head)
+        if term:
+            section.note_title = term
+            note_md = "\n\n".join([tail, *rest]).strip()
+
+    section.lead = md.render(lead_md).strip() if lead_md else ""
+    section.note = md.render(note_md).strip() if note_md else ""
+    section.links = links_of(section.html)
+
+
+def intro_parts(md: MarkdownIt, intro: Section) -> list[Warning_]:
+    """Вводный блок: первый абзац — подводка, второй — обещание.
+
+    Шаблон показывает ровно два: крупный первый абзац и один под ним.
+    Третий и дальше в макете места не имеют, поэтому о них предупреждаем,
+    а не выбрасываем молча.
+    """
+    chunks = [part.strip() for part in re.split(r"\n\s*\n", intro.raw) if part.strip()]
+    if chunks:
+        intro.lead = md.render(chunks[0]).strip()
+    if len(chunks) > 1:
+        intro.promise = md.render(chunks[1]).strip()
+    intro.links = links_of(intro.html)
+    if len(chunks) > 2:
+        return [
+            Warning_(
+                f"вводный блок длиннее двух абзацев: третий и далее "
+                f"({len(chunks) - 2}) не попадут в шаблон",
+                kind="контент",
+            )
+        ]
+    return []
+
+
 def apply(md: MarkdownIt, sections: dict[str, Section]) -> list[Warning_]:
-    """Проставить модуль и данные каждой секции."""
+    """Проставить модуль, данные и части каждой секции."""
     warnings: list[Warning_] = []
     for section in sections.values():
         kind, data, found = detect(md, section)
         section.kind, section.data = kind, data
+        structure(md, section)
         warnings.extend(found)
     return warnings

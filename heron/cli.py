@@ -9,6 +9,8 @@
 from __future__ import annotations
 
 import sys
+import threading
+import time
 from pathlib import Path
 
 import click
@@ -23,14 +25,114 @@ from heron.scaffold import Plan, adopt, create
 DIST = "dist"
 
 
+class _Terminal:
+    """Ход сборки в терминал: одна живая строка на этап.
+
+    Этапы неравномерные: обход контента и рендер идут секунды, нарезка
+    картинок — минуту. Статичная строка на долгом этапе неотличима от
+    зависшей программы, поэтому строка крутится и показывает, что именно
+    сейчас обрабатывается и сколько это уже длится.
+
+    В не-терминал (лог CI, сборка внутри докера без -t, перенаправление в
+    файл) крутиться нечему: там этап объявляется сразу, как начался,
+    длинные этапы отмечаются раз в секунду, и в конце пишется итог.
+    Молчать до конца этапа нельзя ни в том, ни в другом случае — это
+    неотличимо от зависшей сборки.
+    """
+
+    FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    WIDTH = 22
+    QUIET = 2.0  # как часто отмечаться в логе, секунды
+
+    def __init__(self) -> None:
+        self._title = ""
+        self._detail = ""
+        self._started = 0.0
+        self._said = 0.0
+        self._interactive = sys.stderr.isatty()
+        self._stop: threading.Event | None = None
+        self._spinner: threading.Thread | None = None
+
+    def _say(self, text: str) -> None:
+        """Строка в лог немедленно: буфер держал бы её до конца сборки."""
+        click.echo(text, err=True)
+        sys.stderr.flush()
+
+    def _elapsed(self) -> str:
+        seconds = time.monotonic() - self._started
+        return f"{seconds:4.1f}s"
+
+    def _line(self, frame: str = "") -> None:
+        mark = f"{frame} " if frame else "  "
+        head = self._title.ljust(self.WIDTH)
+        tail = f"  {self._detail}" if self._detail else ""
+        click.echo(f"\r{mark}{head} {self._elapsed()}{tail}\x1b[K", nl=False, err=True)
+
+    def _spin(self) -> None:
+        index = 0
+        while self._stop is not None and not self._stop.wait(0.09):
+            self._line(self.FRAMES[index % len(self.FRAMES)])
+            index += 1
+
+    def step(self, title: str) -> None:
+        self._title = title
+        self._detail = ""
+        self._started = time.monotonic()
+        self._said = self._started
+        if not self._interactive:
+            self._say(f"→ {title}…")
+            return
+        self._stop = threading.Event()
+        self._spinner = threading.Thread(target=self._spin, daemon=True)
+        self._spinner.start()
+
+    def _park(self) -> None:
+        if self._stop is not None:
+            self._stop.set()
+        if self._spinner is not None:
+            self._spinner.join(timeout=0.3)
+        self._stop = None
+        self._spinner = None
+
+    def done(self, detail: str = "") -> None:
+        text = detail or "готово"
+        head = self._title.ljust(self.WIDTH)
+        if self._interactive:
+            self._park()
+            self._detail = ""
+            click.echo("\r\x1b[K", nl=False, err=True)
+            click.secho("✓ ", fg="green", nl=False, err=True)
+            click.echo(f"{head} {self._elapsed()}  ", nl=False, err=True)
+            click.secho(text, fg="green", err=True)
+        else:
+            self._say(f"✓ {head} {self._elapsed()}  {text}")
+
+    def tick(self, current: int, total: int, detail: str = "") -> None:
+        """Продвижение внутри этапа: счётчик, полоска и что сейчас в работе."""
+        if not self._interactive:
+            now = time.monotonic()
+            if current < total and now - self._said < self.QUIET:
+                return
+            self._said = now
+            tail = f"  {detail[-40:]}" if detail else ""
+            self._say(
+                f"  {self._title.ljust(self.WIDTH)} {self._elapsed()}  {current}/{total}{tail}"
+            )
+            return
+        filled = round(10 * current / total) if total else 0
+        bar = "━" * filled + "─" * (10 - filled)
+        room = max(0, 46 - len(bar))
+        self._detail = f"{bar} {current:>3}/{total:<3} {detail[-room:] if room else ''}"
+
+
 def _fail(error: HeronError) -> None:
     click.secho(str(error), fg="red", err=True)
     sys.exit(1)
 
 
-def _finish(result: pipeline.Result, strict: bool, what: str) -> None:
+def _finish(result: pipeline.Result, strict: bool, what: str, full: Path | None = None) -> None:
     """Напечатать сводку и выйти с нужным кодом."""
-    summary = report_module.summary(result.collector)
+    summary = report_module.summary(result.collector, full=full)
     if result.collector.errors:
         click.secho(summary, fg="red", err=True)
         click.secho(f"\n{what} не выполнена: ошибок {len(result.collector.errors)}", fg="red")
@@ -127,15 +229,18 @@ def check(path: Path, strict: bool, drafts: bool) -> None:
 def build(path: Path, strict: bool, drafts: bool, out: Path | None, env_name: str | None) -> None:
     """Собрать сайт в dist/ или в указанную папку."""
     env = BuildEnv.resolve(env_name)
+    click.secho(f"HERON {__version__} · окружение {env.name}", bold=True, err=True)
     try:
-        result = pipeline.run(path, dist=out, drafts=drafts, strict=strict, env=env)
+        result = pipeline.run(
+            path, dist=out, drafts=drafts, strict=strict, env=env, progress=_Terminal()
+        )
     except HeronError as error:
         _fail(error)
 
-    _finish(result, strict, "Сборка")
+    target = out or (path / DIST)
+    _finish(result, strict, "Сборка", full=target.parent / ".heron-cache" / "warnings.txt")
     if not env.indexable:
         click.secho(f"окружение {env.name}: индексация закрыта, счётчики выключены", fg="yellow")
-    target = out or (path / DIST)
     click.secho(f"собрано файлов: {len(result.written)} → {target}", fg="green")
 
 

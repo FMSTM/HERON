@@ -9,6 +9,7 @@
 #   build   собрать в out/<сайт>-<окружение>
 #   image   упаковать собранное в образ nginx
 #   serve   поднять nginx на собранной папке
+#   smoke   поднять собранный образ и проверить, что он отвечает
 #   stop    погасить просмотр
 #   push    отправить образ в реестр
 #   check   проверить контент, ничего не собирая
@@ -33,10 +34,7 @@ CMD="${2:-}"
 ENV_NAME="${3:-dev}"
 
 [ -n "$SITE" ] && [ -n "$CMD" ] || die "нужно: ./scripts/site.sh <сайт> <команда> [окружение]
-команды: new <путь> | init | build | image | serve | stop | push | check"
-
-# Версия движка для новой папки: своего site.yaml у неё ещё нет.
-DEFAULT_ENGINE="ghcr.io/fmstm/heron:prod"
+команды: new <путь> | init | build | image | serve | smoke | stop | push | check"
 
 do_new() {
   local target="${3:-}"
@@ -49,18 +47,24 @@ do_new() {
   parent="$(cd "$(dirname "$target")" && pwd)" || die "нет папки $(dirname "$target")"
   base="$(basename "$target")"
 
+  local engine="$STABLE"
+  if is_source_checkout; then
+    engine="heron:local"
+    note "движок из исходников: $HERON_ROOT"
+    docker build -q -t "$engine" "$HERON_ROOT" >/dev/null || die "не собрался образ движка"
+  fi
   note "создаю папку сайта $parent/$base"
   docker run --rm --network=none --cap-drop=ALL --security-opt=no-new-privileges \
     --user "$(id -u):$(id -g)" --tmpfs /tmp \
     -v "$parent":/work -w /work \
-    "${HERON_IMAGE:-$DEFAULT_ENGINE}" new "$base"
+    "$engine" new "$base"
 
   local written=0
   for name in dev prod; do
     local file="env/.env.${SITE}.${name}"
     if [ -e "$file" ]; then note "уже есть $file — не трогаю"; continue; fi
     sed -e "s|^SITE_PATH=.*|SITE_PATH=$parent/$base|" \
-        -e "s|^HERON_ENV=.*|HERON_ENV=$name|" \
+        -e "s|^SITE_ENV=.*|SITE_ENV=$name|" \
         -e "s|^IMAGE_NAME=.*|IMAGE_NAME=heron-site-$SITE|" \
         -e "s|^IMAGE_TAG=.*|IMAGE_TAG=$name|" \
         env/.env.example > "$file"
@@ -97,7 +101,7 @@ set +a
 [ -d "$SITE_PATH" ]      || die "папки контента нет: $SITE_PATH"
 [ -f "$SITE_PATH/site.yaml" ] || die "в $SITE_PATH нет site.yaml — это не папка сайта"
 
-HERON_ENV="${HERON_ENV:-$ENV_NAME}"
+SITE_ENV="${SITE_ENV:-$ENV_NAME}"
 IMAGE_NAME="${IMAGE_NAME:-heron-site-$SITE}"
 IMAGE_TAG="${IMAGE_TAG:-$ENV_NAME}"
 PORT="${PORT:-8080}"
@@ -106,34 +110,109 @@ CONTAINER="heron-serve-${SITE}-${ENV_NAME}"
 
 command -v docker >/dev/null || die "нужен docker"
 
-# Версия движка берётся из site.yaml: сайт сам знает, чем собирается.
-# Точная версия — точный тег; диапазон — подвижный тег окружения.
-engine_image() {
-  if [ -n "${HERON_IMAGE:-}" ]; then echo "$HERON_IMAGE"; return; fi
+# Каким движком собирать.
+#
+# Одна настройка, и она принимает ровно две вещи:
+#
+#   ENGINE=source                       собрать из исходников рядом с этим
+#                                       скриптом. Для тех, кто правит движок.
+#   ENGINE=ghcr.io/fmstm/heron:prod     готовый образ. Пишется полным именем,
+#                                       чтобы было видно: это образ, а не ветка.
+#
+# Короткие слова dev и prod тут не принимаются намеренно: человек читает их
+# как ветки репозитория, и это недоразумение стоит дороже экономии букв.
+#
+# Не задано — по порядку: точная версия из site.yaml сайта; иначе исходники,
+# если они лежат рядом; иначе стабильный ghcr.io/fmstm/heron:prod.
+STABLE="ghcr.io/fmstm/heron:prod"
+
+is_source_checkout() {
+  [ -f "$HERON_ROOT/Dockerfile" ] && [ -d "$HERON_ROOT/heron" ] && [ -f "$HERON_ROOT/pyproject.toml" ]
+}
+
+# Точная версия, объявленная сайтом. Диапазон версией не считаем.
+site_engine_version() {
   local spec
   spec="$(sed -n 's/^heron:[[:space:]]*["'"'"']\{0,1\}\([^"'"'"']*\)["'"'"']\{0,1\}[[:space:]]*$/\1/p' \
-          "$SITE_PATH/site.yaml" | head -1 | tr -d ' ')"
-  if printf '%s' "$spec" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-    echo "ghcr.io/fmstm/heron:$spec"
-  else
-    echo "ghcr.io/fmstm/heron:prod"
+          "$SITE_PATH/site.yaml" 2>/dev/null | head -1 | tr -d ' ')"
+  printf '%s' "$spec" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' && printf '%s' "$spec"
+}
+
+engine_is_source() { [ "$(engine_choice)" = "source" ]; }
+
+engine_choice() {
+  if [ -n "${ENGINE:-}" ]; then
+    case "$ENGINE" in
+      source) echo "source" ;;
+      */*|*:*) echo "$ENGINE" ;;
+      *) die "ENGINE=$ENGINE непонятно. Ожидается либо source — собрать из
+исходников рядом, либо полное имя образа, например $STABLE" ;;
+    esac
+    return
   fi
+  local pinned; pinned="$(site_engine_version)"
+  if [ -n "$pinned" ]; then echo "ghcr.io/fmstm/heron:$pinned"; return; fi
+  if is_source_checkout; then echo "source"; return; fi
+  echo "$STABLE"
+}
+
+engine_image() {
+  if engine_is_source; then echo "heron:local"; else engine_choice; fi
+}
+
+# Приготовить движок: собрать из исходников или стянуть опубликованный.
+#
+# Теги dev, stage и prod подвижные: за одним и тем же именем завтра стоит
+# другой образ. docker run этого не знает и молча берёт локальную копию,
+# поэтому свежий движок надо стянуть явно. Точная версия не двигается
+# никогда — её тянем только если её ещё нет. Чистить докер руками не нужно
+# ни в одном из случаев: и сборка, и докачка идут по слоям, меняется только
+# то, что изменилось.
+pull_engine() {
+  local image; image="$(engine_image)"
+
+  if engine_is_source; then
+    note "движок из исходников: $HERON_ROOT"
+    docker build -q -t "$image" "$HERON_ROOT" >/dev/null || die "не собрался образ движка"
+    local ver
+    ver="$(docker run --rm --entrypoint heron "$image" --version 2>/dev/null | tr -d '\r')"
+    ok "движок: $image ${ver:+($ver)}"
+    return
+  fi
+
+  case "$image" in
+    *:dev|*:stage|*:prod|*:latest)
+      note "проверяю движок $image"
+      docker pull -q "$image" >/dev/null || die "не удалось стянуть $image"
+      ;;
+    *)
+      docker image inspect "$image" >/dev/null 2>&1 || docker pull -q "$image" >/dev/null \
+        || die "не удалось стянуть $image"
+      ;;
+  esac
+  local built
+  built="$(docker image inspect --format '{{.Created}}' "$image" 2>/dev/null | cut -c1-19 | tr T ' ')"
+  ok "движок: $image (собран $built)"
 }
 
 # Сборка идёт без сети, без прав, не от рута и не может писать никуда,
 # кроме out. Сокет докера внутрь не пробрасывается никогда.
 run_engine() {
   mkdir -p "$OUT"
-  docker run --rm \
+  # -t только когда запускают из терминала: внутри контейнера движок
+  # смотрит на isatty и решает, крутить ему строку или писать лог.
+  local tty=()
+  [ -t 2 ] && tty=(-t)
+  docker run --rm "${tty[@]}" \
     --network=none \
     --read-only \
     --cap-drop=ALL \
     --security-opt=no-new-privileges \
     --user "$(id -u):$(id -g)" \
     --tmpfs /tmp \
-    -e HERON_ENV="$HERON_ENV" \
-    ${HERON_INDEXABLE:+-e HERON_INDEXABLE="$HERON_INDEXABLE"} \
-    ${HERON_ANALYTICS:+-e HERON_ANALYTICS="$HERON_ANALYTICS"} \
+    -e SITE_ENV="$SITE_ENV" \
+    ${SITE_INDEXABLE:+-e SITE_INDEXABLE="$SITE_INDEXABLE"} \
+    ${SITE_ANALYTICS:+-e SITE_ANALYTICS="$SITE_ANALYTICS"} \
     -v "$SITE_PATH":/site:ro \
     -v "$HERON_ROOT/out":/out \
     "$(engine_image)" "$@"
@@ -144,11 +223,12 @@ strict_flag() {
 }
 
 do_build() {
-  note "сборка $SITE [$ENV_NAME] движком $(engine_image)"
+  pull_engine
+  note "сборка $SITE [$ENV_NAME]"
   note "контент: $SITE_PATH (только чтение)"
   rm -rf "$OUT"
   # shellcheck disable=SC2046
-  run_engine build --env "$HERON_ENV" $(strict_flag) --out "/out/${SITE}-${ENV_NAME}" /site
+  run_engine build --env "$SITE_ENV" $(strict_flag) --out "/out/${SITE}-${ENV_NAME}" /site
   ok "готово: out/${SITE}-${ENV_NAME}"
 }
 
@@ -160,14 +240,84 @@ do_image() {
 }
 
 do_serve() {
-  [ -d "$OUT" ] || do_build
+  # Смотрим ровно тот образ, который поедет в сеть: иначе просмотр идёт на
+  # чистом nginx, без нашего error_page, и нарисованную 404 никто не видит.
+  do_image
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
-  docker run -d --rm --name "$CONTAINER" \
+  # Без --rm: упавший контейнер должен остаться, иначе логи пропадают
+  # вместе с ним, и человеку показывают «смотрите» на мёртвый адрес.
+  docker run -d --name "$CONTAINER" \
     -p "${PORT}:8080" \
-    -v "$OUT":/usr/share/nginx/html:ro \
-    nginxinc/nginx-unprivileged:1.27-alpine >/dev/null
+    "$IMAGE_NAME:$IMAGE_TAG" >/dev/null || die "контейнер не запустился"
+
+  sleep 1
+  if [ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null)" != "true" ]; then
+    printf '\033[31m%s\033[0m\n' "контейнер упал сразу после старта:" >&2
+    docker logs --tail 30 "$CONTAINER" >&2 || true
+    docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+    exit 1
+  fi
   ok "смотрите: http://localhost:${PORT}"
   note "погасить: ./scripts/site.sh $SITE stop $ENV_NAME"
+}
+
+# Дымовая проверка собранного образа. Заводится потому, что «контейнер
+# умирает на старте» мы ловили браузером заказчика, а не сборкой: права на
+# файлы, неподхваченный конфиг и упавший nginx снаружи выглядят одинаково —
+# пустой страницей.
+do_smoke() {
+  do_image
+  local name="heron-smoke-${SITE}-${ENV_NAME}"
+  local port="${SMOKE_PORT:-18080}"
+  docker rm -f "$name" >/dev/null 2>&1 || true
+  docker run -d --name "$name" -p "${port}:8080" "$IMAGE_NAME:$IMAGE_TAG" >/dev/null \
+    || die "контейнер не запустился"
+
+  local failed=0
+  # nginx поднимается не мгновенно; ждём его, а не спим наугад.
+  local ready=0 i
+  for i in $(seq 1 30); do
+    if curl -sS -o /dev/null "http://localhost:${port}/" 2>/dev/null; then ready=1; break; fi
+    sleep 0.5
+  done
+  if [ "$ready" = 0 ]; then
+    printf '\033[31m%s\033[0m\n' "сервер не ответил за 15 секунд. Логи:" >&2
+    docker logs --tail 30 "$name" >&2 || true
+    docker rm -f "$name" >/dev/null 2>&1 || true
+    exit 1
+  fi
+
+  check_code() {
+    local path="$1" want="$2" got
+    got="$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${port}${path}")"
+    if [ "$got" = "$want" ]; then
+      ok "  $path → $got"
+    else
+      printf '\033[31m%s\033[0m\n' "  $path → $got, ждали $want" >&2
+      failed=1
+    fi
+  }
+
+  note "проверяю $IMAGE_NAME:$IMAGE_TAG на порту $port"
+  check_code "/" 200
+  check_code "/robots.txt" 200
+  check_code "/heron-smoke-нет-такой-страницы/" 404
+  # язык из сборки: первая папка с index.html внутри
+  local lang
+  lang="$(find "$OUT" -mindepth 2 -maxdepth 2 -name index.html -print -quit 2>/dev/null)"
+  if [ -n "$lang" ]; then
+    lang="$(basename "$(dirname "$lang")")"
+    check_code "/${lang}/" 200
+    check_code "/${lang}/heron-smoke-нет-такой/" 404
+  fi
+  # служебное наружу не отдаём
+  check_code "/.heron-nginx.conf" 404
+
+  docker logs --tail 5 "$name" 2>&1 | sed 's/^/  /' >&2 || true
+  docker rm -f "$name" >/dev/null 2>&1 || true
+
+  [ "$failed" = 0 ] || die "дымовая проверка не прошла"
+  ok "образ отвечает как надо"
 }
 
 do_stop() {
@@ -187,10 +337,12 @@ do_push() {
 }
 
 do_check() {
+  pull_engine
   run_engine check /site
 }
 
 do_init() {
+  pull_engine
   note "достраиваю $SITE_PATH по его site.yaml"
   # Единственная команда, которой папка сайта нужна на запись:
   # она в эту папку и кладёт недостающее.
@@ -206,8 +358,9 @@ case "$CMD" in
   build) do_build ;;
   image) do_image ;;
   serve) do_serve ;;
+  smoke) do_smoke ;;
   stop)  do_stop  ;;
   push)  do_push  ;;
   check) do_check ;;
-  *) die "не знаю команду $CMD. Есть: new, init, build, image, serve, stop, push, check" ;;
+  *) die "не знаю команду $CMD. Есть: new, init, build, image, serve, smoke, stop, push, check" ;;
 esac

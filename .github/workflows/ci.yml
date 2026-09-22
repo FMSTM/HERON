@@ -29,18 +29,11 @@ jobs:
       - name: зависимости
         run: uv sync --group dev
 
-      - name: граница ядра по всем файлам
-        run: |
-          mapfile -t files < <(git ls-files)
-          bash scripts/check-boundaries.sh "${files[@]}"
-
-      - name: ruff
-        run: |
-          uv run ruff check .
-          uv run ruff format --check .
-
-      - name: pytest
-        run: uv run pytest
+      - name: проверки
+        # Тот же набор, что гоняется локально одной командой: граница ядра,
+        # формат, линтер, тесты. Два места с разными наборами расходятся
+        # в первый же день — и расходились.
+        run: bash scripts/check.sh
 
   image:
     name: образ движка
@@ -70,7 +63,6 @@ jobs:
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=sha,format=short
 
@@ -84,7 +76,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: дымовая проверка образа
+      - name: дымовая проверка образа движка
         run: |
           tag=$(echo "${{ steps.meta.outputs.tags }}" | head -1)
           docker run --rm --network=none --read-only --tmpfs /tmp \

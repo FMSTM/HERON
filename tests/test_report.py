@@ -159,3 +159,33 @@ def test_format_mismatch_is_information_not_error(tmp_path):
     assert result.format_mismatch == [("uk/one.md", "recovery", "timeline", "prose")]
     assert "ждали timeline, пришло prose" in result.render()
     assert not collector.errors
+
+
+def test_uneven_keys_in_a_list_are_reported(tmp_path):
+    """Поле есть у части элементов — шаблон упадёт на первом же без него."""
+    files = {
+        "uk/index.md": sites.page("Головна"),
+        "uk/docs.md": (
+            "---\ntitle: Документи\nh1: Документи\ndescription: Опис\n"
+            "docs:\n"
+            "  - name: Перший\n    note: з поміткою\n"
+            "  - name: Другий\n"
+            "  - name: Третій\n"
+            "---\n\n## Що {#what}\n\nТекст.\n"
+        ),
+    }
+    content = sites.build(tmp_path, files)
+    site, collector = tree.scan(content, sites.config())
+    links.resolve(site, sites.config(), sites.theme(), collector)
+    site.data = {"docs": [{"name": "А", "place": "Київ"}, {"name": "Б"}]}
+    result = report.build(site, sites.config(), sites.theme())
+    found = {(owner, key, have, total) for owner, _, key, have, total in result.uneven_keys}
+    assert ("data/docs", "place", 1, 2) in found
+
+
+def test_even_list_is_quiet(tmp_path):
+    content = sites.build(tmp_path, {"uk/index.md": sites.page("Головна")})
+    site, collector = tree.scan(content, sites.config())
+    links.resolve(site, sites.config(), sites.theme(), collector)
+    site.data = {"docs": [{"name": "А"}, {"name": "Б"}]}
+    assert report.build(site, sites.config(), sites.theme()).uneven_keys == []

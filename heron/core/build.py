@@ -19,7 +19,7 @@ from heron.contracts import wiring
 from heron.contracts.site import SiteConfig, load_site
 from heron.contracts.theme import ThemeConfig, load_theme
 from heron.core import data as data_module
-from heron.core import links, media, report, resolver, tree
+from heron.core import links, media, notes, report, resolver, tree
 from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError
 from heron.core.hooks import Hooks
@@ -66,8 +66,20 @@ def _write(dist: Path, name: str, text: str) -> None:
 
 
 def _copy_tree(source: Path, target: Path) -> None:
-    if source.is_dir():
-        shutil.copytree(source, target, dirs_exist_ok=True)
+    """Скопировать папку как есть, кроме того, чего в сети быть не должно.
+
+    `static/` уезжает байт в байт — вместе со служебной запиской и с тем,
+    что насыпал файловый менеджер. И то и другое оказалось бы опубликовано
+    по своему адресу.
+    """
+    if not source.is_dir():
+        return
+    shutil.copytree(
+        source,
+        target,
+        dirs_exist_ok=True,
+        ignore=lambda _dir, names: [name for name in names if notes.skip(name)],
+    )
 
 
 def _readable(dist: Path) -> None:
@@ -161,6 +173,7 @@ def run(
     dist.mkdir(parents=True, exist_ok=True)
     say.step("картинки")
     media.folder(site_root, collector)
+    media.check_video(site, collector)
     manifest = (
         media.build(
             site,
@@ -171,6 +184,7 @@ def run(
             cache_dir=dist.parent / CACHE,
             strict=strict,
             progress=say,
+            config=config,
         )
         if with_media
         else media.Manifest()
@@ -219,7 +233,7 @@ def run(
     say.done(f"{len(files)} файлов")
     result.written = sorted(files)
     _readable(dist)
-    result.report = report.build(site, config, theme, theme_dir=theme_dir)
+    result.report = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
     return result
 
 
@@ -238,7 +252,8 @@ def check(site_root: Path, drafts: bool = False) -> Result:
     site.data = data_module.load(site_root / "data", collector)
     links.resolve(site, config, theme, collector)
     media.folder(site_root, collector)
-    media.verify(site, site_root, collector)
+    media.check_video(site, collector)
+    media.verify(site, site_root, collector, config)
     redirects.generate(site, collector)
 
     return Result(
@@ -247,5 +262,5 @@ def check(site_root: Path, drafts: bool = False) -> Result:
         theme_dir=theme_dir,
         site=site,
         collector=collector,
-        report=report.build(site, config, theme, theme_dir=theme_dir),
+        report=report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root),
     )

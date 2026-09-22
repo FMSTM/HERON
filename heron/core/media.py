@@ -22,6 +22,7 @@ from pathlib import Path
 from PIL import Image
 
 from heron.contracts.theme import ImagesSpec
+from heron.core import notes
 from heron.core.errors import Collector, HeronError
 from heron.core.models import Site
 
@@ -31,15 +32,28 @@ MEDIA = "media"
 LEGACY = "img"
 FOLDERS = (MEDIA, LEGACY)
 
-# Путь к картинке в произвольном поле фронтматтера: тема вправе объявить
-# своё поле (вторая фотография, обложка), и такой файл тоже надо нарезать.
-# Старое имя папки принимается наравне с новым: сайт переезжает одним
-# проходом, а собираться он должен и до него, и после.
+# Путь к файлу в произвольном поле фронтматтера: тема вправе объявить своё
+# поле (вторая фотография, обложка, ролик, памятка), и такой файл тоже должен
+# доехать до сборки. Старое имя папки принимается наравне с новым: сайт
+# переезжает одним проходом, а собираться он должен и до него, и после.
+#
+# Расширение не перечисляем: в media/ лежит не только то, что движок умеет
+# обрабатывать. Иначе каждый новый тип файла — видео, PDF, презентация —
+# требовал бы правки ядра, а до неё оседал бы в static/ мимо всех проверок.
 _IN = "|".join(FOLDERS)
-IMAGE_FIELD = re.compile(rf"^\.?/?(?:{_IN})/[^\s]+\.(?:png|jpe?g|webp|avif|gif|svg)$", re.I)
+MEDIA_FIELD = re.compile(rf"^\.?/?(?:{_IN})/[^\s]+\.[a-z0-9]+$", re.I)
+
+# Что движок обрабатывает сам: режет под пропорции и конвертирует. Список
+# остаётся явным — файл не из него не ошибка, он просто копируется как есть.
+IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".avif", ".gif", ".svg"}
+
+# Порог веса. Тяжёлый файл — не ошибка: бывает и репортаж на двадцать минут.
+# Но человек должен узнать об этом на сборке, а не от посетителя с мобильным
+# интернетом.
+HEAVY = 10 * 1024 * 1024
 
 # Чужой адрес: схема или протокол-относительная ссылка. Проверяется отдельно
-# от IMAGE_FIELD, а не «само не совпадёт»: поля со ссылкой на сторонний
+# от MEDIA_FIELD, а не «само не совпадёт»: поля со ссылкой на сторонний
 # хостинг будут появляться, и молчаливое совпадение однажды перестанет быть
 # молчаливым — движок пойдёт искать чужой файл у себя на диске.
 EXTERNAL = re.compile(r"^(?:[a-z][a-z0-9+.\-]*:)?//", re.I)
@@ -136,7 +150,7 @@ def folder(site_root: Path, collector: Collector) -> str:
     return MEDIA
 
 
-def declared_by(site: Site) -> dict[str, list[str]]:
+def declared_by(site: Site, config=None) -> dict[str, list[str]]:
     """Кто ссылается на картинку: путь → страницы, где он объявлен.
 
     Нужно для внятного предупреждения: «нет на диске» без имени страницы
@@ -153,6 +167,14 @@ def declared_by(site: Site) -> dict[str, list[str]]:
         walk(node, found)
         for src in found:
             where.setdefault(src, []).append(f"data/{name}")
+    # site.yaml тоже объявляет файлы — картинку по умолчанию для соцсетей,
+    # например. Без этого она не доезжала до сборки: ни одна страница её
+    # не называет, и движок про неё просто не знал.
+    if config is not None:
+        found = set()
+        walk(config.model_dump(), found)
+        for src in found:
+            where.setdefault(src, []).append("site.yaml")
     return where
 
 
@@ -164,14 +186,14 @@ def walk(value, found: set[str], depth: int = 0) -> None:
     две верхние формы значит молча терять картинку — ни ошибки, ни
     предупреждения, просто пустое место на странице.
 
-    Картинку узнаём по значению, а не по имени поля: имена движок не
-    угадывает, а `IMAGE_FIELD` якорится на папку медиа и список расширений,
-    поэтому строка из прозы под него не попадает.
+    Файл узнаём по значению, а не по имени поля: имена движок не угадывает,
+    а `MEDIA_FIELD` якорится на папку медиа и требует расширения, поэтому
+    строка из прозы под него не попадает.
     """
     if depth > MAX_DEPTH:
         return
     if isinstance(value, str):
-        if not EXTERNAL.match(value) and IMAGE_FIELD.match(value):
+        if not EXTERNAL.match(value) and MEDIA_FIELD.match(value):
             found.add(value.lstrip("./"))
     elif isinstance(value, dict):
         for item in value.values():
@@ -184,8 +206,11 @@ def walk(value, found: set[str], depth: int = 0) -> None:
 def _page_images(page) -> set[str]:
     """Картинки одной страницы: поля фронтматтера и пути из текста."""
     found: set[str] = set()
-    for value in (page.meta.image, page.meta.og_image):
-        if value:
+    known_fields = (page.meta.image, page.meta.og_image, page.meta.video, page.meta.video_poster)
+    for value in known_fields:
+        # Поле объявлено в контракте, но значением может быть и чужой адрес:
+        # ролик на стороннем хостинге искать у себя на диске незачем.
+        if value and not EXTERNAL.match(value):
             found.add(value.lstrip("./"))
     walk(page.meta.model_extra or {}, found)
     chunks = [page.intro.raw if page.intro else "", *(s.raw for s in page.sections.values())]
@@ -194,9 +219,9 @@ def _page_images(page) -> set[str]:
     return found
 
 
-def references(site: Site) -> set[str]:
-    """Все картинки, на которые ссылается контент, включая data/."""
-    return set(declared_by(site))
+def references(site: Site, config=None) -> set[str]:
+    """Все файлы, которые объявил сайт: страницы, data/ и site.yaml."""
+    return set(declared_by(site, config))
 
 
 def _owner(declared: dict[str, list[str]], src: str) -> str:
@@ -272,7 +297,64 @@ def _digest(path: Path, spec: ImagesSpec) -> str:
     return payload.hexdigest()
 
 
-def verify(site: Site, site_root: Path, collector: Collector) -> None:
+def _weigh(source: Path, src: str, declared: dict[str, list[str]], collector: Collector) -> None:
+    """Предупредить о тяжёлом файле, назвав страницу, которая его объявила."""
+    if source.stat().st_size > HEAVY:
+        megabytes = source.stat().st_size / 1024 / 1024
+        collector.warn(
+            f"{src} весит {megabytes:.0f} МБ",
+            path=_owner(declared, src),
+            kind="картинки",
+        )
+
+
+def check_video(site: Site, collector: Collector) -> None:
+    """Локальный ролик обязан нести постер.
+
+    Без постера браузер тянет первый кадр — то есть грузит видео до того,
+    как посетитель нажал «играть». На мобильном интернете это десятки
+    мегабайт за просмотр страницы, которую листают дальше. У стороннего
+    плеера свой постер, там требовать нечего.
+    """
+    for page in site.pages:
+        video = page.video
+        if video is None or video.external or video.poster:
+            continue
+        collector.error(
+            "E019",
+            "у видео нет постера",
+            path=page.source,
+            hint="добавьте video_poster: без него браузер грузит ролик ради первого кадра",
+        )
+
+
+def unused(site: Site, site_root: Path, config=None) -> list[str]:
+    """Файлы в папке ресурсов, которых не ждёт ни одна страница.
+
+    Не ошибка и не предупреждение сборки: мастер часто кладут раньше, чем
+    пишут страницу. Но в отчёте это видеть надо — иначе папка за полгода
+    зарастает старыми версиями, и никто не решается ничего удалить.
+    """
+    root = site_root / (LEGACY if (site_root / LEGACY).is_dir() else MEDIA)
+    if not root.is_dir():
+        return []
+    known = set(declared_by(site, config))
+    rest = []
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or path.name.startswith("."):
+            continue
+        # Заметки для человека — записка движка, README рядом с мастерами,
+        # список того, что ещё предстоит нарисовать, — и мусор файлового
+        # менеджера. Ни то ни другое не ресурс сайта.
+        if path.suffix.lower() in (".md", ".txt") or notes.skip(path):
+            continue
+        rel = path.relative_to(site_root).as_posix()
+        if rel not in known:
+            rest.append(rel)
+    return rest
+
+
+def verify(site: Site, site_root: Path, collector: Collector, config=None) -> None:
     """Проверить, что каждая объявленная картинка лежит на диске.
 
     В сборке это предупреждение: страницу пишут раньше, чем рисуют
@@ -280,7 +362,7 @@ def verify(site: Site, site_root: Path, collector: Collector) -> None:
     незачем. В `heron check` — ошибка: команду зовут именно затем, чтобы
     узнать, что сайт не готов.
     """
-    declared = declared_by(site)
+    declared = declared_by(site, config)
     for src in sorted(declared):
         if not (site_root / src).is_file():
             collector.error(
@@ -300,6 +382,7 @@ def build(
     cache_dir: Path | None = None,
     strict: bool = False,
     progress=None,
+    config=None,
 ) -> Manifest:
     """Нарезать все картинки, на которые ссылается контент.
 
@@ -318,8 +401,8 @@ def build(
             known = {}
     fresh: dict[str, str] = {}
 
-    sources = sorted(references(site))
-    declared = declared_by(site)
+    sources = sorted(references(site, config))
+    declared = declared_by(site, config)
     for index, src in enumerate(sources, 1):
         if progress is not None:
             progress.tick(index, len(sources), src)
@@ -336,10 +419,26 @@ def build(
                 collector.warn(f"нет файла {src}", path=_owner(declared, src), kind="картинки")
             continue
 
-        if source.suffix.lower() not in KEEP:
+        _weigh(source, src, declared, collector)
+
+        # Файл не из списка обрабатываемых — не ошибка. Движок его не трогает,
+        # а просто кладёт в сборку: так в media/ живут видео, памятки и всё
+        # прочее, а не оседают в static/ мимо всех проверок.
+        #
+        # Тем же путём идёт то, что тема попросила не трогать: скан документа
+        # не иллюстрация, его открывают целиком и в одном виде.
+        untouched = any(src.startswith(rule) for rule in spec.as_is)
+        if untouched or source.suffix.lower() not in KEEP:
             (dist / src).parent.mkdir(parents=True, exist_ok=True)
             (dist / src).write_bytes(source.read_bytes())
             continue
+
+        # Мастер кладём как есть рядом с вариантами. Ссылка «открыть скан»,
+        # адрес для скачивания, картинка в разметке для соцсетей — всё это
+        # просит адрес файла, а не набор нарезок. Без копии такого адреса
+        # в сборке просто нет, и его приходится дублировать через static/.
+        (dist / src).parent.mkdir(parents=True, exist_ok=True)
+        (dist / src).write_bytes(source.read_bytes())
 
         digest = _digest(source, spec)
         fresh[src] = digest

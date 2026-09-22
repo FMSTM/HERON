@@ -19,6 +19,7 @@ from urllib.parse import unquote
 
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
+from heron.core import media, notes
 from heron.core.errors import Collector
 from heron.core.models import Site
 
@@ -40,6 +41,10 @@ class Report:
     orphans: list[str] = field(default_factory=list)
     nameless_in_nav: list[str] = field(default_factory=list)
     untranslated: dict[str, list[str]] = field(default_factory=dict)
+    unused_media: list[str] = field(default_factory=list)
+    static_media: list[str] = field(default_factory=list)
+    notes_missing: list[str] = field(default_factory=list)
+    uneven_keys: list[tuple[str, str, str, int, int]] = field(default_factory=list)
 
     def render(self) -> str:
         """Отчёт текстом — то, что печатается после сборки."""
@@ -102,10 +107,40 @@ class Report:
             lines.append("")
             lines.append("На эти страницы никто не ссылается: " + ", ".join(self.orphans[:10]))
 
+        if self.unused_media:
+            lines.append("")
+            lines.append(f"Файлы в media, которых никто не ждёт — {len(self.unused_media)}:")
+            for path in self.unused_media[:20]:
+                lines.append(f"  {path}")
+
+        if self.static_media:
+            lines.append("")
+            lines.append("В static лежит контент — его место в media:")
+            for path in self.static_media[:20]:
+                lines.append(f"  {path}")
+
+        if self.uneven_keys:
+            lines.append("")
+            lines.append("Поле есть не у всех элементов списка (шаблон обязан это учесть):")
+            for owner, where, key, have, total in self.uneven_keys[:20]:
+                lines.append(f"  {owner}: {where} — {key} у {have} из {total}")
+
+        if self.notes_missing:
+            lines.append("")
+            lines.append(
+                "Без пояснительной записки (это не ошибка): " + ", ".join(self.notes_missing)
+            )
+
         return "\n".join(lines) + "\n"
 
 
-def build(site: Site, config: SiteConfig, theme: ThemeConfig, theme_dir=None) -> Report:
+def build(
+    site: Site,
+    config: SiteConfig,
+    theme: ThemeConfig,
+    theme_dir=None,
+    site_root=None,
+) -> Report:
     """Собрать отчёт по обойдённому сайту."""
     report = Report()
 
@@ -149,6 +184,13 @@ def build(site: Site, config: SiteConfig, theme: ThemeConfig, theme_dir=None) ->
         if absent:
             report.untranslated[lang] = sorted(absent)
 
+    # поля, которые есть не у всех элементов списка
+    for page in site.pages:
+        for section_id, section in page.sections.items():
+            report.uneven_keys.extend(_uneven(page.source, section_id, section.data))
+    for name, node in (site.data or {}).items():
+        report.uneven_keys.extend(_uneven(f"data/{name}", "", node))
+
     # внутренние ссылки
     linked: set[str] = set()
     for page in site.pages:
@@ -183,7 +225,77 @@ def build(site: Site, config: SiteConfig, theme: ThemeConfig, theme_dir=None) ->
         available = {path.stem for path in (theme_dir / "modules").glob("*.html")}
         report.unused_modules = sorted(available - {name.replace("_", "-") for name in called})
 
+    if site_root is not None:
+        report.unused_media = media.unused(site, site_root, config)
+        report.static_media = _content_in_static(site_root)
+        report.notes_missing = _without_notes(site_root)
+
     return report
+
+
+def _uneven(owner: str, where: str, node) -> list[tuple[str, str, str, int, int]]:
+    """Поля, которые есть у части элементов списка, но не у всех.
+
+    Шаблон пишут по первому элементу, а падает он на шестом: у движка
+    строгий режим неопределённых значений, и обращение к отсутствующему
+    ключу роняет сборку целиком. Сказать об этом заранее дешевле, чем
+    ловить на выкате, и честнее, чем молча подставлять пустоту.
+
+    Это не ошибка контента: у половины документов действительно нет места
+    выдачи. Это предупреждение автору шаблона — писать `d.get("place")`.
+    """
+    if isinstance(node, dict):
+        out: list[tuple[str, str, str, int, int]] = []
+        for key, value in node.items():
+            out.extend(_uneven(owner, f"{where}.{key}" if where else str(key), value))
+        return out
+    items = [item for item in node if isinstance(item, dict)] if isinstance(node, list) else []
+    if len(items) < 2:
+        return []
+    counts: Counter = Counter()
+    for item in items:
+        counts.update(item.keys())
+    return [
+        (owner, where or "список", str(key), have, len(items))
+        for key, have in sorted(counts.items())
+        if have < len(items)
+    ]
+
+
+def _without_notes(site_root) -> list[str]:
+    """Папки сайта без пояснительной записки.
+
+    Не ошибка и даже не предупреждение: у сайтов, заведённых раньше, записок
+    нет вовсе, и это их право. Но сказать об этом стоит — решение «куда
+    положить файл» принимается через месяц и в другом окне, а не в момент
+    чтения спецификации.
+    """
+    folders = ["content", "media", "theme", "data", "static", "plugins"]
+    missing = [] if (site_root / notes.NOTE).is_file() else ["корень"]
+    for name in folders:
+        folder = site_root / name
+        if folder.is_dir() and not (folder / notes.NOTE).is_file():
+            missing.append(f"{name}/")
+    return missing
+
+
+def _content_in_static(site_root) -> list[str]:
+    """Картинки и видео в static/ — почти всегда обход обработки.
+
+    Класть файл мимо контента быстрее, чем объявить его, поэтому static/
+    зарастает сама собой. Движок там ничего не режет и не проверяет, так что
+    молчать об этом нельзя: сайт тихо теряет варианты под брейкпоинты.
+    """
+    root = site_root / "static"
+    if not root.is_dir():
+        return []
+    suffixes = media.IMAGE_SUFFIXES | {".mp4", ".webm", ".mov", ".m4v", ".ogv"}
+    found = [
+        path.relative_to(site_root).as_posix()
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and path.suffix.lower() in suffixes
+    ]
+    return found
 
 
 # Порядок видов в сводке: сверху то, что ломает страницу для посетителя,

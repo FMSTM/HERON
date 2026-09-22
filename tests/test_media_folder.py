@@ -82,3 +82,38 @@ def test_paths_from_both_folders_are_read(tmp_path, prefix):
     content = sites.build(tmp_path, files)
     site, _ = tree.scan(content, sites.config())
     assert media.references(site) == {f"{prefix}/a.png", f"{prefix}/in-body.png"}
+
+
+def test_as_is_paths_are_copied_whole(tmp_path):
+    """Скан документа не иллюстрация: варианты ему не нужны."""
+    from PIL import Image
+
+    from heron.contracts.theme import ImagesSpec
+    from heron.core import links
+
+    files = {
+        "uk/index.md": sites.page("Головна", image="media/diplomas/0002.png"),
+        "uk/bio.md": sites.page("Біо", image="media/foto/portrait.png"),
+    }
+    content = sites.build(tmp_path, files)
+    for rel in ("media/diplomas/0002.png", "media/foto/portrait.png"):
+        path = tmp_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (900, 900), (20, 60, 120)).save(path)
+
+    site, collector = tree.scan(content, sites.config())
+    links.resolve(site, sites.config(), sites.theme(), collector)
+    media.build(
+        site,
+        tmp_path,
+        tmp_path / "dist",
+        ImagesSpec(ratios=["16:9"], widths=[400, 800], formats=["webp"], as_is=["media/diplomas/"]),
+        collector,
+        cache_dir=tmp_path / ".cache",
+    )
+    dist = tmp_path / "dist"
+    # скан: только сам файл, без вариантов
+    assert (dist / "media" / "diplomas" / "0002.png").is_file()
+    assert sorted(p.name for p in (dist / "media" / "diplomas").iterdir()) == ["0002.png"]
+    # обычная картинка режется как прежде
+    assert len(list((dist / "media" / "foto").iterdir())) > 1

@@ -102,6 +102,12 @@ class ImagesSpec(BaseModel):
 
     `crop` — исключения: пути, которые кропать всё равно, даже если
     прозрачность у них есть. Пишутся началом пути: `media/bio/`.
+
+    `as_is` — пути, которые не трогать вовсе: файл копируется в сборку как
+    есть, без вариантов и конвертаций. Скан документа не иллюстрация: его
+    открывают целиком и в одном виде, адаптивные размеры ему не нужны, а
+    два десятка вариантов на каждый скан — работа впустую и минуты сборки.
+    Пишется так же, началом пути: `media/diplomas/`.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -110,6 +116,7 @@ class ImagesSpec(BaseModel):
     ratios: list[str] = Field(default_factory=lambda: ["1:1", "16:9", "4:3"])
     formats: list[str] = Field(default_factory=lambda: ["avif", "webp"])
     crop: list[str] = Field(default_factory=list)
+    as_is: list[str] = Field(default_factory=list)
 
     @field_validator("ratios")
     @classmethod

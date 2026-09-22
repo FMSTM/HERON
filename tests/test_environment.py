@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from heron.core import notes
 from heron.core.environment import BuildEnv
 from heron.scaffold import create
 
@@ -69,8 +70,11 @@ def test_new_site_has_no_content_pages(tmp_path):
     root = tmp_path / "demo"
     root.mkdir()
     create(root, name="demo")
-    assert not list((root / "content").rglob("*.md"))
+    # Записка движка — не страница: она объясняет, что класть в папку.
+    pages = [p for p in (root / "content").rglob("*.md") if not notes.is_note(p)]
+    assert pages == []
     assert (root / "content" / "uk").is_dir()
+    assert (root / "content" / notes.NOTE).is_file()
 
 
 def test_init_takes_languages_from_site_yaml(tmp_path):

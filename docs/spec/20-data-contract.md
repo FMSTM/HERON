@@ -880,7 +880,7 @@ DB_PATH=
 
 Генерируется движком в `dist/`, в репозитории отсутствует:
 
-`sitemap.xml` и по одному на язык · `robots.txt` · `llms.txt` · `404.html` · `redirects.map` для nginx · JSON-LD внутрь страниц · `hreflang` и канониклы · `feed.xml` когда появятся статьи.
+`sitemap.xml` и по одному на язык · `robots.txt` · `llms.txt` и по одному на язык · `404.html` · `redirects.map` для nginx · JSON-LD внутрь страниц · `hreflang` и канониклы · `feed.xml` когда появятся статьи.
 
 Лежит руками в `static/`: favicon и его варианты · `site.webmanifest` · `.well-known/security.txt`.
 

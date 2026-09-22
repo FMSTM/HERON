@@ -1,5 +1,7 @@
 """Конвейер сборки целиком: от папки до dist/."""
 
+import re
+
 import pytest
 
 from heron.core import build as pipeline
@@ -92,8 +94,10 @@ def test_draft_is_skipped_unless_asked(site):
 
 def test_version_mismatch_stops_everything(site):
     config = (site / "site.yaml").read_text(encoding="utf-8")
+    # Требование берём не буквой, а строкой: иначе тест отваливается при
+    # каждом подъёме версии движка, хотя проверяет он совсем другое.
     (site / "site.yaml").write_text(
-        config.replace('heron: ">=0.1,<0.2"', 'heron: ">=9.0"'), "utf-8"
+        re.sub(r"^heron: .*$", 'heron: ">=9.0"', config, count=1, flags=re.M), "utf-8"
     )
     with pytest.raises(HeronError) as exc:
         pipeline.run(site)

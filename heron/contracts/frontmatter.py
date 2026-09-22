@@ -48,6 +48,13 @@ class PageMeta(BaseModel):
     og_title: str | None = None
     og_description: str | None = None
 
+    # Видео страницы. Локальный путь отдаётся файлом, полный адрес —
+    # вставкой стороннего плеера; список площадок не зашиваем, иначе
+    # каждый новый хостинг будет правкой движка.
+    video: str | None = None
+    video_poster: str | None = None
+    video_title: str | None = None
+
     order: int = 999
     updated: date | None = None
     published: bool = True

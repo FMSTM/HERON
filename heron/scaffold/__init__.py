@@ -16,10 +16,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from heron import __version__
+from heron.core.notes import NOTE
 
 HERE = Path(__file__).parent
 TEMPLATES = HERE / "templates"
-SITE = HERE / "site"
+NOTES = HERE / "notes"
+
+# Папки, которым полагается пояснительная записка. Человек открывает свежий
+# сайт и видит семь каталогов без единого слова о том, что куда класть, —
+# а решение «куда положить» принимается через месяц и в другом окне, а не
+# в момент чтения спецификации.
+NOTED = ("content", "media", "theme", "data", "static", "plugins")
 
 GITIGNORE = """dist/
 .heron-cache/
@@ -148,6 +155,30 @@ def _copy(root: Path, source: Path, rel: str, plan: Plan, force: bool, **fields:
     _put(root, rel, text, plan, force)
 
 
+def _note(
+    root: Path,
+    note: str,
+    folder: str,
+    lang: str,
+    plan: Plan,
+    force: bool,
+    **fields: str,
+) -> None:
+    """Положить пояснительную записку в папку.
+
+    Язык — тот, что выбрали при создании сайта. Нет перевода — кладём
+    английский: записка на чужом языке полезнее её отсутствия, а ронять
+    создание сайта из-за ненаписанного перевода незачем.
+    """
+    source = NOTES / lang / f"{note}.md"
+    if not source.is_file():
+        source = NOTES / "en" / f"{note}.md"
+    if not source.is_file():
+        return
+    rel = f"{folder}/{NOTE}" if folder else NOTE
+    _copy(root, source, rel, plan, force, **fields)
+
+
 def create(
     root: Path,
     name: str,
@@ -176,25 +207,20 @@ def create(
 
     _put(root, "site.yaml", SITE_YAML.format(**fields), plan, force)
     _put(root, ".gitignore", GITIGNORE, plan, force)
-    _copy(
-        root,
-        SITE / "README.md",
-        "README.md",
-        plan,
-        force,
-        name=name,
-        slug=name.lower().replace("_", "-"),
-    )
+    _note(root, "root", "", default_lang, plan, force, name=name, slug=slugify(name) or name)
 
     for lang in languages:
         _keep(root, f"content/{lang}", plan)
 
-    for folder in ("data", "img", "static", "plugins"):
+    for folder in ("data", "media", "static", "plugins"):
         path = root / folder
         if not path.exists():
             path.mkdir(parents=True, exist_ok=True)
             (path / ".gitkeep").write_text("", encoding="utf-8")
             plan.created.append(f"{folder}/")
+
+    for folder in NOTED:
+        _note(root, folder, folder, default_lang, plan, force)
 
     _put(root, "theme/theme.yaml", THEME_YAML.format(**fields), plan, force)
     for source in sorted(TEMPLATES.rglob("*")):
@@ -228,7 +254,7 @@ def adopt(root: Path, force: bool = False) -> Plan:
         present = sorted(p.name for p in content.iterdir() if p.is_dir())
         pages = len(list(content.rglob("*.md")))
         plan.found.append(f"content/: {pages} страниц, языки: {', '.join(present) or 'нет'}")
-    for folder in ("data", "img", "static", "theme"):
+    for folder in ("data", "media", "static", "theme"):
         if (root / folder).is_dir():
             plan.found.append(f"{folder}/ на месте")
 

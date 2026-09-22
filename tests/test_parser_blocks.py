@@ -43,7 +43,10 @@ def test_steps_with_bold_titles(md):
     body = "## Як {#h}\n\n1. **Підготовка.** Аналізи.\n2. **Знеболення.** Вибір методу.\n"
     section, _ = one(md, body)
     assert section.kind == "steps"
-    assert section.data[0] == {"title": "Підготовка", "html": "Аналізи."}
+    assert section.data[0]["title"] == "Підготовка"
+    assert section.data[0]["text"] == "Аналізи."
+    assert section.data[0]["n"] == 1
+    assert section.data[0]["top"] is True
 
 
 def test_steps_without_bold_still_steps(md):

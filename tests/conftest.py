@@ -5,8 +5,14 @@ from pathlib import Path
 import pytest
 import yaml
 
+from heron import __version__
+
+_MAJOR, _MINOR = __version__.split(".")[:2]
+# Требование под текущий движок: тесты не должны падать от подъёма версии.
+_SPEC = f">={_MAJOR}.{_MINOR},<{_MAJOR}.{int(_MINOR) + 1}"
+
 SITE_MIN = {
-    "heron": ">=0.1,<0.2",
+    "heron": _SPEC,
     "site": {"domain": "example.com", "theme": "demo", "default_lang": "uk", "languages": ["uk"]},
 }
 

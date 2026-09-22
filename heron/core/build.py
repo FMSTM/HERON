@@ -19,14 +19,15 @@ from heron.contracts import wiring
 from heron.contracts.site import SiteConfig, load_site
 from heron.contracts.theme import ThemeConfig, load_theme
 from heron.core import data as data_module
-from heron.core import links, media, report, resolver, tree
+from heron.core import links, media, notes, report, resolver, tree
 from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError
 from heron.core.hooks import Hooks
 from heron.core.models import Site
 from heron.core.parser import markdown
+from heron.core.progress import Progress, Silent
 from heron.core.render import pages as renderer
-from heron.modules import feed, llms, redirects, robots, sitemap
+from heron.modules import feed, llms, nginx, redirects, robots, sitemap
 
 SITE_YAML = "site.yaml"
 CACHE = ".heron-cache"
@@ -65,8 +66,37 @@ def _write(dist: Path, name: str, text: str) -> None:
 
 
 def _copy_tree(source: Path, target: Path) -> None:
-    if source.is_dir():
-        shutil.copytree(source, target, dirs_exist_ok=True)
+    """Скопировать папку как есть, кроме того, чего в сети быть не должно.
+
+    `static/` уезжает байт в байт — вместе со служебной запиской и с тем,
+    что насыпал файловый менеджер. И то и другое оказалось бы опубликовано
+    по своему адресу.
+    """
+    if not source.is_dir():
+        return
+    shutil.copytree(
+        source,
+        target,
+        dirs_exist_ok=True,
+        ignore=lambda _dir, names: [name for name in names if notes.skip(name)],
+    )
+
+
+def _readable(dist: Path) -> None:
+    """Сделать собранное читаемым для любого сервера.
+
+    Права приезжают вместе с файлами из папки сайта, а отдаёт их потом
+    чужой процесс: nginx в образе работает не под root. Папка, закрытая
+    умаском машины сборки, превращается в 403 на весь сайт — и выглядит
+    это как «образ собрался неправильно», хотя собралось всё верно.
+    """
+    for path in (dist, *dist.rglob("*")):
+        try:
+            mode = path.stat().st_mode & 0o777
+            # папке нужен ещё и вход внутрь, файлу — только чтение
+            path.chmod(mode | (0o755 if path.is_dir() else 0o444))
+        except OSError:
+            continue
 
 
 def prepare(site_root: Path, collector: Collector) -> tuple[SiteConfig, ThemeConfig, Path, Hooks]:
@@ -76,6 +106,7 @@ def prepare(site_root: Path, collector: Collector) -> tuple[SiteConfig, ThemeCon
 
     found = resolver.theme(site_root, config.site.theme)
     theme = load_theme(found.path / "theme.yaml")
+    wiring.verify_engine(theme, str(found.path / "theme.yaml"))
     collector.warnings.extend(wiring.verify(theme, config, str(site_root / SITE_YAML)))
 
     hooks = Hooks()
@@ -91,6 +122,7 @@ def run(
     with_media: bool = True,
     strict: bool = False,
     env: BuildEnv | None = None,
+    progress: Progress | None = None,
 ) -> Result:
     """Собрать сайт целиком.
 
@@ -100,17 +132,25 @@ def run(
     """
     collector = Collector()
     env = env or BuildEnv()
+    say = progress or Silent()
     site_root = site_root.resolve()
+    env = env.stamped(site_root)
     dist = (dist or site_root / DIST).resolve()
 
+    say.step("конфиг, тема и плагины")
     config, theme, theme_dir, hooks = prepare(site_root, collector)
+    say.done(f"тема {config.site.theme}, языков {len(config.site.languages)}")
 
+    say.step("обход контента")
     md = markdown.make(allow_raw_html=config.build.allow_raw_html)
     site, collector = tree.scan(site_root / "content", config, md, collector, drafts=drafts)
     site.data = data_module.load(site_root / "data", collector)
     hooks.call("on_tree_built", site)
+    say.done(f"{len(site.pages)} страниц")
 
+    say.step("связи, переводы и меню")
     links.resolve(site, config, theme, collector)
+    say.done()
 
     # Сайт без страниц — нормальное состояние на деве: тему доводят раньше,
     # чем пишут контент. В проде это всегда чья-то ошибка — пустой конвейер,
@@ -131,6 +171,9 @@ def run(
         return result
 
     dist.mkdir(parents=True, exist_ok=True)
+    say.step("картинки")
+    media.folder(site_root, collector)
+    media.check_video(site, collector)
     manifest = (
         media.build(
             site,
@@ -140,24 +183,34 @@ def run(
             collector,
             cache_dir=dist.parent / CACHE,
             strict=strict,
+            progress=say,
+            config=config,
         )
         if with_media
         else media.Manifest()
     )
+    say.done(f"{len(manifest.items)} мастеров")
     if collector.failed:
         return result
 
-    html = renderer.render_site(theme_dir, site, config, theme, collector, manifest, env)
+    say.step("шаблоны")
+    html = renderer.render_site(
+        theme_dir, site, config, theme, collector, manifest, env, progress=say
+    )
+    say.done(f"{len(html)} страниц")
     if collector.failed:
         return result
 
+    say.step("карта сайта, robots и ленты")
     files: dict[str, str] = {_page_path(url): text for url, text in html.items()}
     files.update(sitemap.generate(site, config))
     files.update(robots.generate(config, env))
     files.update(llms.generate(site, config))
     files.update(redirects.generate(site, collector))
+    files.update(nginx.generate(config))
     files.update(feed.generate(site, config))
 
+    say.done()
     not_found = html.get("/404/")
     if not_found:
         files["404.html"] = not_found
@@ -169,13 +222,18 @@ def run(
     if collector.failed:
         return result
 
-    for name, text in sorted(files.items()):
-        _write(dist, name, text)
+    say.step("запись")
+    names = sorted(files)
+    for index, name in enumerate(names, 1):
+        say.tick(index, len(names), name)
+        _write(dist, name, files[name])
     _copy_tree(site_root / STATIC, dist)
     _copy_tree(theme_dir / ASSETS, dist / ASSETS)
 
+    say.done(f"{len(files)} файлов")
     result.written = sorted(files)
-    result.report = report.build(site, config, theme, theme_dir=theme_dir)
+    _readable(dist)
+    result.report = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
     return result
 
 
@@ -193,6 +251,9 @@ def check(site_root: Path, drafts: bool = False) -> Result:
     site, collector = tree.scan(site_root / "content", config, md, collector, drafts=drafts)
     site.data = data_module.load(site_root / "data", collector)
     links.resolve(site, config, theme, collector)
+    media.folder(site_root, collector)
+    media.check_video(site, collector)
+    media.verify(site, site_root, collector, config)
     redirects.generate(site, collector)
 
     return Result(
@@ -201,5 +262,5 @@ def check(site_root: Path, drafts: bool = False) -> Result:
         theme_dir=theme_dir,
         site=site,
         collector=collector,
-        report=report.build(site, config, theme, theme_dir=theme_dir),
+        report=report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root),
     )

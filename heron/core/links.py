@@ -17,7 +17,8 @@ import re
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core.errors import Collector
-from heron.core.models import Page, Site
+from heron.core.models import Linked, Page, Pair, Site
+from heron.core.parser import blocks
 
 
 def _parent_url(url: str) -> str | None:
@@ -47,6 +48,38 @@ def _as_list(value: object) -> list[str]:
     return []
 
 
+TAGS = re.compile(r"<[^>]+>")
+
+
+def _as_links(value: object) -> list[tuple[str, str]]:
+    """Поле связи: слаги, карты `{slug, note}` или и то и другое вперемешку.
+
+    Подпись рядом со слагом нужна там, где карточка связи несёт не только
+    название: «основная операция при грыже с болью в ноге» пишется в том
+    файле, где эта связь объявлена, а не в теме.
+    """
+    if value is None:
+        return []
+    items = value if isinstance(value, list) else [value]
+    out: list[tuple[str, str]] = []
+    for item in items:
+        if isinstance(item, dict):
+            slug = str(item.get("slug") or "").strip()
+            if slug:
+                out.append((slug, str(item.get("note") or "").strip()))
+        elif item is not None:
+            out.append((str(item).strip(), ""))
+    return [pair for pair in out if pair[0]]
+
+
+def _default_note(page: Page) -> str:
+    """Подпись по умолчанию: обещание страницы, иначе её описание."""
+    promise = page.intro.promise if page.intro else ""
+    if promise:
+        return TAGS.sub("", promise).strip()
+    return page.meta.description or ""
+
+
 HREF = re.compile(r'href="(/[^"]*)"')
 NOT_A_PAGE = ("/img/", "/static/", "/assets/", "/media/")
 
@@ -62,13 +95,28 @@ def resolve(site: Site, config: SiteConfig, theme: ThemeConfig, collector: Colle
 
 
 def _rewrite(value, replace):
-    """Пройти по разобранным данным секции и переписать ссылки в строках."""
+    """Пройти по разобранным данным секции и переписать ссылки в строках.
+
+    Пара «термин — пояснение» — это строка с полями, поэтому её нельзя
+    подменять обычной строкой: тема потеряет и термин, и список ссылок.
+    """
+    if isinstance(value, Pair):
+        html = HREF.sub(replace, str(value))
+        return Pair(
+            html,
+            term=HREF.sub(replace, value.term),
+            text=HREF.sub(replace, value.text),
+            links=blocks.links_of(html),
+        )
     if isinstance(value, str):
         return HREF.sub(replace, value)
     if isinstance(value, list):
         return [_rewrite(item, replace) for item in value]
     if isinstance(value, dict):
-        return {key: _rewrite(item, replace) for key, item in value.items()}
+        out = {key: _rewrite(item, replace) for key, item in value.items()}
+        if "links" in out and isinstance(out.get("text"), str):
+            out["links"] = blocks.links_of(out["text"])
+        return out
     return value
 
 
@@ -111,6 +159,7 @@ def localize(site: Site, config: SiteConfig, collector: Collector) -> None:
                     f"ссылка {path} ведёт на страницу языка {other.lang!r}: "
                     f"на {page.lang!r} этой страницы нет",
                     path=page.source,
+                    kind="ссылки",
                 )
             return match.group(0)
 
@@ -173,7 +222,7 @@ def _declared(site: Site, theme: ThemeConfig, collector: Collector) -> None:
 
     for link in theme.links:
         for page in site.pages:
-            slugs = _as_list(page.meta.extra.get(link.field))
+            slugs = _as_links(page.meta.extra.get(link.field))
             if not slugs:
                 # Пустое поле — повод для замечания только там, где тема
                 # сказала, каким страницам оно положено. Иначе движок
@@ -182,11 +231,12 @@ def _declared(site: Site, theme: ThemeConfig, collector: Collector) -> None:
                     collector.warn(
                         f"поле {link.field!r} не заполнено, а тема ждёт минимум {link.required}",
                         path=page.source,
+                        kind="связи",
                     )
                 continue
 
-            targets: list[Page] = []
-            for slug in slugs:
+            targets: list[Linked] = []
+            for slug, note in slugs:
                 found = [
                     candidate
                     for candidate in by_slug.get((page.lang, slug), [])
@@ -210,17 +260,20 @@ def _declared(site: Site, theme: ThemeConfig, collector: Collector) -> None:
                         hint="уточните тип связи в theme.yaml или переименуйте страницу",
                     )
                     continue
-                targets.append(found[0])
+                targets.append(Linked(found[0], note or _default_note(found[0])))
 
             page.related.setdefault(link.field, []).extend(targets)
             if link.back:
                 for target in targets:
-                    target.related.setdefault(link.back, []).append(page)
+                    target.page.related.setdefault(link.back, []).append(
+                        Linked(page, _default_note(page))
+                    )
 
             if link.required and len(targets) < link.required:
                 collector.warn(
                     f"{link.field}: ссылок {len(targets)}, тема ждёт минимум {link.required}",
                     path=page.source,
+                    kind="связи",
                 )
 
     for page in site.pages:
@@ -245,10 +298,26 @@ def _nav(site: Site, config: SiteConfig, collector: Collector) -> None:
             for key in keys:
                 page = site.by_key.get((lang, str(key)))
                 if page is None:
-                    collector.warn(
-                        f"меню {group!r}: нет страницы {key!r} на языке {lang!r}",
-                        path="site.yaml",
+                    # Страница есть на основном языке — значит это не опечатка
+                    # в site.yaml, а непереведённый раздел. Разные беды: одну
+                    # правят сейчас, вторую переводчик закроет когда-нибудь.
+                    elsewhere = any(
+                        (other, str(key)) in site.by_key
+                        for other in config.site.languages
+                        if other != lang
                     )
+                    if elsewhere:
+                        collector.warn(
+                            f"меню {group!r}: {key!r} ещё не переведено на {lang!r}",
+                            path="site.yaml",
+                            kind="нет перевода",
+                        )
+                    else:
+                        collector.warn(
+                            f"меню {group!r}: нет страницы {key!r} на языке {lang!r}",
+                            path="site.yaml",
+                            kind="меню",
+                        )
                     continue
                 pages.append(page)
             site.nav[lang][group] = pages

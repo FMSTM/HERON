@@ -19,7 +19,7 @@ from heron.contracts import wiring
 from heron.contracts.site import SiteConfig, load_site
 from heron.contracts.theme import ThemeConfig, load_theme
 from heron.core import data as data_module
-from heron.core import links, media, report, resolver, tree
+from heron.core import links, media, notes, report, resolver, tree
 from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError
 from heron.core.hooks import Hooks
@@ -66,8 +66,20 @@ def _write(dist: Path, name: str, text: str) -> None:
 
 
 def _copy_tree(source: Path, target: Path) -> None:
-    if source.is_dir():
-        shutil.copytree(source, target, dirs_exist_ok=True)
+    """Скопировать папку как есть, кроме того, чего в сети быть не должно.
+
+    `static/` уезжает байт в байт — вместе со служебной запиской и с тем,
+    что насыпал файловый менеджер. И то и другое оказалось бы опубликовано
+    по своему адресу.
+    """
+    if not source.is_dir():
+        return
+    shutil.copytree(
+        source,
+        target,
+        dirs_exist_ok=True,
+        ignore=lambda _dir, names: [name for name in names if notes.skip(name)],
+    )
 
 
 def _readable(dist: Path) -> None:

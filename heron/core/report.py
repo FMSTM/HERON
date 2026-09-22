@@ -19,7 +19,7 @@ from urllib.parse import unquote
 
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
-from heron.core import media
+from heron.core import media, notes
 from heron.core.errors import Collector
 from heron.core.models import Site
 
@@ -43,6 +43,7 @@ class Report:
     untranslated: dict[str, list[str]] = field(default_factory=dict)
     unused_media: list[str] = field(default_factory=list)
     static_media: list[str] = field(default_factory=list)
+    notes_missing: list[str] = field(default_factory=list)
 
     def render(self) -> str:
         """Отчёт текстом — то, что печатается после сборки."""
@@ -116,6 +117,12 @@ class Report:
             lines.append("В static лежит контент — его место в media:")
             for path in self.static_media[:20]:
                 lines.append(f"  {path}")
+
+        if self.notes_missing:
+            lines.append("")
+            lines.append(
+                "Без пояснительной записки (это не ошибка): " + ", ".join(self.notes_missing)
+            )
 
         return "\n".join(lines) + "\n"
 
@@ -207,8 +214,26 @@ def build(
     if site_root is not None:
         report.unused_media = media.unused(site, site_root, config)
         report.static_media = _content_in_static(site_root)
+        report.notes_missing = _without_notes(site_root)
 
     return report
+
+
+def _without_notes(site_root) -> list[str]:
+    """Папки сайта без пояснительной записки.
+
+    Не ошибка и даже не предупреждение: у сайтов, заведённых раньше, записок
+    нет вовсе, и это их право. Но сказать об этом стоит — решение «куда
+    положить файл» принимается через месяц и в другом окне, а не в момент
+    чтения спецификации.
+    """
+    folders = ["content", "media", "theme", "data", "static", "plugins"]
+    missing = [] if (site_root / notes.NOTE).is_file() else ["корень"]
+    for name in folders:
+        folder = site_root / name
+        if folder.is_dir() and not (folder / notes.NOTE).is_file():
+            missing.append(f"{name}/")
+    return missing
 
 
 def _content_in_static(site_root) -> list[str]:

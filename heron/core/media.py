@@ -22,6 +22,7 @@ from pathlib import Path
 from PIL import Image
 
 from heron.contracts.theme import ImagesSpec
+from heron.core import notes
 from heron.core.errors import Collector, HeronError
 from heron.core.models import Site
 
@@ -342,9 +343,10 @@ def unused(site: Site, site_root: Path, config=None) -> list[str]:
     for path in sorted(root.rglob("*")):
         if not path.is_file() or path.name.startswith("."):
             continue
-        # Заметки для человека — README рядом с мастерами, список того, что
-        # ещё предстоит нарисовать. Они и не должны никуда ехать.
-        if path.suffix.lower() in (".md", ".txt"):
+        # Заметки для человека — записка движка, README рядом с мастерами,
+        # список того, что ещё предстоит нарисовать, — и мусор файлового
+        # менеджера. Ни то ни другое не ресурс сайта.
+        if path.suffix.lower() in (".md", ".txt") or notes.skip(path):
             continue
         rel = path.relative_to(site_root).as_posix()
         if rel not in known:

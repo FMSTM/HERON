@@ -27,7 +27,7 @@ from heron.core.models import Site
 from heron.core.parser import markdown
 from heron.core.progress import Progress, Silent
 from heron.core.render import pages as renderer
-from heron.modules import feed, llms, nginx, redirects, robots, sitemap
+from heron.modules import feed, jsonld, llms, nginx, redirects, robots, sitemap
 
 SITE_YAML = "site.yaml"
 CACHE = ".heron-cache"
@@ -234,7 +234,19 @@ def run(
     result.written = sorted(files)
     _readable(dist)
     result.report = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
+    _schema(site, config, theme, collector, result.report)
     return result
+
+
+def _schema(site, config, theme, collector, built) -> None:
+    """Проверить разметку каждой страницы и посчитать узлы для отчёта.
+
+    Разметку не видно глазами: она либо есть и верна, либо её нет, и узнают
+    об этом из чужой панели вебмастера через месяц.
+    """
+    for page in site.pages:
+        for kind in jsonld.verify(page, config, theme, collector):
+            built.schema_nodes[kind] += 1
 
 
 def check(site_root: Path, drafts: bool = False) -> Result:
@@ -256,11 +268,13 @@ def check(site_root: Path, drafts: bool = False) -> Result:
     media.verify(site, site_root, collector, config)
     redirects.generate(site, collector)
 
+    built = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
+    _schema(site, config, theme, collector, built)
     return Result(
         config=config,
         theme=theme,
         theme_dir=theme_dir,
         site=site,
         collector=collector,
-        report=report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root),
+        report=built,
     )

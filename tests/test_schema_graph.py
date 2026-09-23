@@ -175,3 +175,51 @@ def test_collector_untouched():
 @pytest.mark.parametrize("lang", ["uk", "ru"])
 def test_entity_survives_both_languages(lang):
     assert jsonld.entity(_config(), lang)["telephone"] == "+100000000"
+
+
+def test_list_is_plucked_by_star(tmp_path):
+    """Соцсети объявлены один раз как {href, name} — в разметку нужен href."""
+    contact = {
+        **CONTACT,
+        "social": [
+            {"href": "https://a.example/x", "name": "A"},
+            {"href": "https://b.example/y", "name": "B"},
+        ],
+    }
+    entity = {"entity": {**ENTITY["entity"], "sameAs": "{{ contact.social.*.href }}"}}
+    config = _config(contact=contact, schema=entity)
+    node = jsonld.entity(config, "uk")
+    assert node["sameAs"] == ["https://a.example/x", "https://b.example/y"]
+
+
+def test_entity_can_point_at_a_page(tmp_path):
+    """Адрес страницы и её фотография — из движка, а не вписаны руками."""
+    entity = {
+        "entity": {
+            **ENTITY["entity"],
+            "url": "{{ pages.about.url }}",
+            "image": "{{ pages.about.image }}",
+        }
+    }
+    config = _config(schema=entity)
+    files = {
+        "uk/index.md": sites.page("Головна"),
+        "uk/about.md": sites.page("Про нас", image="media/foto/portrait.jpg"),
+    }
+    site, _ = _site(tmp_path, files, config)
+    node = jsonld.entity(config, "uk", site)
+    assert node["url"] == "https://example.com/about/"
+    assert node["image"] == "https://example.com/media/foto/portrait.jpg"
+
+
+def test_base_url_is_available(tmp_path):
+    entity = {"entity": {**ENTITY["entity"], "url": "{{ site.base }}"}}
+    config = _config(schema=entity)
+    assert jsonld.entity(config, "uk")["url"] == "https://example.com/"
+
+
+def test_missing_page_key_drops_the_field(tmp_path):
+    entity = {"entity": {**ENTITY["entity"], "url": "{{ pages.nowhere.url }}"}}
+    config = _config(schema=entity)
+    site, _ = _site(tmp_path, {"uk/index.md": sites.page("Головна")}, config)
+    assert "url" not in jsonld.entity(config, "uk", site)

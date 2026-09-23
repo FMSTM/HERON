@@ -32,7 +32,7 @@ from heron.core.urls import absolute
 
 # Подстановка целиком в значении: {{ contact.city }}. Внутри строки тоже
 # работает, но тогда результат всегда строка.
-HOLE = re.compile(r"\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}")
+HOLE = re.compile(r"\{\{\s*([a-zA-Z0-9_.*]+)\s*\}\}")
 
 # Деньги в разметке этого движка не бывает по требованию сайта: цена не
 # публикуется. Список — не забывчивость в данных, а запрет, поэтому
@@ -69,11 +69,37 @@ def _at(data: Any, path: str, lang: str) -> Any:
                 node = node[part]
                 continue
             return None
-        if isinstance(node, (list, tuple)) and part.isdigit() and int(part) < len(node):
-            node = node[int(part)]
-            continue
+        if isinstance(node, (list, tuple)):
+            if part.isdigit() and int(part) < len(node):
+                node = node[int(part)]
+                continue
+            if part == "*":
+                # Список карт превращается в список значений: соцсети
+                # объявлены один раз как {href, name}, а в разметку нужен
+                # только href. Иначе их переписывают руками и забывают.
+                node = [item for item in node if isinstance(item, dict)]
+                continue
+            return None
         return None
+    if isinstance(node, list) and node and all(isinstance(item, dict) for item in node):
+        return node
     return node
+
+
+def _pluck(data: Any, path: str, lang: str) -> Any:
+    """Значение по пути, где `*` разворачивает список.
+
+    `contact.social.*.href` — список адресов из списка карт.
+    """
+    if ".*." not in path:
+        return _at(data, path, lang)
+    head, tail = path.split(".*.", 1)
+    items = _at(data, head, lang)
+    if not isinstance(items, (list, tuple)):
+        return None
+    out = [_at(item, tail, lang) for item in items]
+    out = [item for item in out if item not in (None, "")]
+    return out or None
 
 
 def _fill(value: Any, data: dict[str, Any], lang: str) -> Any:
@@ -82,13 +108,13 @@ def _fill(value: Any, data: dict[str, Any], lang: str) -> Any:
         whole = HOLE.fullmatch(value.strip())
         if whole:
             # Подстановка на всё значение — отдаём как есть, числом или списком.
-            return _at(data, whole.group(1), lang)
+            return _pluck(data, whole.group(1), lang)
         if HOLE.search(value):
             missing = False
 
             def one(match: re.Match[str]) -> str:
                 nonlocal missing
-                found = _at(data, match.group(1), lang)
+                found = _pluck(data, match.group(1), lang)
                 if found is None:
                     missing = True
                     return ""
@@ -156,7 +182,35 @@ def faq(page: Page) -> dict[str, Any] | None:
     }
 
 
-def entity(config: SiteConfig, lang: str) -> dict[str, Any] | None:
+def _data(config: SiteConfig, lang: str, site=None) -> dict[str, Any]:
+    """Что доступно подстановкам.
+
+    Весь `site.yaml`, плюс две вещи, которых в нём нет и быть не может:
+    базовый адрес сайта и адреса страниц по ключу. Без них узел сайта не
+    может сослаться ни на страницу врача, ни на его фотографию, и человек
+    вписывает адрес руками — а он меняется вместе со слагом.
+    """
+    data = config.model_dump()
+    data["site"] = {**(data.get("site") or {}), "base": absolute(config, "/")}
+    if site is not None:
+        pages: dict[str, Any] = {}
+        for (page_lang, key), page in getattr(site, "by_key", {}).items():
+            if page_lang != lang:
+                continue
+            entry = {
+                "url": absolute(config, page.url),
+                "title": page.meta.title,
+                "description": page.meta.description,
+                "h1": page.h1,
+            }
+            if page.meta.image:
+                entry["image"] = absolute(config, "/" + page.meta.image.lstrip("./"))
+            pages[key or "home"] = entry
+        data["pages"] = pages
+    return data
+
+
+def entity(config: SiteConfig, lang: str, site=None) -> dict[str, Any] | None:
     """Сквозной узел сайта: врач, мастерская, магазин — что объявлено.
 
     Выводится на каждой индексируемой странице целиком, а не ссылкой:
@@ -169,7 +223,7 @@ def entity(config: SiteConfig, lang: str) -> dict[str, Any] | None:
     declared = shared.get("entity")
     if not isinstance(declared, dict) or not declared:
         return None
-    node = _fill(declared, config.model_dump(), lang)
+    node = _fill(declared, _data(config, lang, site), lang)
     if not isinstance(node, dict):
         return None
     if "@id" in node:
@@ -177,7 +231,7 @@ def entity(config: SiteConfig, lang: str) -> dict[str, Any] | None:
     return node
 
 
-def build(page: Page, config: SiteConfig, theme: ThemeConfig) -> list[dict[str, Any]]:
+def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list[dict[str, Any]]:
     """Собрать граф разметки для страницы."""
     spec = theme.types.get(page.type)
     declared = list(spec.jsonld) if spec else []
@@ -207,13 +261,15 @@ def build(page: Page, config: SiteConfig, theme: ThemeConfig) -> list[dict[str, 
             node["dateModified"] = page.meta.updated.isoformat()
         node = _merge(node, shared.get(kind, {}) if isinstance(shared.get(kind), dict) else {})
         node = _merge(node, own.get(kind, {}) if isinstance(own.get(kind), dict) else {})
-        node = _fill(node, {**config.model_dump(), "page": page.meta.model_dump()}, page.lang)
+        node = _fill(
+            node, {**_data(config, page.lang, site), "page": page.meta.model_dump()}, page.lang
+        )
         graph.append(node or {})
 
     # Сквозной узел — только там, где его увидит поисковик. На закрытой
     # от индексации странице разметка бессмысленна.
     if not page.meta.noindex:
-        shared_entity = entity(config, page.lang)
+        shared_entity = entity(config, page.lang, site)
         if shared_entity:
             graph.append(shared_entity)
 
@@ -227,9 +283,9 @@ def build(page: Page, config: SiteConfig, theme: ThemeConfig) -> list[dict[str, 
     return graph
 
 
-def render(page: Page, config: SiteConfig, theme: ThemeConfig) -> str:
+def render(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> str:
     """Готовый текст для `<script type="application/ld+json">`."""
-    graph = build(page, config, theme)
+    graph = build(page, config, theme, site)
     if not graph:
         return ""
     payload: dict[str, Any] = {"@context": "https://schema.org"}
@@ -255,16 +311,16 @@ def _keys(node: Any) -> list[str]:
     return []
 
 
-def verify(page: Page, config: SiteConfig, theme: ThemeConfig, collector) -> list[str]:
+def verify(page: Page, config: SiteConfig, theme: ThemeConfig, collector, site=None) -> list[str]:
     """Проверить разметку страницы. Возвращает типы узлов для отчёта.
 
     Разметку не видно глазами: она либо есть и верна, либо её нет, и узнают
     об этом из чужой панели вебмастера через месяц. Поэтому проверяется на
     сборке, а не после выката.
     """
-    graph = build(page, config, theme)
+    graph = build(page, config, theme, site)
     try:
-        json.loads(render(page, config, theme) or "{}")
+        json.loads(render(page, config, theme, site) or "{}")
     except ValueError as error:
         collector.error(
             "E020", f"разметка страницы не разбирается как JSON: {error}", path=page.source

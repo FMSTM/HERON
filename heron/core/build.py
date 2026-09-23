@@ -245,7 +245,7 @@ def _schema(site, config, theme, collector, built) -> None:
     об этом из чужой панели вебмастера через месяц.
     """
     for page in site.pages:
-        for kind in jsonld.verify(page, config, theme, collector):
+        for kind in jsonld.verify(page, config, theme, collector, site):
             built.schema_nodes[kind] += 1
 
 

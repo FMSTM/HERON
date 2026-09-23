@@ -276,7 +276,7 @@ def context(
         "env": build_env or BuildEnv(),
     }
     shared["mod"] = Modules(env, shared, collector)
-    shared["jsonld"] = lambda: Markup(jsonld.render(page, config, theme))
+    shared["jsonld"] = lambda: Markup(jsonld.render(page, config, theme, site))
     shared["picture"] = picture(media or Manifest(), collector)
     shared["media_url"] = media_url(media or Manifest(), collector)
     # Тот же адрес доступен и фильтром: в разметке чаще пишут

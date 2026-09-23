@@ -43,10 +43,24 @@ class Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+def _clean_domain(v: str) -> str:
+    v = v.strip().lower().removeprefix("https://").removeprefix("http://").rstrip("/")
+    if not DOMAIN_RE.match(v):
+        raise ValueError("домен указывается без схемы и слешей, например example.com")
+    return v
+
+
 class SiteBlock(Strict):
     """Кто мы и на скольких языках."""
 
     domain: str
+    # Домен на окружение: dev-сборка, выложенная на превью-домен, должна
+    # ссылаться на себя, а не на боевой сайт. Иначе на деве нечего
+    # проверять внешними инструментами: карта сайта, каноникл и разметка
+    # показывают чужой адрес. Ключ — то же имя окружения, что управляет
+    # индексацией: второго рычага, который можно забыть переключить, быть
+    # не должно. Блока нет — поведение прежнее.
+    domains: dict[str, str] = Field(default_factory=dict)
     name: str | None = None
     theme: str
     default_lang: str = "uk"
@@ -55,10 +69,12 @@ class SiteBlock(Strict):
     @field_validator("domain")
     @classmethod
     def _domain(cls, v: str) -> str:
-        v = v.strip().lower().removeprefix("https://").removeprefix("http://").rstrip("/")
-        if not DOMAIN_RE.match(v):
-            raise ValueError("домен указывается без схемы и слешей, например example.com")
-        return v
+        return _clean_domain(v)
+
+    @field_validator("domains")
+    @classmethod
+    def _domains(cls, v: dict[str, str]) -> dict[str, str]:
+        return {env: _clean_domain(name) for env, name in v.items()}
 
     @field_validator("theme")
     @classmethod

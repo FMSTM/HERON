@@ -99,6 +99,18 @@ def _readable(dist: Path) -> None:
             continue
 
 
+def for_env(config: SiteConfig, env: BuildEnv) -> None:
+    """Подставить домен окружения. Нет такого ключа — остаётся основной.
+
+    Домен выбирается тем же именем окружения, что управляет индексацией:
+    иначе появляется второй рычаг, который однажды забудут переключить, и
+    прод уезжает в сеть с дев-доменом в каноникле.
+    """
+    chosen = config.site.domains.get(env.name)
+    if chosen:
+        config.site.domain = chosen
+
+
 def prepare(site_root: Path, collector: Collector) -> tuple[SiteConfig, ThemeConfig, Path, Hooks]:
     """Этап 1: конфиги, версия движка, тема, плагины."""
     config = load_site(site_root / SITE_YAML)
@@ -139,6 +151,7 @@ def run(
 
     say.step("конфиг, тема и плагины")
     config, theme, theme_dir, hooks = prepare(site_root, collector)
+    for_env(config, env)
     say.done(f"тема {config.site.theme}, языков {len(config.site.languages)}")
 
     say.step("обход контента")

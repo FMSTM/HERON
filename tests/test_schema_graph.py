@@ -223,3 +223,42 @@ def test_missing_page_key_drops_the_field(tmp_path):
     config = _config(schema=entity)
     site, _ = _site(tmp_path, {"uk/index.md": sites.page("Головна")}, config)
     assert "url" not in jsonld.entity(config, "uk", site)
+
+
+def test_anchor_id_becomes_absolute(tmp_path):
+    """#owner на внутренней странице — это другой адрес, связь распадается."""
+    config = _config()
+    files = {
+        "uk/index.md": sites.page("Головна"),
+        "uk/one.md": sites.page("Послуга", schema={"Service": {"provider": {"@id": "#owner"}}}),
+    }
+    site, _ = _site(tmp_path, files, config)
+    page = next(p for p in site.pages if p.key == "one")
+    node = next(n for n in jsonld.build(page, config, sites.theme()) if n.get("@type") == "Service")
+    assert node["provider"]["@id"] == "https://example.com/#owner"
+
+
+def test_relations_are_available_to_substitutions(tmp_path):
+    """Связанные страницы уже собраны движком — второй список заводить незачем."""
+    config = _config()
+    theme = sites.theme(
+        types={"service": {"uses": [], "jsonld": ["Service"]}},
+        links=[{"field": "treats", "on": "service"}],
+    )
+    files = {
+        "uk/index.md": sites.page("Головна"),
+        "uk/one.md": sites.page(
+            "Послуга",
+            type="service",
+            treats=["two"],
+            schema={"Service": {"about": "{{ related.treats.*.url }}"}},
+        ),
+        "uk/two.md": sites.page("Стан"),
+    }
+    content = sites.build(tmp_path, files)
+    site, collector = tree.scan(content, config)
+    links.resolve(site, config, theme, collector)
+    page = next(p for p in site.pages if p.key == "one")
+    node = next(n for n in jsonld.build(page, config, theme, site) if n.get("@type") == "Service")
+    assert node["about"] == ["https://example.com/two/"]
+    assert not collector.errors

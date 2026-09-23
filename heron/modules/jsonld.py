@@ -210,6 +210,28 @@ def _data(config: SiteConfig, lang: str, site=None) -> dict[str, Any]:
     return data
 
 
+def _related(page: Page, config: SiteConfig) -> dict[str, Any]:
+    """Связи страницы для подстановок: `{{ related.procedures.*.url }}`.
+
+    Перечень связанных страниц уже собран движком по правилам темы.
+    Переписывать те же ссылки руками во фронтматтере значит завести второй
+    список, который разойдётся с первым на третьей правке.
+    """
+    out: dict[str, Any] = {}
+    for field_name, targets in (page.related or {}).items():
+        out[field_name] = [
+            {
+                "url": absolute(config, target.url),
+                "h1": target.h1,
+                "title": target.meta.title,
+                "description": target.meta.description,
+                "note": getattr(target, "note", ""),
+            }
+            for target in targets
+        ]
+    return out
+
+
 def entity(config: SiteConfig, lang: str, site=None) -> dict[str, Any] | None:
     """Сквозной узел сайта: врач, мастерская, магазин — что объявлено.
 
@@ -226,8 +248,27 @@ def entity(config: SiteConfig, lang: str, site=None) -> dict[str, Any] | None:
     node = _fill(declared, _data(config, lang, site), lang)
     if not isinstance(node, dict):
         return None
-    if "@id" in node:
-        node["@id"] = absolute(config, "/") + str(node["@id"]).lstrip("/")
+    return _absolute_ids(node, config)
+
+
+def _absolute_ids(node: Any, config: SiteConfig) -> Any:
+    """Сделать якорные `@id` абсолютными.
+
+    `"@id": "#owner"` внутри страницы — это не тот же адрес, что
+    `#owner` на главной: относительный идентификатор разрешается от
+    адреса документа, и на каждой странице получается своя сущность.
+    Связь между узлами при этом молча распадается.
+    """
+    if isinstance(node, dict):
+        out = {}
+        for key, value in node.items():
+            if key == "@id" and isinstance(value, str) and value.startswith("#"):
+                out[key] = absolute(config, "/") + value
+            else:
+                out[key] = _absolute_ids(value, config)
+        return out
+    if isinstance(node, list):
+        return [_absolute_ids(item, config) for item in node]
     return node
 
 
@@ -262,9 +303,15 @@ def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list
         node = _merge(node, shared.get(kind, {}) if isinstance(shared.get(kind), dict) else {})
         node = _merge(node, own.get(kind, {}) if isinstance(own.get(kind), dict) else {})
         node = _fill(
-            node, {**_data(config, page.lang, site), "page": page.meta.model_dump()}, page.lang
+            node,
+            {
+                **_data(config, page.lang, site),
+                "page": page.meta.model_dump(),
+                "related": _related(page, config),
+            },
+            page.lang,
         )
-        graph.append(node or {})
+        graph.append(_absolute_ids(node or {}, config))
 
     # Сквозной узел — только там, где его увидит поисковик. На закрытой
     # от индексации странице разметка бессмысленна.

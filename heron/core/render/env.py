@@ -27,7 +27,7 @@ from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError
 from heron.core.media import Manifest
 from heron.core.models import Page, Site
-from heron.modules import jsonld
+from heron.modules import jsonld, sitemap
 
 MODULES = "modules"
 TEMPLATES = "templates"
@@ -276,7 +276,11 @@ def context(
         "env": build_env or BuildEnv(),
     }
     shared["mod"] = Modules(env, shared, collector)
-    shared["jsonld"] = lambda: Markup(jsonld.render(page, config, theme))
+    shared["jsonld"] = lambda: Markup(jsonld.render(page, config, theme, site))
+    # Языковые версии для <head>. Тот же набор, что уезжает в карту сайта:
+    # разойтись они не имеют права, иначе поисковик считает набор
+    # несогласованным и может отбросить его целиком.
+    shared["hreflang"] = sitemap.alternates(page, config) if len(page.translations) else []
     shared["picture"] = picture(media or Manifest(), collector)
     shared["media_url"] = media_url(media or Manifest(), collector)
     # Тот же адрес доступен и фильтром: в разметке чаще пишут

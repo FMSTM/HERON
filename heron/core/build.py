@@ -19,7 +19,7 @@ from heron.contracts import wiring
 from heron.contracts.site import SiteConfig, load_site
 from heron.contracts.theme import ThemeConfig, load_theme
 from heron.core import data as data_module
-from heron.core import links, media, notes, report, resolver, tree
+from heron.core import dates, links, media, notes, report, resolver, tree
 from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError
 from heron.core.hooks import Hooks
@@ -158,6 +158,7 @@ def run(
     md = markdown.make(allow_raw_html=config.build.allow_raw_html)
     site, collector = tree.scan(site_root / "content", config, md, collector, drafts=drafts)
     site.data = data_module.load(site_root / "data", collector)
+    dates.resolve(site, site_root, config.build.updated_from, collector)
     hooks.call("on_tree_built", site)
     say.done(f"{len(site.pages)} страниц")
 
@@ -275,6 +276,7 @@ def check(site_root: Path, drafts: bool = False) -> Result:
     md = markdown.make(allow_raw_html=config.build.allow_raw_html)
     site, collector = tree.scan(site_root / "content", config, md, collector, drafts=drafts)
     site.data = data_module.load(site_root / "data", collector)
+    dates.resolve(site, site_root, config.build.updated_from, collector)
     links.resolve(site, config, theme, collector)
     media.folder(site_root, collector)
     media.check_video(site, collector)

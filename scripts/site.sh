@@ -329,10 +329,23 @@ do_push() {
 Так дев-сборка не уедет в реестр по опечатке. Пушить нужно из prod-окружения."
   docker image inspect "$IMAGE_NAME:$IMAGE_TAG" >/dev/null 2>&1 || do_image
   local remote="$REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
-  docker tag "$IMAGE_NAME:$IMAGE_TAG" "$remote"
+
+  # У каждого заказчика свой токен, и мешать их в одном ~/.docker нельзя:
+  # логин в чужой аккаунт затирает предыдущий, и следующий push уезжает
+  # не туда. DOCKER_CONFIG в окружении сайта держит их порознь.
+  local cfg=()
+  if [ -n "${DOCKER_CONFIG:-}" ]; then
+    local dir="${DOCKER_CONFIG/#\~/$HOME}"
+    [ -d "$dir" ] || die "нет папки DOCKER_CONFIG=$dir, указанной в $ENV_FILE"
+    cfg=(--config "$dir")
+    note "докер-конфиг: $dir"
+  fi
+
+  docker "${cfg[@]}" tag "$IMAGE_NAME:$IMAGE_TAG" "$remote" 2>/dev/null \
+    || docker tag "$IMAGE_NAME:$IMAGE_TAG" "$remote"
   note "отправка $remote"
-  docker push "$remote" || die "не отправилось. Если реестр не пускает — авторизуйтесь:
-  docker login ${REGISTRY%%/*}"
+  docker "${cfg[@]}" push "$remote" || die "не отправилось. Если реестр не пускает — авторизуйтесь:
+  docker ${cfg[*]:+--config ${cfg[1]} }login ${REGISTRY%%/*}"
   ok "отправлено: $remote"
 }
 

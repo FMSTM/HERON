@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -150,6 +150,11 @@ class AnalyticsBlock(Strict):
 class BuildBlock(Strict):
     fail_on_warning: bool = False
     allow_raw_html: bool = False
+
+    # Откуда берётся дата обновления страницы, если её не задали руками.
+    # Умолчание `manual` — прежнее поведение: подъём движка не должен
+    # менять даты на живом сайте сам по себе.
+    updated_from: Literal["manual", "git", "file"] = "manual"
 
 
 class FormSpec(Strict):

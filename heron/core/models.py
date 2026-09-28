@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 from heron.contracts.frontmatter import PageMeta
@@ -108,6 +109,11 @@ class Page:
     url: str = ""
     type: str = "page"
 
+    # Дата из истории или из времени файла: то, что движок выяснил сам.
+    # Рядом с meta.updated, а не вместо него: по нему всегда видно,
+    # что дату поставили руками.
+    auto_updated: date | None = None
+
     # Ссылки тела страницы как их написал автор: номер строки и адрес.
     # Хранятся от обхода, потому что в отрендеренном HTML строк уже нет.
     links: list[tuple[int, str]] = field(default_factory=list)
@@ -121,6 +127,16 @@ class Page:
     @property
     def title(self) -> str:
         return self.meta.title
+
+    @property
+    def updated(self) -> date | None:
+        """Дата обновления страницы — одна на всех потребителей.
+
+        Подпись под текстом, `lastmod` карты сайта и `dateModified`
+        разметки обязаны говорить одно и то же: разъехавшись, они
+        превращаются в три разных ответа на один вопрос.
+        """
+        return self.meta.updated or self.auto_updated
 
     @property
     def h1(self) -> str:

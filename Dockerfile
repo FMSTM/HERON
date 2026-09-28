@@ -25,6 +25,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 COPY --from=build /install /opt/heron
 
+# Гит нужен ровно для одного: узнать дату последнего изменения файла
+# (`build.updated_from: git`). Без него движок соберёт сайт, но даты
+# возьмёт из времени файлов, а оно врёт после любого копирования.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git \
+ && rm -rf /var/lib/apt/lists/*
+
 # Непривилегированный пользователь. Флаг --user при запуске всё равно важнее:
 # образ не должен зависеть от конкретного uid и конкретного $HOME.
 RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin heron

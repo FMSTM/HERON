@@ -29,7 +29,7 @@
 ```yaml
 services:
   build:
-    image: ghcr.io/OWNER/heron:0.4
+    image: ghcr.io/OWNER/heron:0.5.0
     profiles: ["build"]              # не поднимается вместе с web
     user: "${UID}:${GID}"
     network_mode: "none"             # сборке сеть не нужна

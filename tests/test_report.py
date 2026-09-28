@@ -69,7 +69,7 @@ def test_broken_internal_link(tmp_path):
     site, collector = tree.scan(content, config)
     links.resolve(site, config, sites.theme(), collector)
     result = report.build(site, config, sites.theme())
-    assert result.broken_links == [("uk/a.md", "/нет-такой/")]
+    assert result.broken_links == [("uk/a.md", 9, "/нет-такой/")]
 
 
 def test_asset_links_are_not_broken_pages(tmp_path):

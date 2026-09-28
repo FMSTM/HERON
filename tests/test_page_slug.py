@@ -169,3 +169,58 @@ def test_media_and_anchors_are_not_links_to_pages(tmp_path):
     )
     links.resolve(site, config, sites.theme(), collector)
     assert [w for w in collector.warnings if w.kind == "ссылки"] == []
+
+
+LINKS = {"links": [{"field": "treats", "type": "condition", "back": "procedures"}]}
+
+
+def test_relations_hold_when_the_address_is_renamed(tmp_path):
+    site, config, collector = scan(
+        tmp_path,
+        {
+            "uk/index.md": sites.page("Головна"),
+            "uk/conditions/_index.md": sites.page("Стани", type="category", slug="stany"),
+            "uk/conditions/leak.md": sites.page("Протікання", type="condition", slug="protikannya"),
+            "uk/procedures/_index.md": sites.page("Операції", type="category", slug="operatsiyi"),
+            "uk/procedures/patch.md": sites.page(
+                "Латка", type="procedure", slug="latka", treats=["leak"]
+            ),
+        },
+    )
+    links.resolve(site, config, sites.theme(**LINKS), collector)
+    assert [e.code for e in collector.errors] == []
+    procedure = site.by_url["/operatsiyi/latka/"]
+    assert [p.url for p in procedure.related["treats"]] == ["/stany/protikannya/"]
+    condition = site.by_url["/stany/protikannya/"]
+    assert [p.url for p in condition.related["procedures"]] == ["/operatsiyi/latka/"]
+
+
+def test_relation_points_at_the_page_of_its_own_language(tmp_path):
+    files = {
+        "uk/index.md": sites.page("Головна"),
+        "uk/leak.md": sites.page("Протікання", type="condition", slug="protikannya"),
+        "uk/patch.md": sites.page("Латка", type="procedure", treats=["leak"]),
+        "ru/index.md": sites.page("Главная"),
+        "ru/leak.md": sites.page("Протечка", type="condition", slug="protechka"),
+        "ru/patch.md": sites.page("Заплатка", type="procedure", treats=["leak"]),
+    }
+    site, config, collector = scan(tmp_path, files)
+    links.resolve(site, config, sites.theme(**LINKS), collector)
+    assert [e.code for e in collector.errors] == []
+    assert [p.url for p in site.by_url["/patch/"].related["treats"]] == ["/protikannya/"]
+    assert [p.url for p in site.by_url["/ru/patch/"].related["treats"]] == ["/ru/protechka/"]
+
+
+def test_same_file_name_in_two_folders_is_ambiguous(tmp_path):
+    site, config, collector = scan(
+        tmp_path,
+        {
+            "uk/index.md": sites.page("Головна"),
+            "uk/a/leak.md": sites.page("Протікання А", type="condition"),
+            "uk/b/leak.md": sites.page("Протікання Б", type="condition"),
+            "uk/patch.md": sites.page("Латка", type="procedure", treats=["leak"]),
+        },
+    )
+    links.resolve(site, config, sites.theme(**LINKS), collector)
+    assert [e.code for e in collector.errors] == ["E006"]
+    assert "неоднозначно" in collector.errors[0].message

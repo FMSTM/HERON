@@ -150,7 +150,7 @@ class Page:
         одноязычном сайте с человеческими именами файлов этого хватает,
         и заполнять ничего не нужно.
         """
-        return self.meta.nav_title or self.slug or self.h1
+        return self.meta.nav_title or self.name or self.h1
 
     @property
     def video(self) -> Video | None:
@@ -185,7 +185,19 @@ class Page:
 
     @property
     def slug(self) -> str:
+        """Последний сегмент адреса. Это про URL, не про личность страницы."""
         return self.url.rstrip("/").rsplit("/", 1)[-1]
+
+    @property
+    def name(self) -> str:
+        """Имя файла без расширения — короткое имя страницы.
+
+        Им страница названа в полях связей: `treats: [leaking-roof]`.
+        Адрес для этого не годится — он меняется вместе со слагом и
+        разный в разных языках, а связь между теми же двумя страницами
+        от этого не становится другой связью.
+        """
+        return self.key.rsplit("/", 1)[-1]
 
     @property
     def is_index(self) -> bool:

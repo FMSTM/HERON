@@ -268,9 +268,17 @@ def _breadcrumbs(site: Site, config: SiteConfig) -> None:
 
 
 def _declared(site: Site, theme: ThemeConfig, collector: Collector) -> None:
-    by_slug: dict[tuple[str, str], list[Page]] = {}
+    """Поля связей, объявленные темой: `treats`, `procedures` и прочие.
+
+    Страница называется в них именем файла, а не адресом. Адрес задаётся
+    слагом, слаги у языков разные, и индекс по адресу означал бы, что
+    украинская страница и её русский перевод связаны с разными вещами —
+    хотя связь описывает предмет, а не URL. Задание одного `slug` рвало
+    все входящие связи разом.
+    """
+    by_name: dict[tuple[str, str], list[Page]] = {}
     for page in site.pages:
-        by_slug.setdefault((page.lang, page.slug), []).append(page)
+        by_name.setdefault((page.lang, page.name), []).append(page)
 
     for link in theme.links:
         for page in site.pages:
@@ -288,28 +296,29 @@ def _declared(site: Site, theme: ThemeConfig, collector: Collector) -> None:
                 continue
 
             targets: list[Linked] = []
-            for slug, note in slugs:
+            for name, note in slugs:
                 found = [
                     candidate
-                    for candidate in by_slug.get((page.lang, slug), [])
+                    for candidate in by_name.get((page.lang, name), [])
                     if link.type is None or candidate.type == link.type
                 ]
                 if not found:
                     collector.error(
                         "E006",
-                        f"{link.field}: страницы {slug!r} не существует"
+                        f"{link.field}: страницы {name!r} не существует"
                         + (f" среди страниц типа {link.type!r}" if link.type else ""),
                         path=page.source,
-                        hint="проверьте слаг или уберите ссылку",
+                        hint="страница называется именем своего файла без расширения, "
+                        "а не адресом: slug на неё ничего здесь не меняет",
                     )
                     continue
                 if len(found) > 1:
                     collector.error(
                         "E006",
-                        f"{link.field}: слаг {slug!r} неоднозначен — "
+                        f"{link.field}: имя {name!r} неоднозначно — "
                         + ", ".join(p.source for p in found),
                         path=page.source,
-                        hint="уточните тип связи в theme.yaml или переименуйте страницу",
+                        hint="уточните тип связи в theme.yaml или переименуйте файл",
                     )
                     continue
                 targets.append(Linked(found[0], note or _default_note(found[0])))

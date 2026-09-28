@@ -111,6 +111,12 @@ class SeoBlock(Strict):
     og_default_image: str | None = None
     twitter_card: str = "summary_large_image"
     llms_txt: bool = True
+
+    # Сведения о сайте для файлов, которые читает нейросеть: связь, часы,
+    # чего сайт не делает. Ключ — код языка, значение — готовый markdown.
+    # Вставляется дословно: это данные, а не шаблон.
+    llms_note: dict[str, str] = Field(default_factory=dict)
+
     robots_extra: list[str] = Field(default_factory=list)
     feed: str | None = None
     feed_limit: int = 20

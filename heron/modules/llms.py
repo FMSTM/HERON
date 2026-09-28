@@ -72,6 +72,21 @@ def _has_pages(site: Site, lang: str) -> bool:
     return len([p for p in site.of_lang(lang) if indexable(p)]) > 1
 
 
+def _note(config: SiteConfig, lang: str) -> list[str]:
+    """Блок сведений о сайте на этом языке, если сайт его задал.
+
+    Идёт после описания и до перечня страниц: сначала «что это за сайт»,
+    потом «как с ним иметь дело», и только потом содержимое. Читателю
+    нужен ответ раньше оглавления — он за ним и пришёл.
+
+    Языка нет в словаре — блока нет, молча: сайт вправе описать не все
+    языки, и ругаться на это значит требовать переводов, которых никто
+    не обещал.
+    """
+    text = (config.seo.llms_note or {}).get(lang, "").strip()
+    return [text, ""] if text else []
+
+
 def _index(site: Site, config: SiteConfig, langs: list[str]) -> str:
     """Корневой файл: что это за сайт и где его языковые версии."""
     lang = config.site.default_lang
@@ -80,6 +95,7 @@ def _index(site: Site, config: SiteConfig, langs: list[str]) -> str:
     lines = [f"# {title}", ""]
     if home is not None:
         lines += [f"> {home.meta.description}", ""]
+    lines += _note(config, lang)
     if langs:
         lines += ["## Языковые версии", ""]
         lines += [f"- {NAMES.get(one, one)}: {absolute(config, _name(one))}" for one in langs]
@@ -111,6 +127,7 @@ def _for_lang(site: Site, config: SiteConfig, lang: str, langs: list[str]) -> di
     head = [f"# {title}", ""]
     if home is not None:
         head += [f"> {home.meta.description}", ""]
+    head += _note(config, lang)
 
     catalogs = [p for p in pages if p.children and p is not home]
     loose = [p for p in pages if not p.children and p.parent in (None, home) and p is not home]
@@ -131,7 +148,7 @@ def _for_lang(site: Site, config: SiteConfig, lang: str, langs: list[str]) -> di
     files[_name(lang).lstrip("/")] = "\n".join(head + body).rstrip() + "\n"
 
     if config.seo.llms_txt:
-        full = [f"# {title}", ""]
+        full = [f"# {title}", "", *_note(config, lang)]
         for page in sorted(pages, key=lambda p: p.url):
             full += [f"# {page.h1}", "", f"URL: {absolute(config, page.url)}", "", _body(page), ""]
         full = _others(config, lang, langs, full=True) + full

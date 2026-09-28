@@ -38,6 +38,35 @@ NAMES = {
     "pl": "Po polsku",
 }
 
+# Подписи перекрёстных ссылок — на языке самого файла. Язык, которого нет
+# в наборе, получает английскую: она понятна и модели, и человеку, а
+# выдуманный перевод — никому.
+TO_FULL = {
+    "uk": "Повні тексти всіх сторінок:",
+    "ru": "Полные тексты всех страниц:",
+    "en": "Full text of all pages:",
+    "de": "Volltext aller Seiten:",
+    "pl": "Pełne teksty wszystkich stron:",
+}
+TO_SHORT = {
+    "uk": "Короткий перелік сторінок:",
+    "ru": "Краткий список страниц:",
+    "en": "Short index of pages:",
+    "de": "Kurzes Seitenverzeichnis:",
+    "pl": "Krótki spis stron:",
+}
+FULL_TITLE = {
+    "uk": "## Повні тексти",
+    "ru": "## Полные тексты",
+    "en": "## Full texts",
+    "de": "## Volltexte",
+    "pl": "## Pełne teksty",
+}
+
+
+def _label(table: dict[str, str], lang: str) -> str:
+    return table.get(lang, table["en"])
+
 
 def generate(site: Site, config: SiteConfig) -> dict[str, str]:
     """Корневой файл со списком языков плюс файл на каждый язык.
@@ -99,6 +128,12 @@ def _index(site: Site, config: SiteConfig, langs: list[str]) -> str:
     if langs:
         lines += ["## Языковые версии", ""]
         lines += [f"- {NAMES.get(one, one)}: {absolute(config, _name(one))}" for one in langs]
+        if config.seo.llms_txt:
+            lines += ["", _label(FULL_TITLE, lang), ""]
+            lines += [
+                f"- {NAMES.get(one, one)}: {absolute(config, _name(one, full=True))}"
+                for one in langs
+            ]
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -108,13 +143,26 @@ def _name(lang: str, full: bool = False) -> str:
 
 
 def _others(config: SiteConfig, lang: str, langs: list[str], full: bool = False) -> list[str]:
-    """Шапка со ссылками на остальные версии и на корневой файл."""
+    """Шапка: остальные языковые версии, корневой файл и вторая половина пары.
+
+    Ни один файл набора не должен быть тупиком. Краткий перечень и полные
+    тексты — две половины одного языка, и раньше между ними не вело ничего:
+    модель, прочитавшая перечень страниц, о полных текстах не узнавала. А
+    это и есть самое ценное, что сайт может ей дать.
+
+    Ссылка на вторую половину — не про языки, поэтому она появляется и на
+    одноязычном сайте, где блока «другие языки» нет вовсе.
+    """
+    lines: list[str] = []
     rest = [one for one in langs if one != lang]
-    if not rest:
-        return []
-    lines = [f"Все языковые версии: {absolute(config, '/llms.txt')}"]
-    lines += [f"{NAMES.get(one, one)}: {absolute(config, _name(one, full))}" for one in rest]
-    lines.append("")
+    if rest:
+        lines.append(f"Все языковые версии: {absolute(config, '/llms.txt')}")
+        lines += [f"{NAMES.get(one, one)}: {absolute(config, _name(one, full))}" for one in rest]
+    if config.seo.llms_txt:
+        table, other = (TO_SHORT, False) if full else (TO_FULL, True)
+        lines.append(f"{_label(table, lang)} {absolute(config, _name(lang, other))}")
+    if lines:
+        lines.append("")
     return lines
 
 

@@ -298,8 +298,8 @@ def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list
             "url": absolute(config, page.url),
             "inLanguage": page.lang,
         }
-        if page.meta.updated:
-            node["dateModified"] = page.meta.updated.isoformat()
+        if page.updated:
+            node["dateModified"] = page.updated.isoformat()
         node = _merge(node, shared.get(kind, {}) if isinstance(shared.get(kind), dict) else {})
         node = _merge(node, own.get(kind, {}) if isinstance(own.get(kind), dict) else {})
         node = _fill(

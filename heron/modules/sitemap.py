@@ -58,8 +58,8 @@ def alternates(page: Page, config: SiteConfig) -> list[tuple[str, str]]:
 
 def _entry(page: Page, config: SiteConfig) -> str:
     lines = ["  <url>", f"    <loc>{escape(absolute(config, page.url))}</loc>"]
-    if page.meta.updated:
-        lines.append(f"    <lastmod>{page.meta.updated.isoformat()}</lastmod>")
+    if page.updated:
+        lines.append(f"    <lastmod>{page.updated.isoformat()}</lastmod>")
     links = alternates(page, config)
     if len(links) > 2:  # сама страница и x-default смысла не добавляют
         for lang, href in links:

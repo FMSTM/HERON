@@ -21,7 +21,7 @@ EPOCH = date(1970, 1, 1)
 
 def _item(page: Page, config: SiteConfig) -> str:
     url = absolute(config, page.url)
-    updated = (page.meta.updated or EPOCH).isoformat()
+    updated = (page.updated or EPOCH).isoformat()
     return (
         "  <entry>\n"
         f"    <title>{escape(page.h1)}</title>\n"
@@ -41,12 +41,12 @@ def generate(site: Site, config: SiteConfig) -> dict[str, str]:
     pages = [
         p for p in site.of_type(config.seo.feed, lang) if p.meta.published and not p.meta.noindex
     ]
-    pages.sort(key=lambda p: (p.meta.updated or EPOCH, p.url), reverse=True)
+    pages.sort(key=lambda p: (p.updated or EPOCH, p.url), reverse=True)
     pages = pages[: config.seo.feed_limit]
 
     home = site.by_url.get(home_url(config, lang))
     title = home.h1 if home else (config.site.name or config.site.domain)
-    updated = max((p.meta.updated or EPOCH for p in pages), default=EPOCH).isoformat()
+    updated = max((p.updated or EPOCH for p in pages), default=EPOCH).isoformat()
 
     entries = "\n".join(_item(p, config) for p in pages)
     return {

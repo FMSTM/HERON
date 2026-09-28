@@ -108,6 +108,10 @@ class Page:
     url: str = ""
     type: str = "page"
 
+    # Ссылки тела страницы как их написал автор: номер строки и адрес.
+    # Хранятся от обхода, потому что в отрендеренном HTML строк уже нет.
+    links: list[tuple[int, str]] = field(default_factory=list)
+
     parent: Page | None = None
     children: list[Page] = field(default_factory=list)
     translations: dict[str, Page] = field(default_factory=dict)

@@ -94,7 +94,7 @@ def test_robots_closed_by_default(built):
 
 def test_llms_lists_catalogs_with_children(built):
     site, config, _, _ = built
-    text = llms.generate(site, config)["llms.txt"]
+    text = llms.generate(site, config)["llms-uk.txt"]
     assert "# Головна" in text
     assert "## Послуги" in text
     assert "[Консультація](https://example.com/services/consulting/)" in text
@@ -102,7 +102,7 @@ def test_llms_lists_catalogs_with_children(built):
 
 def test_llms_full_carries_the_text(built):
     site, config, _, _ = built
-    full = llms.generate(site, config)["llms-full.txt"]
+    full = llms.generate(site, config)["llms-full-uk.txt"]
     assert "Вступление." in full
     assert "URL: https://example.com/bio/" in full
 
@@ -245,6 +245,88 @@ def test_feed_lists_pages_of_the_type(tmp_path):
 
 def test_home_is_not_listed_as_a_section(built):
     site, config, _, _ = built
-    text = llms.generate(site, config)["llms.txt"]
+    text = llms.generate(site, config)["llms-uk.txt"]
     assert text.count("## Послуги") == 1
     assert "## Головна" not in text
+
+
+def test_llms_is_built_for_every_language(tmp_path):
+    """У каждого языка свой файл: модель отвечает на языке прочитанного."""
+    files = {
+        "uk/index.md": sites.page("Головна"),
+        "uk/services/_index.md": sites.page("Послуги", type="category", children_type="service"),
+        "uk/services/consulting.md": sites.page("Консультація"),
+        "ru/index.md": sites.page("Главная"),
+        "ru/services/_index.md": sites.page("Услуги", type="category", children_type="service"),
+        "ru/services/consulting.md": sites.page("Консультация"),
+    }
+    content = sites.build(tmp_path, files)
+    config = sites.config()
+    site, collector = tree.scan(content, config)
+    links.resolve(site, config, sites.theme(), collector)
+
+    out = llms.generate(site, config)
+    assert set(out) == {
+        "llms.txt",
+        "llms-uk.txt",
+        "llms-full-uk.txt",
+        "llms-ru.txt",
+        "llms-full-ru.txt",
+    }
+    assert "Консультація" in out["llms-uk.txt"]
+    assert "Консультация" in out["llms-ru.txt"]
+    assert "Консультація" not in out["llms-ru.txt"]
+
+
+def test_root_file_lists_the_languages(tmp_path):
+    """Корневой файл — оглавление, перечня страниц в нём нет."""
+    files = {
+        "uk/index.md": sites.page("Головна"),
+        "uk/one.md": sites.page("Сторінка"),
+        "ru/index.md": sites.page("Главная"),
+        "ru/one.md": sites.page("Страница"),
+    }
+    content = sites.build(tmp_path, files)
+    config = sites.config()
+    site, collector = tree.scan(content, config)
+    links.resolve(site, config, sites.theme(), collector)
+
+    root = llms.generate(site, config)["llms.txt"]
+    assert "https://example.com/llms-uk.txt" in root
+    assert "https://example.com/llms-ru.txt" in root
+    assert "Сторінка" not in root
+
+
+def test_each_language_points_at_the_others(tmp_path):
+    files = {
+        "uk/index.md": sites.page("Головна"),
+        "uk/one.md": sites.page("Сторінка"),
+        "ru/index.md": sites.page("Главная"),
+        "ru/one.md": sites.page("Страница"),
+    }
+    content = sites.build(tmp_path, files)
+    config = sites.config()
+    site, collector = tree.scan(content, config)
+    links.resolve(site, config, sites.theme(), collector)
+
+    out = llms.generate(site, config)
+    assert "https://example.com/llms-uk.txt" in out["llms-ru.txt"]
+    assert "https://example.com/llms.txt" in out["llms-ru.txt"]
+    assert "https://example.com/llms-full-uk.txt" in out["llms-full-ru.txt"]
+
+
+def test_language_with_only_a_stub_is_not_offered(tmp_path):
+    """Ссылка на пустой файл хуже её отсутствия: модель вернётся ни с чем."""
+    files = {
+        "uk/index.md": sites.page("Головна"),
+        "uk/one.md": sites.page("Сторінка"),
+        "ru/index.md": sites.page("Заглушка"),
+    }
+    content = sites.build(tmp_path, files)
+    config = sites.config()
+    site, collector = tree.scan(content, config)
+    links.resolve(site, config, sites.theme(), collector)
+
+    out = llms.generate(site, config)
+    assert "llms-ru.txt" not in out
+    assert "llms-ru.txt" not in out["llms.txt"]

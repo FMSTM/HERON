@@ -92,6 +92,58 @@ def resolve(site: Site, config: SiteConfig, theme: ThemeConfig, collector: Colle
     _declared(site, theme, collector)
     _nav(site, config, collector)
     localize(site, config, collector)
+    check(site, config, collector)
+
+
+def _resolves(site: Site, lang: str, default: str, href: str) -> bool:
+    """Ведёт ли написанная в тексте ссылка на существующую страницу.
+
+    Повторяет правило `localize`: на неосновном языке сначала пробуется
+    адрес с языковым префиксом, потом — как написано. Иначе проверка
+    ругалась бы ровно на те ссылки, которые сборка чинит сама.
+    """
+    path = href.partition("#")[0].partition("?")[0]
+    if not path:
+        return True
+    if not path.endswith("/"):
+        path += "/"
+    if lang != default and f"/{lang}{path}" in site.by_url:
+        return True
+    return path in site.by_url
+
+
+def unresolved(site: Site, config: SiteConfig) -> list[tuple[str, int, str]]:
+    """Ссылки текста, которым не соответствует ни одна страница сайта.
+
+    Файлы ресурсов пропускаются: `/media/…` это не страница, и проверять
+    его наличие — работа медиа-конвейера, а не перелинковки.
+    """
+    default = config.site.default_lang
+    out: list[tuple[str, int, str]] = []
+    for page in site.pages:
+        for line, href in page.links:
+            if href.startswith(NOT_A_PAGE):
+                continue
+            if not _resolves(site, page.lang, default, href):
+                out.append((page.source, line, href))
+    return out
+
+
+def check(site: Site, config: SiteConfig, collector: Collector) -> None:
+    """Сказать про каждую ссылку в никуда: файл, строка, сама ссылка.
+
+    Это предупреждение, а не ошибка: битая ссылка внутри текста не рушит
+    сборку и не должна останавливать выкат остального сайта. Но молчать
+    нельзя — руками написанный адрес переживает переименование раздела
+    и ведёт на 404 до тех пор, пока на него кто-нибудь не нажмёт.
+    """
+    for source, line, href in unresolved(site, config):
+        collector.warn(
+            f"ссылка {href} никуда не ведёт",
+            path=source,
+            line=line,
+            kind="ссылки",
+        )
 
 
 def _rewrite(value, replace):

@@ -39,6 +39,61 @@ def url_for(lang: str, default_lang: str, parts: list[str]) -> str:
     return f"/{path}/" if path else "/"
 
 
+def _folder_slugs(root: Path, collector: Collector) -> dict[str, str]:
+    """Сегмент адреса каждой папки: её `slug`, если раздел его объявил.
+
+    Собирается заранее, отдельным проходом: дочернюю страницу движок
+    встречает раньше, чем `_index.md` её раздела, а адрес ребёнка зависит
+    от того, как назвал себя родитель.
+
+    Негодный слаг здесь молча пропускается — не потому, что он допустим,
+    а потому, что об этом скажет чтение самого `_index.md`: там он
+    проходит через контракт фронтматтера и даёт E002 с номером строки.
+    Ругаться дважды об одном значит удвоить список ошибок на ровном месте.
+    """
+    out: dict[str, str] = {}
+    for path in root.rglob(INDEX):
+        rel = path.parent.relative_to(root).as_posix()
+        rel = "" if rel == "." else rel
+        try:
+            data, _, _ = frontmatter.split(path.read_text(encoding="utf-8"), str(path))
+        except HeronError:
+            continue  # об этой ошибке уже сказал _folder_types
+        slug = data.get("slug")
+        if isinstance(slug, str) and SLUG.match(slug.strip()):
+            out[rel] = slug.strip()
+    return out
+
+
+def folder_url(parts: list[str], folder_slugs: dict[str, str]) -> list[str]:
+    """Путь папок, где каждый сегмент заменён слагом своего раздела.
+
+    Адрес собирается из цепочки сегментов, а не из строки пути, поэтому
+    раздел, переименовавший себя, уводит за собой и всех детей.
+    """
+    return [
+        folder_slugs.get("/".join(parts[:depth]), part) for depth, part in enumerate(parts, start=1)
+    ]
+
+
+LINK_IN_TEXT = re.compile(r"\]\(\s*(/[^)\s]+)|href=\"(/[^\"]+)\"")
+
+
+def _links(body: str, offset: int) -> list[tuple[int, str]]:
+    """Внутренние ссылки тела страницы с номером строки, как их написал автор.
+
+    Номер строки нужен именно здесь: после разбора markdown остаётся HTML,
+    в котором строк исходника уже нет, а человеку править файл. Тем более
+    теперь, когда адрес раздела задаётся слагом: переименовали раздел —
+    и руками написанные ссылки на него ведут в никуда, молча.
+    """
+    out: list[tuple[int, str]] = []
+    for number, line in enumerate(body.splitlines(), start=offset):
+        for match in LINK_IN_TEXT.finditer(line):
+            out.append((number, match.group(1) or match.group(2)))
+    return out
+
+
 def _folder_types(root: Path, collector: Collector) -> dict[str, tuple[str | None, str | None]]:
     """Для каждой папки: её собственный тип и тип её детей, из `_index.md`."""
     out: dict[str, tuple[str | None, str | None]] = {}
@@ -77,6 +132,7 @@ def scan(
             continue
 
         folder_types = _folder_types(lang_root, collector)
+        folder_slugs = _folder_slugs(lang_root, collector)
 
         for path in sorted(lang_root.rglob("*.md")):
             rel = path.relative_to(content_root).as_posix()
@@ -113,8 +169,13 @@ def scan(
             parent_folder = "/".join(parts[:-1]) if parts else ""
             _, inherited = folder_types.get(parent_folder, (None, None))
 
+            # Ключ строится из пути файла и никогда не смотрит на слаг:
+            # это идентификатор страницы, по нему движок находит её
+            # языковые версии. Склеить его с адресом — значит запретить
+            # языкам иметь разные адреса, а переименование адреса сделать
+            # разрывом связи между переводами.
             if name == INDEX:
-                url_parts = parts
+                url_parts = folder_url(parts, folder_slugs)
                 key = folder
                 page_type = meta.type or own_type or (inherited or DEFAULT_TYPE)
             elif name == HOME and not parts:
@@ -122,8 +183,8 @@ def scan(
                 key = ""
                 page_type = meta.type or HOME_TYPE
             else:
-                slug = meta.slug or _slug_of(name)
-                url_parts = [*parts, slug]
+                own_slug = meta.slug or _slug_of(name)
+                url_parts = [*folder_url(parts, folder_slugs), own_slug]
                 key = "/".join([*parts, _slug_of(name)])
                 page_type = meta.type or children_type or DEFAULT_TYPE
 
@@ -149,6 +210,7 @@ def scan(
                 intro=intro,
                 url=url_for(lang, config.site.default_lang, url_parts),
                 type=page_type,
+                links=_links(body, body_line),
             )
 
             if not meta.published and not drafts:

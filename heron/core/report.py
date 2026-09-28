@@ -19,6 +19,7 @@ from urllib.parse import unquote
 
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
+from heron.core import links as links_module
 from heron.core import media, notes
 from heron.core.errors import Collector
 from heron.core.models import Site
@@ -37,7 +38,7 @@ class Report:
     format_mismatch: list[tuple[str, str, str, str]] = field(default_factory=list)
     unused_sections: list[tuple[str, str]] = field(default_factory=list)
     unused_modules: list[str] = field(default_factory=list)
-    broken_links: list[tuple[str, str]] = field(default_factory=list)
+    broken_links: list[tuple[str, int, str]] = field(default_factory=list)
     orphans: list[str] = field(default_factory=list)
     nameless_in_nav: list[str] = field(default_factory=list)
     untranslated: dict[str, list[str]] = field(default_factory=dict)
@@ -45,6 +46,7 @@ class Report:
     static_media: list[str] = field(default_factory=list)
     notes_missing: list[str] = field(default_factory=list)
     uneven_keys: list[tuple[str, str, str, int, int]] = field(default_factory=list)
+    schema_nodes: Counter = field(default_factory=Counter)
 
     def render(self) -> str:
         """Отчёт текстом — то, что печатается после сборки."""
@@ -100,12 +102,19 @@ class Report:
         if self.broken_links:
             lines.append("")
             lines.append("Ссылки в никуда:")
-            for source, href in self.broken_links[:20]:
-                lines.append(f"  {source} -> {href}")
+            for source, line, href in self.broken_links[:20]:
+                lines.append(f"  {source}:{line} -> {href}")
 
         if self.orphans:
             lines.append("")
             lines.append("На эти страницы никто не ссылается: " + ", ".join(self.orphans[:10]))
+
+        if self.schema_nodes:
+            by_kind = ", ".join(
+                f"{kind}: {count}" for kind, count in sorted(self.schema_nodes.items())
+            )
+            lines.append("")
+            lines.append(f"Разметка schema.org — {by_kind}")
 
         if self.unused_media:
             lines.append("")
@@ -191,7 +200,10 @@ def build(
     for name, node in (site.data or {}).items():
         report.uneven_keys.extend(_uneven(f"data/{name}", "", node))
 
-    # внутренние ссылки
+    # внутренние ссылки: куда ведут — из готового HTML, потому что язык
+    # подставлен уже там; куда не ведут — из исходника, потому что человеку
+    # нужен номер строки, а в HTML строк исходника нет
+    report.broken_links = links_module.unresolved(site, config)
     linked: set[str] = set()
     for page in site.pages:
         chunks = [page.intro.html if page.intro else "", *(s.html for s in page.sections.values())]
@@ -203,8 +215,6 @@ def build(
                 target = href if href.endswith("/") else href + "/"
                 if target in site.by_url:
                     linked.add(target)
-                elif not href.startswith(("/media/", "/img/", "/static/", "/assets/")):
-                    report.broken_links.append((page.source, href))
 
     for page in site.pages:
         # Главная языка — не сирота: на неё ведёт переключатель языков,
@@ -342,7 +352,10 @@ def summary(collector: Collector, full: Path | None = None) -> str:
             continue
         lines.append(f"  {kind} — {len(batch)}:")
         for warning in batch[:EXAMPLES]:
-            where = f"{warning.path}: " if warning.path else ""
+            where = warning.path or ""
+            if where and warning.line:
+                where = f"{where}:{warning.line}"
+            where = f"{where}: " if where else ""
             lines.append(f"    {where}{warning.message}")
         if len(batch) > EXAMPLES:
             lines.append(f"    … и ещё {len(batch) - EXAMPLES}")
@@ -352,7 +365,8 @@ def summary(collector: Collector, full: Path | None = None) -> str:
             full.parent.mkdir(parents=True, exist_ok=True)
             full.write_text(
                 "\n".join(
-                    f"{getattr(w, 'kind', '') or 'прочее'}\t{w.path or ''}\t{w.message}"
+                    f"{getattr(w, 'kind', '') or 'прочее'}\t"
+                    f"{w.path or ''}{f':{w.line}' if w.path and w.line else ''}\t{w.message}"
                     for w in collector.warnings
                 )
                 + "\n",

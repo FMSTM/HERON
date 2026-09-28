@@ -45,6 +45,7 @@ class Report:
     static_media: list[str] = field(default_factory=list)
     notes_missing: list[str] = field(default_factory=list)
     uneven_keys: list[tuple[str, str, str, int, int]] = field(default_factory=list)
+    schema_nodes: Counter = field(default_factory=Counter)
 
     def render(self) -> str:
         """Отчёт текстом — то, что печатается после сборки."""
@@ -106,6 +107,13 @@ class Report:
         if self.orphans:
             lines.append("")
             lines.append("На эти страницы никто не ссылается: " + ", ".join(self.orphans[:10]))
+
+        if self.schema_nodes:
+            by_kind = ", ".join(
+                f"{kind}: {count}" for kind, count in sorted(self.schema_nodes.items())
+            )
+            lines.append("")
+            lines.append(f"Разметка schema.org — {by_kind}")
 
         if self.unused_media:
             lines.append("")

@@ -23,12 +23,27 @@ XMLNS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 XHTML = "http://www.w3.org/1999/xhtml"
 
 
+# Страница «не найдено» — служебная по своей природе: её адрес не
+# предлагают поисковику ни на одном сайте и ни в одном окружении.
+NOT_FOUND = "404"
+
+
 def indexable(page: Page) -> bool:
-    return page.meta.published and not page.meta.noindex
+    return page.meta.published and not page.meta.noindex and page.type != NOT_FOUND
 
 
 def alternates(page: Page, config: SiteConfig) -> list[tuple[str, str]]:
-    """Языковые версии страницы, включая её саму и x-default."""
+    """Языковые версии страницы, включая её саму и x-default.
+
+    Набор один и тот же в карте сайта и в `<head>`: поисковик требует,
+    чтобы каждая страница набора ссылалась на все версии, включая себя.
+    Набор без самоссылки считается несогласованным и может быть
+    проигнорирован целиком — теряется не одна ссылка, а весь механизм
+    языковых версий.
+
+    У страницы без переводов набора нет вовсе: при единственной версии
+    hreflang не нужен.
+    """
     versions = {page.lang: page, **page.translations}
     out = [
         (lang, absolute(config, other.url))

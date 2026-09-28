@@ -239,8 +239,15 @@ def build(path: Path, strict: bool, drafts: bool, out: Path | None, env_name: st
 
     target = out or (path / DIST)
     _finish(result, strict, "Сборка", full=target.parent / ".heron-cache" / "warnings.txt")
-    if not env.indexable:
-        click.secho(f"окружение {env.name}: индексация закрыта, счётчики выключены", fg="yellow")
+    # Одной строкой — чем собралось. Домен выбирается окружением, и
+    # страховки «дев канонизируется на прод» больше нет: «собрал не то»
+    # должно быть видно сразу, а не через неделю из выдачи.
+    index = "индексация закрыта" if not env.indexable else "ИНДЕКСАЦИЯ ОТКРЫТА"
+    counters = "счётчики выключены" if not env.analytics else "счётчики включены"
+    click.secho(
+        f"окружение {env.name} · домен {result.config.site.domain} · {index} · {counters}",
+        fg="yellow" if not env.indexable else "green",
+    )
     click.secho(f"собрано файлов: {len(result.written)} → {target}", fg="green")
 
 

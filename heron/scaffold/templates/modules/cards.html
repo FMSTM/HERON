@@ -1,0 +1,7 @@
+<section class="cards">
+  <ul>
+  {% for child in page.children %}
+    <li><a href="{{ child.url }}"><strong>{{ child.h1 }}</strong><span>{{ child.meta.description }}</span></a></li>
+  {% endfor %}
+  </ul>
+</section>

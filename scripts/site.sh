@@ -1,0 +1,469 @@
+#!/usr/bin/env bash
+#
+# Единая точка входа для сборки сайтов.
+#
+#   ./scripts/site.sh <сайт> <команда> [окружение]
+#
+#   new     создать папку сайта по указанному пути и завести его окружения
+#   init    достроить папку сайта под то, что написано в его site.yaml
+#   build   собрать в out/<сайт>-<окружение>
+#   image   упаковать собранное в образ nginx
+#   serve   поднять nginx на собранной папке
+#   smoke   поднять собранный образ и проверить, что он отвечает
+#   stop    погасить просмотр
+#   push    отправить образ в реестр
+#   check   проверить контент, ничего не собирая
+#
+# Окружение по умолчанию dev. Настройки берутся из env/.env.<сайт>.<окружение>,
+# пример — env/.env.example.
+#
+# Папка контента монтируется ТОЛЬКО НА ЧТЕНИЕ и ничем не пачкается:
+# ни dist, ни кэшем. Всё, что производит сборка, живёт в out/.
+
+set -euo pipefail
+
+HERON_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$HERON_ROOT"
+
+die()  { printf '\033[31m%s\033[0m\n' "$*" >&2; exit 1; }
+note() { printf '\033[36m%s\033[0m\n' "$*"; }
+ok()   { printf '\033[32m%s\033[0m\n' "$*"; }
+
+SITE="${1:-}"
+CMD="${2:-}"
+ENV_NAME="${3:-dev}"
+
+[ -n "$SITE" ] && [ -n "$CMD" ] || die "нужно: ./scripts/site.sh <сайт> <команда> [окружение]
+команды: new <путь> | init | build | image | serve | smoke | stop | push | check"
+
+do_new() {
+  local target="${3:-}"
+  [ -n "$target" ] || die "нужно: ./scripts/site.sh $SITE new <путь к папке сайта>"
+  target="${target/#\~/$HOME}"
+  [ -e "$target" ] && [ -n "$(ls -A "$target" 2>/dev/null)" ] \
+    && die "папка $target не пуста — для готового контента есть команда init"
+
+  local parent base
+  parent="$(cd "$(dirname "$target")" && pwd)" || die "нет папки $(dirname "$target")"
+  base="$(basename "$target")"
+
+  local engine="$STABLE"
+  if is_source_checkout; then
+    engine="heron:local"
+    note "движок из исходников: $HERON_ROOT"
+    docker build -q -t "$engine" "$HERON_ROOT" >/dev/null || die "не собрался образ движка"
+  fi
+  note "создаю папку сайта $parent/$base"
+  docker run --rm --network=none --cap-drop=ALL --security-opt=no-new-privileges \
+    --user "$(id -u):$(id -g)" --tmpfs /tmp \
+    -v "$parent":/work -w /work \
+    "$engine" new "$base"
+
+  local written=0
+  for name in dev prod; do
+    local file="env/.env.${SITE}.${name}"
+    if [ -e "$file" ]; then note "уже есть $file — не трогаю"; continue; fi
+    sed -e "s|^SITE_PATH=.*|SITE_PATH=$parent/$base|" \
+        -e "s|^SITE_ENV=.*|SITE_ENV=$name|" \
+        -e "s|^IMAGE_NAME=.*|IMAGE_NAME=heron-site-$SITE|" \
+        -e "s|^IMAGE_TAG=.*|IMAGE_TAG=$name|" \
+        env/.env.example > "$file"
+    [ "$name" = prod ] && sed -i.bak -e "s|^STRICT=.*|STRICT=true|" "$file" && rm -f "$file.bak"
+    written=1
+  done
+  [ "$written" = 1 ] && ok "заведены env/.env.${SITE}.dev и env/.env.${SITE}.prod"
+
+  cat <<TXT
+
+дальше:
+  1. заполните $parent/$base/site.yaml — домен, языки, тема, меню
+  2. ./scripts/site.sh $SITE init
+  3. разложите контент и: ./scripts/site.sh $SITE build dev
+TXT
+}
+
+if [ "$CMD" = "new" ]; then
+  command -v docker >/dev/null || die "нужен docker"
+  do_new "$@"
+  exit 0
+fi
+
+ENV_FILE="env/.env.${SITE}.${ENV_NAME}"
+[ -f "$ENV_FILE" ] || die "нет файла $ENV_FILE
+скопируйте пример и заполните:  cp env/.env.example $ENV_FILE"
+
+set -a
+# shellcheck disable=SC1090
+. "$ENV_FILE"
+set +a
+
+# Окружение сайта читается с экспортом, поэтому ключ с именем докеровской
+# переменной уезжает во ВСЕ вызовы docker. DOCKER_CONFIG — как раз такой:
+# увидев её, CLI считает указанную папку своим домом целиком и ищет там же
+# плагины. Buildx в папке с одним токеном нет, и сборка молча откатывается
+# на старый сборщик, который вот-вот уберут.
+#
+# Поэтому конфиг реестра живёт под своим именем и подставляется флагом, а
+# не переменной. Написанный по старой памяти DOCKER_CONFIG принимается —
+# и тут же убирается из окружения, чтобы не отравить сборку.
+REGISTRY_CONFIG="${REGISTRY_CONFIG:-${DOCKER_CONFIG:-}}"
+unset DOCKER_CONFIG
+
+[ -n "${SITE_PATH:-}" ]  || die "в $ENV_FILE не задан SITE_PATH"
+[ -d "$SITE_PATH" ]      || die "папки контента нет: $SITE_PATH"
+[ -f "$SITE_PATH/site.yaml" ] || die "в $SITE_PATH нет site.yaml — это не папка сайта"
+
+SITE_ENV="${SITE_ENV:-$ENV_NAME}"
+IMAGE_NAME="${IMAGE_NAME:-heron-site-$SITE}"
+IMAGE_TAG="${IMAGE_TAG:-$ENV_NAME}"
+PORT="${PORT:-8080}"
+OUT="$HERON_ROOT/out/${SITE}-${ENV_NAME}"
+CONTAINER="heron-serve-${SITE}-${ENV_NAME}"
+
+command -v docker >/dev/null || die "нужен docker"
+
+# Сборка образов: buildx, если он есть. Старый встроенный сборщик объявлен
+# устаревшим и однажды исчезнет — лучше узнать об этом из своего сообщения,
+# чем из чужого молчания.
+if docker buildx version >/dev/null 2>&1; then
+  build_image() { docker buildx build "$@"; }
+else
+  build_image() {
+    note "buildx не найден — собираю старым сборщиком (его скоро уберут)"
+    docker build "$@"
+  }
+fi
+
+# Каким движком собирать.
+#
+# Одна настройка, и она принимает ровно две вещи:
+#
+#   ENGINE=source                       собрать из исходников рядом с этим
+#                                       скриптом. Для тех, кто правит движок.
+#   ENGINE=ghcr.io/fmstm/heron:prod     готовый образ. Пишется полным именем,
+#                                       чтобы было видно: это образ, а не ветка.
+#
+# Короткие слова dev и prod тут не принимаются намеренно: человек читает их
+# как ветки репозитория, и это недоразумение стоит дороже экономии букв.
+#
+# Не задано — по порядку: точная версия из site.yaml сайта; иначе исходники,
+# если они лежат рядом; иначе стабильный ghcr.io/fmstm/heron:prod.
+STABLE="ghcr.io/fmstm/heron:prod"
+
+is_source_checkout() {
+  [ -f "$HERON_ROOT/Dockerfile" ] && [ -d "$HERON_ROOT/heron" ] && [ -f "$HERON_ROOT/pyproject.toml" ]
+}
+
+# Точная версия, объявленная сайтом. Диапазон версией не считаем.
+site_engine_version() {
+  local spec
+  spec="$(sed -n 's/^heron:[[:space:]]*["'"'"']\{0,1\}\([^"'"'"']*\)["'"'"']\{0,1\}[[:space:]]*$/\1/p' \
+          "$SITE_PATH/site.yaml" 2>/dev/null | head -1 | tr -d ' ')"
+  printf '%s' "$spec" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' && printf '%s' "$spec"
+}
+
+engine_is_source() { [ "$(engine_choice)" = "source" ]; }
+
+engine_choice() {
+  if [ -n "${ENGINE:-}" ]; then
+    case "$ENGINE" in
+      source) echo "source" ;;
+      */*|*:*) echo "$ENGINE" ;;
+      *) die "ENGINE=$ENGINE непонятно. Ожидается либо source — собрать из
+исходников рядом, либо полное имя образа, например $STABLE" ;;
+    esac
+    return
+  fi
+  local pinned; pinned="$(site_engine_version)"
+  if [ -n "$pinned" ]; then echo "ghcr.io/fmstm/heron:$pinned"; return; fi
+  if is_source_checkout; then echo "source"; return; fi
+  echo "$STABLE"
+}
+
+engine_image() {
+  if engine_is_source; then echo "heron:local"; else engine_choice; fi
+}
+
+# Приготовить движок: собрать из исходников или стянуть опубликованный.
+#
+# Теги dev, beta и prod подвижные: за одним и тем же именем завтра стоит
+# другой образ. docker run этого не знает и молча берёт локальную копию,
+# поэтому свежий движок надо стянуть явно. Точная версия не двигается
+# никогда — её тянем только если её ещё нет. Чистить докер руками не нужно
+# ни в одном из случаев: и сборка, и докачка идут по слоям, меняется только
+# то, что изменилось.
+pull_engine() {
+  local image; image="$(engine_image)"
+
+  if engine_is_source; then
+    note "движок из исходников: $HERON_ROOT"
+    # Вывод докера глушим: на прогретом кэше это одна строка шума при каждой
+    # сборке сайта. А вот время печатаем — молчаливая минута выглядит как
+    # зависший терминал, и человек не знает, ждать ему или жать Ctrl-C.
+    local since; since="$(date +%s)"
+    build_image -q -t "$image" "$HERON_ROOT" >/dev/null || die "не собрался образ движка"
+    local spent=$(( $(date +%s) - since ))
+    if [ "$spent" -ge 3 ]; then
+      note "образ движка собран за ${spent}s"
+    fi
+    local ver
+    ver="$(docker run --rm --entrypoint heron "$image" --version 2>/dev/null | tr -d '\r')"
+    ok "движок: $image ${ver:+($ver)}"
+    return
+  fi
+
+  case "$image" in
+    *:dev|*:beta|*:prod|*:latest)
+      note "проверяю движок $image"
+      docker pull -q "$image" >/dev/null || die "не удалось стянуть $image"
+      ;;
+    *)
+      docker image inspect "$image" >/dev/null 2>&1 || docker pull -q "$image" >/dev/null \
+        || die "не удалось стянуть $image"
+      ;;
+  esac
+  local built
+  built="$(docker image inspect --format '{{.Created}}' "$image" 2>/dev/null | cut -c1-19 | tr T ' ')"
+  ok "движок: $image (собран $built)"
+}
+
+# Сборка идёт без сети, без прав, не от рута и не может писать никуда,
+# кроме out. Сокет докера внутрь не пробрасывается никогда.
+run_engine() {
+  mkdir -p "$OUT"
+  # -t только когда запускают из терминала: внутри контейнера движок
+  # смотрит на isatty и решает, крутить ему строку или писать лог.
+  local tty=()
+  [ -t 2 ] && tty=(-t)
+  docker run --rm "${tty[@]}" \
+    --network=none \
+    --read-only \
+    --cap-drop=ALL \
+    --security-opt=no-new-privileges \
+    --user "$(id -u):$(id -g)" \
+    --tmpfs /tmp \
+    -e SITE_ENV="$SITE_ENV" \
+    ${SITE_INDEXABLE:+-e SITE_INDEXABLE="$SITE_INDEXABLE"} \
+    ${SITE_ANALYTICS:+-e SITE_ANALYTICS="$SITE_ANALYTICS"} \
+    -v "$SITE_PATH":/site:ro \
+    -v "$HERON_ROOT/out":/out \
+    "$(engine_image)" "$@"
+}
+
+strict_flag() {
+  case "${STRICT:-false}" in true|1|yes|on) echo "--strict" ;; *) echo "" ;; esac
+}
+
+do_build() {
+  pull_engine
+  note "сборка $SITE [$ENV_NAME]"
+  note "контент: $SITE_PATH (только чтение)"
+  rm -rf "$OUT"
+  # shellcheck disable=SC2046
+  run_engine build --env "$SITE_ENV" $(strict_flag) --out "/out/${SITE}-${ENV_NAME}" /site
+  ok "готово: out/${SITE}-${ENV_NAME}"
+}
+
+do_image() {
+  [ -d "$OUT" ] || do_build
+  note "упаковка в $IMAGE_NAME:$IMAGE_TAG"
+  build_image -f "$HERON_ROOT/Dockerfile.site" -t "$IMAGE_NAME:$IMAGE_TAG" "$OUT"
+  ok "готов образ $IMAGE_NAME:$IMAGE_TAG"
+}
+
+do_serve() {
+  # Смотрим ровно тот образ, который поедет в сеть: иначе просмотр идёт на
+  # чистом nginx, без нашего error_page, и нарисованную 404 никто не видит.
+  do_image
+  docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  # Без --rm: упавший контейнер должен остаться, иначе логи пропадают
+  # вместе с ним, и человеку показывают «смотрите» на мёртвый адрес.
+  docker run -d --name "$CONTAINER" \
+    -p "${PORT}:8080" \
+    "$IMAGE_NAME:$IMAGE_TAG" >/dev/null || die "контейнер не запустился"
+
+  sleep 1
+  if [ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null)" != "true" ]; then
+    printf '\033[31m%s\033[0m\n' "контейнер упал сразу после старта:" >&2
+    docker logs --tail 30 "$CONTAINER" >&2 || true
+    docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+    exit 1
+  fi
+  ok "смотрите: http://localhost:${PORT}"
+  note "погасить: ./scripts/site.sh $SITE stop $ENV_NAME"
+}
+
+# Дымовая проверка собранного образа. Заводится потому, что «контейнер
+# умирает на старте» мы ловили браузером заказчика, а не сборкой: права на
+# файлы, неподхваченный конфиг и упавший nginx снаружи выглядят одинаково —
+# пустой страницей.
+do_smoke() {
+  do_image
+  local name="heron-smoke-${SITE}-${ENV_NAME}"
+  local port="${SMOKE_PORT:-18080}"
+  docker rm -f "$name" >/dev/null 2>&1 || true
+  docker run -d --name "$name" -p "${port}:8080" "$IMAGE_NAME:$IMAGE_TAG" >/dev/null \
+    || die "контейнер не запустился"
+
+  local failed=0
+  # nginx поднимается не мгновенно; ждём его, а не спим наугад.
+  local ready=0 i
+  for i in $(seq 1 30); do
+    if curl -sS -o /dev/null "http://localhost:${port}/" 2>/dev/null; then ready=1; break; fi
+    sleep 0.5
+  done
+  if [ "$ready" = 0 ]; then
+    printf '\033[31m%s\033[0m\n' "сервер не ответил за 15 секунд. Логи:" >&2
+    docker logs --tail 30 "$name" >&2 || true
+    docker rm -f "$name" >/dev/null 2>&1 || true
+    exit 1
+  fi
+
+  check_code() {
+    local path="$1" want="$2" got
+    got="$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${port}${path}")"
+    if [ "$got" = "$want" ]; then
+      ok "  $path → $got"
+    else
+      printf '\033[31m%s\033[0m\n' "  $path → $got, ждали $want" >&2
+      failed=1
+    fi
+  }
+
+  note "проверяю $IMAGE_NAME:$IMAGE_TAG на порту $port"
+  check_code "/" 200
+  check_code "/robots.txt" 200
+  check_code "/heron-smoke-нет-такой-страницы/" 404
+  # язык из сборки: первая папка с index.html внутри
+  local lang
+  lang="$(find "$OUT" -mindepth 2 -maxdepth 2 -name index.html -print -quit 2>/dev/null)"
+  if [ -n "$lang" ]; then
+    lang="$(basename "$(dirname "$lang")")"
+    check_code "/${lang}/" 200
+    check_code "/${lang}/heron-smoke-нет-такой/" 404
+  fi
+  # служебное наружу не отдаём
+  check_code "/.heron-nginx.conf" 404
+
+  # Каждый старый адрес из карты редиректов: 301 туда, куда объявлено, и
+  # цель отвечает 200. Это единственное, что защищает индекс при переезде.
+  # Кириллицу curl сам не кодирует — кодируем питоном, если он есть.
+  enc() {
+    if command -v python3 >/dev/null 2>&1; then
+      python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1], safe="/%?=&"))' "$1"
+    else
+      printf '%s' "$1"
+    fi
+  }
+  if [ -s "$OUT/redirects.map" ]; then
+    local line old new got location count=0
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      # «старый  новый;» — в старом адресе бывают пробелы, новый их не имеет
+      new="${line##* }"; new="${new%;}"
+      old="${line% *}"; old="${old%"${old##*[! ]}"}"
+      got="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "http://localhost:${port}$(enc "$old")")"
+      location="${got#* }"; got="${got%% *}"
+      if [ "$got" = 301 ] && [ "${location#http://localhost:${port}}" = "$(enc "$new")" -o "${location#http://localhost:${port}}" = "$new" ]; then
+        count=$((count + 1))
+      else
+        printf '\033[31m%s\033[0m\n' "  $old → $got $location, ждали 301 на $new" >&2
+        failed=1
+      fi
+    done < "$OUT/redirects.map"
+    ok "  301: $count адресов из redirects.map"
+  fi
+  # точные адреса из gone.map — 410; префиксы и параметры проверяет тест движка
+  if [ -s "$OUT/gone.map" ]; then
+    local gone count=0
+    while IFS= read -r line; do
+      gone="${line% *}"; gone="${gone%"${gone##*[! ]}"}"
+      case "$gone" in *'*'*|*'?'*|'') continue ;; esac
+      got="$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${port}$(enc "$gone")")"
+      if [ "$got" = 410 ]; then count=$((count + 1)); else
+        printf '\033[31m%s\033[0m\n' "  $gone → $got, ждали 410" >&2
+        failed=1
+      fi
+    done < "$OUT/gone.map"
+    ok "  410: $count точных адресов из gone.map"
+  fi
+
+  docker logs --tail 5 "$name" 2>&1 | sed 's/^/  /' >&2 || true
+  docker rm -f "$name" >/dev/null 2>&1 || true
+
+  [ "$failed" = 0 ] || die "дымовая проверка не прошла"
+  ok "образ отвечает как надо"
+}
+
+do_stop() {
+  docker rm -f "$CONTAINER" >/dev/null 2>&1 && ok "просмотр погашен" || note "не запущен"
+}
+
+do_push() {
+  [ -n "${REGISTRY:-}" ] || die "в $ENV_FILE пусто REGISTRY — push из этого окружения запрещён.
+Так дев-сборка не уедет в реестр по опечатке. Пушить нужно из prod-окружения."
+  # Образ переупаковывается всегда, как в serve и smoke. Раньше push брал
+  # готовый, если тот существовал, — и отправлял наружу вчерашний сайт при
+  # свежесобранном out/. Ленивой была ровно та команда, которая выкладывает
+  # людям. Упаковка готовой статики — секунды и кэш по слоям, экономить тут
+  # нечего; сборку самого сайта это не трогает, за неё отвечает build.
+  do_image
+  local remote="$REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
+
+  local made
+  made="$(docker image inspect --format '{{.Created}}' "$IMAGE_NAME:$IMAGE_TAG" 2>/dev/null \
+    | cut -c1-19 | tr T ' ')"
+  # Полноценным if, а не через &&: при set -e ложное условие в конце
+  # строки само по себе валит скрипт.
+  if [ -n "$made" ]; then
+    note "образ собран: $made"
+  fi
+
+  # У каждого заказчика свой токен, и мешать их в одном ~/.docker нельзя:
+  # логин в чужой аккаунт затирает предыдущий, и следующий push уезжает
+  # не туда. REGISTRY_CONFIG держит их порознь — и только на время push:
+  # сборка идёт обычным конфигом, со всеми своими плагинами.
+  local cfg=() where=""
+  if [ -n "${REGISTRY_CONFIG:-}" ]; then
+    where="${REGISTRY_CONFIG/#\~/$HOME}"
+    [ -d "$where" ] || die "нет папки REGISTRY_CONFIG=$where, указанной в $ENV_FILE
+заведите её один раз:  docker --config $where login ${REGISTRY%%/*}"
+    cfg=(--config "$where")
+    note "конфиг реестра: $where"
+  fi
+
+  docker tag "$IMAGE_NAME:$IMAGE_TAG" "$remote"
+  note "отправка $remote"
+  docker "${cfg[@]}" push "$remote" || die "не отправилось. Если реестр не пускает — авторизуйтесь:
+  docker ${where:+--config $where }login ${REGISTRY%%/*}"
+  ok "отправлено: $remote"
+}
+
+do_check() {
+  pull_engine
+  run_engine check /site
+}
+
+do_init() {
+  pull_engine
+  note "достраиваю $SITE_PATH по его site.yaml"
+  # Единственная команда, которой папка сайта нужна на запись:
+  # она в эту папку и кладёт недостающее.
+  docker run --rm --network=none --cap-drop=ALL --security-opt=no-new-privileges \
+    --user "$(id -u):$(id -g)" --tmpfs /tmp \
+    -v "$SITE_PATH":/site -w /site \
+    "$(engine_image)" init /site
+  ok "готово"
+}
+
+case "$CMD" in
+  init)  do_init  ;;
+  build) do_build ;;
+  image) do_image ;;
+  serve) do_serve ;;
+  smoke) do_smoke ;;
+  stop)  do_stop  ;;
+  push)  do_push  ;;
+  check) do_check ;;
+  *) die "не знаю команду $CMD. Есть: new, init, build, image, serve, smoke, stop, push, check" ;;
+esac

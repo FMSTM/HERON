@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+.venv/
+.ruff_cache/
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+.DS_Store
+.env
+
+# сборки сайтов и их окружения
+out/
+env/.env.*
+!env/.env.example
+
+# локальные образцы границы ядра — с именами, в репозиторий не едут
+scripts/boundary-patterns.local.txt

@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ page.h1 }}</h1>
+{% if page.intro %}{{ page.intro.html|safe }}{% endif %}
+{% endblock %}

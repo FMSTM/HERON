@@ -1,0 +1,49 @@
+# Образец theme.yaml. Описание — docs/spec/20-data-contract.md, раздел 6.
+# Формы секций после двоеточия — из таблицы 20 §4.4:
+# prose list alert-list checklist two-lists steps table facts faq timeline callout gallery
+
+name: main
+version: "1.0"
+title: Тема сайта
+heron: ">=0.1"                 # версия движка, на которую рассчитана тема
+
+requires:                      # пути site.yaml, без которых тема не работает
+  - site.name
+fields: [nav_title]            # поля фронтматтера, к которым обращаются шаблоны
+
+modules: [breadcrumbs, prose, list, alert-list, steps, faq, facts, checklist, cards]
+
+types:                         # тип страницы → секции и разметка; шаблон templates/<тип>.html
+  home:
+    uses: [intro, "why:list", "how:steps", "faq:faq"]
+    jsonld: [WebSite]
+  category:
+    uses: [intro]
+    jsonld: [CollectionPage]
+  service:
+    uses: [intro, "includes:list", "when:alert-list", "how:steps", "documents:checklist", "faq:faq"]
+    jsonld: [Service]
+  article:
+    uses: [intro, "short:callout", "*", "faq:faq"]   # "*" — любые секции
+    jsonld: [Article]
+  page:
+    uses: [intro, "*"]
+  "404":
+    uses: [intro]
+
+links:                         # поля связей во фронтматтере
+  - field: related             # услуга → услуги
+    type: service
+    back: related_from         # обратный список у цели
+  - field: services            # статья → услуги
+    type: service
+    back: articles
+    on: article                # у статей поле ожидается
+    required: 1                # меньше — предупреждение
+
+images:
+  widths: [400, 800, 1200, 1600]
+  ratios: ["1:1", "16:9", "4:3"]
+  formats: [avif, webp]
+  crop: []                     # пути, которые кропать, даже если есть прозрачность
+  as_is: []                    # пути, которые копировать без нарезки: сканы, документы

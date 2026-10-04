@@ -1,0 +1,6 @@
+{% if section %}
+<section id="{{ section.id }}" class="prose">
+  {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
+  {{ html }}
+</section>
+{% endif %}

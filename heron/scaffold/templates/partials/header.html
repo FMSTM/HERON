@@ -1,0 +1,18 @@
+<header class="site-header">
+  <a class="logo" href="{{ '/' if lang == site.site.default_lang else '/' ~ lang ~ '/' }}">{{ site.site.name or site.site.domain }}</a>
+  <nav>
+    {% for item in nav.get('main', []) %}
+    <a href="{{ item.url }}">{{ item.h1 }}</a>
+    {% endfor %}
+  </nav>
+  {% if languages|length > 1 %}
+  <ul class="langs">
+    {% for code in languages %}
+    {% if code == lang %}<li aria-current="true">{{ code }}</li>
+    {% elif code in page.translations %}<li><a href="{{ page.translations[code].url }}" hreflang="{{ code }}" lang="{{ code }}">{{ code }}</a></li>
+    {% else %}<li aria-disabled="true">{{ code }}</li>
+    {% endif %}
+    {% endfor %}
+  </ul>
+  {% endif %}
+</header>

@@ -1,0 +1,75 @@
+# Образец site.yaml со всеми ключами ядра. Описание — docs/spec/20-data-contract.md, раздел 5.
+# Значения ниже — примеры. Чего у сайта нет, то удаляется или остаётся пустым:
+# выдуманный телефон хуже отсутствующего.
+
+heron: ">=0.1,<0.2"            # версия движка, которую требует сайт. Обязательна, первой строкой
+
+site:
+  domain: example.com          # без схемы и слешей
+  # domains:                   # домен на окружение: превью-сборка ссылается на себя
+  #   dev: dev.example.com
+  theme: main                  # имя темы; локальная папка theme/ сильнее пакета
+  default_lang: uk             # отдаётся из корня; обязан быть в languages
+  languages: [uk, ru]          # от одного до N; остальные языки — под /<lang>/
+  name: Світанок               # название сайта
+  name_ru: Рассвет             # то же на языке ru; без него — name
+
+seo:
+  title_suffix: " — Світанок"  # дописывается к <title> темой
+  title_suffix_ru: " — Рассвет"
+  og_default_image: media/og/default.png        # картинка для соцсетей по умолчанию
+  og_default_image_ru: media/og/default-ru.png  # своя для ru, если нужна
+  twitter_card: summary_large_image
+  llms_txt: true               # полные тексты для нейросетей: llms-full*.txt
+  llms_note:                   # сведения о сайте для llms*.txt, дословно, по языкам
+    uk: |
+      ### Як звʼязатися
+
+      Телефон і години роботи — на сторінці контактів.
+  robots_extra: []             # дополнительные строки robots.txt
+  allow_prices: false          # true — цены в разметке schema.org разрешены
+  # feed: article              # тип страниц для ленты Atom; нет ключа — нет ленты
+  feed_limit: 20
+
+nav:
+  main: ["/", about, services, contacts]   # ключи страниц: путь файла без .md, главная — "/"
+  # footer: [privacy]                      # имена групп придумывает тема
+
+analytics:                     # только в прод-сборке; заготовка выводит ga4 и gtm
+  ga4:
+  gtm:
+  # metrika:                   # ядро принимает, заготовка темы не выводит
+
+build:
+  fail_on_warning: false       # true — как --strict
+  allow_raw_html: false        # сырой HTML в markdown
+  updated_from: git            # manual | git | file — откуда дата обновления
+  workers: 0                   # процессов на нарезку картинок; 0 — по числу ядер
+
+plugins: []
+
+gone:                          # 410: точные адреса, префиксы, адрес с параметром
+  - /sample-page/
+  - /wp-*
+  - /?p=*
+
+# Блоки ниже ядро не разбирает: их берут тема и подстановки schema.
+# Языковой вариант значения — тем же суффиксом: address_ru.
+contact:
+  phone: ""
+  address: ""
+  address_ru: ""
+  city: ""
+  geo: []                      # [широта, долгота]
+
+organization:
+  name: ""
+  same_as: []
+
+schema:
+  entity:                      # сквозной узел сайта, на каждой индексируемой странице
+    "@id": "#org"
+    "@type": Organization
+    name: "{{ organization.name }}"
+    telephone: "{{ contact.phone }}"
+    url: "{{ site.base }}"

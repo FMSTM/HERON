@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ page.h1 }}</h1>
+{{ mod.prose('intro') }}
+{% for section in page.sections.values() %}
+{{ mod.prose(section.id) }}
+{% endfor %}
+{% endblock %}

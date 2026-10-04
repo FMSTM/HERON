@@ -1,0 +1,4 @@
+<section id="{{ section.id }}" class="facts">
+  {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
+  <dl>{% for row in items %}<dt>{{ row.key }}</dt><dd>{{ row.value }}</dd>{% endfor %}</dl>
+</section>

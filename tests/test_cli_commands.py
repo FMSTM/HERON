@@ -34,7 +34,7 @@ def test_new_then_build(run):
     assert created.exit_code == 0, created.output
     built = run(main, ["build", "demo"])
     assert built.exit_code == 0, built.output
-    assert "собрано файлов" in built.output
+    assert "Files written" in built.output
 
 
 def test_new_refuses_to_overwrite_a_busy_folder(run):
@@ -52,7 +52,7 @@ def test_init_adopts_existing_content(run):
     )
     result = run(main, ["init", str(root)])
     assert result.exit_code == 0, result.output
-    assert "found:" in result.output
+    assert "Already in the folder" in result.output
     assert (root / "site.yaml").is_file()
     assert "Є" in (root / "content" / "uk" / "index.md").read_text(encoding="utf-8")
 

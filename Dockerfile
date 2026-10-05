@@ -21,7 +21,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/opt/heron \
     PATH=/opt/heron/bin:$PATH \
-    HOME=/tmp
+    HOME=/tmp \
+    HERON_IN_CONTAINER=1
 
 COPY --from=build /install /opt/heron
 

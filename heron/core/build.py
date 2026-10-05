@@ -149,22 +149,22 @@ def run(
     env = env.stamped(site_root)
     dist = (dist or site_root / DIST).resolve()
 
-    say.step("конфиг, тема и плагины")
+    say.step("step_config")
     config, theme, theme_dir, hooks = prepare(site_root, collector)
     for_env(config, env)
-    say.done(f"тема {config.site.theme}, языков {len(config.site.languages)}")
+    say.done("done_config", theme=config.site.theme, langs=len(config.site.languages))
 
-    say.step("обход контента")
+    say.step("step_content")
     md = markdown.make(allow_raw_html=config.build.allow_raw_html)
     site, collector = tree.scan(site_root / "content", config, md, collector, drafts=drafts)
     site.data = data_module.load(site_root / "data", collector)
     dates.resolve(site, site_root, config.build.updated_from, collector)
     hooks.call("on_tree_built", site)
-    say.done(f"{len(site.pages)} страниц")
+    say.done("done_pages", count=len(site.pages))
 
     notfound.ensure(site, config, theme_dir, collector)
 
-    say.step("связи, переводы и меню")
+    say.step("step_links")
     links.resolve(site, config, theme, collector)
     say.done()
 
@@ -199,7 +199,7 @@ def run(
         return result
 
     dist.mkdir(parents=True, exist_ok=True)
-    say.step("картинки")
+    say.step("step_images")
     media.folder(site_root, collector)
     media.check_video(site, collector)
     manifest = (
@@ -218,19 +218,19 @@ def run(
         if with_media
         else media.Manifest()
     )
-    say.done(f"{len(manifest.items)} мастеров")
+    say.done("done_masters", count=len(manifest.items))
     if collector.failed:
         return result
 
-    say.step("шаблоны")
+    say.step("step_templates")
     html = renderer.render_site(
         theme_dir, site, config, theme, collector, manifest, env, progress=say
     )
-    say.done(f"{len(html)} страниц")
+    say.done("done_pages", count=len(html))
     if collector.failed:
         return result
 
-    say.step("карта сайта, robots и ленты")
+    say.step("step_generators")
     files: dict[str, str] = {_page_path(url): text for url, text in html.items()}
     files.update(sitemap.generate(site, config))
     files.update(robots.generate(config, env))
@@ -252,7 +252,7 @@ def run(
     if collector.failed:
         return result
 
-    say.step("запись")
+    say.step("step_write")
     names = sorted(files)
     for index, name in enumerate(names, 1):
         say.tick(index, len(names), name)
@@ -260,7 +260,7 @@ def run(
     _copy_tree(site_root / STATIC, dist)
     _copy_tree(theme_dir / ASSETS, dist / ASSETS)
 
-    say.done(f"{len(files)} файлов")
+    say.done("done_files", count=len(files))
     result.written = sorted(files)
     _readable(dist)
     result.report = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)

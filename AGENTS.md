@@ -12,7 +12,7 @@ HERON — движок статических сайтов, образ `ghcr.io/
 
 ```bash
 H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"
-$H new мой-сайт --notes ru     # пояснения в файлах по-русски; по умолчанию en
+$H new мой-сайт --notes ru --name "Сайт" --domain example.com --lang en,ru -y   # без вопросов
 $H check мой-сайт              # отчёт без сборки
 $H build мой-сайт --env prod --strict
 ```

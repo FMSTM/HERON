@@ -1,6 +1,6 @@
 name: {theme}
 version: "0.1"
-title: Тема сайта {name}
+title: {theme_title}
 
 # Что тема ждёт от site.yaml. Движок проверит, что эти пути заполнены
 requires: []

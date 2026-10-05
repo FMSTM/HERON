@@ -45,7 +45,7 @@ git clone https://github.com/FMSTM/HERON.git && cd HERON
 HERON_NOTES=ru ./scripts/site.sh мойсайт new ~/sites/мой-сайт
 ```
 
-`new` создаёт папку сайта и заводит `env/.env.мойсайт.dev` и `.prod`. Дальше всё — одной командой:
+`new` создаёт папку сайта — в терминале с теми же вопросами, что и `heron new`, — и заводит `env/.env.мойсайт.dev` и `.prod`. Папка может уже существовать и быть под git. Дальше всё — одной командой:
 
 ```bash
 ./scripts/site.sh мойсайт check dev     # отчёт без сборки

@@ -52,7 +52,7 @@ def test_init_adopts_existing_content(run):
     )
     result = run(main, ["init", str(root)])
     assert result.exit_code == 0, result.output
-    assert "нашёл" in result.output
+    assert "found:" in result.output
     assert (root / "site.yaml").is_file()
     assert "Є" in (root / "content" / "uk" / "index.md").read_text(encoding="utf-8")
 

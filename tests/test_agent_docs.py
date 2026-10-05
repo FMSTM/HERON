@@ -25,6 +25,7 @@ from heron.scaffold import create
 ROOT = Path(__file__).resolve().parents[1]
 AGENTS = ROOT / "docs" / "agents"
 TEMPLATES = AGENTS / "templates"
+GUIDE = ROOT / "docs" / "guide"
 
 
 def test_site_template_is_valid():
@@ -56,9 +57,10 @@ def test_page_template_parses_into_expected_forms():
 
 
 def test_links_between_agent_docs_resolve():
-    docs = [ROOT / "AGENTS.md", *AGENTS.glob("*.md")]
+    docs = [ROOT / "AGENTS.md", ROOT / "README.md", *AGENTS.glob("*.md"), *GUIDE.glob("*.md")]
     for doc in docs:
-        for target in re.findall(r"\]\(([^)#\s]+)\)", doc.read_text(encoding="utf-8")):
+        text = re.sub(r"```.*?```", "", doc.read_text(encoding="utf-8"), flags=re.S)
+        for target in re.findall(r"\]\(([^)#\s]+)\)", text):
             if target.startswith(("http", "/")):
                 continue  # внешние адреса и ссылки сайта в примерах
             assert (doc.parent / target).exists(), f"{doc.name}: битая ссылка {target}"
@@ -115,3 +117,21 @@ def test_site_built_from_templates_passes_prod_strict_checks(tmp_path):
     assert "/wp-*  1;" in (dist / "gone.map").read_text(encoding="utf-8")
     design = result.site.page("services/design", "uk")
     assert [p.url for p in design.related["related"]] == ["/services/planning/"]
+
+
+def test_page_template_has_the_same_seo_groups_as_scaffold():
+    """Образец страницы и блок, который кладёт движок, — одни и те же восемь групп."""
+    group = re.compile(r"^# =+ (.+?) =+$", re.M)
+    template = (TEMPLATES / "page.md").read_text(encoding="utf-8")
+    scaffold = (ROOT / "heron" / "scaffold" / "text" / "ru" / "seo-block.md").read_text(
+        encoding="utf-8"
+    )
+    assert group.findall(template) == group.findall(scaffold)
+    assert len(group.findall(template)) == 8
+
+
+def test_agents_prompt_names_every_role_document():
+    text = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    for role in ("architect", "content", "designer", "builder"):
+        assert f"docs/agents/{role}.md" in text
+        assert (AGENTS / f"{role}.md").is_file()

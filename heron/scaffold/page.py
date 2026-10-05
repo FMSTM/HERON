@@ -8,35 +8,15 @@
 from __future__ import annotations
 
 import re
-from datetime import date
 from pathlib import Path
 
 from heron.contracts.site import load_site
 from heron.contracts.theme import load_theme
 from heron.core.errors import HeronError
 from heron.core.resolver import theme as find_theme
+from heron.scaffold import seo_block
 
 SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
-
-HEAD = """---
-# --- Основное ---------------------------------------------------------
-title: {title}            # в выдаче, до 60 знаков
-h1: {title}               # на странице, для того кто уже открыл
-description: TODO         # meta description, до 155 знаков
-
-# --- Карточка и каталог -----------------------------------------------
-image:                    # мастер 1:1 в media/, движок нарежет варианты
-image_alt:
-order: 999                # порядок в каталоге, по возрастанию
-
-# --- Служебное --------------------------------------------------------
-updated: {today}
-published: true
-
-# --- Связи ------------------------------------------------------------
-redirect_from: []         # старые адреса, с которых нужен 301
----
-"""
 
 
 def write_page(
@@ -81,8 +61,11 @@ def write_page(
 
     title = slug.replace("-", " ").capitalize()
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(
-        HEAD.format(title=title, today=date.today().isoformat()) + "\n" + "\n".join(body),
-        encoding="utf-8",
-    )
+    import os
+
+    notes = (os.environ.get("HERON_NOTES", "").strip() or config.build.notes).lower()
+    notes = notes if notes in ("ru", "en") else "en"
+    todo = {"ru": "TODO: что человек получит на странице", "en": "TODO: what the visitor gets"}
+    head = seo_block(title, title, todo[notes], page_type=page_type, notes=notes)
+    target.write_text(head + "\n" + "\n".join(body), encoding="utf-8")
     return target

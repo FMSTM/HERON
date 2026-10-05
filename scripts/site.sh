@@ -56,6 +56,7 @@ do_new() {
   note "создаю папку сайта $parent/$base"
   docker run --rm --network=none --cap-drop=ALL --security-opt=no-new-privileges \
     --user "$(id -u):$(id -g)" --tmpfs /tmp \
+    ${HERON_NOTES:+-e HERON_NOTES="$HERON_NOTES"} \
     -v "$parent":/work -w /work \
     "$engine" new "$base"
 
@@ -451,6 +452,7 @@ do_init() {
   # она в эту папку и кладёт недостающее.
   docker run --rm --network=none --cap-drop=ALL --security-opt=no-new-privileges \
     --user "$(id -u):$(id -g)" --tmpfs /tmp \
+    ${HERON_NOTES:+-e HERON_NOTES="$HERON_NOTES"} \
     -v "$SITE_PATH":/site -w /site \
     "$(engine_image)" init /site
   ok "готово"

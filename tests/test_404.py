@@ -8,6 +8,7 @@ from __future__ import annotations
 from heron.core import build as pipeline
 from heron.core.environment import BuildEnv
 from heron.scaffold import create
+from tests import sites
 from tests.nginx_server import needs_nginx, serve
 
 NF = "---\ntitle: {t}\nh1: {h}\ndescription: Сторінки немає\n---\n\n{body}\n"
@@ -17,6 +18,7 @@ def make(tmp_path, with_files=True):
     root = tmp_path / "s"
     root.mkdir()
     create(root, name="demo", languages=["uk", "ru"])
+    sites.clear_content(root)
     for lang, title in (("uk", "Головна"), ("ru", "Главная")):
         (root / "content" / lang / "index.md").write_text(
             f"---\ntitle: {title} сайту\nh1: {title}\ndescription: О\n---\n\nТекст.\n",
@@ -71,6 +73,7 @@ def test_empty_language_gets_no_generated_404(tmp_path):
     root = tmp_path / "s"
     root.mkdir()
     create(root, name="demo", languages=["uk", "ru"])
+    sites.clear_content(root)
     (root / "content" / "ru" / "index.md").write_text(
         "---\ntitle: Главная сайта\nh1: Главная\ndescription: О\n---\n\nТекст.\n",
         encoding="utf-8",

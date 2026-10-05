@@ -29,26 +29,28 @@ def test_new_site_gets_notes_everywhere(tmp_path):
         assert (root / folder / notes.NOTE).is_file(), folder
 
 
-def test_note_language_follows_the_site(tmp_path):
+def test_note_language_follows_comments_not_site_languages(tmp_path):
+    """Языки сайта и язык пояснений — разные вещи."""
+    root = tmp_path / "demo"
+    root.mkdir()
+    create(root, name="demo", languages=["de"], comments="en")
+    assert "Site content" in (root / notes.NOTE).read_text(encoding="utf-8")
+    assert "Belongs here" in (root / "media" / notes.NOTE).read_text(encoding="utf-8")
+
+
+def test_comments_default_to_russian(tmp_path):
     root = tmp_path / "demo"
     root.mkdir()
     create(root, name="demo", languages=["en"])
-    assert "Site content" in (root / notes.NOTE).read_text(encoding="utf-8")
-
-
-def test_unknown_language_falls_back_to_english(tmp_path):
-    root = tmp_path / "demo"
-    root.mkdir()
-    create(root, name="demo", languages=["de"])
-    assert (root / "media" / notes.NOTE).is_file()
-    assert "Belongs here" in (root / "media" / notes.NOTE).read_text(encoding="utf-8")
+    assert "Контент сайта" in (root / notes.NOTE).read_text(encoding="utf-8")
 
 
 def test_note_in_content_is_not_a_page(tmp_path):
     root = _demo(tmp_path)
     (root / "content" / "uk" / notes.NOTE).write_text("# записка", encoding="utf-8")
     site, _ = tree.scan(root / "content", sites.config())
-    assert [p.key for p in site.pages] == [""]
+    assert notes.NOTE not in [p.source.rsplit("/", 1)[-1] for p in site.pages]
+    assert sorted(p.key for p in site.pages) == ["", "404"]
 
 
 def test_note_and_junk_never_reach_the_build(tmp_path):

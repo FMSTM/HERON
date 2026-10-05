@@ -1,0 +1,24 @@
+name: {theme}
+version: "0.1"
+title: Theme of {name}
+
+# What the theme expects from site.yaml. The engine checks these paths are filled in
+requires: []
+
+modules: [prose, facts, list, steps, faq, cards, breadcrumbs]
+
+# Page type → sections it uses. Template: templates/<type>.html.
+# The expected form may follow a colon: "how:steps"
+types:
+  home:
+    uses: [intro, about]
+  page:
+    uses: [intro, "*"]
+  "404":
+    uses: [intro]
+
+# Ratios and widths the engine fits masters from media/ into
+images:
+  widths: [400, 800, 1200, 1600]
+  ratios: ["1:1", "16:9"]
+  formats: [avif, webp]

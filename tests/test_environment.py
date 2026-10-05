@@ -7,6 +7,7 @@ import pytest
 from heron.core import notes
 from heron.core.environment import BuildEnv
 from heron.scaffold import create
+from tests import sites
 
 
 def test_prod_opens_index_and_counters():
@@ -65,15 +66,20 @@ def test_new_site_holds_content_only(tmp_path):
     assert (root / "content").is_dir()
 
 
-def test_new_site_has_no_content_pages(tmp_path):
-    """Контента при старте может не быть: сначала конфиг, потом страницы."""
+def test_new_site_has_starter_pages(tmp_path):
+    """Сайт собирается сразу: главная и 404 с полным SEO-блоком на месте."""
     root = tmp_path / "demo"
     root.mkdir()
     create(root, name="demo")
-    # Записка движка — не страница: она объясняет, что класть в папку.
-    pages = [p for p in (root / "content").rglob("*.md") if not notes.is_note(p)]
-    assert pages == []
-    assert (root / "content" / "uk").is_dir()
+    pages = sorted(
+        p.relative_to(root / "content").as_posix()
+        for p in (root / "content").rglob("*.md")
+        if not notes.is_note(p)
+    )
+    assert pages == ["uk/404.md", "uk/index.md"]
+    text = (root / "content" / "uk" / "index.md").read_text(encoding="utf-8")
+    for group in range(1, 9):
+        assert f"# ================= {group}. " in text
     assert (root / "content" / notes.NOTE).is_file()
 
 
@@ -119,6 +125,7 @@ def test_empty_site_builds_in_dev(tmp_path):
     root = tmp_path / "demo"
     root.mkdir()
     create(root, name="demo")
+    sites.clear_content(root)
     result = pipeline.run(root, env=BuildEnv.named("dev"))
     assert not result.failed
     assert "robots.txt" in result.written
@@ -131,6 +138,7 @@ def test_empty_site_refuses_to_build_in_prod(tmp_path):
     root = tmp_path / "demo"
     root.mkdir()
     create(root, name="demo")
+    sites.clear_content(root)
     result = pipeline.run(root, env=BuildEnv.named("prod"))
     assert result.failed
     assert [e.code for e in result.collector.errors] == ["E017"]

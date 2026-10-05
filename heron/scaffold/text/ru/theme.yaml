@@ -1,0 +1,24 @@
+name: {theme}
+version: "0.1"
+title: Тема сайта {name}
+
+# Что тема ждёт от site.yaml. Движок проверит, что эти пути заполнены
+requires: []
+
+modules: [prose, facts, list, steps, faq, cards, breadcrumbs]
+
+# Тип страницы → секции, которые он использует. Шаблон — templates/<тип>.html.
+# После двоеточия можно назвать ожидаемую форму: "how:steps"
+types:
+  home:
+    uses: [intro, about]
+  page:
+    uses: [intro, "*"]
+  "404":
+    uses: [intro]
+
+# Пропорции и ширины, в которые движок впишет мастера из media/
+images:
+  widths: [400, 800, 1200, 1600]
+  ratios: ["1:1", "16:9"]
+  formats: [avif, webp]

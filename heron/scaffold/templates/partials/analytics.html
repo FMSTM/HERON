@@ -1,6 +1,3 @@
-{# Счётчики. Подключаются только при env.analytics — на деве их быть не должно,
-   иначе тестовые заходы попадут в статистику живого сайта.
-   Идентификаторы — в site.yaml, блок analytics. Это не секреты. #}
 {% if site.analytics.gtm %}
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});
 var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;

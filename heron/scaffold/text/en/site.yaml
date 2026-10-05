@@ -1,0 +1,47 @@
+# The single source of truth about the site. Everything written here
+# drives both the build and the folder layout: languages and theme come from here.
+# Fill this file in, then run `heron init` — the folders will follow the config.
+# All keys are described in docs/spec/20-data-contract.md, section 5.
+
+# Engine version the site is built with. Required.
+heron: "{spec}"
+
+site:
+  domain: {domain}
+  name: {name}
+  theme: {theme}
+  default_lang: {default_lang}
+  languages: [{languages}]
+  # ↑ add languages here, then run `heron init` — content/<lang>/ with starter
+  #   pages and theme/i18n/<lang>.yaml will appear.
+  #   default_lang is served from the root and must be in the list.
+
+seo:
+  title_suffix: ""
+  # ↑ appended to every page <title>: " — Site name"
+  llms_txt: true
+  robots_extra: []
+
+nav:
+  main: ["/"]
+  # ↑ page keys of the main menu, in order: file path without .md,
+  #   the home page is "/". For example: ["/", about, services]
+
+# Public counter IDs. Not secrets: they are visible in the page source.
+# Inserted into production builds only. Keys: ga4, gtm
+# (metrika is accepted too, but the starter theme does not render it).
+analytics:
+  ga4:
+  gtm:
+
+build:
+  comments: en
+  # ↑ language of comments and hints written by heron init and heron page: ru or en
+  fail_on_warning: false
+  allow_raw_html: false
+
+plugins: []
+
+# No passwords or tokens here. Form SMTP, deploy keys and the like live in
+# the build environment, HERON/env/.env.<site>.<env>: the build is static,
+# and anything it can see may end up in HTML.

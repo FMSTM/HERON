@@ -166,9 +166,18 @@ def main() -> None:
     """HERON — файловый движок сайтов."""
 
 
+COMMENTS_OPTION = click.option(
+    "--comments",
+    type=click.Choice(["ru", "en"]),
+    default=None,
+    help="Язык комментариев и пояснений в файлах сайта (ru или en). Языки сайта — в site.yaml.",
+)
+
+
 @main.command()
+@COMMENTS_OPTION
 @click.argument("name")
-def new(name: str) -> None:
+def new(name: str, comments: str | None) -> None:
     """Создать папку сайта с нуля.
 
     Ни языков, ни темы аргументами: всё это объявляет site.yaml, и он
@@ -180,7 +189,7 @@ def new(name: str) -> None:
         click.secho(f"папка {name} не пуста — используйте `heron init` внутри неё", fg="red")
         sys.exit(1)
     root.mkdir(parents=True, exist_ok=True)
-    plan = create(root, name=name)
+    plan = create(root, name=name, comments=comments or "ru")
     click.secho(f"сайт {name} создан", fg="green")
     _report_plan(plan)
     click.echo(
@@ -193,10 +202,15 @@ def new(name: str) -> None:
 
 @main.command()
 @click.option("--force", is_flag=True, help="Перезаписывать существующие файлы.")
+@COMMENTS_OPTION
 @click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
-def init(path: Path, force: bool) -> None:
-    """Дополнить существующую папку недостающим."""
-    plan = adopt(path, force=force)
+def init(path: Path, force: bool, comments: str | None) -> None:
+    """Дополнить существующую папку недостающим.
+
+    Язык комментариев берётся из --comments, иначе из build.comments в
+    site.yaml, иначе ru.
+    """
+    plan = adopt(path, force=force, comments=comments)
     click.secho(f"папка {path} дополнена", fg="green")
     _report_plan(plan)
 

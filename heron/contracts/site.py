@@ -199,6 +199,10 @@ class AnalyticsBlock(Strict):
 
 
 class BuildBlock(Strict):
+    # Язык комментариев и пояснений, которые кладут `heron init` и
+    # `heron page`: SEO-блок страниц, записки, site.yaml, theme.yaml.
+    # На сборку не влияет.
+    comments: Literal["ru", "en"] = "ru"
     fail_on_warning: bool = False
     allow_raw_html: bool = False
 

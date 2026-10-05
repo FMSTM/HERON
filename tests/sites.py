@@ -97,3 +97,13 @@ def theme_dir(root: Path, templates: dict[str, str] | None = None, strings: dict
         encoding="utf-8",
     )
     return path
+
+
+def clear_content(root: Path) -> None:
+    """Убрать стартовые страницы, которые кладёт `heron new`.
+
+    Тестам про пустой сайт и пустой язык нужен контент без единой страницы.
+    """
+    for path in (root / "content").rglob("*.md"):
+        if path.name != "heron-readme.md":
+            path.unlink()

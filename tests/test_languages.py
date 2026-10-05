@@ -18,6 +18,7 @@ from heron.contracts.site import SiteConfig
 from heron.core import build as pipeline
 from heron.core.environment import BuildEnv
 from heron.scaffold import create
+from tests import sites
 
 HOME = """---
 title: {title}
@@ -43,6 +44,7 @@ def make(tmp_path: Path, languages: list[str], pages: dict[str, str] | None = No
     root = tmp_path / "site"
     root.mkdir()
     create(root, name="demo", languages=languages)
+    sites.clear_content(root)
     if pages is None:
         pages = {}
         for lang in languages:

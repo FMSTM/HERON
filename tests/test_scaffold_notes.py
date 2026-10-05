@@ -20,11 +20,12 @@ COMMENTED = ["site.yaml", "theme/theme.yaml", "content/en/index.md", "content/en
 
 
 def _comments(path):
-    return "\n".join(
-        line.split("#", 1)[1]
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if "#" in line
-    )
+    """Комментарии файла; у страницы — только из SEO-блока: якоря секций
+    `{#about}` в тексте — не комментарии."""
+    text = path.read_text(encoding="utf-8")
+    if path.suffix == ".md" and text.startswith("---"):
+        text = text.split("---", 2)[1]
+    return "\n".join(line.split("#", 1)[1] for line in text.splitlines() if "#" in line)
 
 
 @pytest.mark.parametrize("lang", ["ru", "en"])
@@ -89,7 +90,7 @@ def test_env_variable_switches_language(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     result = CliRunner().invoke(main, ["new", "site"])
     assert result.exit_code == 0, result.output
-    assert "сайт site создан" in result.output
+    assert "Сайт создан: site" in result.output
     assert CYRILLIC.search(_comments(tmp_path / "site" / "site.yaml"))
 
 
@@ -109,5 +110,5 @@ def test_english_cli_messages(tmp_path, monkeypatch):
     monkeypatch.delenv("HERON_NOTES", raising=False)
     monkeypatch.chdir(tmp_path)
     result = CliRunner().invoke(main, ["new", "site"])
-    assert "site site created" in result.output
+    assert "Site created: site" in result.output
     assert not CYRILLIC.search(result.output)

@@ -8,7 +8,7 @@ heron: "{spec}"
 
 site:
   domain: {domain}
-  name: {name}
+  name: {name_yaml}
   theme: {theme}
   default_lang: {default_lang}
   languages: [{languages}]

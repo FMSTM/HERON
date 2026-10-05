@@ -1,6 +1,6 @@
 name: {theme}
 version: "0.1"
-title: Theme of {name}
+title: {theme_title}
 
 # What the theme expects from site.yaml. The engine checks these paths are filled in
 requires: []

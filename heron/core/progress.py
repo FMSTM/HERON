@@ -17,10 +17,12 @@ class Progress(Protocol):
     """Приёмник сообщений о ходе работы."""
 
     def step(self, title: str) -> None:
-        """Начался этап."""
+        """Начался этап. `title` — ключ сообщения (`step_content`): язык
+        выбирает тот, кто печатает, а не ядро."""
 
-    def done(self, detail: str = "") -> None:
-        """Этап закончился. `detail` — чем именно, например «39 страниц»."""
+    def done(self, detail: str = "", **fields: object) -> None:
+        """Этап закончился. `detail` — ключ итога (`done_pages`) и его поля:
+        `done("done_pages", count=39)` → «39 страниц»."""
 
     def tick(self, current: int, total: int, detail: str = "") -> None:
         """Продвижение внутри длинного этапа."""
@@ -31,6 +33,6 @@ class Silent:
 
     def step(self, title: str) -> None: ...
 
-    def done(self, detail: str = "") -> None: ...
+    def done(self, detail: str = "", **fields: object) -> None: ...
 
     def tick(self, current: int, total: int, detail: str = "") -> None: ...

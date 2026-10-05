@@ -1,7 +1,8 @@
 """Скелет сайта: что кладут `heron new` и `heron init`.
 
-Команда неинтерактивна и детерминирована: одинаковый вызов даёт одинаковую
-папку. Кладёт только контент: markdown, картинки, тему, site.yaml. Ни
+Сам скелет неинтерактивен и детерминирован: одинаковый вызов даёт одинаковую
+папку. Опрос в терминале живёт в командной строке и лишь собирает аргументы
+для этого вызова. Кладёт только контент: markdown, картинки, тему, site.yaml. Ни
 Dockerfile, ни compose, ни скриптов сборки, ни .env здесь нет и быть не
 может — сборка, окружения и упаковка живут в HERON, а папка сайта остаётся
 папкой сайта. Решение «папка или образ» принимается при сборке.
@@ -49,51 +50,32 @@ TEXT = HERE / "text"
 
 ENV_NOTES = "HERON_NOTES"
 
-# Сообщения команд new и init — на языке пояснений.
-MESSAGES = {
-    "ru": {
-        "found_site": "site.yaml: языки {languages}, тема {theme}",
-        "found_content": "content/: {pages} страниц, языки: {langs}",
-        "found_folder": "{folder}/ на месте",
-        "none": "нет",
-        "found": "нашёл",
-        "created": "создал",
-        "skipped": "оставил как есть: {count} файлов",
-        "not_empty": "папка {name} не пуста — используйте `heron init` внутри неё",
-        "site_created": "сайт {name} создан",
-        "next": (
-            "\nдальше:\n"
-            "  1. заполните {name}/site.yaml — домен, название, языки, меню\n"
-            "  2. heron init {name} — папки и стартовые страницы догонят конфиг\n"
-            "  3. пишите страницы: копия index.md или heron page, затем heron build {name}"
-        ),
-        "folder_done": "папка {path} дополнена",
-        "bad_notes": "язык пояснений {value!r}: есть ru и en",
-    },
-    "en": {
-        "found_site": "site.yaml: languages {languages}, theme {theme}",
-        "found_content": "content/: {pages} pages, languages: {langs}",
-        "found_folder": "{folder}/ is in place",
-        "none": "none",
-        "found": "found",
-        "created": "created",
-        "skipped": "left as is: {count} files",
-        "not_empty": "folder {name} is not empty — run `heron init` inside it",
-        "site_created": "site {name} created",
-        "next": (
-            "\nnext:\n"
-            "  1. fill in {name}/site.yaml — domain, name, languages, menu\n"
-            "  2. heron init {name} — folders and starter pages follow the config\n"
-            "  3. write pages: copy index.md or run heron page, then heron build {name}"
-        ),
-        "folder_done": "folder {path} completed",
-        "bad_notes": "notes language {value!r}: ru and en are available",
-    },
-}
+# Сообщения команд — на языке пояснений, словарь общий для всего CLI.
+from heron.messages import say as message  # noqa: E402
+
+# Что лежит в папке под git ещё до сайта. Такая папка для `new` пустая:
+# репозиторий заводят раньше сайта, и отказывать из-за .git бессмысленно.
+SERVICE = (
+    ".git",
+    ".gitignore",
+    ".gitattributes",
+    ".gitmodules",
+    ".github",
+    ".gitlab",
+    ".DS_Store",
+    ".editorconfig",
+    "README",
+    "README.md",
+    "LICENSE",
+    "LICENSE.md",
+)
 
 
-def message(notes: str, key: str, **fields: object) -> str:
-    return MESSAGES.get(notes, MESSAGES["en"])[key].format(**fields)
+def foreign_files(root: Path) -> list[str]:
+    """Что в папке мешает создать сайт с нуля: всё, кроме служебного."""
+    if not root.is_dir():
+        return []
+    return sorted(p.name for p in root.iterdir() if p.name not in SERVICE)
 
 
 def resolve_notes(flag: str | None = None, site_yaml: Path | None = None) -> str:
@@ -134,15 +116,27 @@ def slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9-]+", "-", name.lower()).strip("-")
 
 
+def placeholder_domain(name: str) -> str:
+    """Домен-заглушка: `.example` зарезервирован и никуда не ведёт."""
+    slug = slugify(name)
+    return f"{slug}.example" if slug else "example.com"
+
+
 # Тексты стартовых страниц. Нет языка — английский: страница на чужом
-# языке полезнее её отсутствия, и сайт собирается сразу.
+# языке полезнее её отсутствия, и сайт собирается сразу — и без единого
+# предупреждения: секция about есть, потому что её ждёт тип home стартовой
+# темы, короткое имя есть, потому что главная стоит в меню.
+NAV_HOME = {"uk": "Головна", "ru": "Главная", "en": "Home"}
+
 STARTER = {
     "uk": {
         "home": (
             "{name} — головна",
             "{name}",
             "Головна сторінка сайту {name}",
-            "Перший абзац: хто ви і чим корисні.\n\nДругий абзац: що людина отримає.",
+            "Перший абзац: хто ви і чим корисні.\n\nДругий абзац: що людина отримає.\n\n"
+            "## Про нас {{#about}}\n\n"
+            "Кілька речень про вас: досвід, підхід, чому вам довіряють.",
         ),
         "404": (
             "Сторінку не знайдено",
@@ -156,7 +150,9 @@ STARTER = {
             "{name} — главная",
             "{name}",
             "Главная страница сайта {name}",
-            "Первый абзац: кто вы и чем полезны.\n\nВторой абзац: что человек получит.",
+            "Первый абзац: кто вы и чем полезны.\n\nВторой абзац: что человек получит.\n\n"
+            "## О нас {{#about}}\n\n"
+            "Несколько предложений о вас: опыт, подход, почему вам доверяют.",
         ),
         "404": (
             "Страница не найдена",
@@ -171,7 +167,9 @@ STARTER = {
             "{name}",
             "Home page of {name}",
             "First paragraph: who you are and how you help.\n\n"
-            "Second paragraph: what the visitor gets.",
+            "Second paragraph: what the visitor gets.\n\n"
+            "## About {{#about}}\n\n"
+            "A few sentences about you: experience, approach, why people trust you.",
         ),
         "404": (
             "Page not found",
@@ -190,6 +188,7 @@ def seo_block(
     order: int = 999,
     page_type: str | None = None,
     notes: str = "en",
+    nav_title: str | None = None,
 ) -> str:
     """Фронтматтер страницы: восемь групп SEO-блока с комментариями.
 
@@ -208,7 +207,21 @@ def seo_block(
         if page_type
         else f"# type:                      # {hint[1]} (children_type)\n"
     )
-    return _text(notes, "seo-block.md").format(
+    text = _text(notes, "seo-block.md")
+    if nav_title:
+        lines = text.split("\n")
+        for index, line in enumerate(lines):
+            if line.startswith("# nav_title:"):
+                hint = line.split("#", 2)[-1].strip()
+                lines[index] = (
+                    "nav_title: {nav}\n# ↑ ".replace(
+                        "{nav}", json.dumps(nav_title, ensure_ascii=False)
+                    )
+                    + hint
+                )
+                break
+        text = "\n".join(lines)
+    return text.format(
         title=json.dumps(title, ensure_ascii=False),
         h1=json.dumps(h1, ensure_ascii=False),
         description=json.dumps(description, ensure_ascii=False),
@@ -223,7 +236,8 @@ def _starter(root: Path, lang: str, name: str, plan: Plan, force: bool, notes: s
     for page, rel in (("home", "index.md"), ("404", "404.md")):
         title, h1, description, body = (part.format(name=name) for part in texts[page])
         order = 0 if page == "home" else 999
-        text = seo_block(title, h1, description, order=order, notes=notes)
+        nav = NAV_HOME.get(lang, NAV_HOME["en"]) if page == "home" else None
+        text = seo_block(title, h1, description, order=order, notes=notes, nav_title=nav)
         _put(root, f"content/{lang}/{rel}", text + "\n" + body + "\n", plan, force)
 
 
@@ -292,25 +306,36 @@ def create(
     theme: str | None = None,
     force: bool = False,
     notes: str = "en",
+    domain: str | None = None,
+    default_lang: str | None = None,
 ) -> Plan:
     """Разложить скелет сайта в папку.
 
     `notes` — язык комментариев и пояснений во всех файлах скелета:
     `ru` или `en`. Языки самого сайта — отдельно, в `languages`.
+    `default_lang` — основной язык; не задан — первый из `languages`.
+    `domain` не задан — заглушка `<имя>.example`.
     """
     if notes not in NOTE_LANGS:
         raise ValueError(message("en", "bad_notes", value=notes))
     plan = Plan(notes=notes)
-    languages = languages or ["en"]
+    languages = list(languages or ["en"])
+    if default_lang:
+        languages = [default_lang] + [x for x in languages if x != default_lang]
     theme_name = theme or "main"
     default_lang = languages[0]
-    slug = slugify(name)
     # домен-заглушка: под нелатинским именем папки его не собрать,
     # и выдумывать транслит за человека не надо — он всё равно впишет свой
-    domain = f"{slug}.example" if slug else "example.com"
+    domain = domain or placeholder_domain(name)
 
+    import json
+
+    theme_title = {"ru": f"Тема сайта {name}", "en": f"Theme of {name}"}[notes]
     fields = {
         "name": name,
+        # в YAML имя идёт строкой в кавычках: «Студия: Киев» без них не читается
+        "name_yaml": json.dumps(name, ensure_ascii=False),
+        "theme_title": json.dumps(theme_title, ensure_ascii=False),
         "theme": theme_name,
         "domain": domain,
         "default_lang": default_lang,

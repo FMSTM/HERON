@@ -40,8 +40,6 @@ do_new() {
   local target="${3:-}"
   [ -n "$target" ] || die "нужно: ./scripts/site.sh $SITE new <путь к папке сайта>"
   target="${target/#\~/$HOME}"
-  [ -e "$target" ] && [ -n "$(ls -A "$target" 2>/dev/null)" ] \
-    && die "папка $target не пуста — для готового контента есть команда init"
 
   local parent base
   parent="$(cd "$(dirname "$target")" && pwd)" || die "нет папки $(dirname "$target")"
@@ -54,7 +52,10 @@ do_new() {
     docker build -q -t "$engine" "$HERON_ROOT" >/dev/null || die "не собрался образ движка"
   fi
   note "создаю папку сайта $parent/$base"
-  docker run --rm --network=none --cap-drop=ALL --security-opt=no-new-privileges \
+  # в терминале new задаёт вопросы — нужен -it; в CI терминала нет, и он берёт умолчания
+  local tty=""
+  [ -t 0 ] && [ -t 1 ] && tty="-it"
+  docker run --rm $tty --network=none --cap-drop=ALL --security-opt=no-new-privileges \
     --user "$(id -u):$(id -g)" --tmpfs /tmp \
     ${HERON_NOTES:+-e HERON_NOTES="$HERON_NOTES"} \
     -v "$parent":/work -w /work \
@@ -76,10 +77,9 @@ do_new() {
 
   cat <<TXT
 
-дальше:
-  1. заполните $parent/$base/site.yaml — домен, языки, тема, меню
-  2. ./scripts/site.sh $SITE init
-  3. разложите контент и: ./scripts/site.sh $SITE build dev
+дальше через site.sh:
+  собрать и посмотреть:   ./scripts/site.sh $SITE build dev && ./scripts/site.sh $SITE serve dev
+  поменяли языки в site.yaml: ./scripts/site.sh $SITE init
 TXT
 }
 

@@ -1,0 +1,5 @@
+# actionlint знает метки раннеров GitHub с запаздыванием. ubuntu-26.04 —
+# штатный образ GitHub (GA), а не свой раннер; убрать, когда actionlint его узнает.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04

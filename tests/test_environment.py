@@ -76,8 +76,8 @@ def test_new_site_has_starter_pages(tmp_path):
         for p in (root / "content").rglob("*.md")
         if not notes.is_note(p)
     )
-    assert pages == ["uk/404.md", "uk/index.md"]
-    text = (root / "content" / "uk" / "index.md").read_text(encoding="utf-8")
+    assert pages == ["en/404.md", "en/index.md"]
+    text = (root / "content" / "en" / "index.md").read_text(encoding="utf-8")
     for group in range(1, 9):
         assert f"# ================= {group}. " in text
     assert (root / "content" / notes.NOTE).is_file()
@@ -94,7 +94,7 @@ def test_init_takes_languages_from_site_yaml(tmp_path):
     config = root / "site.yaml"
     config.write_text(
         config.read_text(encoding="utf-8").replace(
-            "  default_lang: uk\n  languages: [uk]",
+            "  default_lang: en\n  languages: [en]",
             "  default_lang: ru\n  languages: [ru, uk, en]",
         ),
         encoding="utf-8",

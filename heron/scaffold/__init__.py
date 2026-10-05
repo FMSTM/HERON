@@ -301,7 +301,7 @@ def create(
     if notes not in NOTE_LANGS:
         raise ValueError(message("en", "bad_notes", value=notes))
     plan = Plan(notes=notes)
-    languages = languages or ["uk"]
+    languages = languages or ["en"]
     theme_name = theme or "main"
     default_lang = languages[0]
     slug = slugify(name)

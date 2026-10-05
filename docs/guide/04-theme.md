@@ -14,7 +14,7 @@ theme/
 ├── modules/              по файлу на модуль: prose.html, steps.html, faq.html…
 ├── partials/             куски каркаса: header.html, footer.html, analytics.html
 ├── assets/               CSS, JS, шрифты — копируются в dist как есть
-└── i18n/<язык>.yaml      строки интерфейса: «Читать далее», «Вопросы и ответы»
+└── i18n/<язык>.yaml      строки интерфейса: en.yaml, ru.yaml — «Read more» / «Читать далее»
 ```
 
 `heron new` кладёт стартовую тему: типы `home`, `page`, `404` и модули `breadcrumbs`, `cards`, `facts`, `faq`, `list`, `prose`, `steps`. Её задача — чтобы сайт собирался с первой минуты, а не чтобы на ней жить. Своя тема начинается с её копии.
@@ -134,6 +134,13 @@ images:
 Тексты, которые принадлежат теме, а не странице, — в `theme/i18n/<язык>.yaml`:
 
 ```yaml
+# theme/i18n/en.yaml
+read_more: Read more
+faq: Questions and answers
+```
+
+```yaml
+# theme/i18n/ru.yaml
 read_more: Читать далее
 faq: Вопросы и ответы
 ```

@@ -87,8 +87,8 @@ class SiteBlock(Strict):
     domains: dict[str, str] = Field(default_factory=dict)
     name: str | None = None
     theme: str
-    default_lang: str = "uk"
-    languages: list[str] = Field(default_factory=lambda: ["uk"])
+    default_lang: str = "en"
+    languages: list[str] = Field(default_factory=lambda: ["en"])
     # значения по языкам: name_ru → i18n["name"]["ru"]. Пишут суффиксом.
     i18n: dict[str, dict[str, Any]] = Field(default_factory=dict, repr=False)
 

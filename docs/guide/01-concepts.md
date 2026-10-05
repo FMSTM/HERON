@@ -29,20 +29,22 @@
 
 ## Страница, ключ и адрес
 
-**Страница — это markdown-файл.** Путь файла задаёт адрес:
+**Страница — это markdown-файл.** Путь файла задаёт адрес. Пример для `default_lang: en`, `languages: [en, ru]`:
 
 ```
-content/uk/index.md                →  /
-content/uk/about.md                →  /about/
-content/uk/services/_index.md      →  /services/          страница самого раздела
-content/uk/services/design.md      →  /services/design/
-content/ru/services/design.md      →  /ru/services/design/
+content/en/index.md                →  /
+content/en/about.md                →  /about/
+content/en/services/_index.md      →  /services/              страница самого раздела
+content/en/services/design.md      →  /services/design/
+content/ru/about.md                →  /ru/o-nas/              slug: o-nas
+content/ru/services/_index.md      →  /ru/uslugi/             slug: uslugi
+content/ru/services/design.md      →  /ru/uslugi/dizajn/      slug: dizajn
 ```
 
 У страницы две разные вещи, которые по умолчанию совпадают:
 
-- **ключ** — путь файла без `.md`: `services/design`. По нему движок связывает переводы, по нему страницу называют в меню и в ссылках;
-- **адрес** — то, что видит посетитель. Его можно поменять полем `slug`, ключ при этом не меняется.
+- **ключ** — путь файла без `.md`: `services/design`. Он одинаков во всех языках; по нему движок связывает переводы, по нему страницу называют в меню и в ссылках;
+- **адрес** — то, что видит посетитель. Его меняет поле `slug`, ключ при этом остаётся прежним. Поэтому у русской версии адрес `/ru/uslugi/dizajn/`, а ключ тот же — `services/design`.
 
 Главная — `index.md`, её ключ `/`. Страница «не найдено» — `404.md`.
 
@@ -50,7 +52,15 @@ content/ru/services/design.md      →  /ru/services/design/
 
 ## Языки
 
-Язык — папка в `content/`. Язык по умолчанию отдаётся из корня, остальные — с префиксом `/<язык>/`. Перевод — файл с тем же именем в папке другого языка; адрес у него может быть свой (`slug`). Список языков задаёт `site.yaml`.
+Язык — папка в `content/`. Список языков и язык по умолчанию задаёт `site.yaml`:
+
+```yaml
+site:
+  default_lang: en       # отдаётся из корня: /about/
+  languages: [en, ru]    # остальные — с префиксом: /ru/o-nas/
+```
+
+Перевод — файл с тем же именем в папке другого языка; адрес у него может быть свой (`slug`). Переведённые страницы получают hreflang друг на друга, `x-default` — версия языка по умолчанию. Поменять `default_lang` — значит поменять адреса всех страниц.
 
 → Подробно: [`20` §3](../spec/20-data-contract.md#3-языки)
 

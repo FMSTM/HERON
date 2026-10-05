@@ -71,7 +71,7 @@ def test_cli_new_and_page_use_the_language(tmp_path, monkeypatch):
     assert runner.invoke(main, ["new", "site", "--notes", "en"]).exit_code == 0
     result = runner.invoke(main, ["page", "page", "about", "site"])
     assert result.exit_code == 0, result.output
-    text = (tmp_path / "site" / "content" / "uk" / "about.md").read_text(encoding="utf-8")
+    text = (tmp_path / "site" / "content" / "en" / "about.md").read_text(encoding="utf-8")
     assert "# ================= 1. BASICS" in text
     assert "# ================= 8. RELATIONS" in text
 

@@ -1,9 +1,11 @@
 # content — page text
 
 One page, one markdown file. The file path sets the page address, the type is
-inherited from the folder: `content/en/services/design.md` becomes
-`/services/design/` and takes the type declared in the section's
-`_index.md`.
+inherited from the folder: on a site with `default_lang: en`,
+`content/en/services/design.md` becomes `/services/design/` and takes the
+type declared in the section's `_index.md`. Its translation is
+`content/ru/services/design.md`: `/ru/services/design/`, or its own address
+if the file sets `slug`.
 
 ## Belongs here
 

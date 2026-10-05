@@ -34,13 +34,17 @@
 ```yaml
 site:
   domain: example.com
-  name: Мастерская
+  name: Workshop
+  name_ru: Мастерская        # значение для русских страниц
 seo:
-  title_suffix: " — Мастерская"
+  title_suffix: " — Workshop"
+  title_suffix_ru: " — Мастерская"
   og_default_image: media/og/default.jpg
   llms_txt: true
   llms_note:                 # факты о сайте для нейросетей, по языкам
-    uk: |
+    en: |
+      Phone for bookings: …
+    ru: |
       Телефон для записи: …
 contact: { phone: "…", city: "…" }
 organization: { name: "…" }

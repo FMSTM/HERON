@@ -1,6 +1,6 @@
 # 02 · Первый сайт
 
-Сквозной пример: от пустой папки до собранного сайта на двух языках. Нужен докер; без него — `pip install git+https://github.com/FMSTM/HERON.git@prod` и `heron` вместо `$H`.
+Сквозной пример: от пустой папки до собранного сайта на двух языках — английский основной, русский второй. Нужен докер; без него — `pip install git+https://github.com/FMSTM/HERON.git@prod` и `heron` вместо `$H`.
 
 ```bash
 H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"
@@ -22,13 +22,13 @@ $H new мой-сайт --notes ru
 мой-сайт/
 ├── site.yaml                  конфиг с комментариями к каждому ключу
 ├── heron-readme.md            записка: что это за папка — такая есть в каждой папке
-├── content/uk/index.md        главная с полным SEO-блоком
-├── content/uk/404.md          страница «не найдено»
+├── content/en/index.md        главная с полным SEO-блоком
+├── content/en/404.md          страница «не найдено»
 ├── media/  data/  static/  plugins/
 └── theme/                     стартовая тема: theme.yaml, base.html, шаблоны, модули, стили
 ```
 
-Сайт уже собирается — можно проверить сразу: `$H build мой-сайт`.
+Язык сайта по умолчанию — `en`. Сайт уже собирается — можно проверить сразу: `$H build мой-сайт`.
 
 ## 2. Описать сайт в `site.yaml`
 
@@ -37,14 +37,16 @@ $H new мой-сайт --notes ru
 ```yaml
 site:
   domain: example.com
-  name: Мастерская
+  name: Workshop
+  name_ru: Мастерская         # название для русских страниц
   theme: main
-  default_lang: uk            # отдаётся из корня
-  languages: [uk, en]         # второй язык — под /en/
+  default_lang: en            # отдаётся из корня: /about/
+  languages: [en, ru]         # второй язык — под /ru/
 seo:
-  title_suffix: " — Мастерская"
+  title_suffix: " — Workshop"
+  title_suffix_ru: " — Мастерская"
 nav:
-  main: ["/", about]          # ключи страниц: главная и /about/
+  main: ["/", about]          # ключи страниц: главная и about — на каждом языке свой адрес
 ```
 
 Все ключи с пояснениями — [`20` §5](../spec/20-data-contract.md#5-siteyaml) и образец [`docs/agents/templates/site.yaml`](../agents/templates/site.yaml).
@@ -55,24 +57,26 @@ nav:
 $H init мой-сайт
 ```
 
-`init` читает `site.yaml` и дописывает недостающее: появятся `content/en/index.md`, `content/en/404.md` и `theme/i18n/en.yaml`. Существующие файлы он не трогает (перезаписать — `--force`). Добавили язык — снова `init`.
+`init` читает `site.yaml` и дописывает недостающее: появятся `content/ru/index.md`, `content/ru/404.md` и `theme/i18n/ru.yaml`. Существующие файлы он не трогает (перезаписать — `--force`). Добавили язык — снова `init`.
 
 ## 4. Написать главную
 
-Откройте `content/uk/index.md`. Наверху — SEO-блок: поменяйте `title` (для выдачи), `h1` (для того, кто уже на странице), `description` (сниппет). Комментарии не удаляйте — они подсказка тому, кто будет править файл после вас.
+Откройте `content/en/index.md`. Наверху — SEO-блок: поменяйте `title` (для выдачи), `h1` (для того, кто уже на странице), `description` (сниппет). Комментарии не удаляйте — они подсказка тому, кто будет править файл после вас.
 
 Ниже — вступление и секции:
 
 ```markdown
-Ремонтируем крыши с 2010 года.
+We repair roofs since 2010.
 
-Приезжаем на замер в день обращения.
+We come to measure on the day you call.
 
-## Что делаем {#about}
+## What we do {#about}
 
-- **Ремонт кровли.** Латаем, меняем покрытие.
-- **Водосток.** Монтаж и чистка.
+- **Roof repair.** Patching and re-covering.
+- **Gutters.** Installation and cleaning.
 ```
+
+Русская главная — `content/ru/index.md`: тот же якорь `{#about}`, свой текст. Якорь — имя секции для темы, он одинаков во всех языках; заголовок переводится.
 
 Какие секции и в каком виде рисует главная, решает тема. Стартовая выводит вступление и все секции подряд; на своей теме у каждой секции будет своё место и свой модуль — [04 · Тема и дизайн](04-theme.md).
 
@@ -81,13 +85,20 @@ $H init мой-сайт
 Два способа, результат одинаковый:
 
 ```bash
-cp мой-сайт/content/uk/index.md мой-сайт/content/uk/about.md   # и поправить значения
-$H page page about мой-сайт                                    # тип page, файл about.md
+cp мой-сайт/content/en/index.md мой-сайт/content/en/about.md   # и поправить значения
+$H page page about мой-сайт                                    # тип page, файл content/en/about.md
 ```
 
 `heron page <тип> <имя>` кладёт файл с полным SEO-блоком и заготовками всех секций, которые тема ждёт у этого типа. Страница сама появится в карте сайта и `llms.txt`; в меню — потому что её ключ `about` записан в `nav.main`.
 
-Перевод — файл с тем же именем в `content/en/`. Адрес у перевода может быть свой: `slug: about-us`.
+Перевод — файл с тем же именем в `content/ru/` (`$H page page about мой-сайт --lang ru`). Адрес у перевода может быть свой — `slug: o-nas` в его SEO-блоке:
+
+```
+content/en/about.md   →  /about/
+content/ru/about.md   →  /ru/o-nas/      slug: o-nas
+```
+
+Обе версии получат hreflang друг на друга, а пункт меню `about` на русских страницах сам поведёт на `/ru/o-nas/`.
 
 ## 6. Собрать и посмотреть
 

@@ -41,7 +41,7 @@
 ├── .gitignore                dist/, .heron-cache/ — кладёт heron new
 │
 ├── content/
-│   ├── uk/                   по папке на каждый язык из site.languages;
+│   ├── en/                   по папке на каждый язык из site.languages;
 │   │   ├── index.md          главная — кладёт heron new/init
 │   │   └── 404.md            страница «не найдено» — кладёт heron new/init
 │   └── ru/
@@ -100,15 +100,19 @@
 **Путь файла определяет URL.** Никаких отдельных карт маршрутов.
 
 ```
-content/uk/index.md                 →  /
-content/uk/about.md                 →  /about/
-content/uk/contacts.md              →  /contacts/
-content/uk/guides/_index.md         →  /guides/
-content/uk/guides/getting-started.md →  /guides/getting-started/
-content/uk/services/_index.md       →  /services/
-content/uk/services/design.md   →  /services/design/
-content/ru/services/design.md   →  /ru/services/design/
-content/en/index.md                 →  /en/
+default_lang: en, languages: [en, ru]
+
+content/en/index.md                  →  /
+content/en/about.md                  →  /about/
+content/en/contacts.md               →  /contacts/
+content/en/guides/_index.md          →  /guides/
+content/en/guides/getting-started.md →  /guides/getting-started/
+content/en/services/_index.md        →  /services/
+content/en/services/design.md        →  /services/design/
+content/ru/index.md                  →  /ru/
+content/ru/about.md                  →  /ru/o-nas/              slug: o-nas
+content/ru/services/_index.md        →  /ru/uslugi/             slug: uslugi
+content/ru/services/design.md        →  /ru/uslugi/dizajn/      slug: dizajn
 ```
 
 Правила:
@@ -130,13 +134,16 @@ content/en/index.md                 →  /en/
 - **`slug`** — сегмент адреса, который видит посетитель
 
 ```yaml
-# content/uk/services/_index.md
-slug: perelik
+# content/ru/services/_index.md
+slug: uslugi
 ```
 
 ```
-content/uk/services/_index.md        →  /perelik/
-content/uk/services/design.md    →  /perelik/design/
+content/en/services/_index.md        →  /services/
+content/en/services/design.md        →  /services/design/
+content/ru/services/_index.md        →  /ru/uslugi/
+content/ru/services/design.md        →  /ru/uslugi/design/       slug у страницы нет
+content/ru/services/design.md        →  /ru/uslugi/dizajn/       со slug: dizajn
 ```
 
 Слаг раздела уводит за собой всех детей: адрес собирается из цепочки
@@ -144,10 +151,10 @@ content/uk/services/design.md    →  /perelik/design/
 последний сегмент.
 
 Чего переименование адреса **не** делает: не рвёт связь между языками,
-не требует править `nav` в `site.yaml`, не меняет ключ страницы. Украинский
-раздел может жить по `/perelik/`, русский — по `/ru/rukovodstva/`, и это
+не требует править `nav` в `site.yaml`, не меняет ключ страницы. Английский
+раздел живёт по `/services/`, русский — по `/ru/uslugi/`, и это
 по-прежнему одна страница на двух языках, потому что файл у них называется
-одинаково.
+одинаково: ключ у обоих — `services`.
 
 Слаг подчиняется тем же правилам, что имя файла: латиница, цифры и дефис,
 один сегмент, без слешей. Негодное значение — ошибка сборки, а не тихий
@@ -176,13 +183,13 @@ content/uk/services/design.md    →  /perelik/design/
 Пример на разных слагах:
 
 ```
-content/uk/guides/_index.md        (slug нет)        →  /guides/
+content/en/guides/_index.md        (slug нет)             →  /guides/
 content/ru/guides/_index.md        slug: rukovodstva      →  /ru/rukovodstva/
-content/uk/guides/x.md                               →  /guides/x/
-content/ru/guides/x.md                               →  /ru/rukovodstva/x/
+content/en/guides/x.md                                    →  /guides/x/
+content/ru/guides/x.md                                    →  /ru/rukovodstva/x/
 ```
 
-| Написано | На uk-странице | На ru-странице |
+| Написано | На en-странице | На ru-странице |
 |---|---|---|
 | `[x](/guides/x/)` — ключ | `/guides/x/` | `/ru/rukovodstva/x/` |
 | `[x](/guides/x/?a=1#faq)` | `/guides/x/?a=1#faq` | `/ru/rukovodstva/x/?a=1#faq` |
@@ -200,11 +207,11 @@ content/ru/guides/x.md                               →  /ru/rukovodstva/x/
 
 ### Старые адреса: кириллица и percent-encoding
 
-Старый адрес с кириллицей существует в двух видах: `/новини/` и `/%D0%BD%D0%BE%D0%B2%D0%B8%D0%BD%D0%B8/`. В `redirect_from` и в `gone` (раздел 5) его можно писать **в любом из них** — движок приводит запись к той форме, в какой адрес сравнивает nginx (декодированный `$uri`), и 301 или 410 срабатывает на обе:
+Старый адрес с кириллицей существует в двух видах: `/новости/` и `/%D0%BD%D0%BE%D0%B2%D0%BE%D1%81%D1%82%D0%B8/`. В `redirect_from` и в `gone` (раздел 5) его можно писать **в любом из них** — движок приводит запись к той форме, в какой адрес сравнивает nginx (декодированный `$uri`), и 301 или 410 срабатывает на обе:
 
 ```yaml
 redirect_from:
-  - /новини-компанії/                                  # как в адресной строке
+  - /новости-компании/                                 # как в адресной строке
   - /%d0%ba%d1%80%d0%b5%d0%b4%d0%b8%d1%82%d1%8b/       # как в выгрузке sitemap
 ```
 
@@ -213,7 +220,7 @@ redirect_from:
 - percent-encoding раскрывается, регистр шестнадцатеричных цифр не важен (`%D0` = `%d0`);
 - текст приводится к Unicode NFC: так кодируют адреса браузеры, а редактор мог сохранить «й» двумя символами;
 - **регистр букв сохраняется**: `/About/` и `/about/` — разные адреса;
-- **завершающий слеш:** запись без слеша получает его (`/новини` = `/новини/`), кроме адресов, похожих на файл (`/index.php`, `/page.html`). Сервер отвечает 301 или 410 и на вариант без слеша, и со слешем. Префикс `gone` (`/wp-*`) слеш не получает;
+- **завершающий слеш:** запись без слеша получает его (`/новости` = `/новости/`), кроме адресов, похожих на файл (`/index.php`, `/page.html`). Сервер отвечает 301 или 410 и на вариант без слеша, и со слешем. Префикс `gone` (`/wp-*`) слеш не получает;
 - слаг, обрезанный старой системой посреди буквы (`/%d0%ba%d1%80%d0/` — последний байт без пары), после декодирования не является текстом. Такая запись остаётся в percent-форме, и сервер сверяет её с сырым адресом запроса без учёта регистра `%xx`. Писать её нужно именно в percent-форме — как она пришла из старого sitemap;
 - дубли, совпадение с адресом страницы (`E009`) и пересечения с `gone` (`E022`) проверяются по нормализованной форме: `/кредит/` и его percent-запись — один и тот же адрес.
 
@@ -228,7 +235,7 @@ redirect_from:
 Текст страницы «не найдено» — контент, как любой другой: файл `404.md` в корне каждого языка.
 
 ```
-content/uk/404.md   →  dist/404.html          (и /404/index.html)
+content/en/404.md   →  dist/404.html          (и /404/index.html)
 content/ru/404.md   →  dist/ru/404/index.html
 ```
 
@@ -244,17 +251,17 @@ content/ru/404.md   →  dist/ru/404/index.html
 
 ```yaml
 site:
-  default_lang: uk
-  languages: [uk, ru]       # от одного до любого числа кодов
+  default_lang: en
+  languages: [en, ru]       # от одного до любого числа кодов
 ```
 
-- `languages` — от одного до N кодов вида `uk`, `ru`, `en-gb`. Повтор кода или пустой список — `E011`
-- `default_lang` обязан входить в `languages`, иначе `E011`. Язык по умолчанию отдаётся из корня (`/about/`), остальные — с префиксом (`/ru/about/`)
+- `languages` — от одного до N кодов вида `en`, `ru`, `en-gb`. Повтор кода или пустой список — `E011`
+- `default_lang` обязан входить в `languages`, иначе `E011`. Язык по умолчанию отдаётся из корня (`/about/`), остальные — с префиксом (`/ru/about/`, или `/ru/o-nas/` со `slug: o-nas`)
 - дерево контента на каждый язык — `content/<lang>/`. Папки языков, которых нет в `languages`, движок не читает
 - соответствие страниц между языками — **по ключу**: относительный путь папок плюс имя файла. `services/design.md` в двух деревьях — одна страница на двух языках, какие бы `slug` у них ни стояли
 - одна страница — один язык. Смешение языков внутри файла недопустимо
 
-Слаги в разных языках могут отличаться (`dyzain` / `design`), связь идёт по ключу — и когда слаг взят из имени файла, и когда он объявлен полем `slug`.
+Слаги в разных языках могут отличаться (`design` / `dizajn`), связь идёт по ключу — и когда слаг взят из имени файла, и когда он объявлен полем `slug`.
 
 ### Что зависит от числа языков
 
@@ -623,8 +630,8 @@ heron: ">=0.1,<0.2"          # версия движка, которую тре�
 site:
   domain: example.com
   theme: main                # имя темы. Локальная theme/ перекрывает
-  default_lang: uk
-  languages: [uk, ru, en]
+  default_lang: en
+  languages: [en, ru]
   name: Название сайта
 
 # Блоки ниже движок не разбирает — они целиком уходят в шаблоны.
@@ -646,11 +653,16 @@ seo:
   twitter_card: summary_large_image
   llms_txt: true
   llms_note:                 # сведения о сайте для файлов, которые читает нейросеть
-    uk: |
-      ### Як з нами зв'язатися
+    en: |
+      ### How to reach us
 
-      Телефон: +00 000 000 00 00, з 9 до 18.
-      Запис на прийом — тільки телефоном.
+      Phone: +00 000 000 00 00, 9 to 18.
+      Appointments by phone only.
+    ru: |
+      ### Как с нами связаться
+
+      Телефон: +00 000 000 00 00, с 9 до 18.
+      Запись — только по телефону.
   robots_extra: []
   feed: article              # тип страниц для ленты. Нет ключа — нет ленты
 
@@ -741,12 +753,12 @@ analytics:
 
 ```yaml
 site:
-  name: Світанок
+  name: Daybreak
   name_ru: Рассвет
 seo:
-  title_suffix: " — Світанок"
+  title_suffix: " — Daybreak"
   title_suffix_ru: " — Рассвет"
-  og_default_image: media/og/uk.png
+  og_default_image: media/og/en.png
   og_default_image_ru: media/og/ru.png
 ```
 
@@ -807,7 +819,7 @@ schema:
 
 **Подстановки, а не копии.** `{{ contact.city }}` читается из того же `site.yaml`, откуда значение берёт тема. Второй копии адреса не заводится: разошедшийся адрес в разметке никто не заметит глазами — его видит только поисковик.
 
-**Язык подставляется сам.** На русской странице `{{ contact.address }}` — это `address_ru`, на украинской — `address_uk`; нет языкового ключа, берётся ключ без хвоста. Один блок работает для всех языков.
+**Язык подставляется сам.** На русской странице `{{ contact.address }}` — это `address_ru`, на английской — `address_en`; нет языкового ключа, берётся ключ без хвоста. Один блок работает для всех языков.
 
 **Списки разворачиваются звёздочкой.** `{{ contact.social.*.href }}` — список адресов из списка карт `{href, name}`. Иначе соцсети переписывают в разметку руками и забывают обновить.
 
@@ -1016,7 +1028,7 @@ services:
 имя файла.
 
 Адрес для этого не годится: он задаётся полем `slug`, у языков разный, и
-связь по адресу означала бы, что украинская страница и её русский перевод
+связь по адресу означала бы, что английская страница и её русский перевод
 связаны с разными вещами — хотя связь описывает предмет, а не URL. Переименование
 адреса на связи не влияет никак.
 

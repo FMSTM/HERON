@@ -1,7 +1,7 @@
 # <домен> на HERON — структура сайта
 
 **Статус:** черновик · **Основа:** <откуда данные: выгрузка, sitemap, отчёт, интервью>
-**Движок:** HERON `>=0.1,<0.2` · **Языки:** <uk, ru> · **Основной:** <uk>
+**Движок:** HERON `>=0.1,<0.2` · **Языки:** <en, ru> · **Основной:** <en>
 **Правило:** факты — только из источника. Чего нет — помечено **ДЫРА** и стоит в разделе 8.
 
 ---
@@ -20,13 +20,15 @@
 
 Ключ — путь от `content/<язык>/` без `.md`, одинаковый во всех языках. Адреса второго языка — полем `slug`.
 
+Пример заполнения для `default_lang: en`, `languages: [en, ru]`:
+
 ```
-content/<основной>/                      тип        <основной>                <второй>
-  index.md                               home       /                         /<lang>/
+content/en/ и content/ru/                тип        en                        ru (slug в ru-файле)
+  index.md                               home       /                         /ru/
   404.md                                 404        —                         —
-  about.md                               about      /about/                   /<lang>/<slug>/
-  services/_index.md                     category   /services/                /<lang>/<slug>/
-    design.md                        service    /services/design/     /<lang>/<slug>/<slug>/
+  about.md                               about      /about/                   /ru/o-nas/                 o-nas
+  services/_index.md                     category   /services/                /ru/uslugi/                uslugi
+    design.md                            service    /services/design/         /ru/uslugi/dizajn/         dizajn
 ```
 
 ## 3. Типы страниц и секции
@@ -60,13 +62,13 @@ heron: ">=0.1,<0.2"
 site:
   domain: <домен>
   theme: main
-  default_lang: <основной>
-  languages: [<основной>, <второй>]
+  default_lang: en
+  languages: [en, ru]
   name: <название>
-  name_<второй>: <название>
+  name_ru: <название по-русски>
 seo:
   title_suffix: " — <название>"
-  title_suffix_<второй>: " — <название>"
+  title_suffix_ru: " — <название по-русски>"
 nav:
   main: ["/", …]
 analytics:
@@ -79,9 +81,9 @@ contact:
 
 ## 5. Перенос адресов
 
-| Старый адрес | Что было | Решение | Ключ | <основной> | <второй> | Тип |
+| Старый адрес | Что было | Решение | Ключ | en | ru | Тип |
 |---|---|---|---|---|---|---|
-| `/старый-адрес/` | услуга | 301 | `services/design` | `/services/design/` | `/<lang>/…/` | `service` |
+| `/старый-адрес/` | услуга | 301 | `services/design` | `/services/design/` | `/ru/uslugi/dizajn/` | `service` |
 | `/category/news/page/2/` | пагинация | 410 (`gone`) | — | — | — | — |
 
 ## 6. Связи

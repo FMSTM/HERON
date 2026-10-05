@@ -9,23 +9,27 @@ site:
   # domains:                   # домен на окружение: превью-сборка ссылается на себя
   #   dev: dev.example.com
   theme: main                  # имя темы; локальная папка theme/ сильнее пакета
-  default_lang: uk             # отдаётся из корня; обязан быть в languages
-  languages: [uk, ru]          # от одного до N; остальные языки — под /<lang>/
-  name: Світанок               # название сайта
+  default_lang: en             # отдаётся из корня: content/en/about.md → /about/
+  languages: [en, ru]          # от одного до N; остальные — под /<lang>/: /ru/o-nas/
+  name: Daybreak               # название сайта
   name_ru: Рассвет             # то же на языке ru; без него — name
 
 seo:
-  title_suffix: " — Світанок"  # дописывается к <title> темой
+  title_suffix: " — Daybreak"  # дописывается к <title> темой
   title_suffix_ru: " — Рассвет"
   og_default_image: media/og/default.png        # картинка для соцсетей по умолчанию
   og_default_image_ru: media/og/default-ru.png  # своя для ru, если нужна
   twitter_card: summary_large_image
   llms_txt: true               # полные тексты для нейросетей: llms-full*.txt
   llms_note:                   # сведения о сайте для llms*.txt, дословно, по языкам
-    uk: |
-      ### Як звʼязатися
+    en: |
+      ### How to reach us
 
-      Телефон і години роботи — на сторінці контактів.
+      Phone and opening hours are on the contacts page.
+    ru: |
+      ### Как связаться
+
+      Телефон и часы работы — на странице контактов.
   robots_extra: []             # дополнительные строки robots.txt
   allow_prices: false          # true — цены в разметке schema.org разрешены
   # feed: article              # тип страниц для ленты Atom; нет ключа — нет ленты
@@ -33,6 +37,7 @@ seo:
 
 nav:
   main: ["/", about, services, contacts]   # ключи страниц: путь файла без .md, главная — "/"
+                                           # на русских страницах about сам станет /ru/o-nas/
   # footer: [privacy]                      # имена групп придумывает тема
 
 analytics:                     # только в прод-сборке; заготовка выводит ga4 и gtm

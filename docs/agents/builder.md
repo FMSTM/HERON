@@ -30,12 +30,13 @@ heron: ">=0.1,<0.2"
 site:
   domain: example.com
   theme: main
-  default_lang: uk
-  languages: [uk, ru]
-  name: Название
-  name_ru: Название по-русски      # если отличается
+  default_lang: en                 # из корня: /about/
+  languages: [en, ru]              # русский — под /ru/
+  name: Daybreak
+  name_ru: Рассвет                 # если отличается
 seo:
-  title_suffix: " — Название"
+  title_suffix: " — Daybreak"
+  title_suffix_ru: " — Рассвет"
 nav:
   main: ["/", about, services, contacts]   # ключи страниц
 ```

@@ -1,8 +1,10 @@
 # content — тексты страниц
 
 Одна страница — один файл markdown. Адрес страницы задаётся путём файла,
-а тип наследуется от папки: `content/uk/services/design.md` становится
-`/services/design/` и получает тип, объявленный в `_index.md` раздела.
+а тип наследуется от папки: на сайте с `default_lang: en` файл
+`content/en/services/design.md` становится `/services/design/` и получает
+тип, объявленный в `_index.md` раздела. Перевод — `content/ru/services/design.md`:
+адрес `/ru/services/design/`, или свой, если в файле задан `slug`.
 
 ## Сюда
 

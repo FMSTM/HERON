@@ -66,7 +66,7 @@ def test_check_reports_and_exits_zero(run):
 
 def test_strict_turns_warnings_into_failure(run):
     run(main, ["new", "demo"])
-    page = pathlib.Path("demo/content/uk/long.md")
+    page = pathlib.Path("demo/content/en/long.md")
     page.write_text(
         "---\ntitle: " + "д" * 80 + "\nh1: Довга\ndescription: Опис\n---\n\nТекст.\n",
         encoding="utf-8",
@@ -80,7 +80,7 @@ def test_strict_turns_warnings_into_failure(run):
 
 def test_broken_site_exits_with_one(run):
     run(main, ["new", "demo"])
-    pathlib.Path("demo/content/uk/bad.md").write_text("нет фронтматтера\n", encoding="utf-8")
+    pathlib.Path("demo/content/en/bad.md").write_text("нет фронтматтера\n", encoding="utf-8")
     result = run(main, ["build", "demo"])
     assert result.exit_code == 1
     assert "E001" in result.output
@@ -92,7 +92,7 @@ def test_page_command_creates_a_draft(run):
     assert result.exit_code == 1  # нелатинский слаг не пройдёт обход
     good = run(main, ["page", "page", "nova", "demo"])
     assert good.exit_code == 0, good.output
-    text = pathlib.Path("demo/content/uk/nova.md").read_text(encoding="utf-8")
+    text = pathlib.Path("demo/content/en/nova.md").read_text(encoding="utf-8")
     assert "title:" in text and "{#intro}" not in text
 
 

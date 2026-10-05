@@ -4,30 +4,34 @@
 
 ## Анатомия страницы
 
+Файл `content/en/services/roof.md` (сайт с `default_lang: en`, адрес `/services/roof/`):
+
 ```markdown
 ---
 # ================= 1. ОСНОВНОЕ =================
-title: "Ремонт кровли в Городе"        ← в выдаче, до 60 знаков
-h1: "Ремонт кровли под ключ"           ← заголовок на странице
-description: "Латаем, меняем покрытие, даём гарантию год."
+title: "Roof repair in Springfield"     ← в выдаче, до 60 знаков
+h1: "Roof repair, start to finish"      ← заголовок на странице
+description: "Patching, re-covering, one-year warranty."
 …группы 2–8…
 ---
 
-Вступление: первый абзац — подводка.
+Intro: the first paragraph leads in.
 
-Второй абзац — обещание. Третьего быть не должно.
+The second paragraph is the promise. There is no third.
 
-## Что входит {#includes}
+## What is included {#includes}
 
-- **Осмотр.** Приезжаем в день обращения.
-- **Ремонт.** Латаем или меняем покрытие.
+- **Inspection.** We come the day you call.
+- **Repair.** Patching or full re-covering.
 
-## Частые вопросы {#faq}
+## FAQ {#faq}
 
-### Сколько это стоит?
+### How much does it cost?
 
-Считаем после осмотра.
+We quote after the inspection.
 ```
+
+Его русский перевод — `content/ru/services/roof.md`: тот же SEO-блок с русскими значениями, те же якоря `{#includes}` и `{#faq}`, русские заголовки. Комментарии в блоке — на языке, выбранном при `new --notes`, а не на языке страницы.
 
 Три части, всегда в этом порядке:
 
@@ -50,10 +54,15 @@ description: "Латаем, меняем покрытие, даём гарант
 Раздел — папка со страницей самого раздела `_index.md`:
 
 ```
-content/uk/services/_index.md      →  /services/          каталог
-content/uk/services/roof.md        →  /services/roof/
-content/uk/services/gutter.md      →  /services/gutter/
+content/en/services/_index.md      →  /services/                каталог
+content/en/services/roof.md        →  /services/roof/
+content/en/services/gutter.md      →  /services/gutter/
+content/ru/services/_index.md      →  /ru/uslugi/               slug: uslugi
+content/ru/services/roof.md        →  /ru/uslugi/krovlya/       slug: krovlya
+content/ru/services/gutter.md      →  /ru/uslugi/vodostok/      slug: vodostok
 ```
+
+`slug` у `_index.md` меняет адрес раздела и всех страниц в нём: русские дети сами оказываются под `/ru/uslugi/`.
 
 В `_index.md` полезно задать `children_type: service` — тип всех страниц раздела, и тема нарисует их своим шаблоном. Каталог получает детей как `page.children`, отсортированных по `order`, затем по `h1`. Пагинации нет: раздел — одна страница; большой раздел делят на подразделы папками.
 
@@ -82,11 +91,13 @@ content/uk/services/gutter.md      →  /services/gutter/
 Ссылка на свою страницу пишется **от корня, без языкового префикса**, лучше всего ключом — путём файла:
 
 ```markdown
-[ремонт кровли](/services/roof/)
-[на главную](/)
+[roof repair](/services/roof/)        в content/en/…  →  /services/roof/
+[ремонт кровли](/services/roof/)      в content/ru/…  →  /ru/uslugi/krovlya/
+[home](/)                             в content/en/…  →  /
+[на главную](/)                       в content/ru/…  →  /ru/
 ```
 
-Движок сам подставит адрес на языке страницы, со всеми `slug`. Перевода нет — ссылка поведёт на версию языка по умолчанию, в отчёте будет предупреждение. Ссылка в никуда — предупреждение с файлом и строкой. Внешние адреса, `/media/…` и якоря не трогаются.
+Движок сам подставит адрес на языке страницы, со всеми `slug`: в обоих языках пишется одно и то же — ключ. Перевода нет — ссылка поведёт на версию языка по умолчанию, в отчёте будет предупреждение. Ссылка в никуда — предупреждение с файлом и строкой. Внешние адреса, `/media/…` и якоря не трогаются.
 
 → [`20` §2, «Ссылки внутри контента»](../spec/20-data-contract.md#ссылки-внутри-контента-относительны-языку)
 
@@ -98,7 +109,7 @@ content/uk/services/gutter.md      →  /services/gutter/
 related:                 # в SEO-блоке, группа 8
   - gutter
   - slug: inspection
-    note: Если не знаете, с чего начать
+    note: Not sure where to start? Begin here
 ```
 
 Движок проверит, что такие страницы есть (`E006`, если нет), отдаст теме карточки с подписями и построит обратный список у целевых страниц.
@@ -111,12 +122,12 @@ related:                 # в SEO-блоке, группа 8
 
 ```yaml
 image: media/services/roof.png        # превью в каталоге
-image_alt: "Кровля после ремонта"
+image_alt: "Roof after the repair"
 ```
 
 ```markdown
-![Схема водостока](media/services/gutter.png)
-[Памятка в PDF](media/docs/memo.pdf)
+![Gutter layout](media/services/gutter.png)
+[Checklist in PDF](media/docs/memo.pdf)
 ```
 
 Движок нарежет картинки под пропорции и ширины темы, сделает WebP и AVIF, проставит размеры. Иллюстрации (с прозрачным фоном) вписываются в пропорцию, фотографии кропаются. Нет файла — ошибка `E007` с именем страницы; файл в `media/`, на который никто не ссылается, — строка в отчёте. Видео — поля `video`, `video_poster`.
@@ -125,7 +136,7 @@ image_alt: "Кровля после ремонта"
 
 ## Языки и переводы
 
-Перевод — файл с тем же именем в папке другого языка: `content/en/services/roof.md`. Свой адрес — `slug: roofing`. Связь между переводами держится на имени файла, поэтому переименование адреса её не рвёт. Языка нет в `site.yaml` — его папка не читается.
+Перевод — файл с тем же именем в папке другого языка: `content/ru/services/roof.md`. Свой адрес — `slug: krovlya`. Связь между переводами держится на имени файла, поэтому смена `slug` её не рвёт: обе версии получают hreflang друг на друга, `x-default` — английская. Языка нет в `site.languages` — его папка не читается.
 
 → [`20` §3](../spec/20-data-contract.md#3-языки)
 

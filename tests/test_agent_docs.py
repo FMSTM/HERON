@@ -45,7 +45,7 @@ def test_page_template_parses_into_expected_forms():
     text = (TEMPLATES / "page.md").read_text(encoding="utf-8")
     data, body, line = frontmatter.split(text, "page.md")
     meta = frontmatter.parse_meta(data, "page.md")
-    assert meta.redirect_from == ["/старий-адрес/"]
+    assert meta.redirect_from == ["/старый-адрес/"]
     md = markdown.make()
     intro, found = sections.split(md, body, "page.md", offset=line)
     blocks.apply(md, found)
@@ -77,9 +77,9 @@ def test_site_built_from_templates_passes_prod_strict_checks(tmp_path):
     """Сценарий А на шаблонах: new → site.yaml → init → тема → контент → prod."""
     root = tmp_path / "site"
     root.mkdir()
-    create(root, name="demo", languages=["uk"])
+    create(root, name="demo", languages=["en"])
     shutil.copy(TEMPLATES / "site.yaml", root / "site.yaml")
-    create(root, name="demo", languages=["uk", "ru"])  # то, что делает init
+    create(root, name="demo", languages=["en", "ru"])  # то, что делает init
     shutil.copy(TEMPLATES / "theme.yaml", root / "theme" / "theme.yaml")
 
     templates = root / "theme" / "templates"
@@ -89,18 +89,18 @@ def test_site_built_from_templates_passes_prod_strict_checks(tmp_path):
     for name in ("default.png", "default-ru.png"):
         _png(root / "media" / "og" / name)
 
-    head = "---\ntitle: {t}\nh1: {h}\ndescription: Опис\n{x}---\n\nТекст.\n"
+    head = "---\ntitle: {t}\nh1: {h}\ndescription: Description\n{x}---\n\nText.\n"
     service = (TEMPLATES / "page.md").read_text(encoding="utf-8")
     files = {
-        "uk/index.md": head.format(t="Головна сайту", h="Головна", x=""),
+        "en/index.md": head.format(t="Site home", h="Home", x=""),
         "ru/index.md": head.format(t="Главная сайта", h="Главная", x=""),
-        "uk/404.md": head.format(t="Не знайдено", h="Сторінки немає", x=""),
+        "en/404.md": head.format(t="Not found", h="No such page", x=""),
         "ru/404.md": head.format(t="Не найдено", h="Страницы нет", x=""),
-        "uk/services/_index.md": head.format(
-            t="Каталог", h="Наш каталог", x="children_type: service\n"
+        "en/services/_index.md": head.format(
+            t="Catalog", h="Our catalog", x="children_type: service\n"
         ),
-        "uk/services/design.md": service,
-        "uk/services/planning.md": head.format(t="Планування", h="Планування простору", x=""),
+        "en/services/design.md": service,
+        "en/services/planning.md": head.format(t="Planning", h="Space planning", x=""),
     }
     for rel, text in files.items():
         path = root / "content" / rel
@@ -111,11 +111,11 @@ def test_site_built_from_templates_passes_prod_strict_checks(tmp_path):
     assert not result.failed, [str(e) for e in result.collector.errors]
     dist = root / "dist"
     assert (dist / "services" / "design" / "index.html").is_file()
-    assert "/старий-адрес/  /services/design/;" in (dist / "redirects.map").read_text(
+    assert "/старый-адрес/  /services/design/;" in (dist / "redirects.map").read_text(
         encoding="utf-8"
     )
     assert "/wp-*  1;" in (dist / "gone.map").read_text(encoding="utf-8")
-    design = result.site.page("services/design", "uk")
+    design = result.site.page("services/design", "en")
     assert [p.url for p in design.related["related"]] == ["/services/planning/"]
 
 

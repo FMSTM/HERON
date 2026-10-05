@@ -12,9 +12,11 @@ env:
 
 jobs:
 
+  # Раннер закреплён явно, не ubuntu-latest: смена ОС сборщика — наше
+  # решение отдельной правкой, а не сюрприз от GitHub.
   quality:
     name: линт и тесты
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -39,7 +41,7 @@ jobs:
     name: образ движка
     needs: quality
     if: github.event_name == 'push'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       packages: write

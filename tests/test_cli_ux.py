@@ -250,3 +250,77 @@ def test_build_messages_follow_the_site_language(here):
     assert result.exit_code == 0, result.output
     assert "обход контента" in result.output
     assert "Собрано файлов" in result.output
+
+
+# --- папка, где сайт уже есть, и init без site.yaml ----------------------------------
+
+
+def test_new_where_a_site_already_lives(here):
+    run("new", "ready", "--notes", "ru", "--lang", "ru,en", "-y")
+    result = run("new", "ready")
+
+    assert result.exit_code == 1
+    # язык — из build.notes найденного сайта, без флага
+    assert "уже есть сайт" in result.output
+    assert "языки ru, en" in result.output
+    assert "heron init ready" in result.output
+    assert "git clean -dn" in result.output
+
+
+def test_busy_folder_list_has_no_double_period(here):
+    folder = here / "many"
+    folder.mkdir()
+    for index in range(7):
+        (folder / f"f{index}.txt").write_text("x", encoding="utf-8")
+    result = run("new", "many")
+    assert "…." not in result.output
+    assert "f0.txt" in result.output
+
+
+def test_init_without_site_yaml_asks_the_same_questions(here, terminal):
+    (here / ".git").mkdir()
+    result = run("init", ".", input="ru\nWorkshop\nworkshop.org\nuk, ru\nuk\ny\n")
+
+    assert result.exit_code == 0, result.output
+    site = config(here)["site"]
+    assert (site["name"], site["domain"], site["default_lang"]) == (
+        "Workshop",
+        "workshop.org",
+        "uk",
+    )
+    assert site["languages"] == ["uk", "ru"]
+
+
+def test_init_without_site_yaml_offers_languages_found_in_content(here):
+    (here / "content" / "ru").mkdir(parents=True)
+    (here / "content" / "en").mkdir(parents=True)
+    result = run("init", ".")
+
+    assert result.exit_code == 0, result.output
+    assert "en, ru" in result.output
+    assert config(here)["site"]["languages"] == ["en", "ru"]
+
+
+def test_init_with_site_yaml_asks_nothing(here, terminal):
+    run("new", "s", "-y")
+    result = run("init", "s", input="")
+    assert result.exit_code == 0, result.output
+    assert "Site name" not in result.output
+
+
+def test_site_name_comes_from_the_git_remote(here, monkeypatch):
+    monkeypatch.setattr(cli, "in_container", lambda: True)
+    (here / ".git").mkdir()
+    (here / ".git" / "config").write_text(
+        '[core]\n\tbare = false\n[remote "origin"]\n'
+        "\turl = git@github.com:SOMEORG/MYSITE.git\n\tfetch = +refs/heads/*\n",
+        encoding="utf-8",
+    )
+    assert cli.site_name_guess(here) == "MYSITE"
+
+
+def test_site_name_in_container_is_not_the_mount_point(here, monkeypatch):
+    monkeypatch.setattr(cli, "in_container", lambda: True)
+    folder = here / "site"
+    folder.mkdir()
+    assert cli.site_name_guess(folder) == "my-site"

@@ -52,8 +52,9 @@ def test_init_adopts_existing_content(run):
     )
     result = run(main, ["init", str(root)])
     assert result.exit_code == 0, result.output
-    assert "Already in the folder" in result.output
+    assert "content/ already has languages: uk" in result.output
     assert (root / "site.yaml").is_file()
+    assert "languages: [uk]" in (root / "site.yaml").read_text(encoding="utf-8")
     assert "Є" in (root / "content" / "uk" / "index.md").read_text(encoding="utf-8")
 
 

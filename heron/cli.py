@@ -477,23 +477,43 @@ def _questionnaire(
     return name, domain, languages, default
 
 
-@main.command()
-@NOTES_OPTION
-@VERBOSE_OPTION
-@click.option("--name", "site_name", default=None, help="Название сайта.")
-@click.option("--domain", default=None, help="Домен без схемы: example.com.")
-@click.option(
-    "--lang",
-    "langs",
-    default=None,
-    metavar="КОДЫ",
-    help="Языки через запятую, первый — основной: en или en,ru.",
-)
-@click.option(
-    "-y", "--yes", is_flag=True, help="Не задавать вопросов: флаги и значения по умолчанию."
-)
-@click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
-def new(
+def site_name_guess(path: Path) -> str:
+    """Название по умолчанию: имя репозитория, иначе имя папки.
+
+    В контейнере текущая папка — всегда /site, и её имя ничего не говорит.
+    Зато `.git/config` смонтирован вместе с папкой, и имя репозитория из
+    адреса origin — ровно то, как человек называет проект.
+    """
+    config = path / ".git" / "config"
+    if config.is_file():
+        try:
+            text = config.read_text(encoding="utf-8", errors="replace")
+            found = re.search(r'\[remote "origin"\][^\[]*?url\s*=\s*(\S+)', text, re.S)
+            if found:
+                name = found.group(1).rstrip("/").rsplit("/", 1)[-1].rsplit(":", 1)[-1]
+                name = name.removesuffix(".git")
+                if name:
+                    return name
+        except OSError:
+            pass
+    folder = path.resolve().name
+    if in_container() and folder == "site":
+        return "my-site"
+    return folder or "my-site"
+
+
+def _existing_site(path: Path, notes: str | None) -> None:
+    """В папке уже есть сайт: сказать это прямо, на языке самого сайта."""
+    lang = _lang(notes, path)
+    from heron.scaffold import _declared
+
+    declared = _declared(path / "site.yaml") or {}
+    langs = ", ".join(declared.get("languages") or []) or "—"
+    _err(say(lang, "site_exists", path=_shown(path), langs=langs), "yellow")
+    sys.exit(1)
+
+
+def _start_site(
     path: Path,
     notes: str | None,
     verbose: bool,
@@ -501,38 +521,15 @@ def new(
     domain: str | None,
     langs: str | None,
     yes: bool,
+    present: list[str] | None = None,
+    done_key: str = "new_done",
 ) -> None:
-    """Создать сайт с нуля: в новой папке или в текущей (`.`).
+    """Завести сайт: опрос в терминале или флаги, затем скелет и «Что дальше».
 
-    В терминале задаёт пять вопросов: язык пояснений, название, домен,
-    языки сайта, основной язык. Без терминала (агент, CI, docker без -it)
-    не спрашивает: значения из флагов или по умолчанию.
-
-    Папка может быть под git: .git, .gitignore, README и прочее служебное
-    не мешают.
+    Общая часть `new` и `init` в папке без site.yaml: человеку всё равно,
+    какой командой он начал, — вопросы одни и те же.
     """
     lang = _lang(notes)
-    foreign = foreign_files(path)
-    if foreign:
-        shown = ", ".join(foreign[:5]) + ("…" if len(foreign) > 5 else "")
-        _err(
-            say(
-                lang,
-                "not_empty",
-                path=_shown(path),
-                files=shown,
-                service=", ".join(s for s in SERVICE if s.startswith(".git")),
-            )
-        )
-        sys.exit(1)
-
-    if not path.exists():
-        parent = path.resolve().parent
-        if not parent.is_dir():
-            _err(say(lang, "no_path", path=path))
-            _err(_missing_hint(path, lang), None)
-            sys.exit(1)
-
     asking = can_ask() and not yes
     if asking and notes is None and not os.environ.get("HERON_NOTES"):
         click.echo(
@@ -540,10 +537,8 @@ def new(
         )
         lang = click.prompt("  ›", type=click.Choice(["en", "ru"]), default="en", prompt_suffix=" ")
 
-    folder = path.resolve().name
-    # в контейнере текущая папка называется /site — имя ничего не говорит
-    guess = site_name or (folder if not (in_container() and folder == "site") else "my-site")
-    languages = _parse_langs(langs) if langs else ["en"]
+    guess = site_name or site_name_guess(path)
+    languages = _parse_langs(langs) if langs else (present or ["en"])
     bad = [x for x in languages if not LANG_RE.match(x)]
     if bad or not languages:
         _err(say(lang, "bad_langs", bad=", ".join(bad) or "—"))
@@ -553,6 +548,8 @@ def new(
         sys.exit(2)
 
     click.secho(say(lang, "new_title", path=_shown(path)), bold=True)
+    if present:
+        click.echo(say(lang, "found_langs", langs=", ".join(present)))
     if asking:
         answers = _questionnaire(lang, guess, domain or "", languages, languages[0])
         if answers is None:
@@ -573,25 +570,121 @@ def new(
         domain=domain.lower() if domain else None,
         default_lang=default,
     )
-    click.secho("\n" + say(lang, "new_done", path=_shown(path)), fg="green", bold=True)
+    click.secho("\n" + say(lang, done_key, path=_shown(path)), fg="green", bold=True)
     _report_plan(plan, verbose)
     ordered = [default] + [x for x in languages if x != default]
     _next(path, lang, ordered, domain.lower() if domain else placeholder_domain(guess))
+
+
+SITE_OPTIONS = [
+    click.option("--name", "site_name", default=None, help="Название сайта."),
+    click.option("--domain", default=None, help="Домен без схемы: example.com."),
+    click.option(
+        "--lang",
+        "langs",
+        default=None,
+        metavar="КОДЫ",
+        help="Языки через запятую, первый — основной: en или en,ru.",
+    ),
+    click.option(
+        "-y", "--yes", is_flag=True, help="Не задавать вопросов: флаги и значения по умолчанию."
+    ),
+]
+
+
+def site_options(func):
+    for option in reversed(SITE_OPTIONS):
+        func = option(func)
+    return func
+
+
+@main.command()
+@NOTES_OPTION
+@VERBOSE_OPTION
+@site_options
+@click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
+def new(
+    path: Path,
+    notes: str | None,
+    verbose: bool,
+    site_name: str | None,
+    domain: str | None,
+    langs: str | None,
+    yes: bool,
+) -> None:
+    """Создать сайт с нуля: в новой папке или в текущей (`.`).
+
+    В терминале задаёт вопросы: язык пояснений, название, домен, языки
+    сайта, основной язык. Без терминала (агент, CI, docker без -it) не
+    спрашивает: значения из флагов или по умолчанию.
+
+    Папка может быть под git: .git, .gitignore, README и прочее служебное
+    не мешают.
+    """
+    if (path / "site.yaml").is_file():
+        _existing_site(path, notes)
+
+    lang = _lang(notes)
+    foreign = foreign_files(path)
+    if foreign:
+        shown = ", ".join(foreign[:5]) + (" …" if len(foreign) > 5 else "")
+        _err(
+            say(
+                lang,
+                "not_empty",
+                path=_shown(path),
+                files=shown,
+                service=", ".join(s for s in SERVICE if s.startswith(".git")),
+            )
+        )
+        sys.exit(1)
+
+    if not path.exists():
+        parent = path.resolve().parent
+        if not parent.is_dir():
+            _err(say(lang, "no_path", path=path))
+            _err(_missing_hint(path, lang), None)
+            sys.exit(1)
+
+    _start_site(path, notes, verbose, site_name, domain, langs, yes)
 
 
 @main.command()
 @click.option("--force", is_flag=True, help="Перезаписывать существующие файлы.")
 @NOTES_OPTION
 @VERBOSE_OPTION
+@site_options
 @click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
-def init(path: Path, force: bool, notes: str | None, verbose: bool) -> None:
+def init(
+    path: Path,
+    force: bool,
+    notes: str | None,
+    verbose: bool,
+    site_name: str | None,
+    domain: str | None,
+    langs: str | None,
+    yes: bool,
+) -> None:
     """Дополнить папку недостающим по тому, что написано в site.yaml.
 
-    Ничего не перезаписывает без --force. Нет site.yaml — кладёт его и
-    весь скелет. Язык пояснений: --notes, иначе HERON_NOTES, иначе
-    build.notes из site.yaml, иначе en.
+    Ничего не перезаписывает без --force. Нет site.yaml — значит, сайт
+    только заводится: в терминале те же вопросы, что у `new`, языки по
+    умолчанию — папки, которые уже лежат в content/. Язык пояснений:
+    --notes, иначе HERON_NOTES, иначе build.notes из site.yaml, иначе en.
     """
     _need_dir(path, _lang(notes, path))
+    if not (path / "site.yaml").is_file() and not force:
+        content = path / "content"
+        present = (
+            sorted(p.name for p in content.iterdir() if p.is_dir() and LANG_RE.match(p.name))
+            if content.is_dir()
+            else []
+        )
+        _start_site(
+            path, notes, verbose, site_name, domain, langs, yes, present, done_key="init_done"
+        )
+        return
+
     plan = adopt(path, force=force, notes=notes)
     click.secho(say(plan.notes, "init_done", path=_shown(path)), fg="green", bold=True)
     _report_plan(plan, verbose)

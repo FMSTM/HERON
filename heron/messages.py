@@ -41,12 +41,22 @@ TEXT: dict[str, dict[str, str]] = {
         "new_done": "Сайт создан: {path}",
         "init_done": "Папка {path} дополнена по site.yaml",
         "not_empty": (
-            "Папка {path} не пуста: в ней есть {files}.\n"
+            "Папка {path} не пуста, в ней есть: {files}\n"
             "  new создаёт сайт с нуля и чужие файлы не трогает. Служебные файлы git\n"
             "  ({service}) не мешают.\n"
             "  что сделать: если это уже папка сайта — `heron init {path}`, он дополнит\n"
             "  её недостающим и ничего не перезапишет. Иначе выберите пустую папку."
         ),
+        "site_exists": (
+            "В папке {path} уже есть сайт: site.yaml, языки {langs}.\n"
+            "  new не нужен — он заводит сайт с нуля и готовую папку не трогает.\n"
+            "  что сделать:\n"
+            "    дополнить недостающим — `heron init {path}`\n"
+            "    проверить и собрать — `heron check {path}`, `heron build {path}`\n"
+            "    начать заново — уберите файлы сайта, оставив .git и .gitignore;\n"
+            "    если они не закоммичены: `git clean -dn` покажет список, `git clean -d -f` удалит"
+        ),
+        "found_langs": "В content/ уже есть языки: {langs} — предложу их.",
         "no_questions": (
             "Вопросов не задаю: запуск без терминала. Значения — из флагов или по умолчанию.\n"
             "  Для опроса запустите в терминале; в докере — с ключом -it."
@@ -181,12 +191,22 @@ TEXT: dict[str, dict[str, str]] = {
         "new_done": "Site created: {path}",
         "init_done": "Folder {path} completed from site.yaml",
         "not_empty": (
-            "Folder {path} is not empty: it has {files}.\n"
+            "Folder {path} is not empty, it contains: {files}\n"
             "  new builds a site from scratch and never touches other files. Git service\n"
             "  files ({service}) are fine.\n"
             "  what to do: if this is already a site folder, run `heron init {path}` —\n"
             "  it adds what is missing and overwrites nothing. Otherwise pick an empty folder."
         ),
+        "site_exists": (
+            "Folder {path} already has a site: site.yaml, languages {langs}.\n"
+            "  new is not needed — it starts a site from scratch and leaves a ready folder alone.\n"
+            "  what to do:\n"
+            "    add what is missing — `heron init {path}`\n"
+            "    check and build — `heron check {path}`, `heron build {path}`\n"
+            "    start over — remove the site files, keeping .git and .gitignore;\n"
+            "    if they are not committed: `git clean -dn` lists them, `git clean -d -f` removes"
+        ),
+        "found_langs": "content/ already has languages: {langs} — I will suggest them.",
         "no_questions": (
             "No questions asked: not running in a terminal. Values come from flags or defaults.\n"
             "  For the questionnaire run it in a terminal; with docker, add -it."

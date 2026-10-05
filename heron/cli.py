@@ -20,7 +20,7 @@ from heron.core import build as pipeline
 from heron.core import report as report_module
 from heron.core.environment import BuildEnv
 from heron.core.errors import HeronError
-from heron.scaffold import Plan, adopt, create
+from heron.scaffold import Plan, adopt, create, message, resolve_notes
 
 DIST = "dist"
 
@@ -153,11 +153,11 @@ def _finish(result: pipeline.Result, strict: bool, what: str, full: Path | None 
 
 def _report_plan(plan: Plan) -> None:
     for line in plan.found:
-        click.echo(f"  нашёл: {line}")
+        click.echo(f"  {message(plan.notes, 'found')}: {line}")
     for name in plan.created:
-        click.secho(f"  создал: {name}", fg="green")
+        click.secho(f"  {message(plan.notes, 'created')}: {name}", fg="green")
     if plan.skipped:
-        click.echo(f"  оставил как есть: {len(plan.skipped)} файлов")
+        click.echo(f"  {message(plan.notes, 'skipped', count=len(plan.skipped))}")
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
@@ -166,52 +166,49 @@ def main() -> None:
     """HERON — файловый движок сайтов."""
 
 
-COMMENTS_OPTION = click.option(
-    "--comments",
+NOTES_OPTION = click.option(
+    "--notes",
     type=click.Choice(["ru", "en"]),
     default=None,
-    help="Язык комментариев и пояснений в файлах сайта (ru или en). Языки сайта — в site.yaml.",
+    help="Язык комментариев и пояснений в файлах сайта: ru или en. "
+    "Иначе HERON_NOTES, иначе build.notes из site.yaml, иначе en.",
 )
 
 
 @main.command()
-@COMMENTS_OPTION
+@NOTES_OPTION
 @click.argument("name")
-def new(name: str, comments: str | None) -> None:
+def new(name: str, notes: str | None) -> None:
     """Создать папку сайта с нуля.
 
     Ни языков, ни темы аргументами: всё это объявляет site.yaml, и он
     единственный источник правды. Заполнили его — `heron init` достроит
     папки под написанное.
     """
+    lang = resolve_notes(notes)
     root = Path(name)
     if root.exists() and any(root.iterdir()):
-        click.secho(f"папка {name} не пуста — используйте `heron init` внутри неё", fg="red")
+        click.secho(message(lang, "not_empty", name=name), fg="red")
         sys.exit(1)
     root.mkdir(parents=True, exist_ok=True)
-    plan = create(root, name=name, comments=comments or "ru")
-    click.secho(f"сайт {name} создан", fg="green")
+    plan = create(root, name=name, notes=lang)
+    click.secho(message(lang, "site_created", name=name), fg="green")
     _report_plan(plan)
-    click.echo(
-        "\nдальше:\n"
-        f"  1. заполните {name}/site.yaml — домен, языки, тема, меню\n"
-        f"  2. heron init {name} — папки догонят конфиг\n"
-        "  3. разложите контент и собирайте"
-    )
+    click.echo(message(lang, "next", name=name))
 
 
 @main.command()
 @click.option("--force", is_flag=True, help="Перезаписывать существующие файлы.")
-@COMMENTS_OPTION
+@NOTES_OPTION
 @click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
-def init(path: Path, force: bool, comments: str | None) -> None:
+def init(path: Path, force: bool, notes: str | None) -> None:
     """Дополнить существующую папку недостающим.
 
-    Язык комментариев берётся из --comments, иначе из build.comments в
-    site.yaml, иначе ru.
+    Язык пояснений: --notes, иначе HERON_NOTES, иначе build.notes из
+    site.yaml, иначе en.
     """
-    plan = adopt(path, force=force, comments=comments)
-    click.secho(f"папка {path} дополнена", fg="green")
+    plan = adopt(path, force=force, notes=notes)
+    click.secho(message(plan.notes, "folder_done", path=path), fg="green")
     _report_plan(plan)
 
 

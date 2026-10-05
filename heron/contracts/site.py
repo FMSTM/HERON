@@ -202,7 +202,7 @@ class BuildBlock(Strict):
     # Язык комментариев и пояснений, которые кладут `heron init` и
     # `heron page`: SEO-блок страниц, записки, site.yaml, theme.yaml.
     # На сборку не влияет.
-    comments: Literal["ru", "en"] = "ru"
+    notes: Literal["ru", "en"] = "en"
     fail_on_warning: bool = False
     allow_raw_html: bool = False
 

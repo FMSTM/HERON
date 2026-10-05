@@ -35,8 +35,8 @@ analytics:
   gtm:
 
 build:
-  comments: ru
-  # ↑ язык комментариев и пояснений, которые кладут heron init и heron page: ru или en
+  notes: ru
+  # ↑ язык комментариев и пояснений, которые кладут heron init и heron page: ru или en. Перебивается --notes или HERON_NOTES
   fail_on_warning: false
   allow_raw_html: false
 

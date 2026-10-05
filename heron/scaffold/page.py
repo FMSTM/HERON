@@ -61,8 +61,11 @@ def write_page(
 
     title = slug.replace("-", " ").capitalize()
     target.parent.mkdir(parents=True, exist_ok=True)
-    comments = config.build.comments
+    import os
+
+    notes = (os.environ.get("HERON_NOTES", "").strip() or config.build.notes).lower()
+    notes = notes if notes in ("ru", "en") else "en"
     todo = {"ru": "TODO: что человек получит на странице", "en": "TODO: what the visitor gets"}
-    head = seo_block(title, title, todo[comments], page_type=page_type, comments=comments)
+    head = seo_block(title, title, todo[notes], page_type=page_type, notes=notes)
     target.write_text(head + "\n" + "\n".join(body), encoding="utf-8")
     return target

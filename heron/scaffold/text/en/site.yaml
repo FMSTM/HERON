@@ -35,8 +35,8 @@ analytics:
   gtm:
 
 build:
-  comments: en
-  # ↑ language of comments and hints written by heron init and heron page: ru or en
+  notes: en
+  # ↑ language of comments and hints written by heron init and heron page: ru or en. Override: --notes or HERON_NOTES
   fail_on_warning: false
   allow_raw_html: false
 

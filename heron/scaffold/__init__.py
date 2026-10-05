@@ -43,8 +43,76 @@ STRINGS = {
 
 # Язык комментариев и пояснений, которые кладёт скелет: site.yaml,
 # theme.yaml, SEO-блок страниц, записки heron-readme.md.
-COMMENTS = ("ru", "en")
+NOTE_LANGS = ("ru", "en")
 TEXT = HERE / "text"
+
+
+ENV_NOTES = "HERON_NOTES"
+
+# Сообщения команд new и init — на языке пояснений.
+MESSAGES = {
+    "ru": {
+        "found_site": "site.yaml: языки {languages}, тема {theme}",
+        "found_content": "content/: {pages} страниц, языки: {langs}",
+        "found_folder": "{folder}/ на месте",
+        "none": "нет",
+        "found": "нашёл",
+        "created": "создал",
+        "skipped": "оставил как есть: {count} файлов",
+        "not_empty": "папка {name} не пуста — используйте `heron init` внутри неё",
+        "site_created": "сайт {name} создан",
+        "next": (
+            "\nдальше:\n"
+            "  1. заполните {name}/site.yaml — домен, название, языки, меню\n"
+            "  2. heron init {name} — папки и стартовые страницы догонят конфиг\n"
+            "  3. пишите страницы: копия index.md или heron page, затем heron build {name}"
+        ),
+        "folder_done": "папка {path} дополнена",
+        "bad_notes": "язык пояснений {value!r}: есть ru и en",
+    },
+    "en": {
+        "found_site": "site.yaml: languages {languages}, theme {theme}",
+        "found_content": "content/: {pages} pages, languages: {langs}",
+        "found_folder": "{folder}/ is in place",
+        "none": "none",
+        "found": "found",
+        "created": "created",
+        "skipped": "left as is: {count} files",
+        "not_empty": "folder {name} is not empty — run `heron init` inside it",
+        "site_created": "site {name} created",
+        "next": (
+            "\nnext:\n"
+            "  1. fill in {name}/site.yaml — domain, name, languages, menu\n"
+            "  2. heron init {name} — folders and starter pages follow the config\n"
+            "  3. write pages: copy index.md or run heron page, then heron build {name}"
+        ),
+        "folder_done": "folder {path} completed",
+        "bad_notes": "notes language {value!r}: ru and en are available",
+    },
+}
+
+
+def message(notes: str, key: str, **fields: object) -> str:
+    return MESSAGES.get(notes, MESSAGES["en"])[key].format(**fields)
+
+
+def resolve_notes(flag: str | None = None, site_yaml: Path | None = None) -> str:
+    """Язык пояснений: флаг --notes, затем HERON_NOTES, затем build.notes, затем en.
+
+    Флаг и переменная — переключатель на один запуск. `site.yaml` — память
+    сайта: `new` записывает туда выбор, и `init` с `page` без флага держат
+    язык, на котором сайт заведён.
+    """
+    import os
+
+    value = flag or os.environ.get(ENV_NOTES, "").strip() or None
+    if value is None and site_yaml is not None:
+        declared = _declared(site_yaml)
+        value = (declared or {}).get("notes")
+    value = (value or "en").lower()
+    if value not in NOTE_LANGS:
+        raise ValueError(message("en", "bad_notes", value=value))
+    return value
 
 
 def _text(lang: str, name: str) -> str:
@@ -58,6 +126,7 @@ class Plan:
     created: list[str] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
     found: list[str] = field(default_factory=list)
+    notes: str = "en"
 
 
 def slugify(name: str) -> str:
@@ -120,7 +189,7 @@ def seo_block(
     description: str,
     order: int = 999,
     page_type: str | None = None,
-    comments: str = "ru",
+    notes: str = "en",
 ) -> str:
     """Фронтматтер страницы: восемь групп SEO-блока с комментариями.
 
@@ -133,13 +202,13 @@ def seo_block(
     hint = {
         "ru": ("тип страницы: какой шаблон темы её рисует", "тип, если не задан папкой"),
         "en": ("page type: which theme template renders it", "type, if not set by the folder"),
-    }[comments]
+    }[notes]
     type_line = (
         f"type: {json.dumps(page_type, ensure_ascii=False)}\n# ↑ {hint[0]}\n"
         if page_type
         else f"# type:                      # {hint[1]} (children_type)\n"
     )
-    return _text(comments, "seo-block.md").format(
+    return _text(notes, "seo-block.md").format(
         title=json.dumps(title, ensure_ascii=False),
         h1=json.dumps(h1, ensure_ascii=False),
         description=json.dumps(description, ensure_ascii=False),
@@ -148,13 +217,13 @@ def seo_block(
     )
 
 
-def _starter(root: Path, lang: str, name: str, plan: Plan, force: bool, comments: str) -> None:
+def _starter(root: Path, lang: str, name: str, plan: Plan, force: bool, notes: str) -> None:
     """Главная и страница 404 языка: сайт собирается сразу после создания."""
     texts = STARTER.get(lang, STARTER["en"])
     for page, rel in (("home", "index.md"), ("404", "404.md")):
         title, h1, description, body = (part.format(name=name) for part in texts[page])
         order = 0 if page == "home" else 999
-        text = seo_block(title, h1, description, order=order, comments=comments)
+        text = seo_block(title, h1, description, order=order, notes=notes)
         _put(root, f"content/{lang}/{rel}", text + "\n" + body + "\n", plan, force)
 
 
@@ -222,16 +291,16 @@ def create(
     languages: list[str] | None = None,
     theme: str | None = None,
     force: bool = False,
-    comments: str = "ru",
+    notes: str = "en",
 ) -> Plan:
     """Разложить скелет сайта в папку.
 
-    `comments` — язык комментариев и пояснений во всех файлах скелета:
+    `notes` — язык комментариев и пояснений во всех файлах скелета:
     `ru` или `en`. Языки самого сайта — отдельно, в `languages`.
     """
-    if comments not in COMMENTS:
-        raise ValueError(f"язык комментариев {comments!r}: есть {', '.join(COMMENTS)}")
-    plan = Plan()
+    if notes not in NOTE_LANGS:
+        raise ValueError(message("en", "bad_notes", value=notes))
+    plan = Plan(notes=notes)
     languages = languages or ["uk"]
     theme_name = theme or "main"
     default_lang = languages[0]
@@ -249,12 +318,12 @@ def create(
         "spec": _version_spec(),
     }
 
-    _put(root, "site.yaml", _text(comments, "site.yaml").format(**fields), plan, force)
+    _put(root, "site.yaml", _text(notes, "site.yaml").format(**fields), plan, force)
     _put(root, ".gitignore", GITIGNORE, plan, force)
-    _note(root, "root", "", comments, plan, force, name=name, slug=slugify(name) or name)
+    _note(root, "root", "", notes, plan, force, name=name, slug=slugify(name) or name)
 
     for lang in languages:
-        _starter(root, lang, name, plan, force, comments)
+        _starter(root, lang, name, plan, force, notes)
 
     for folder in ("data", "media", "static", "plugins"):
         path = root / folder
@@ -264,9 +333,9 @@ def create(
             plan.created.append(f"{folder}/")
 
     for folder in NOTED:
-        _note(root, folder, folder, comments, plan, force)
+        _note(root, folder, folder, notes, plan, force)
 
-    _put(root, "theme/theme.yaml", _text(comments, "theme.yaml").format(**fields), plan, force)
+    _put(root, "theme/theme.yaml", _text(notes, "theme.yaml").format(**fields), plan, force)
     for source in sorted(TEMPLATES.rglob("*")):
         if source.is_file():
             _copy(root, source, f"theme/{source.relative_to(TEMPLATES).as_posix()}", plan, force)
@@ -276,7 +345,7 @@ def create(
     return plan
 
 
-def adopt(root: Path, force: bool = False, comments: str | None = None) -> Plan:
+def adopt(root: Path, force: bool = False, notes: str | None = None) -> Plan:
     """Дополнить папку тем, чего в ней нет, по написанному в `site.yaml`.
 
     Языки и тему берём из конфига, а не из того, какие папки уже лежат:
@@ -286,21 +355,28 @@ def adopt(root: Path, force: bool = False, comments: str | None = None) -> Plan:
     Ничего не перезаписывает без `--force`: чужой файл важнее нашего образца.
     """
     plan = Plan()
+    notes = resolve_notes(notes, root / "site.yaml")
     declared = _declared(root / "site.yaml")
     if declared:
         plan.found.append(
-            "site.yaml: языки " + ", ".join(declared["languages"]) + f", тема {declared['theme']}"
+            message(
+                notes,
+                "found_site",
+                languages=", ".join(declared["languages"]),
+                theme=declared["theme"],
+            )
         )
 
     content = root / "content"
     present: list[str] = []
     if content.is_dir():
         present = sorted(p.name for p in content.iterdir() if p.is_dir())
-        pages = len(list(content.rglob("*.md")))
-        plan.found.append(f"content/: {pages} страниц, языки: {', '.join(present) or 'нет'}")
+        pages = len([p for p in content.rglob("*.md") if p.name != NOTE])
+        langs = ", ".join(present) or message(notes, "none")
+        plan.found.append(message(notes, "found_content", pages=pages, langs=langs))
     for folder in ("data", "media", "static", "theme"):
         if (root / folder).is_dir():
-            plan.found.append(f"{folder}/ на месте")
+            plan.found.append(message(notes, "found_folder", folder=folder))
 
     languages = declared["languages"] if declared else present
     theme = declared["theme"] if declared else None
@@ -311,10 +387,11 @@ def adopt(root: Path, force: bool = False, comments: str | None = None) -> Plan:
         languages=languages or None,
         theme=theme,
         force=force,
-        comments=comments or (declared or {}).get("comments") or "ru",
+        notes=notes,
     )
     plan.created = made.created
     plan.skipped = made.skipped
+    plan.notes = notes
     return plan
 
 
@@ -340,5 +417,5 @@ def _declared(site_yaml: Path) -> dict | None:
         return None
     if not languages:
         return None
-    comments = str((data.get("build") or {}).get("comments") or "") or None
-    return {"languages": languages, "theme": block.get("theme"), "comments": comments}
+    notes = str((data.get("build") or {}).get("notes") or "") or None
+    return {"languages": languages, "theme": block.get("theme"), "notes": notes}

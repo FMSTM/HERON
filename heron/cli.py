@@ -21,7 +21,7 @@ from pathlib import Path
 
 import click
 
-from heron import __version__
+from heron import __version__, build_info
 from heron.core import build as pipeline
 from heron.core import report as report_module
 from heron.core.environment import BuildEnv
@@ -386,7 +386,13 @@ def _next(path: Path, lang: str, languages: list[str], domain: str | None) -> No
 
 
 @click.group(cls=HeronGroup, context_settings={"help_option_names": ["-h", "--help"]})
-@click.version_option(__version__, "-V", "--version", prog_name="heron")
+@click.version_option(
+    __version__,
+    "-V",
+    "--version",
+    prog_name="heron",
+    message="%(prog)s, version " + build_info.label(),
+)
 @click.option(
     "--debug",
     is_flag=True,

@@ -38,5 +38,16 @@ RUN apt-get update \
 RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin heron
 USER 10001
 
+# Что за сборка: `heron --version` → 0.1.0 (beta, 55249f0, 2026-10-05 19:12 UTC).
+# Номер версии один на всю ветку, без этого вчерашнюю бету от сегодняшней
+# не отличить. Значения передаёт CI; аргументы стоят в самом конце, чтобы
+# не сбивать кэш слоёв выше.
+ARG HERON_CHANNEL=""
+ARG HERON_REVISION=""
+ARG HERON_BUILT=""
+ENV HERON_CHANNEL=$HERON_CHANNEL \
+    HERON_REVISION=$HERON_REVISION \
+    HERON_BUILT=$HERON_BUILT
+
 WORKDIR /site
 ENTRYPOINT ["heron"]

@@ -295,10 +295,13 @@ def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list
             declared.append(kind)
 
     graph: list[dict[str, Any]] = []
+    # WebSite — это сайт, а не страница: его имя — название сайта на языке
+    # страницы, а не h1 главной. Иначе поисковик подписывает сайт слоганом.
+    site_name = config.for_lang(page.lang).site.name or config.site.domain
     for kind in declared:
         node: dict[str, Any] = {
             "@type": kind,
-            "name": page.h1,
+            "name": site_name if kind == "WebSite" else page.h1,
             "description": page.meta.description,
             "url": absolute(config, page.url),
             "inLanguage": page.lang,

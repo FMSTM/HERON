@@ -82,6 +82,25 @@ class PageMeta(BaseModel):
             return {key: value for key, value in data.items() if value is not None}
         return data
 
+    def get(self, key: str, default: Any = None) -> Any:
+        """Поле фронтматтера по имени — движка или своё, без падения.
+
+        `page.meta.topic` при пустом поле валит сборку: так ловятся опечатки
+        в полях движка. Свои поля темы бывают не у каждой страницы, и для них
+        в шаблоне пишут `page.meta.get('topic')` — нет поля, будет `default`.
+        """
+        if key in type(self).model_fields:
+            value = getattr(self, key)
+            return default if value is None else value
+        return self.extra.get(key, default)
+
+    @field_validator("type", "children_type", "slug", mode="before")
+    @classmethod
+    def _number_is_a_name(cls, v):
+        """`type: 404` без кавычек YAML читает числом. Имя типа — строка:
+        приводим, а не роняем и не теряем страницу 404 молча."""
+        return str(v) if isinstance(v, int) and not isinstance(v, bool) else v
+
     @field_validator("nav_title")
     @classmethod
     def _nav_title(cls, v: str | None) -> str | None:

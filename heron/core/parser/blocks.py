@@ -165,7 +165,7 @@ def _facts(raw: str) -> list[dict[str, str]] | None:
     """Строки вида `Ключ | Значение`. Таблица без шапки, а не markdown-таблица."""
     rows: list[dict[str, str]] = []
     bad = 0
-    for line in (line for line in raw.splitlines() if line.strip()):
+    for line in _after_lead(raw):
         if set(line.strip()) <= set("|-: "):
             return None  # это markdown-таблица, у неё есть строка-разделитель
         match = PAIR.match(line)
@@ -178,9 +178,24 @@ def _facts(raw: str) -> list[dict[str, str]] | None:
     return rows
 
 
+def _after_lead(raw: str) -> list[str]:
+    """Непустые строки фактов без подводки.
+
+    Подводка — текст перед первой строкой «ключ | значение»: «Коротко о
+    формате:». Это не битая строка, а `section.lead`, как у любой секции, и
+    пропускать её с предупреждением нельзя — `--strict` уронил бы сборку
+    из-за обычного вступительного предложения.
+    """
+    lines = [line for line in raw.splitlines() if line.strip()]
+    for index, line in enumerate(lines):
+        if "|" in line and PAIR.match(line):
+            return lines[index:]
+    return lines
+
+
 def _stray_lines(raw: str) -> int:
-    """Сколько непустых строк секции фактов не похожи на «ключ | значение»."""
-    return sum(1 for line in raw.splitlines() if line.strip() and not PAIR.match(line))
+    """Сколько строк среди фактов (после подводки) не похожи на «ключ | значение»."""
+    return sum(1 for line in _after_lead(raw) if not PAIR.match(line))
 
 
 def _table(md: MarkdownIt, tokens: list[Token], env: dict) -> dict[str, Any] | None:
@@ -436,6 +451,14 @@ def structure(md: MarkdownIt, section: Section) -> None:
         if token.type == "heading_open" and token.tag == "h3" and token.map:
             main_start, main_end = token.map[0], len(lines)
             break
+
+    if main_start is None and section.kind in ("facts", "timeline"):
+        # у фактов основной узел — строки «ключ | значение», а не список:
+        # всё, что выше первой такой строки, — подводка
+        for index, line in enumerate(lines):
+            if "|" in line and PAIR.match(line) and index not in quoted:
+                main_start, main_end = index, len(lines)
+                break
 
     if main_start is None:
         section.lead = ""

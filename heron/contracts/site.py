@@ -48,6 +48,30 @@ LOCALIZED = {"site": ("name",), "seo": ("title_suffix", "og_default_image")}
 SUFFIX_RE = re.compile(r"^(?P<key>[a-z_]+?)_(?P<lang>[a-z]{2}(?:-[a-z]{2})?)$")
 
 
+def localize(value: Any, lang: str) -> Any:
+    """Блок сайта глазами страницы языка `lang`, на любой глубине.
+
+    `address_ru` на русской странице становится `address`; нет языкового
+    ключа — остаётся ключ без хвоста; есть только `address_ru` — на русской
+    странице появляется `address`. Сами ключи с хвостом не убираются: тема,
+    которая уже выбирает язык руками, продолжает работать.
+
+    Одно правило на все блоки — contact, organization, schema и свои: иначе
+    тема выбирает язык то сама, то нет, и адрес на чужом языке в подвале
+    остаётся незамеченным.
+    """
+    if isinstance(value, dict):
+        tail = f"_{lang}"
+        out = {key: localize(item, lang) for key, item in value.items()}
+        for key, item in value.items():
+            if isinstance(key, str) and key.endswith(tail) and len(key) > len(tail):
+                out[key[: -len(tail)]] = localize(item, lang)
+        return out
+    if isinstance(value, list):
+        return [localize(item, lang) for item in value]
+    return value
+
+
 def _split_localized(data: Any, keys: tuple[str, ...]) -> Any:
     """Вынуть `ключ_<язык>` в `i18n[ключ][язык]`. Прочее не трогать."""
     if not isinstance(data, dict):
@@ -318,7 +342,9 @@ class SiteConfig(BaseModel):
         """Конфиг глазами страницы этого языка.
 
         `site.name`, `seo.title_suffix` и `seo.og_default_image` уже
-        подставлены для языка: `name_ru` сильнее `name`. Шаблон пишет
+        подставлены для языка: `name_ru` сильнее `name`. Все прочие блоки
+        (`contact`, `organization`, `schema`, свои) — тоже, на любой
+        глубине: `contact.address` на русской странице — это `address_ru`. Шаблон пишет
         `site.site.name` и получает название на языке страницы — выбирать
         его фильтром на каждом месте никто не станет, и суффикс на чужом
         языке в выдаче останется.
@@ -328,10 +354,12 @@ class SiteConfig(BaseModel):
             return cached
         site = {k: v[lang] for k, v in self.site.i18n.items() if lang in v}
         seo = {k: v[lang] for k, v in self.seo.i18n.items() if lang in v}
+        blocks = {name: localize(value, lang) for name, value in self.extras.items()}
         copy = self.model_copy(
             update={
                 "site": self.site.model_copy(update=site),
                 "seo": self.seo.model_copy(update=seo),
+                **blocks,
             }
         )
         self._by_lang[lang] = copy

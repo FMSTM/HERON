@@ -113,6 +113,8 @@ $H build мой-сайт --env prod --strict # как прод: предупре
 ./scripts/site.sh <сайт> push prod
 ```
 
+Сайт в своём репозитории без клона HERON — переиспользуемый workflow `FMSTM/HERON/.github/workflows/site-image.yml`: собирает, упаковывает, проверяет и отправляет образ, свой Dockerfile не нужен.
+
 Подробно — гайд [06 · Сборка и выкладка](../guide/06-deploy.md).
 
 ## 8. Отчёт

@@ -1,0 +1,142 @@
+# Образ сайта из репозитория контента — без клона HERON и без своего Dockerfile.
+#
+# Репозиторий сайта зовёт этот workflow одной строкой:
+#
+#   jobs:
+#     image:
+#       uses: FMSTM/HERON/.github/workflows/site-image.yml@prod
+#       permissions: { contents: read, packages: write }
+#       with:
+#         env: dev                 # dev или prod: индексация, счётчики, домен из site.domains
+#         engine: prod             # тег образа движка: prod, beta или X.Y.Z
+#
+# Что делает: собирает сайт движком из образа, упаковывает dist/ в образ
+# nginx по Dockerfile.site этой же версии HERON, поднимает его и проверяет
+# коды ответа (scripts/smoke-site.sh), затем пушит в реестр.
+#
+# Документация: docs/guide/06-deploy.md, «Образ из репозитория сайта».
+
+name: site-image
+
+on:
+  workflow_call:
+    inputs:
+      env:
+        description: Окружение сборки сайта — dev или prod.
+        type: string
+        default: dev
+      engine:
+        description: Тег образа движка ghcr.io/fmstm/heron — prod, beta или X.Y.Z.
+        type: string
+        default: prod
+      path:
+        description: Папка сайта внутри репозитория.
+        type: string
+        default: "."
+      image:
+        description: Имя образа сайта. Пусто — ghcr.io/<владелец>/<репозиторий>.
+        type: string
+        default: ""
+      tag:
+        description: Тег образа сайта. Пусто — имя окружения.
+        type: string
+        default: ""
+      strict:
+        description: Предупреждения — ошибки. По умолчанию — да для prod.
+        type: string
+        default: auto
+      push:
+        description: Отправлять ли образ в реестр.
+        type: boolean
+        default: true
+    outputs:
+      image:
+        description: Полное имя отправленного образа с тегом.
+        value: ${{ jobs.image.outputs.image }}
+
+jobs:
+  image:
+    name: образ сайта
+    runs-on: ubuntu-26.04
+    outputs:
+      image: ${{ steps.names.outputs.image }}
+    steps:
+      - name: контент сайта
+        uses: actions/checkout@v7
+        with:
+          # вся история: дата обновления страниц берётся из git
+          fetch-depth: 0
+
+      - name: имена
+        id: names
+        run: |
+          image="${{ inputs.image }}"
+          [ -n "$image" ] || image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          tag="${{ inputs.tag }}"
+          [ -n "$tag" ] || tag="${{ inputs.env }}"
+          strict="${{ inputs.strict }}"
+          if [ "$strict" = auto ]; then
+            [ "${{ inputs.env }}" = prod ] && strict=true || strict=false
+          fi
+          # Dockerfile.site и smoke той же ветки HERON, что и движок:
+          # prod → prod, beta → beta, dev → dev, 0.1.0 → тег v0.1.0
+          case "${{ inputs.engine }}" in
+            prod|beta|dev) ref="${{ inputs.engine }}" ;;
+            *) ref="v${{ inputs.engine }}" ;;
+          esac
+          echo "heron_ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "image=$image:$tag" >> "$GITHUB_OUTPUT"
+          echo "strict=$strict" >> "$GITHUB_OUTPUT"
+
+      - name: рецепт образа этой версии HERON
+        uses: actions/checkout@v7
+        with:
+          repository: FMSTM/HERON
+          ref: ${{ steps.names.outputs.heron_ref }}
+          path: .heron
+          sparse-checkout: |
+            Dockerfile.site
+            scripts/smoke-site.sh
+          sparse-checkout-cone-mode: false
+
+      - name: сборка сайта
+        run: |
+          flags="--env ${{ inputs.env }} --out /site/.heron-out"
+          [ "${{ steps.names.outputs.strict }}" = true ] && flags="$flags --strict"
+          docker run --rm --network=none \
+            -v "$PWD":/site -w "/site/${{ inputs.path }}" \
+            --user "$(id -u):$(id -g)" \
+            "ghcr.io/fmstm/heron:${{ inputs.engine }}" --version
+          docker run --rm --network=none \
+            -v "$PWD":/site -w "/site/${{ inputs.path }}" \
+            --user "$(id -u):$(id -g)" \
+            "ghcr.io/fmstm/heron:${{ inputs.engine }}" build . $flags
+
+      - name: образ
+        run: |
+          docker build -f .heron/Dockerfile.site \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            -t "${{ steps.names.outputs.image }}" .heron-out
+
+      - name: дымовая проверка
+        run: |
+          docker run -d --name heron-smoke -p 18080:8080 "${{ steps.names.outputs.image }}"
+          for i in $(seq 1 30); do
+            curl -s -o /dev/null http://localhost:18080/ && break
+            sleep 0.5
+          done
+          bash .heron/scripts/smoke-site.sh http://localhost:18080 .heron-out \
+            || { docker logs heron-smoke; exit 1; }
+          docker rm -f heron-smoke
+
+      - name: вход в реестр
+        if: inputs.push
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: отправка
+        if: inputs.push
+        run: docker push "${{ steps.names.outputs.image }}"

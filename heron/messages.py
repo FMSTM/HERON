@@ -336,6 +336,7 @@ TITLES: dict[str, dict[str, str]] = {
         "E020": "schema.org markup cannot be built",
         "E021": "the default language is empty in production",
         "E022": "gone overlaps a page address or redirect_from",
+        "E023": "the theme lists fields the engine does not know",
     },
 }
 

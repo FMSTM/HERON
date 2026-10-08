@@ -47,6 +47,8 @@ class Report:
     notes_missing: list[str] = field(default_factory=list)
     uneven_keys: list[tuple[str, str, str, int, int]] = field(default_factory=list)
     schema_nodes: Counter = field(default_factory=Counter)
+    # (страниц с ручной датой, всего страниц, источник дат из site.yaml)
+    manual_dates: tuple[int, int, str] | None = None
 
     def render(self) -> str:
         """Отчёт текстом — то, что печатается после сборки."""
@@ -80,6 +82,11 @@ class Report:
             lines.append("Формат секции не тот, которого ждёт тема (это не ошибка):")
             for source, section, want, got in self.format_mismatch[:20]:
                 lines.append(f"  {source}: {section} — ждали {want}, пришло {got}")
+            lines.append(
+                "  как исправить: если по смыслу это форма из «ждали» — задайте её "
+                "классом в якоре секции: `## Заголовок {#якорь .checklist}`; если права "
+                "разметка — поменяйте форму в `uses` типа в theme.yaml: `якорь:форма`"
+            )
 
         if self.nameless_in_nav:
             lines.append("")
@@ -134,6 +141,15 @@ class Report:
             for owner, where, key, have, total in self.uneven_keys[:20]:
                 lines.append(f"  {owner}: {where} — {key} у {have} из {total}")
 
+        if self.manual_dates:
+            manual, total, mode = self.manual_dates
+            lines.append("")
+            lines.append(
+                f"Ручная дата updated у {manual} из {total} страниц перекрывает "
+                f"updated_from: {mode} — у этих страниц дата из {mode} не берётся. "
+                "Где дата должна обновляться сама, уберите updated из фронтматтера."
+            )
+
         if self.notes_missing:
             lines.append("")
             lines.append(
@@ -156,6 +172,11 @@ def build(
     for page in site.pages:
         report.pages_by_lang[page.lang] += 1
         report.pages_by_type[page.type] += 1
+
+    mode = config.build.updated_from
+    manual = sum(1 for page in site.pages if page.meta.updated is not None)
+    if mode != "manual" and manual:
+        report.manual_dates = (manual, len(site.pages), mode)
 
     # чего не хватает по типам, по мнению темы
     missing: dict[str, list[str]] = defaultdict(list)
@@ -303,9 +324,34 @@ def _content_in_static(site_root) -> list[str]:
     found = [
         path.relative_to(site_root).as_posix()
         for path in sorted(root.rglob("*"))
-        if path.is_file() and path.suffix.lower() in suffixes
+        if path.is_file()
+        and path.suffix.lower() in suffixes
+        and not _belongs_in_static(path.relative_to(root))
     ]
     return found
+
+
+# Картинки, которым место именно в static/: браузер и поисковики ищут их
+# по точному адресу в корне сайта, нарезка им только вредит.
+STATIC_IMAGES = (
+    "favicon*",
+    "apple-touch-icon*",
+    "android-chrome-*",
+    "mstile-*",
+    "safari-pinned-tab*",
+    "icon-*.png",
+    "icon.svg",
+)
+
+
+def _belongs_in_static(rel) -> bool:
+    """Иконка сайта или служебный файл — не контент, не повод для замечания."""
+    from fnmatch import fnmatch
+
+    if rel.parts and rel.parts[0] == ".well-known":
+        return True
+    name = rel.name.lower()
+    return any(fnmatch(name, pattern) for pattern in STATIC_IMAGES)
 
 
 # Порядок видов в сводке: сверху то, что ломает страницу для посетителя,

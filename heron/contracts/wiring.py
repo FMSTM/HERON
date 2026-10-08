@@ -36,15 +36,17 @@ def verify_engine(theme: ThemeConfig, theme_path: str = "theme.yaml") -> None:
     unknown = [name for name in theme.fields if name not in known]
     if unknown:
         raise HeronError(
-            code="E012",
+            code="E023",
             message=(
-                f"тема {theme.name!r} обращается к полям, которых движок {__version__} "
+                f"в `fields` темы {theme.name!r} поля, которых движок {__version__} "
                 "не знает:\n    " + "\n    ".join(unknown)
             ),
             path=theme_path,
             hint=(
-                "поле появилось в более новом движке — обновите образ; "
-                "либо это опечатка в `fields` в theme.yaml"
+                "в `fields` перечисляются только поля самого движка. Свои поля "
+                "фронтматтера объявлять не нужно — уберите их отсюда, в шаблоне "
+                "они доступны как page.meta.get('поле'). Если же это поле движка, "
+                "его знает более новая версия — обновите образ"
             ),
         )
 

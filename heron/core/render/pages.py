@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jinja2 import Environment, TemplateNotFound
+from jinja2 import Environment, TemplateNotFound, TemplateSyntaxError
 from jinja2 import UndefinedError as JinjaUndefined
 
 from heron.contracts.site import SiteConfig
@@ -53,10 +53,42 @@ def render_page(
             path=page.source,
             hint=f"создайте {name} в теме или задайте другой тип страницы",
         ) from exc
+    except TemplateSyntaxError as exc:
+        raise HeronError(
+            code="E010",
+            message=f"ошибка в шаблоне {exc.name or name}, строка {exc.lineno}: {exc.message}",
+            path=page.source,
+            hint="проверьте разметку Jinja в этой строке шаблона темы",
+        ) from exc
 
     scope = envmod.context(env, page, site, config, theme, strings, collector, media, build_env)
     try:
         return template.render(**scope)
+    except TemplateNotFound as exc:
+        # extends, include или import в теме указали на файл, которого нет.
+        # Это опечатка темы, а не сбой движка, — и почти всегда одна и та же:
+        # путь пишут от папки шаблона, а он считается от корня темы.
+        missing = exc.name or str(exc)
+        hint = "пути в extends, include и import считаются от корня темы: templates/…, modules/…"
+        loader = getattr(env, "loader", None)
+        searched = getattr(loader, "searchpath", None) or []
+        for root in searched:
+            for folder in ("templates", "modules", "partials"):
+                if (Path(root) / folder / missing).is_file():
+                    hint = f"файл есть как {folder}/{missing} — пути считаются от корня темы"
+        raise HeronError(
+            code="E008",
+            message=f"шаблон {name} ссылается на {missing!r}, а такого файла в теме нет",
+            path=page.source,
+            hint=hint,
+        ) from exc
+    except TemplateSyntaxError as exc:
+        raise HeronError(
+            code="E010",
+            message=f"ошибка в шаблоне {exc.name or name}, строка {exc.lineno}: {exc.message}",
+            path=page.source,
+            hint="проверьте разметку Jinja в этой строке шаблона темы",
+        ) from exc
     except JinjaUndefined as exc:
         raise HeronError(
             code="E010",

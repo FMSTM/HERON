@@ -810,5 +810,57 @@ def page(page_type: str, slug: str, lang: str | None, folder: str, path: Path) -
     click.echo(say(language, "page_next", root=_shown(path)))
 
 
+@main.command()
+@click.argument("name", required=False)
+@click.argument("file", required=False)
+@click.option("--search", "query", default=None, metavar="ТЕКСТ", help="Найти в документации.")
+@click.option(
+    "--export",
+    "target",
+    default=None,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Выложить всю документацию в папку.",
+)
+def docs(name: str | None, file: str | None, query: str | None, target: Path | None) -> None:
+    """Документация этой версии движка: оглавление, тема, поиск, выгрузка.
+
+    \b
+    heron docs                    оглавление
+    heron docs agents             тема целиком (markdown)
+    heron docs template page.md   образец файла
+    heron docs --search E023      поиск по всей документации
+    heron docs --export .heron-docs   папкой, со ссылками между файлами
+    """
+    from heron import docs as library
+
+    if query:
+        found = library.search(query)
+        if not found:
+            _err(f"«{query}» в документации не нашлось.", "yellow")
+            sys.exit(1)
+        click.echo("\n".join(found))
+        return
+    if target is not None:
+        written = library.export(target)
+        click.secho(f"Документация выложена в {target}: файлов {len(written)}", fg="green")
+        click.echo(f"Начать с {target / 'AGENTS.md'}")
+        return
+    if name is None:
+        click.echo(library.contents(), nl=False)
+        return
+    if name == "template":
+        names = library.templates()
+        if file not in names:
+            _err(f"Образца {file!r} нет. Есть: {', '.join(names)}")
+            sys.exit(1)
+        click.echo(library.read(f"{library.TEMPLATES}/{file}"), nl=False)
+        return
+    item = library.topic(name)
+    if item is None:
+        _err(f"Темы {name!r} нет. Оглавление: heron docs")
+        sys.exit(1)
+    click.echo(library.read(item.path), nl=False)
+
+
 if __name__ == "__main__":
     main()

@@ -31,6 +31,16 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["heron"]
 
+# Документация едет в пакете: `heron docs` читает её ровно той версии, что
+# и движок, без клона и без сети. Только текст — картинки бренда не нужны.
+[tool.hatch.build.targets.wheel.force-include]
+"AGENTS.md" = "heron/_docs/AGENTS.md"
+"README.md" = "heron/_docs/README.md"
+"docs/architecture.md" = "heron/_docs/docs/architecture.md"
+"docs/agents" = "heron/_docs/docs/agents"
+"docs/guide" = "heron/_docs/docs/guide"
+"docs/spec" = "heron/_docs/docs/spec"
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

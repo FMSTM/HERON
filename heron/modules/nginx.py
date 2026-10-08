@@ -31,6 +31,33 @@ server {
 
     charset utf-8;
     absolute_redirect off;
+
+    # Сжатие: текст, стили, скрипты, svg, карты и разметка. Картинки и видео
+    # уже сжаты, второй раз их жать — только тратить процессор.
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml application/javascript application/json
+               application/xml application/rss+xml application/atom+xml
+               application/manifest+json image/svg+xml;
+
+    # Страницы — всегда спрашивать сервер: правка текста должна быть видна
+    # сразу. Ответ «не изменилось» (ETag, Last-Modified) почти бесплатен.
+    add_header Cache-Control "no-cache" always;
+
+    # Картинки, стили и скрипты — сутки. Имена файлов не меняются при
+    # замене содержимого, поэтому «навсегда» здесь значило бы неделю
+    # показывать старую картинку тем, кто уже заходил.
+    location ^~ /media/ {
+        add_header Cache-Control "public, max-age=86400" always;
+        location ~ /\. { return 404; }
+        try_files $uri =404;
+    }
+    location ^~ /assets/ {
+        add_header Cache-Control "public, max-age=86400" always;
+        location ~ /\. { return 404; }
+        try_files $uri =404;
+    }
 """
 
 # Язык в своей папке: и страница 404, и всё остальное лежат под префиксом.

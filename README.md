@@ -136,6 +136,8 @@ git clone https://github.com/FMSTM/HERON.git && cd HERON
 
 **Какие образы есть.** Сайты собирают тегом `:prod` или точной версией `:X.Y.Z`. `:beta` и `:dev` — ветки разработки самого движка; дев-сборка сайта — это флаг `--env`, а не другой образ.
 
+**Сайт в своём репозитории** собирает образ без клона HERON и без своего Dockerfile — переиспользуемым workflow `FMSTM/HERON/.github/workflows/site-image.yml`, одной строкой `uses:`.
+
 Подробно: [`docs/guide/06-deploy.md`](docs/guide/06-deploy.md).
 
 ## Документация

@@ -31,6 +31,7 @@ NOTED = ("content", "media", "theme", "data", "static", "plugins")
 
 GITIGNORE = """dist/
 .heron-cache/
+.heron-docs/
 .DS_Store
 __pycache__/
 """

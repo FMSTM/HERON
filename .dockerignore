@@ -15,7 +15,8 @@ env/
 .git/
 .github/
 tests/
-docs/
+# из docs/ в образ идёт только текст — для `heron docs`; картинки бренда — нет
+docs/brand/
 .venv/
 .ruff_cache/
 .pytest_cache/

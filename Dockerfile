@@ -11,8 +11,13 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONDONTWRITEBYTECODE=1
 
 WORKDIR /src
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md AGENTS.md ./
 COPY heron ./heron
+# текст документации для `heron docs`; картинки бренда в образ не идут
+COPY docs/architecture.md ./docs/architecture.md
+COPY docs/agents ./docs/agents
+COPY docs/guide ./docs/guide
+COPY docs/spec ./docs/spec
 RUN python -m pip install --no-cache-dir --target /install .
 
 FROM python@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254

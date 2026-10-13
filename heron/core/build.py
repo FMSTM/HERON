@@ -202,8 +202,10 @@ def run(
     say.step("step_images")
     media.folder(site_root, collector)
     media.check_video(site, collector)
+    # План, а не нарезка: шаблонам нужны имена и размеры, а кодировать стоит
+    # только то, на что после рендера найдётся ссылка (этап «нарезка» ниже).
     manifest = (
-        media.build(
+        media.plan(
             site,
             site_root,
             dist,
@@ -211,9 +213,7 @@ def run(
             collector,
             cache_dir=dist.parent / CACHE,
             strict=strict,
-            progress=say,
             config=config,
-            workers=config.build.workers,
         )
         if with_media
         else media.Manifest()
@@ -252,6 +252,26 @@ def run(
     if collector.failed:
         return result
 
+    if with_media:
+        # Режем только то, на что ссылается собранный сайт: страницы, карты,
+        # разметка, файлы плагинов, стили темы и статика. Всё прочее из плана
+        # остаётся в кэше и в сборку не едет.
+        say.step("step_slices")
+        texts = [text for text in files.values() if isinstance(text, str)]
+        texts += _texts(theme_dir / ASSETS)
+        texts += _texts(site_root / STATIC)
+        placed = media.finish(
+            manifest,
+            site_root,
+            dist,
+            theme.images,
+            used=media.used_in(texts),
+            cache_dir=dist.parent / CACHE,
+            workers=config.build.workers,
+            progress=say,
+        )
+        say.done("done_files", count=len(placed))
+
     say.step("step_write")
     names = sorted(files)
     for index, name in enumerate(names, 1):
@@ -266,6 +286,23 @@ def run(
     result.report = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
     _schema(site, config, theme, collector, result.report)
     return result
+
+
+TEXT_SUFFIXES = {".css", ".js", ".html", ".svg", ".json", ".xml", ".txt", ".webmanifest"}
+
+
+def _texts(folder: Path) -> list[str]:
+    """Текстовые файлы папки: в них тоже бывают ссылки на /media/."""
+    if not folder.is_dir():
+        return []
+    out = []
+    for path in sorted(folder.rglob("*")):
+        if path.is_file() and path.suffix.lower() in TEXT_SUFFIXES:
+            try:
+                out.append(path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError):
+                continue
+    return out
 
 
 def _schema(site, config, theme, collector, built) -> None:

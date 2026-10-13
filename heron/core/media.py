@@ -75,11 +75,11 @@ KEEP = {".jpg", ".jpeg", ".png", ".webp"}
 # Состояние должно лежать там, где его никто не стирает.
 SLICES = "media"
 
-# Версия формата кэша. Запись теперь хранит не только digest, но и готовый
-# кусок манифеста — иначе, чтобы узнать имена нарезок, пришлось бы открывать
-# мастер: список ширин зависит от ширины исходника. Старый кэш другого
-# формата просто протухает один раз.
-CACHE_VERSION = 2
+# Версия формата кэша. Запись хранит digest и план мастера (имена и размеры
+# нарезок) — иначе, чтобы узнать имена, пришлось бы открывать мастер: список
+# ширин зависит от ширины исходника. В третьей версии запасной формат режется
+# одной шириной, и план другой. Старый кэш другого формата протухает один раз.
+CACHE_VERSION = 3
 
 # Скорость кодировщика avif. Замер на наборе из 95 мастеров, 800px, quality 82:
 #
@@ -108,12 +108,33 @@ class Rendition:
 
 @dataclass(slots=True)
 class Manifest:
-    """Что движок нарезал: адрес исходника -> пропорция -> вариант."""
+    """Что движок может нарезать: адрес исходника -> пропорция -> вариант.
+
+    Это план, а не готовые файлы. Шаблоны берут из него имена нарезок и
+    размеры, а кодируется после рендера только то, на что в собранном сайте
+    есть ссылка (`finish`). Имена нарезок от этого не меняются.
+    """
 
     items: dict[str, dict[str, Rendition]] = field(default_factory=dict)
+    # нарезка → (мастер, пропорция, формат, ширина): что кодировать по имени
+    planned: dict[str, tuple[str, str, str, int]] = field(default_factory=dict)
+    # мастера, которые движок режет: их самих кладём, только если на них ссылаются
+    masters: set[str] = field(default_factory=set)
+    # что лежит в кэше нарезок: digest и план мастера — для уборки и записи кэша
+    entries: dict[str, dict] = field(default_factory=dict)
+    # мастера, нужные целиком по объявлению: картинка из текста, og, постер
+    raw: set[str] = field(default_factory=set)
 
     def get(self, src: str, ratio: str) -> Rendition | None:
         return self.items.get(src.lstrip("./"), {}).get(ratio)
+
+    def add(self, src: str, renditions: dict[str, Rendition]) -> None:
+        self.items[src] = renditions
+        self.masters.add(src)
+        for rendition in renditions.values():
+            for fmt, variants in rendition.sources.items():
+                for width, rel in variants:
+                    self.planned[rel] = (src, rendition.ratio, fmt, width)
 
 
 def _ratio_of(ratio: str) -> tuple[int, int]:
@@ -244,6 +265,36 @@ def _page_images(page) -> set[str]:
     chunks = [page.intro.raw if page.intro else "", *(s.raw for s in page.sections.values())]
     for chunk in chunks:
         found.update(match.group(1).lstrip("./") for match in REFERENCE.finditer(chunk))
+    return found
+
+
+def raw_references(site: Site, config=None) -> set[str]:
+    """Файлы, которые нужны целиком, а не нарезками: так их объявил сайт.
+
+    Картинка из текста страницы, обложка для соцсетей, постер ролика —
+    у них один адрес, и браузер или краулер просит именно его. Такие мастера
+    едут в сборку всегда, даже если тема их пока не выводит.
+    """
+    found: set[str] = set()
+    for page in site.pages:
+        for value in (
+            page.meta.og_image,
+            page.meta.video_poster,
+            page.meta.extra.get("twitter_image"),
+        ):
+            if isinstance(value, str) and value and not EXTERNAL.match(value):
+                found.add(value.lstrip("./"))
+        chunks = [page.intro.raw if page.intro else "", *(s.raw for s in page.sections.values())]
+        for chunk in chunks:
+            found.update(match.group(1).lstrip("./") for match in REFERENCE.finditer(chunk))
+    if config is not None:
+        seo = config.seo.model_dump()
+        for value in [
+            seo.get("og_default_image"),
+            *seo.get("i18n", {}).get("og_default_image", {}).values(),
+        ]:
+            if isinstance(value, str) and value and not EXTERNAL.match(value):
+                found.add(value.lstrip("./"))
     return found
 
 
@@ -446,57 +497,108 @@ def _options(fmt: str) -> dict[str, object]:
     return options
 
 
-def slice_master(src: str, source: Path, spec: ImagesSpec, slices: Path) -> dict[str, Rendition]:
-    """Нарезать один мастер в кэш и вернуть его кусок манифеста.
+def _geometry(width: int, height: int, ratio: str, fits: bool) -> tuple[int, int]:
+    """Размер кадра в пропорции — без самой картинки.
 
-    Работает целиком внутри себя, без общего состояния: эту функцию зовут
-    в отдельных процессах. Задача — мастер, а не вариант: на 95 мастерах и
-    723 нарезках дробить мельче значит открывать и декодировать исходник
-    семьсот раз вместо девяноста пяти.
+    Вписывание добавляет поля, кроп отрезает края: обе операции зависят
+    только от размеров мастера и пропорции. Поэтому шаблон получает ширину
+    и высоту `<img>` до того, как что-то закодировано.
     """
-    out: dict[str, Rendition] = {}
+    left, right = _ratio_of(ratio)
+    want = left / right
+    have = width / height
+    if abs(want - have) < 0.001:
+        return width, height
+    if fits:
+        return (width, round(width / want)) if have > want else (round(height * want), height)
+    return (round(height * want), height) if have > want else (width, round(width / want))
+
+
+def plan_master(src: str, source: Path, spec: ImagesSpec) -> dict[str, Rendition]:
+    """Имена и размеры всех нарезок мастера, ничего не кодируя.
+
+    Мастер декодируется один раз — только чтобы узнать, есть ли в нём
+    настоящая прозрачность: от этого зависит, вписывать его или кропать.
+    """
     stem = Path(src)
+    origin = stem.suffix.lstrip(".").lower()
     with Image.open(source) as opened:
         image = _opaque(opened.convert("RGBA" if opened.mode in ("RGBA", "LA", "P") else "RGB"))
+        fits = _has_alpha(image) and not any(src.startswith(rule) for rule in spec.crop)
+        width, height = image.width, image.height
 
+    def named(ratio: str, fmt: str, size: int) -> str:
+        return f"{stem.parent.as_posix()}/{stem.stem}-{_label(ratio)}-{size}.{fmt}"
+
+    out: dict[str, Rendition] = {}
+    for ratio in spec.ratios:
+        frame_w, frame_h = _geometry(width, height, ratio, fits)
+        widths = [w for w in spec.widths if w <= frame_w] or [frame_w]
+        rendition = Rendition(
+            ratio=ratio,
+            width=widths[-1],
+            height=round(widths[-1] * frame_h / frame_w),
+        )
+        for fmt in spec.formats:
+            rendition.sources[fmt] = [(w, named(ratio, fmt, w)) for w in widths]
+        # Запасной файл в исходном формате: в `<img src>` идёт одна ширина,
+        # не больше fallback_width. Остальные ширины доступны media_url по
+        # запросу (og:image на 1200) — и режутся, только если их попросили.
+        fallback = min(spec.fallback_width, frame_w)
+        origin_widths = sorted({*widths, fallback})
+        rendition.sources["origin"] = [(w, named(ratio, origin, w)) for w in origin_widths]
+        rendition.fallback = named(ratio, origin, fallback)
+        out[ratio] = rendition
+    return out
+
+
+def slice_master(
+    src: str,
+    source: Path,
+    spec: ImagesSpec,
+    slices: Path,
+    wanted: list[tuple[str, str, int, str]] | None = None,
+) -> dict[str, Rendition]:
+    """Закодировать нарезки одного мастера в кэш и вернуть его план.
+
+    `wanted` — что именно кодировать: (пропорция, формат, ширина, имя).
+    Не задано — всё, что есть в плане. Работает целиком внутри себя, без
+    общего состояния: эту функцию зовут в отдельных процессах. Задача —
+    мастер, а не вариант: открывать и декодировать исходник на каждую
+    нарезку значило бы делать это сотни раз вместо одного.
+    """
+    renditions = plan_master(src, source, spec)
+    if wanted is None:
+        wanted = [
+            (rendition.ratio, fmt, width, rel)
+            for rendition in renditions.values()
+            for fmt, variants in rendition.sources.items()
+            for width, rel in variants
+        ]
+    if not wanted:
+        return renditions
+    origin = Path(src).suffix.lstrip(".").lower()
+    with Image.open(source) as opened:
+        image = _opaque(opened.convert("RGBA" if opened.mode in ("RGBA", "LA", "P") else "RGB"))
         # Иллюстрацию вписываем, фотографию кропаем. Признак — прозрачность:
         # у фотографии её нет и поля взять неоткуда.
         fits = _has_alpha(image) and not any(src.startswith(rule) for rule in spec.crop)
-        for ratio in spec.ratios:
-            cropped = (_fit if fits else _crop)(image, _ratio_of(ratio))
-            widths = [w for w in spec.widths if w <= cropped.width] or [cropped.width]
-            rendition = Rendition(
-                ratio=ratio,
-                width=widths[-1],
-                height=round(widths[-1] * cropped.height / cropped.width),
-            )
-
-            for fmt in [*spec.formats, stem.suffix.lstrip(".").lower()]:
-                variants: list[tuple[int, str]] = []
-                for width in widths:
-                    name = f"{stem.stem}-{_label(ratio)}-{width}.{fmt}"
-                    rel = f"{stem.parent.as_posix()}/{name}"
-                    variants.append((width, rel))
-                    # Пишем всегда, даже если файл с таким именем лежит:
-                    # задача заводится только когда digest не совпал, то есть
-                    # мастер изменился, а имя нарезки от содержимого не
-                    # зависит. Пропустить существующий файл значит оставить
-                    # в сборке старую картинку под новым мастером.
-                    kept = slices / rel
-                    kept.parent.mkdir(parents=True, exist_ok=True)
-                    height = round(width * cropped.height / cropped.width)
-                    resized = cropped.resize((width, height), Image.LANCZOS)
-                    if fmt in ("jpg", "jpeg") and resized.mode == "RGBA":
-                        resized = resized.convert("RGB")
-                    resized.save(kept, **_options(fmt))
-                if fmt in spec.formats:
-                    rendition.sources[fmt] = variants
-                else:
-                    rendition.fallback = variants[-1][1]
-                    rendition.sources.setdefault("origin", variants)
-
-            out[ratio] = rendition
-    return out
+        frames: dict[str, Image.Image] = {}
+        for ratio, fmt, width, rel in wanted:
+            if ratio not in frames:
+                frames[ratio] = (_fit if fits else _crop)(image, _ratio_of(ratio))
+            frame = frames[ratio]
+            # Пишем всегда, даже если файл с таким именем лежит: задача
+            # заводится только для того, чего в кэше нет или что устарело.
+            kept = slices / rel
+            kept.parent.mkdir(parents=True, exist_ok=True)
+            height = round(width * frame.height / frame.width)
+            resized = frame.resize((width, height), Image.LANCZOS)
+            real = origin if fmt == "origin" else fmt
+            if real in ("jpg", "jpeg") and resized.mode == "RGBA":
+                resized = resized.convert("RGB")
+            resized.save(kept, **_options(real))
+    return renditions
 
 
 def _place(kept: Path, out: Path) -> None:
@@ -536,14 +638,13 @@ def _sweep(slices: Path, used: set[str]) -> None:
 
 
 def _encode(
-    jobs: list[tuple[str, Path]],
+    jobs: list[tuple[str, Path, list[tuple[str, str, int, str]]]],
     spec: ImagesSpec,
     slices: Path,
     workers: int,
     progress,
-    total: int,
-) -> dict[str, dict[str, Rendition]]:
-    """Нарезать мастера, которых нет в кэше. По возможности — по ядрам.
+) -> None:
+    """Закодировать нужные нарезки по мастерам. По возможности — по ядрам.
 
     Кодирование независимо и упирается в процессор, так что ядра дают почти
     линейный выигрыш на холодной сборке — а она и есть у прода и CI, где
@@ -552,28 +653,33 @@ def _encode(
     Прогресс тикает в порядке исходного списка, а не готовности: иначе лог
     перестаёт читаться, а смотрят в него как раз тогда, когда сборка долгая.
     """
-    out: dict[str, dict[str, Rendition]] = {}
     if not jobs:
-        return out
-
+        return
+    total = len(jobs)
     count = workers if workers > 0 else (os.cpu_count() or 1)
-    if count == 1 or len(jobs) == 1:
-        for index, (src, source) in enumerate(jobs, 1):
+    if count == 1 or total == 1:
+        for index, (src, source, wanted) in enumerate(jobs, 1):
             if progress is not None:
                 progress.tick(index, total, src)
-            out[src] = slice_master(src, source, spec, slices)
-        return out
+            slice_master(src, source, spec, slices, wanted)
+        return
 
     with ProcessPoolExecutor(max_workers=count) as pool:
-        futures = [pool.submit(slice_master, src, source, spec, slices) for src, source in jobs]
-        for index, ((src, _), future) in enumerate(zip(jobs, futures, strict=True), 1):
-            out[src] = future.result()
+        futures = [
+            pool.submit(slice_master, src, source, spec, slices, wanted)
+            for src, source, wanted in jobs
+        ]
+        for index, ((src, _, _), future) in enumerate(zip(jobs, futures, strict=True), 1):
+            future.result()
             if progress is not None:
                 progress.tick(index, total, src)
-    return out
 
 
-def build(
+def _paths(root: Path) -> tuple[Path, Path]:
+    return root / CACHE, root / SLICES
+
+
+def plan(
     site: Site,
     site_root: Path,
     dist: Path,
@@ -581,25 +687,21 @@ def build(
     collector: Collector,
     cache_dir: Path | None = None,
     strict: bool = False,
-    progress=None,
     config=None,
-    workers: int = 0,
 ) -> Manifest:
-    """Нарезать все картинки, на которые ссылается контент.
+    """Первая половина: что можно нарезать. Ничего не кодирует.
 
     Отсутствующая картинка в проде дороже упавшей сборки — поэтому в
     `--strict`, которым собирают CI и прод, это ошибка. Но страницу пишут
     раньше, чем рисуют иллюстрацию, и блокировать работу над текстом
     очередью художника незачем: при обычной сборке это предупреждение.
 
-    Нарезки хранятся в кэше и попадают в сборку жёсткой ссылкой. Мастер, у
-    которого совпал digest и все нарезки на месте, не открывается вовсе:
-    его кусок манифеста лежит в том же кэше рядом с digest.
+    План мастера (имена нарезок, размеры) лежит в кэше рядом с digest:
+    мастер, который не менялся, не открывается вовсе.
     """
     manifest = Manifest()
-    root = cache_dir or site_root / ".heron-cache"
-    cache_path = root / CACHE
-    slices = root / SLICES
+    manifest.raw = raw_references(site, config)
+    cache_path, slices = _paths(cache_dir or site_root / ".heron-cache")
 
     known: dict[str, dict] = {}
     if cache_path.is_file():
@@ -610,13 +712,8 @@ def build(
         if isinstance(stored, dict) and stored.get("version") == CACHE_VERSION:
             known = stored.get("masters", {})
 
-    sources = sorted(references(site, config))
     declared = declared_by(site, config)
-
-    fresh: dict[str, dict] = {}
-    jobs: list[tuple[str, Path]] = []
-
-    for src in sources:
+    for src in sorted(declared):
         source = site_root / src
         if not source.is_file():
             if strict:
@@ -644,47 +741,119 @@ def build(
             (dist / src).write_bytes(source.read_bytes())
             continue
 
-        # Мастер кладём как есть рядом с вариантами. Ссылка «открыть скан»,
-        # адрес для скачивания, картинка в разметке для соцсетей — всё это
-        # просит адрес файла, а не набор нарезок. Без копии такого адреса
-        # в сборке просто нет, и его приходится дублировать через static/.
-        (dist / src).parent.mkdir(parents=True, exist_ok=True)
-        (dist / src).write_bytes(source.read_bytes())
-
         digest = _digest(source, spec)
         entry = known.get(src)
-        if entry is not None and entry.get("digest") == digest:
-            renditions = _from_dict(entry.get("renditions", {}))
-            if renditions and all(
-                (slices / rel).is_file()
-                for rendition in renditions.values()
-                for items in rendition.sources.values()
-                for _, rel in items
-            ):
-                manifest.items[src] = renditions
-                fresh[src] = entry
-                continue
+        if entry is not None and entry.get("digest") == digest and entry.get("renditions"):
+            renditions = _from_dict(entry["renditions"])
+        else:
+            if entry is not None:
+                # Мастер изменился: его старые нарезки в кэше больше не правда.
+                # Имена от содержимого не зависят, поэтому удалить их надо
+                # явно — иначе новая сборка подхватит старую картинку.
+                for old in _from_dict(entry.get("renditions", {})).values():
+                    for variants in old.sources.values():
+                        for _, rel in variants:
+                            (slices / rel).unlink(missing_ok=True)
+            renditions = plan_master(src, source, spec)
+        manifest.add(src, renditions)
+        manifest.entries[src] = {"digest": digest, "renditions": _as_dict(renditions)}
+    return manifest
 
-        jobs.append((src, source))
 
-    for src, renditions in _encode(jobs, spec, slices, workers, progress, len(sources)).items():
-        manifest.items[src] = renditions
-        fresh[src] = {
-            "digest": _digest(site_root / src, spec),
-            "renditions": _as_dict(renditions),
-        }
+# Путь к файлу ресурсов в собранном тексте: в атрибуте, в srcset, в url()
+# стилей, в разметке, в абсолютном адресе. Совпадение сверяется с планом,
+# поэтому лишнее (путь из чужой папки) просто не находит пары.
+_USED = re.compile(rf"""(?<=[/"'\s(,=])((?:{_IN})/[^\s"'<>()\\,]+)""")
 
-    used: set[str] = set()
-    for renditions in manifest.items.values():
-        for rendition in renditions.values():
-            for items in rendition.sources.values():
-                for _, rel in items:
-                    used.add(rel)
-                    _place(slices / rel, dist / rel)
 
-    _sweep(slices, used)
+def used_in(texts) -> set[str]:
+    """Пути к ресурсам, на которые ссылается собранный сайт."""
+    found: set[str] = set()
+    for text in texts:
+        for match in _USED.finditer(text):
+            path = match.group(1)
+            found.add(path)
+            found.add(path.rstrip(".;:!?"))
+    return found
+
+
+def finish(
+    manifest: Manifest,
+    site_root: Path,
+    dist: Path,
+    spec: ImagesSpec,
+    used: set[str] | None = None,
+    cache_dir: Path | None = None,
+    workers: int = 0,
+    progress=None,
+) -> list[str]:
+    """Вторая половина: закодировать и положить в сборку то, что нужно.
+
+    `used` — пути, на которые ссылается собранный сайт. Кодируется и
+    кладётся только их пересечение с планом; мастер кладётся целиком, только
+    если на него самого есть ссылка (og:image, ссылка из текста, разметка).
+    `used=None` — всё, что есть в плане: так режет `build`.
+
+    Нарезки хранятся в кэше и попадают в сборку жёсткой ссылкой. Кэш может
+    держать больше, чем ушло в эту сборку: правка шаблона, которая вернёт
+    пропорцию, не должна кодировать её заново.
+    """
+    cache_path, slices = _paths(cache_dir or site_root / ".heron-cache")
+    wanted = set(manifest.planned) if used is None else set(manifest.planned) & used
+    masters = set(manifest.masters) if used is None else manifest.masters & (used | manifest.raw)
+
+    jobs: dict[str, list[tuple[str, str, int, str]]] = {}
+    for rel in sorted(wanted):
+        if (slices / rel).is_file():
+            continue
+        src, ratio, fmt, width = manifest.planned[rel]
+        jobs.setdefault(src, []).append((ratio, fmt, width, rel))
+    _encode(
+        [(src, site_root / src, items) for src, items in jobs.items()],
+        spec,
+        slices,
+        workers,
+        progress,
+    )
+
+    placed = []
+    for rel in sorted(wanted):
+        _place(slices / rel, dist / rel)
+        placed.append(rel)
+    # Мастер рядом с нарезками — только по ссылке: «открыть целиком»,
+    # og:image, картинка из текста. Без ссылки это мегабайты в каждой сборке.
+    for src in sorted(masters):
+        (dist / src).parent.mkdir(parents=True, exist_ok=True)
+        (dist / src).write_bytes((site_root / src).read_bytes())
+        placed.append(src)
+
+    _sweep(slices, set(manifest.planned))
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(
-        json.dumps({"version": CACHE_VERSION, "masters": fresh}, indent=2), encoding="utf-8"
+        json.dumps({"version": CACHE_VERSION, "masters": manifest.entries}, indent=2),
+        encoding="utf-8",
     )
+    return placed
+
+
+def build(
+    site: Site,
+    site_root: Path,
+    dist: Path,
+    spec: ImagesSpec,
+    collector: Collector,
+    cache_dir: Path | None = None,
+    strict: bool = False,
+    progress=None,
+    config=None,
+    workers: int = 0,
+) -> Manifest:
+    """Нарезать всё, что можно нарезать, без оглядки на шаблоны.
+
+    Сборка сайта так не делает: она планирует (`plan`), рендерит и режет
+    только то, на что есть ссылки (`finish`). Этот вход нужен там, где
+    шаблонов нет, — проверить нарезку саму по себе.
+    """
+    manifest = plan(site, site_root, dist, spec, collector, cache_dir, strict, config)
+    finish(manifest, site_root, dist, spec, None, cache_dir, workers, progress)
     return manifest

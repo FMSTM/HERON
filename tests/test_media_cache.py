@@ -129,7 +129,7 @@ def test_width_dropped_from_the_theme_leaves_no_slices_of_it(tmp_path):
     run(tmp_path, site, collector)
     assert any("-800." in name for name in slices(tmp_path))
 
-    run(tmp_path, site, collector, images=spec(widths=[400]))
+    run(tmp_path, site, collector, images=spec(widths=[400], fallback_width=400))
     assert not any("-800." in name for name in slices(tmp_path))
     assert any("-400." in name for name in slices(tmp_path))
 

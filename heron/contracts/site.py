@@ -37,6 +37,7 @@ RESERVED = {
     "sinks",
     "analytics",
     "gone",
+    "nginx",
 }
 
 
@@ -241,6 +242,19 @@ class BuildBlock(Strict):
     workers: int = Field(default=0, ge=0, le=64)
 
 
+class NginxBlock(Strict):
+    """Конфиг nginx, который движок собирает вместе с сайтом.
+
+    `hash_sizes` — писать ли в него map_hash_bucket_size и map_hash_max_size.
+    `auto` (по умолчанию): движок считает их по ключам карт 301 и 410 —
+    иначе запуститься конфиг или нет, решает процессор и сборка nginx.
+    `off`: не писать, их задаёт nginx.conf хоста; повтор директивы там, где
+    хост её уже задал, — «directive is duplicate» и nginx не стартует.
+    """
+
+    hash_sizes: Literal["auto", "off"] = "auto"
+
+
 class FormSpec(Strict):
     """Описание формы. Движок её не принимает — принимает heron-relay.
 
@@ -308,6 +322,7 @@ class SiteConfig(BaseModel):
     nav: NavBlock = Field(default_factory=NavBlock)
     build: BuildBlock = Field(default_factory=BuildBlock)
     analytics: AnalyticsBlock = Field(default_factory=AnalyticsBlock)
+    nginx: NginxBlock = Field(default_factory=NginxBlock)
     plugins: list[str] = Field(default_factory=list)
     forms: dict[str, FormSpec] = Field(default_factory=dict)
     sinks: dict[str, dict[str, Any]] = Field(default_factory=dict)

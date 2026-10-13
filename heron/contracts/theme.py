@@ -139,6 +139,11 @@ class ImagesSpec(BaseModel):
     formats: list[str] = Field(default_factory=lambda: ["avif", "webp"])
     crop: list[str] = Field(default_factory=list)
     as_is: list[str] = Field(default_factory=list)
+    # Ширина запасного файла в исходном формате (png/jpg) — того, что идёт
+    # в `<img src>` для браузеров без avif и webp. Он один на пропорцию и не
+    # шире этого: современный браузер его не грузит вовсе, а PNG иллюстрации
+    # на 1600 px весит полтора мегабайта мёртвого груза в каждой сборке.
+    fallback_width: int = Field(default=800, gt=0)
 
     @field_validator("ratios")
     @classmethod

@@ -43,7 +43,39 @@ H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm
 $H build мой-сайт --env prod --strict
 ```
 
-`мой-сайт/dist/` — готовый сайт. Подключите `dist/.heron-nginx.conf` в свой `server {}` или залейте папку на хостинг статики (тогда 301/410 настраиваются средствами хостинга по `dist/redirects.map` и `dist/gone.map`).
+`мой-сайт/dist/` — готовый сайт. Залейте папку на хостинг статики (тогда 301/410 настраиваются средствами хостинга по `dist/redirects.map` и `dist/gone.map`) или отдайте своим nginx — ниже.
+
+### Свой nginx на сервере
+
+`dist/.heron-nginx.conf` — готовый `server {}` вместе с картами 301/410. Он подключается **в контекст `http`**, как любой файл сайта. Пример для Debian/Ubuntu с nginx из apt:
+
+```bash
+sudo cp -r мой-сайт/dist /var/www/мой-сайт
+sudo cp мой-сайт/dist/.heron-nginx.conf /etc/nginx/sites-enabled/мой-сайт.conf
+# в файле поправьте root на /var/www/мой-сайт и listen/server_name под свой хост
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+**Размеры хэшей карт.** В начале файла стоят `map_hash_bucket_size` и `map_hash_max_size` — движок посчитал их по самому длинному адресу из `redirect_from` и `gone`. Без них длинный кириллический адрес не помещается в корзину размером с кэш-линию процессора, и nginx не стартует: `could not build map_hash, you should increase map_hash_bucket_size: 64`. Отчёт сборки показывает посчитанные значения.
+
+Если `/etc/nginx/nginx.conf` хоста **уже** задаёт эти директивы, повтор в файле сайта даст `directive is duplicate`. Тогда в `site.yaml`:
+
+```yaml
+nginx:
+  hash_sizes: off     # auto (по умолчанию) — писать в конфиг сайта; off — их задаёт хост
+```
+
+Отчёт сборки напишет, сколько нужно, — например «картам 301/410 нужен map_hash_bucket_size ≥ 256». Это вписывается в `http { … }` файла `/etc/nginx/nginx.conf`:
+
+```nginx
+http {
+    map_hash_bucket_size 256;
+    map_hash_max_size 2048;
+    # … остальное как было
+}
+```
+
+Если nginx есть на машине, где идёт сборка, движок сам прогоняет `nginx -t` на собранном конфиге и пишет результат в отчёт; не прошёл — предупреждение, при `--strict` — ошибка.
 
 Посмотреть локально — `heron serve мой-сайт`: та же 404, что увидит посетитель, сборка во временную папку, папка сайта не пачкается. 301 и 410 `serve` не изображает — их проверяет `smoke` на образе.
 

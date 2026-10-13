@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 from heron.contracts.site import SiteConfig
 from heron.modules.redirects import Plan
@@ -113,6 +114,90 @@ def _block(head: str, default: str, rows: list[str]) -> str:
     return head + " {\n    default " + default + ";\n" + "\n".join(rows) + "\n}\n"
 
 
+# Размер указателя и длины ключа в элементе хэша nginx (ngx_hash_elt_t) на
+# 64-битной машине. Элемент: указатель на значение, длина ключа (2 байта) и
+# сам ключ, выровненные по указателю; корзина — элементы плюс указатель-конец.
+POINTER = 8
+SAFE_BUCKET = 64
+SAFE_MAX_SIZE = 2048
+
+
+@dataclass(frozen=True, slots=True)
+class HashSizes:
+    """Размеры хэшей карт: что вписать в http {} и откуда это взялось."""
+
+    bucket: int
+    max_size: int
+    longest: int  # самый длинный ключ, байт
+    keys: int  # ключей во всех картах
+
+
+def _power(value: int) -> int:
+    size = 1
+    while size < value:
+        size *= 2
+    return size
+
+
+def _align(value: int) -> int:
+    return (value + POINTER - 1) // POINTER * POINTER
+
+
+def hash_sizes(keys: list[str]) -> HashSizes:
+    """map_hash_bucket_size и map_hash_max_size для этих ключей.
+
+    По умолчанию корзина равна кэш-линии процессора — обычно 64 байта, — и
+    длинный кириллический адрес (2 байта на букву) в неё не помещается:
+    nginx не стартует с «could not build map_hash». Запустится конфиг или
+    нет, не должно зависеть от железа, поэтому движок считает размеры сам.
+    Ключ, который ближе 16 байт к границе корзины, получает корзину вдвое
+    больше: несколько ключей делят одну корзину, и впритык — это ненадёжно.
+    """
+    longest = max((len(key.encode("utf-8")) for key in keys), default=0)
+    need = _align(POINTER + 2 + longest) + POINTER
+    bucket = _power(max(SAFE_BUCKET, need))
+    if bucket - need < 16:
+        bucket *= 2
+    max_size = _power(max(SAFE_MAX_SIZE, len(keys) * 2))
+    return HashSizes(bucket=bucket, max_size=max_size, longest=longest, keys=len(keys))
+
+
+def _hashed(plan: Plan) -> list[str]:
+    """Ключи карт, которые nginx кладёт в хэш, — как они стоят в конфиге.
+
+    Регулярки (`~^…`) в хэш не входят и не считаются. Ключ берётся в том
+    виде, в каком он записан в кавычках: с экранированием — это не меньше
+    того, что nginx хранит, и запас здесь только на пользу.
+    """
+    keys: list[str] = []
+    for path in plan.gone:
+        if path not in plan.raw:
+            keys += _variants(path)
+    for old in plan.moved:
+        if old not in plan.raw:
+            keys += _variants(old)
+    return [quote(key)[1:-1] for key in keys]
+
+
+def sizes(plan: Plan | None) -> HashSizes | None:
+    """Размеры хэшей для карт этого сайта. Карт нет — нечего и задавать."""
+    plan = plan or Plan()
+    if not (plan.gone or plan.gone_prefixes or plan.gone_queries or plan.moved):
+        return None
+    return hash_sizes(_hashed(plan))
+
+
+def _directives(found: HashSizes) -> str:
+    return (
+        f"# HERON: самый длинный ключ карт — {found.longest} байт, ключей — {found.keys}.\n"
+        "# Значения посчитаны движком: по умолчанию корзина равна кэш-линии процессора,\n"
+        "# и длинный кириллический адрес в неё может не поместиться. Если nginx.conf\n"
+        "# хоста уже задаёт их — nginx: hash_sizes: off в site.yaml.\n"
+        f"map_hash_bucket_size {found.bucket};\n"
+        f"map_hash_max_size {found.max_size};\n\n"
+    )
+
+
 def _maps(plan: Plan) -> tuple[str, str]:
     """Карты 301 и 410 и проверки в начале server.
 
@@ -178,9 +263,75 @@ def generate(config: SiteConfig, plan: Plan | None = None) -> dict[str, str]:
     default = config.site.default_lang
     maps, checks = _maps(plan or Plan())
     head = HEAD.replace("    absolute_redirect off;\n", "    absolute_redirect off;\n" + checks)
-    parts = [maps + "\n" if maps else "", head]
+    found = sizes(plan)
+    # Директивы — до первой карты и вне server: это контекст http, куда
+    # файл подключают и образ (conf.d), и хост (sites-enabled).
+    hashes = _directives(found) if found and config.nginx.hash_sizes == "auto" else ""
+    parts = [hashes, maps + "\n" if maps else "", head]
     for lang in config.site.languages:
         if lang != default:
             parts.append(LANG.format(lang=lang))
     parts.append(TAIL)
     return {NAME: "".join(parts)}
+
+
+def check(conf: str | None, collector=None) -> tuple[bool, str] | None:
+    """Прогнать `nginx -t` на собранном конфиге, если nginx есть под рукой.
+
+    Конфиг подключается так же, как его подключают образ и хост: в контекст
+    http. Падение — предупреждение сборки (при --strict, значит, ошибка):
+    битый конфиг не должен уезжать дальше машины, на которой его собрали.
+    Нет nginx — проверки нет, и это не повод ругаться.
+    """
+    import shutil
+    import subprocess
+    import tempfile
+    from pathlib import Path
+
+    binary = shutil.which("nginx")
+    if not conf or not binary:
+        return None
+    with tempfile.TemporaryDirectory(prefix="heron-nginx-") as tmp:
+        root = Path(tmp)
+        (root / "site.conf").write_text(conf, encoding="utf-8")
+        temp = "\n".join(
+            f"  {name} {root}/{name};"
+            for name in (
+                "client_body_temp_path",
+                "proxy_temp_path",
+                "fastcgi_temp_path",
+                "uwsgi_temp_path",
+                "scgi_temp_path",
+            )
+        )
+        (root / "nginx.conf").write_text(
+            f"pid {root}/nginx.pid;\nerror_log {root}/error.log;\nevents {{}}\n"
+            f"http {{\n  access_log off;\n{temp}\n  include {root}/site.conf;\n}}\n",
+            encoding="utf-8",
+        )
+        command = [binary, "-t", "-q", "-p", str(root), "-c", str(root / "nginx.conf")]
+        try:
+            done = subprocess.run(
+                [*command[:1], "-e", "stderr", *command[1:]],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            )
+            if done.returncode != 0 and "invalid option" in done.stderr:
+                # nginx старше 1.19.5 не знает -e
+                done = subprocess.run(
+                    command, capture_output=True, text=True, timeout=15, check=False
+                )
+        except (OSError, subprocess.SubprocessError):
+            return None
+    output = (done.stderr or done.stdout).strip()
+    passed = done.returncode == 0
+    if not passed and collector is not None:
+        collector.warn(
+            "nginx -t не принял собранный конфиг: "
+            + " ".join(line.strip() for line in output.splitlines() if "emerg" in line)[:400],
+            path=NAME,
+            kind="прочее",
+        )
+    return passed, output

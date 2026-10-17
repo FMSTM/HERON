@@ -340,6 +340,7 @@ TITLES: dict[str, dict[str, str]] = {
         "E022": "gone overlaps a page address or redirect_from",
         "E023": "the theme lists fields the engine does not know",
         "E024": "a path leaves the allowed folders",
+        "E025": "a heading attribute is not allowed",
     },
 }
 

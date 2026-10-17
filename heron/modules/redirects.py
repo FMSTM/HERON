@@ -136,10 +136,49 @@ def collect(site: Site, collector: Collector, config: SiteConfig | None = None) 
             continue
         (plan.gone_prefixes if kind == "prefix" else plan.gone).append(path)
 
+    _reserved(plan, collector, config)
     plan.gone.sort()
     plan.gone_prefixes.sort()
     plan.gone_queries.sort(key=lambda q: (q[0], q[1], q[2] or ""))
     return plan
+
+
+def reserved(config: SiteConfig | None) -> tuple[set[str], set[str]]:
+    """Адреса, которые конфиг nginx уже занял своими location.
+
+    Префиксы — папки ресурсов, `.well-known` и языки; точные — служебные
+    страницы 404. Совпадение с 301 или 410 — «duplicate location», и nginx
+    не стартует: это ловит сборка, а не сервер.
+    """
+    prefixes = {"/", "/media/", "/assets/", "/.well-known/"}
+    exact = {"/404.html"}
+    if config is not None:
+        for lang in config.site.languages:
+            if lang != config.site.default_lang:
+                prefixes.add(f"/{lang}/")
+                exact.add(f"/{lang}/404/index.html")
+    return prefixes, exact
+
+
+def _reserved(plan: Plan, collector: Collector, config: SiteConfig | None) -> None:
+    prefixes, exact = reserved(config)
+    for path in list(plan.gone_prefixes):
+        if path in prefixes:
+            plan.gone_prefixes.remove(path)
+            collector.error(
+                "E022",
+                f"gone {path}* закрывает служебный путь сайта",
+                path="site.yaml",
+                hint="410 на всю папку ресурсов или язык закрыл бы сайт; уточните адрес",
+            )
+    for path in [*plan.gone, *plan.moved]:
+        if path in exact:
+            collector.error(
+                "E022",
+                f"{path} — служебный адрес сайта, 301 и 410 на нём невозможны",
+                path="site.yaml",
+                hint="уберите адрес из gone или redirect_from",
+            )
 
 
 def files(plan: Plan) -> dict[str, str]:

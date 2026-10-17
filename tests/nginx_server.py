@@ -19,6 +19,12 @@ import pytest
 
 NGINX = shutil.which("nginx") or ("/usr/sbin/nginx" if Path("/usr/sbin/nginx").exists() else None)
 
+# В обязательном задании CI проверка nginx пропускаться не должна: там
+# HERON_REQUIRE_NGINX=1, и отсутствие nginx — ошибка сбора тестов, а не
+# тихий пропуск, после которого «всё зелёное».
+if NGINX is None and os.environ.get("HERON_REQUIRE_NGINX"):
+    raise RuntimeError("HERON_REQUIRE_NGINX=1, а nginx не установлен")
+
 needs_nginx = pytest.mark.skipif(NGINX is None, reason="nginx не установлен")
 
 

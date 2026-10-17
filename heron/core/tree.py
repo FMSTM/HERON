@@ -15,7 +15,7 @@ from pathlib import Path
 from markdown_it import MarkdownIt
 
 from heron.contracts.site import SiteConfig
-from heron.core import notes
+from heron.core import notes, paths
 from heron.core.errors import Collector, HeronError
 from heron.core.models import Page, Site
 from heron.core.parser import blocks, frontmatter, markdown, sections
@@ -54,6 +54,8 @@ def _folder_slugs(root: Path, collector: Collector) -> dict[str, str]:
     """
     out: dict[str, str] = {}
     for path in root.rglob(INDEX):
+        if not paths.inside(root, path):
+            continue  # об этом скажет основной обход
         rel = path.parent.relative_to(root).as_posix()
         rel = "" if rel == "." else rel
         try:
@@ -99,6 +101,8 @@ def _folder_types(root: Path, collector: Collector) -> dict[str, tuple[str | Non
     """Для каждой папки: её собственный тип и тип её детей, из `_index.md`."""
     out: dict[str, tuple[str | None, str | None]] = {}
     for path in root.rglob(INDEX):
+        if not paths.inside(root, path):
+            continue  # об этом скажет основной обход
         rel = path.parent.relative_to(root).as_posix()
         rel = "" if rel == "." else rel
         try:
@@ -137,6 +141,16 @@ def scan(
 
         for path in sorted(lang_root.rglob("*.md")):
             rel = path.relative_to(content_root).as_posix()
+            # Файл-ссылка на чужой диск читается как обычный — и его текст
+            # уезжает в публичную сборку. Контент берётся только изнутри.
+            if not paths.inside(content_root, path):
+                collector.error(
+                    paths.CODE,
+                    "символическая ссылка ведёт за пределы content/",
+                    path=rel,
+                    hint="положите сам файл в content/ вместо ссылки на него",
+                )
+                continue
             parts = list(path.relative_to(lang_root).parts)
             name = parts.pop()
 

@@ -25,7 +25,7 @@ from pathlib import Path
 from PIL import Image
 
 from heron.contracts.theme import ImagesSpec
-from heron.core import notes
+from heron.core import notes, paths
 from heron.core.errors import Collector, HeronError
 from heron.core.models import Site
 
@@ -65,7 +65,10 @@ EXTERNAL = re.compile(r"^(?:[a-z][a-z0-9+.\-]*:)?//", re.I)
 # один дурной файл данных уводит обход в бесконечность.
 MAX_DEPTH = 8
 
-REFERENCE = re.compile(rf"""(?:\(|["'\s])((?:\./)?(?:{_IN})/[^)"'\s]+\.[a-zA-Z0-9]+)""")
+# Путь в тексте страницы: `media/x.png`, `./media/x.png` и `/media/x.png` —
+# один и тот же файл. Абсолютный от корня раньше не находился, и картинка
+# из markdown молча не доезжала до сборки.
+REFERENCE = re.compile(rf"""(?:\(|["'\s])((?:\./|/)?(?:{_IN})/[^)"'\s]+\.[a-zA-Z0-9]+)""")
 CACHE = "media.json"
 KEEP = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -126,7 +129,7 @@ class Manifest:
     raw: set[str] = field(default_factory=set)
 
     def get(self, src: str, ratio: str) -> Rendition | None:
-        return self.items.get(src.lstrip("./"), {}).get(ratio)
+        return self.items.get(paths.normalize(src), {}).get(ratio)
 
     def add(self, src: str, renditions: dict[str, Rendition]) -> None:
         self.items[src] = renditions
@@ -243,7 +246,7 @@ def walk(value, found: set[str], depth: int = 0) -> None:
         return
     if isinstance(value, str):
         if not EXTERNAL.match(value) and MEDIA_FIELD.match(value):
-            found.add(value.lstrip("./"))
+            found.add(paths.normalize(value))
     elif isinstance(value, dict):
         for item in value.values():
             walk(item, found, depth + 1)
@@ -260,11 +263,11 @@ def _page_images(page) -> set[str]:
         # Поле объявлено в контракте, но значением может быть и чужой адрес:
         # ролик на стороннем хостинге искать у себя на диске незачем.
         if value and not EXTERNAL.match(value):
-            found.add(value.lstrip("./"))
+            found.add(paths.normalize(value))
     walk(page.meta.model_extra or {}, found)
     chunks = [page.intro.raw if page.intro else "", *(s.raw for s in page.sections.values())]
     for chunk in chunks:
-        found.update(match.group(1).lstrip("./") for match in REFERENCE.finditer(chunk))
+        found.update(paths.normalize(match.group(1)) for match in REFERENCE.finditer(chunk))
     return found
 
 
@@ -283,10 +286,10 @@ def raw_references(site: Site, config=None) -> set[str]:
             page.meta.extra.get("twitter_image"),
         ):
             if isinstance(value, str) and value and not EXTERNAL.match(value):
-                found.add(value.lstrip("./"))
+                found.add(paths.normalize(value))
         chunks = [page.intro.raw if page.intro else "", *(s.raw for s in page.sections.values())]
         for chunk in chunks:
-            found.update(match.group(1).lstrip("./") for match in REFERENCE.finditer(chunk))
+            found.update(paths.normalize(match.group(1)) for match in REFERENCE.finditer(chunk))
     if config is not None:
         seo = config.seo.model_dump()
         for value in [
@@ -294,7 +297,7 @@ def raw_references(site: Site, config=None) -> set[str]:
             *seo.get("i18n", {}).get("og_default_image", {}).values(),
         ]:
             if isinstance(value, str) and value and not EXTERNAL.match(value):
-                found.add(value.lstrip("./"))
+                found.add(paths.normalize(value))
     return found
 
 
@@ -443,13 +446,42 @@ def verify(site: Site, site_root: Path, collector: Collector, config=None) -> No
     """
     declared = declared_by(site, config)
     for src in sorted(declared):
-        if not (site_root / src).is_file():
+        source = locate(site_root, src, declared, collector)
+        if source is None:
+            continue
+        if not source.is_file():
             collector.error(
                 "E007",
                 f"нет файла {src}",
                 path=_owner(declared, src),
                 hint="поправьте путь во фронтматтере или положите картинку",
             )
+
+
+def locate(
+    site_root: Path, src: str, declared: dict[str, list[str]], collector: Collector
+) -> Path | None:
+    """Файл ресурса на диске — только внутри папки ресурсов сайта.
+
+    Путь берётся из фронтматтера, данных и текста, то есть пишет его сайт.
+    `media/../../x` раньше читался с диска и копировался в сборку как есть.
+    Теперь путь нормализуется и разрешается со всеми ссылками; выход за
+    `media/` (или старую `img/`) — E024 с именем страницы, где он объявлен.
+    """
+    head = src.split("/", 1)[0]
+    try:
+        if head not in FOLDERS:
+            raise HeronError(code=paths.CODE, message="")
+        return paths.source(site_root / head, src.split("/", 1)[1] if "/" in src else "")
+    except HeronError:
+        collector.error(
+            paths.CODE,
+            f"путь {src!r} выходит за пределы {MEDIA}/",
+            path=_owner(declared, src),
+            hint="ресурсы берутся только из папки media/; уберите `..` и "
+            "символические ссылки наружу",
+        )
+        return None
 
 
 def _as_dict(renditions: dict[str, Rendition]) -> dict:
@@ -714,7 +746,9 @@ def plan(
 
     declared = declared_by(site, config)
     for src in sorted(declared):
-        source = site_root / src
+        source = locate(site_root, src, declared, collector)
+        if source is None:
+            continue
         if not source.is_file():
             if strict:
                 collector.error(
@@ -737,8 +771,9 @@ def plan(
         # не иллюстрация, его открывают целиком и в одном виде.
         untouched = any(src.startswith(rule) for rule in spec.as_is)
         if untouched or source.suffix.lower() not in KEEP:
-            (dist / src).parent.mkdir(parents=True, exist_ok=True)
-            (dist / src).write_bytes(source.read_bytes())
+            out = paths.target(dist, src)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(source.read_bytes())
             continue
 
         digest = _digest(source, spec)
@@ -818,13 +853,14 @@ def finish(
 
     placed = []
     for rel in sorted(wanted):
-        _place(slices / rel, dist / rel)
+        _place(slices / rel, paths.target(dist, rel))
         placed.append(rel)
     # Мастер рядом с нарезками — только по ссылке: «открыть целиком»,
     # og:image, картинка из текста. Без ссылки это мегабайты в каждой сборке.
     for src in sorted(masters):
-        (dist / src).parent.mkdir(parents=True, exist_ok=True)
-        (dist / src).write_bytes((site_root / src).read_bytes())
+        out = paths.target(dist, src)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(paths.source(site_root, src).read_bytes())
         placed.append(src)
 
     _sweep(slices, set(manifest.planned))

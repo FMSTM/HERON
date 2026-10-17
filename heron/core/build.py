@@ -19,7 +19,7 @@ from heron.contracts import wiring
 from heron.contracts.site import SiteConfig, load_site
 from heron.contracts.theme import ThemeConfig, load_theme
 from heron.core import data as data_module
-from heron.core import dates, links, media, notes, notfound, report, resolver, tree
+from heron.core import dates, links, media, notes, notfound, paths, report, resolver, tree
 from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError
 from heron.core.hooks import Hooks
@@ -60,7 +60,7 @@ def _page_path(url: str) -> str:
 
 
 def _write(dist: Path, name: str, text: str) -> None:
-    path = dist / name
+    path = paths.target(dist, name)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
@@ -71,15 +71,16 @@ def _copy_tree(source: Path, target: Path) -> None:
     `static/` уезжает байт в байт — вместе со служебной запиской и с тем,
     что насыпал файловый менеджер. И то и другое оказалось бы опубликовано
     по своему адресу.
+
+    Символическая ссылка наружу — E024, а не копия чужого файла в
+    публичную сборку (`paths.files`).
     """
-    if not source.is_dir():
-        return
-    shutil.copytree(
-        source,
-        target,
-        dirs_exist_ok=True,
-        ignore=lambda _dir, names: [name for name in names if notes.skip(name)],
-    )
+    for rel, path in paths.files(source, where=str(source)):
+        if any(notes.skip(part) for part in rel.split("/")):
+            continue
+        out = paths.target(target, rel)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, out)
 
 
 def _readable(dist: Path) -> None:
@@ -151,6 +152,7 @@ def run(
 
     say.step("step_config")
     config, theme, theme_dir, hooks = prepare(site_root, collector)
+    paths.layout(site_root, dist, dist.parent / CACHE, sources(site_root, theme_dir))
     for_env(config, env)
     say.done("done_config", theme=config.site.theme, langs=len(config.site.languages))
 
@@ -295,13 +297,17 @@ def run(
 TEXT_SUFFIXES = {".css", ".js", ".html", ".svg", ".json", ".xml", ".txt", ".webmanifest"}
 
 
+def sources(site_root: Path, theme_dir: Path) -> list[Path]:
+    """Папки исходников: в них сборка не пишет и с ними не пересекается."""
+    names = ("content", "data", media.MEDIA, media.LEGACY, STATIC)
+    return [*(site_root / name for name in names), theme_dir]
+
+
 def _texts(folder: Path) -> list[str]:
     """Текстовые файлы папки: в них тоже бывают ссылки на /media/."""
-    if not folder.is_dir():
-        return []
     out = []
-    for path in sorted(folder.rglob("*")):
-        if path.is_file() and path.suffix.lower() in TEXT_SUFFIXES:
+    for _, path in paths.files(folder, where=str(folder)):
+        if path.suffix.lower() in TEXT_SUFFIXES:
             try:
                 out.append(path.read_text(encoding="utf-8"))
             except (OSError, UnicodeDecodeError):

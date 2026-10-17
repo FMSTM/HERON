@@ -38,18 +38,25 @@ def snapshot(root: Path) -> Snapshot:
     прохода по тем же папкам.
     """
     found: Snapshot = {}
+
+    def take(path: Path, name: str) -> None:
+        # Файл, исчезнувший между обходом и stat (временный файл редактора),
+        # просто не попадает в снимок, а не роняет просмотр.
+        try:
+            if path.is_file():
+                stat = path.stat()
+                found[name] = (stat.st_mtime_ns, stat.st_size)
+        except OSError:
+            pass
+
     for entry in sorted(root.iterdir()) if root.is_dir() else []:
-        if entry.is_file():
-            stat = entry.stat()
-            found[entry.name] = (stat.st_mtime_ns, stat.st_size)
+        take(entry, entry.name)
     for folder in WATCHED:
         base = root / folder
         if not base.is_dir():
             continue
         for path in base.rglob("*"):
-            if path.is_file():
-                stat = path.stat()
-                found[path.relative_to(root).as_posix()] = (stat.st_mtime_ns, stat.st_size)
+            take(path, path.relative_to(root).as_posix())
     return found
 
 

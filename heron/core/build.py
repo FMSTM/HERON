@@ -202,116 +202,124 @@ def run(
     if collector.failed:
         return result
 
-    say.step("step_images")
-    media.folder(site_root, collector)
-    media.check_video(site, collector)
-    # План, а не нарезка: шаблонам нужны имена и размеры, а кодировать стоит
-    # только то, на что после рендера найдётся ссылка (этап «нарезка» ниже).
-    manifest = (
-        media.plan(
-            site,
-            site_root,
-            dist,
-            theme.images,
-            collector,
-            cache_dir=dist.parent / CACHE,
-            strict=strict,
-            config=config,
-        )
-        if with_media
-        else media.Manifest()
-    )
-    say.done("done_masters", count=len(manifest.items))
-    if collector.failed:
-        return result
-
-    say.step("step_templates")
-    html = renderer.render_site(
-        theme_dir, site, config, theme, collector, manifest, env, progress=say, hooks=hooks
-    )
-    say.done("done_pages", count=len(html))
-    if collector.failed:
-        return result
-
-    say.step("step_generators")
-    outputs = output.Outputs(overrides={paths.normalize(o) for o in config.build.overrides})
-
-    def claim(files: dict[str, str], kind: str, owner: str) -> None:
-        for name, text in files.items():
-            outputs.add(name, output.Entry(owner=owner, kind=kind, text=text), collector)
-
-    by_url = {page.url: page for page in site.pages}
-    for url, text in html.items():
-        page = by_url.get(url)
-        owner = f"страница {page.source}" if page is not None and page.source else f"страница {url}"
-        outputs.add(_page_path(url), output.Entry(owner=owner, kind="page", text=text), collector)
-    not_found = html.get("/404/")
-    if not_found:
-        claim({"404.html": not_found}, "page", "страница 404")
-    claim(sitemap.generate(site, config), "generator", "генератор sitemap")
-    claim(robots.generate(config, env), "generator", "генератор robots.txt")
-    claim(llms.generate(site, config), "generator", "генератор llms.txt")
-    moves = redirects.collect(site, collector, config)
-    claim(redirects.files(moves), "generator", "генератор карт 301/410")
-    claim(nginx.generate(config, moves), "generator", "генератор конфига nginx")
-    claim(feed.generate(site, config), "generator", "генератор ленты")
-    say.done()
-
-    for extra in hooks.call("on_generate", site, config):
-        if isinstance(extra, dict):
-            claim(extra, "plugin", "плагин (on_generate)")
-
-    _claim_tree(outputs, site_root / STATIC, "", "static", "static", collector)
-    _claim_tree(outputs, theme_dir / ASSETS, f"{ASSETS}/", "asset", "тема assets", collector)
-    if collector.failed:
-        return result
-
-    if with_media:
-        # Режем только то, на что ссылается собранный сайт: страницы, карты,
-        # разметка, файлы плагинов, стили темы и статика. Всё прочее из плана
-        # остаётся в кэше и в сборку не едет.
-        say.step("step_slices")
-        texts = outputs.texts()
-        texts += _texts(theme_dir / ASSETS)
-        texts += _texts(site_root / STATIC)
-        placed = media.finish(
-            manifest,
-            site_root,
-            theme.images,
-            used=media.used_in(texts),
-            cache_dir=dist.parent / CACHE,
-            workers=config.build.workers,
-            progress=say,
-        )
-        for item in placed:
-            outputs.add(
-                item.rel,
-                output.Entry(
-                    owner=item.owner or item.rel,
-                    kind="media",
-                    source=item.source,
-                    link=item.link,
-                ),
+    # Кэш нарезок общий для сборок в одну папку: от плана до записи сборка
+    # держит разделяемую блокировку, чтобы уборка не удалила нужное ей.
+    cache = dist.parent / CACHE
+    with media.using(cache):
+        say.step("step_images")
+        media.folder(site_root, collector)
+        media.check_video(site, collector)
+        # План, а не нарезка: шаблонам нужны имена и размеры, а кодировать стоит
+        # только то, на что после рендера найдётся ссылка (этап «нарезка» ниже).
+        manifest = (
+            media.plan(
+                site,
+                site_root,
+                dist,
+                theme.images,
                 collector,
+                cache_dir=cache,
+                strict=strict,
+                config=config,
             )
-        say.done("done_files", count=len(placed))
+            if with_media
+            else media.Manifest()
+        )
+        say.done("done_masters", count=len(manifest.items))
+        if collector.failed:
+            return result
 
-    outputs.check_tree(collector)
-    outputs.check_overrides(collector)
+        say.step("step_templates")
+        html = renderer.render_site(
+            theme_dir, site, config, theme, collector, manifest, env, progress=say, hooks=hooks
+        )
+        say.done("done_pages", count=len(html))
+        if collector.failed:
+            return result
 
-    # Всё, что может забраковать сборку, — до записи: отчёт, разметка,
-    # nginx -t. Строгая сборка с предупреждением не трогает прошлую версию.
-    result.report = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
-    nginx_conf = outputs.entries.get(nginx.NAME)
-    result.report.nginx_test = nginx.check(nginx_conf.text if nginx_conf else None, collector)
-    _schema(site, config, theme, collector, result.report)
-    if result.failed:
-        return result
+        say.step("step_generators")
+        outputs = output.Outputs(overrides={paths.normalize(o) for o in config.build.overrides})
 
-    say.step("step_write")
-    result.applied = output.commit(dist, outputs)
-    say.done("done_files", count=len(outputs.entries))
-    result.written = sorted(outputs.entries)
+        def claim(files: dict[str, str], kind: str, owner: str) -> None:
+            for name, text in files.items():
+                outputs.add(name, output.Entry(owner=owner, kind=kind, text=text), collector)
+
+        by_url = {page.url: page for page in site.pages}
+        for url, text in html.items():
+            page = by_url.get(url)
+            owner = (
+                f"страница {page.source}" if page is not None and page.source else f"страница {url}"
+            )
+            outputs.add(
+                _page_path(url), output.Entry(owner=owner, kind="page", text=text), collector
+            )
+        not_found = html.get("/404/")
+        if not_found:
+            claim({"404.html": not_found}, "page", "страница 404")
+        claim(sitemap.generate(site, config), "generator", "генератор sitemap")
+        claim(robots.generate(config, env), "generator", "генератор robots.txt")
+        claim(llms.generate(site, config), "generator", "генератор llms.txt")
+        moves = redirects.collect(site, collector, config)
+        claim(redirects.files(moves), "generator", "генератор карт 301/410")
+        claim(nginx.generate(config, moves), "generator", "генератор конфига nginx")
+        claim(feed.generate(site, config), "generator", "генератор ленты")
+        say.done()
+
+        for extra in hooks.call("on_generate", site, config):
+            if isinstance(extra, dict):
+                claim(extra, "plugin", "плагин (on_generate)")
+
+        _claim_tree(outputs, site_root / STATIC, "", "static", "static", collector)
+        _claim_tree(outputs, theme_dir / ASSETS, f"{ASSETS}/", "asset", "тема assets", collector)
+        if collector.failed:
+            return result
+
+        if with_media:
+            # Режем только то, на что ссылается собранный сайт: страницы, карты,
+            # разметка, файлы плагинов, стили темы и статика. Всё прочее из плана
+            # остаётся в кэше и в сборку не едет.
+            say.step("step_slices")
+            texts = outputs.texts()
+            texts += _texts(theme_dir / ASSETS)
+            texts += _texts(site_root / STATIC)
+            placed = media.finish(
+                manifest,
+                site_root,
+                theme.images,
+                used=media.used_in(texts),
+                cache_dir=cache,
+                workers=config.build.workers,
+                progress=say,
+            )
+            for item in placed:
+                outputs.add(
+                    item.rel,
+                    output.Entry(
+                        owner=item.owner or item.rel,
+                        kind="media",
+                        source=item.source,
+                        link=item.link,
+                    ),
+                    collector,
+                )
+            say.done("done_files", count=len(placed))
+
+        outputs.check_tree(collector)
+        outputs.check_overrides(collector)
+
+        # Всё, что может забраковать сборку, — до записи: отчёт, разметка,
+        # nginx -t. Строгая сборка с предупреждением не трогает прошлую версию.
+        result.report = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
+        nginx_conf = outputs.entries.get(nginx.NAME)
+        result.report.nginx_test = nginx.check(nginx_conf.text if nginx_conf else None, collector)
+        _schema(site, config, theme, collector, result.report)
+        if result.failed:
+            return result
+
+        say.step("step_write")
+        result.applied = output.commit(dist, outputs)
+        say.done("done_files", count=len(outputs.entries))
+        result.written = sorted(outputs.entries)
 
     # После записи: результат уже на месте, хук его видит, но изменить
     # сборку не может. Файлы отсюда больше не принимаются — для них
@@ -322,6 +330,7 @@ def run(
                 "плагин вернул файлы из on_build_finished — они не записаны: "
                 "файлы сборки объявляются в on_generate(site, config)"
             )
+    media.sweep_daily(cache)
     return result
 
 

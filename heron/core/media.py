@@ -831,7 +831,14 @@ def sweep(cache_dir: Path, days: int = KEEP_DAYS, now: float | None = None) -> l
     now = now or time.time()
     removed: list[Path] = []
     with (base / LOCK).open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+        # Живые сборки держат разделяемую блокировку (`using`) от плана до
+        # записи результата. Занято — уборка ждёт следующего раза, а не
+        # сборку: удалить запись, которую соседняя сборка вот-вот возьмёт,
+        # значит уронить её.
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return []
         for version in base.iterdir():
             if not version.is_dir():
                 continue
@@ -927,12 +934,29 @@ def finish(
     placed += [
         Placed(src, source, False, f"файл {src}") for src, source in sorted(manifest.copies.items())
     ]
-    if cache_dir is not None:
-        _sweep_daily(cache_dir)
     return placed
 
 
-def _sweep_daily(cache_dir: Path) -> None:
+@contextlib.contextmanager
+def using(cache_dir: Path):
+    """Сборка пользуется кэшем: разделяемая блокировка от плана до записи.
+
+    Под ней сборки идут параллельно сколько угодно; уборке (`sweep`) нужна
+    исключительная, и пока кто-то собирает, она просто не начнётся.
+    """
+    import fcntl
+
+    base = cache_dir / SLICES
+    base.mkdir(parents=True, exist_ok=True)
+    with (base / LOCK).open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_SH)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def sweep_daily(cache_dir: Path) -> None:
     """Уборка кэша — не чаще раза в сутки: обход всех записей не бесплатен."""
     import time
 
@@ -965,14 +989,17 @@ def build(
     только то, на что есть ссылки (`finish`). Этот вход нужен там, где
     шаблонов нет, — проверить нарезку саму по себе.
     """
-    manifest = plan(site, site_root, dist, spec, collector, cache_dir, strict, config)
     from heron.core import output
 
-    outputs = output.Outputs()
-    for item in finish(manifest, site_root, spec, None, cache_dir, workers, progress):
-        entry = output.Entry(
-            owner=item.owner or item.rel, kind="media", source=item.source, link=item.link
-        )
-        outputs.add(item.rel, entry, collector)
-    output.commit(dist, outputs)
+    with using(cache_dir or site_root / ".heron-cache"):
+        manifest = plan(site, site_root, dist, spec, collector, cache_dir, strict, config)
+        outputs = output.Outputs()
+        for item in finish(manifest, site_root, spec, None, cache_dir, workers, progress):
+            entry = output.Entry(
+                owner=item.owner or item.rel, kind="media", source=item.source, link=item.link
+            )
+            outputs.add(item.rel, entry, collector)
+        output.commit(dist, outputs)
+    if cache_dir is not None:
+        sweep_daily(cache_dir)
     return manifest

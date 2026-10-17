@@ -159,6 +159,7 @@ def run(
     site, collector = tree.scan(site_root / "content", config, md, collector, drafts=drafts)
     site.data = data_module.load(site_root / "data", collector)
     dates.resolve(site, site_root, config.build.updated_from, collector)
+    dates.check(site, collector)
     hooks.call("on_tree_built", site)
     say.done("done_pages", count=len(site.pages))
 
@@ -333,6 +334,7 @@ def check(site_root: Path, drafts: bool = False) -> Result:
     site, collector = tree.scan(site_root / "content", config, md, collector, drafts=drafts)
     site.data = data_module.load(site_root / "data", collector)
     dates.resolve(site, site_root, config.build.updated_from, collector)
+    dates.check(site, collector)
     notfound.ensure(site, config, theme_dir, collector)
     links.resolve(site, config, theme, collector)
     media.folder(site_root, collector)

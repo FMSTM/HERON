@@ -27,7 +27,7 @@ from typing import Any
 
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
-from heron.core.models import Page
+from heron.core.models import Page, stamp
 from heron.core.urls import absolute
 
 # Подстановка целиком в значении: {{ contact.city }}. Внутри строки тоже
@@ -307,9 +307,9 @@ def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list
             "inLanguage": page.lang,
         }
         if page.date:
-            node["datePublished"] = page.date.isoformat()
+            node["datePublished"] = stamp(page.date_at)
         if page.updated:
-            node["dateModified"] = page.updated.isoformat()
+            node["dateModified"] = stamp(page.updated_at)
         node = _merge(node, shared.get(kind, {}) if isinstance(shared.get(kind), dict) else {})
         node = _merge(node, own.get(kind, {}) if isinstance(own.get(kind), dict) else {})
         node = _fill(

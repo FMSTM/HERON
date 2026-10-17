@@ -16,7 +16,7 @@ from __future__ import annotations
 from xml.sax.saxutils import escape
 
 from heron.contracts.site import SiteConfig
-from heron.core.models import Page, Site
+from heron.core.models import Page, Site, stamp
 from heron.core.urls import absolute
 
 XMLNS = "http://www.sitemaps.org/schemas/sitemap/0.9"
@@ -59,7 +59,7 @@ def alternates(page: Page, config: SiteConfig) -> list[tuple[str, str]]:
 def _entry(page: Page, config: SiteConfig) -> str:
     lines = ["  <url>", f"    <loc>{escape(absolute(config, page.url))}</loc>"]
     if page.updated:
-        lines.append(f"    <lastmod>{page.updated.isoformat()}</lastmod>")
+        lines.append(f"    <lastmod>{stamp(page.updated_at)}</lastmod>")
     links = alternates(page, config)
     if len(links) > 2:  # сама страница и x-default смысла не добавляют
         for lang, href in links:

@@ -13,7 +13,7 @@ from datetime import date
 from xml.sax.saxutils import escape
 
 from heron.contracts.site import SiteConfig
-from heron.core.models import Page, Site
+from heron.core.models import Page, Site, moment, stamp
 from heron.core.urls import absolute, home_url
 
 EPOCH = date(1970, 1, 1)
@@ -26,17 +26,15 @@ def _when(page: Page) -> date:
 
 def _item(page: Page, config: SiteConfig) -> str:
     url = absolute(config, page.url)
-    updated = (page.updated or page.date or EPOCH).isoformat()
-    published = (
-        f"    <published>{page.date.isoformat()}T00:00:00Z</published>\n" if page.date else ""
-    )
+    updated = stamp(page.updated_at or page.date_at or EPOCH)
+    published = f"    <published>{stamp(page.date_at)}</published>\n" if page.date else ""
     return (
         "  <entry>\n"
         f"    <title>{escape(page.h1)}</title>\n"
         f'    <link href="{escape(url)}"/>\n'
         f"    <id>{escape(url)}</id>\n"
         f"{published}"
-        f"    <updated>{updated}T00:00:00Z</updated>\n"
+        f"    <updated>{updated}</updated>\n"
         f"    <summary>{escape(page.meta.description)}</summary>\n"
         "  </entry>"
     )
@@ -55,7 +53,9 @@ def generate(site: Site, config: SiteConfig) -> dict[str, str]:
 
     home = site.by_url.get(home_url(config, lang))
     title = home.h1 if home else (config.for_lang(lang).site.name or config.site.domain)
-    updated = max((p.updated or p.date or EPOCH for p in pages), default=EPOCH).isoformat()
+    updated = stamp(
+        max((p.updated_at or p.date_at or moment(EPOCH) for p in pages), default=moment(EPOCH))
+    )
 
     entries = "\n".join(_item(p, config) for p in pages)
     return {
@@ -65,7 +65,7 @@ def generate(site: Site, config: SiteConfig) -> dict[str, str]:
             f"  <title>{escape(title)}</title>\n"
             f'  <link href="{escape(absolute(config, home_url(config, lang)))}"/>\n'
             f"  <id>{escape(absolute(config, home_url(config, lang)))}</id>\n"
-            f"  <updated>{updated}T00:00:00Z</updated>\n"
+            f"  <updated>{updated}</updated>\n"
             f"{entries}\n"
             "</feed>\n"
         )

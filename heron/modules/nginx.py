@@ -51,12 +51,12 @@ server {
     # показывать старую картинку тем, кто уже заходил.
     location ^~ /media/ {
         add_header Cache-Control "public, max-age=86400" always;
-        location ~ /\. { return 404; }
+        location ~ /\\. { return 404; }
         try_files $uri =404;
     }
     location ^~ /assets/ {
         add_header Cache-Control "public, max-age=86400" always;
-        location ~ /\. { return 404; }
+        location ~ /\\. { return 404; }
         try_files $uri =404;
     }
 """

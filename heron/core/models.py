@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime, time
 from typing import Any
 
 from heron.contracts.frontmatter import PageMeta
@@ -115,8 +115,9 @@ class Page:
 
     # Дата из истории или из времени файла: то, что движок выяснил сам.
     # Рядом с meta.updated, а не вместо него: по нему всегда видно,
-    # что дату поставили руками.
-    auto_updated: date | None = None
+    # что дату поставили руками. Из git — время коммита с его поясом,
+    # из файла — день.
+    auto_updated: date | datetime | None = None
 
     # Ссылки тела страницы как их написал автор: номер строки и адрес.
     # Хранятся от обхода, потому что в отрендеренном HTML строк уже нет.
@@ -140,12 +141,28 @@ class Page:
         разметки обязаны говорить одно и то же: разъехавшись, они
         превращаются в три разных ответа на один вопрос.
         """
-        return self.meta.updated or self.auto_updated
+        value = self.meta.updated or self.auto_updated
+        return value.date() if isinstance(value, datetime) else value
+
+    @property
+    def updated_at(self) -> datetime | None:
+        """То же обновление — моментом времени с поясом, для машин.
+
+        `dateModified`, `lastmod` и Atom требуют полную дату со временем
+        и поясом. Время коммита идёт как есть, день без времени — полночь
+        UTC: в Европе она уже прошла, так что дата не попадёт в будущее.
+        """
+        return moment(self.meta.updated or self.auto_updated)
 
     @property
     def date(self) -> date | None:
         """Дата публикации из фронтматтера. Нет поля — нет даты."""
         return self.meta.date
+
+    @property
+    def date_at(self) -> datetime | None:
+        """Дата публикации моментом времени: полночь UTC."""
+        return moment(self.meta.date)
 
     @property
     def h1(self) -> str:
@@ -254,3 +271,18 @@ class Site:
 
     def of_type(self, page_type: str, lang: str | None = None) -> list[Page]:
         return [p for p in self.pages if p.type == page_type and (lang is None or p.lang == lang)]
+
+
+def moment(value: date | datetime | None) -> datetime | None:
+    """День или время — в момент с поясом. День становится полночью UTC."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=UTC)
+    return datetime.combine(value, time(0), tzinfo=UTC)
+
+
+def stamp(value: date | datetime | None) -> str | None:
+    """Полная дата для машин: `2026-10-17T11:30:12+02:00`."""
+    found = moment(value)
+    return found.isoformat(timespec="seconds") if found else None

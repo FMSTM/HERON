@@ -8,11 +8,16 @@
 Источник выбирается в `site.yaml`, ключом `build.updated_from`:
 
     manual  как было: только то, что написано во фронтматтере
-    git     дата последнего коммита, затронувшего файл
+    git     время последнего коммита, затронувшего файл, с поясом коммита
     file    время файла на диске, сознательно и молча
 
 Умолчание — `manual`: обновление движка не меняет поведение существующих
 сайтов само по себе.
+
+Машинам (JSON-LD, `lastmod`, Atom) даты уходят полной датой со временем и
+поясом: из git — время коммита как его отдаёт `%cI`, день без времени —
+полночь UTC. Подпись на странице остаётся днём. `check` следит, чтобы ни
+одна дата не была позже сборки и обновление не было раньше публикации.
 
 Спецификация: docs/spec/21-engine.md, раздел 4, этап 2.
 """
@@ -28,7 +33,7 @@ from heron.core.errors import Collector
 from heron.core.models import Site
 
 TIMEOUT = 30
-STAMP = re.compile(r"^\d+$")
+STAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}([+-]\d{2}:\d{2}|Z)$")
 
 # Гит отказывается работать в папке, которой владеет кто-то другой. В нашем
 # случае «кто-то другой» — хозяин папки сайта, а мы внутри контейнера с
@@ -85,34 +90,34 @@ def _git(site_root: Path, *args: str) -> str | None:
     return done.stdout if done.returncode == 0 else None
 
 
-def _history(site_root: Path) -> dict[str, date] | None:
-    """Дата последнего коммита по каждому пути — одним вызовом.
+def _history(site_root: Path) -> dict[str, datetime] | None:
+    """Время последнего коммита по каждому пути — одним вызовом.
 
     Не `git log -1` на файл: на сайте в несколько сотен страниц это сотни
     запусков процесса, минуты вместо секунд. Один обход истории отдаёт
     всё сразу, а первое попадание пути и есть последнее его изменение.
 
-    Берётся дата автора, а не коммитера: коммитер переписывается при
-    каждом ребейзе, и даты на сайте прыгали бы от перекладывания веток,
-    хотя текст не менялся.
+    Берётся время коммитера (`%cI`) с его поясом: это момент, когда правка
+    попала в историю, а значит и на сайт не раньше. Время автора бывает
+    старше на недели (ребейз, черри-пик) и для «когда обновлено» врёт.
 
     Переименования не отслеживаются намеренно. Для сайта переименование
     файла — это смена адреса, то есть страница действительно изменилась.
     """
     prefix = _git(site_root, "rev-parse", "--show-prefix")
-    out = _git(site_root, "log", "--pretty=format:%at", "--name-only", "--no-renames")
+    out = _git(site_root, "log", "--pretty=format:%cI", "--name-only", "--no-renames")
     if prefix is None or out is None:
         return None
 
     root = prefix.strip()
-    found: dict[str, date] = {}
-    stamp: date | None = None
+    found: dict[str, datetime] = {}
+    stamp: datetime | None = None
     for line in out.splitlines():
         line = line.strip()
         if not line:
             continue
         if STAMP.match(line):
-            stamp = datetime.fromtimestamp(int(line), UTC).date()
+            stamp = datetime.fromisoformat(line)
         elif stamp is not None and line.startswith(root):
             found.setdefault(line[len(root) :], stamp)
     return found
@@ -183,3 +188,31 @@ def _by_file(pages, content: Path, collector: Collector, loud: bool) -> None:
             collector.warn("файл не читается — даты нет", path=source, kind="даты")
     for page in pages:
         page.auto_updated = stamps.get(page.source)
+
+
+def check(site: Site, collector: Collector, now: datetime | None = None) -> None:
+    """Даты, которые поисковик сочтёт ошибкой: из будущего и задом наперёд.
+
+    Будущее — момент позже сборки. Ручной день сравнивается полночью UTC,
+    ровно тем, что уйдёт в разметку. Порядок — по дням: публикация в день
+    без времени и правка того же дня ранним утром по местному поясу — не
+    ошибка, хотя моменты могут разойтись на пару часов.
+    """
+    now = now or datetime.now(UTC)
+    for page in site.pages:
+        if page.generated:
+            continue
+        for name, moment in (("date", page.date_at), ("updated", page.updated_at)):
+            if moment is not None and moment > now:
+                collector.warn(
+                    f"{name}: {moment.isoformat(timespec='seconds')} — позже сборки; "
+                    "поисковик сочтёт дату ошибкой",
+                    path=page.source,
+                    kind="даты",
+                )
+        if page.date and page.updated and page.updated < page.date:
+            collector.warn(
+                f"обновление {page.updated.isoformat()} раньше публикации {page.date.isoformat()}",
+                path=page.source,
+                kind="даты",
+            )

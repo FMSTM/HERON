@@ -55,7 +55,7 @@ def test_feed_sorted_by_date_then_updated(tmp_path):
     xml = feed.generate(site, config)["feed.xml"]
     order = re.findall(r"<title>([^<]+)</title>", xml)[1:]
     assert order == ["Нова", "Без дати", "Стара"]
-    assert "<published>2026-05-01T00:00:00Z</published>" in xml
+    assert "<published>2026-05-01T00:00:00+00:00</published>" in xml
     assert xml.count("<published>") == 2
 
 
@@ -97,8 +97,8 @@ def test_jsonld_has_date_published_and_modified(tmp_path):
     result = pipeline.run(root)
     assert not result.failed, [str(e) for e in result.collector.errors]
     article = next(n for n in _ld(root) if n.get("@type") == "Article")
-    assert article["datePublished"] == "2026-03-14"
-    assert article["dateModified"] == "2026-09-02"
+    assert article["datePublished"] == "2026-03-14T00:00:00+00:00"
+    assert article["dateModified"] == "2026-09-02T00:00:00+00:00"
 
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="нет git")
@@ -119,5 +119,5 @@ def test_updated_from_git_takes_commit_date(tmp_path):
     assert not result.failed
     assert result.site.page("a", "uk").updated == date(2025, 11, 20)
     article = next(n for n in _ld(root) if n.get("@type") == "Article")
-    assert article["dateModified"] == "2025-11-20"
+    assert article["dateModified"] == "2025-11-20T10:00:00+00:00"
     assert "datePublished" not in article

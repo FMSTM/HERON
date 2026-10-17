@@ -18,7 +18,19 @@ from heron.contracts import wiring
 from heron.contracts.site import SiteConfig, load_site
 from heron.contracts.theme import ThemeConfig, load_theme
 from heron.core import data as data_module
-from heron.core import dates, links, media, notes, notfound, output, paths, report, resolver, tree
+from heron.core import (
+    dates,
+    links,
+    media,
+    notes,
+    notfound,
+    output,
+    paths,
+    report,
+    resolver,
+    tree,
+    urls,
+)
 from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError
 from heron.core.hooks import Hooks
@@ -185,6 +197,8 @@ def run(
             "языком, на котором контент уже есть",
         )
 
+    _roots(site, config, collector, prod=env.is_prod)
+
     result = Result(
         config=config,
         theme=theme,
@@ -310,6 +324,31 @@ def run(
     return result
 
 
+def _roots(site: Site, config: SiteConfig, collector: Collector, prod: bool) -> None:
+    """У каждого языка сайта есть главная: `content/<язык>/index.md`.
+
+    Без неё корень языка (`/` или `/ru/`) отвечает 404, хотя переключатель
+    языков и hreflang ведут именно туда. В проде это ошибка `E028`, на деве
+    и в `check` — предупреждение: главную часто пишут последней. Пустой язык
+    по умолчанию — отдельная, более ранняя ошибка `E021`.
+    """
+    said = {e.code for e in collector.errors}
+    if "E017" in said:
+        return  # страниц нет вовсе — об этом уже сказано
+    for lang in config.site.languages:
+        home = urls.home_url(config, lang)
+        if any(p.url == home and not p.generated for p in site.pages):
+            continue
+        if lang == config.site.default_lang and "E021" in said:
+            continue  # об этом уже сказано
+        message = f"у языка {lang!r} нет главной страницы: {home} ответит 404"
+        where = f"content/{lang}/index.md"
+        if prod:
+            collector.error("E028", message, path=where, hint="создайте index.md в корне языка")
+        else:
+            collector.warn(message, path=where, kind="языки")
+
+
 TEXT_SUFFIXES = {".css", ".js", ".html", ".svg", ".json", ".xml", ".txt", ".webmanifest"}
 
 
@@ -362,6 +401,7 @@ def check(site_root: Path, drafts: bool = False, strict: bool = False) -> Result
     dates.check(site, collector)
     notfound.ensure(site, config, theme_dir, collector)
     links.resolve(site, config, theme, collector)
+    _roots(site, config, collector, prod=False)
     media.folder(site_root, collector)
     media.check_video(site, collector)
     media.verify(site, site_root, collector, config)

@@ -272,12 +272,22 @@ def localize(site: Site, config: SiteConfig, collector: Collector) -> None:
         for section in (page.intro, *page.sections.values()):
             if section is None:
                 continue
-            if section.html:
-                section.html = HREF.sub(localized, section.html)
+            # Каждое представление секции — отдельно отрендеренный кусок:
+            # подводка, примечание, врезка, обещание вступления. Переписать
+            # только html значило оставить в них адреса чужого языка.
+            # Каждое поле переписывается ровно один раз, из исходного вида.
+            for name in ("html", "lead", "note", "callout", "promise"):
+                value = getattr(section, name)
+                if value:
+                    setattr(section, name, HREF.sub(localized, value))
             # Структурированные секции — списки, шаги, вопросы, таблицы —
             # хранят уже отрендеренные куски HTML, разобранные на этапе
             # парсинга. Ссылки живут и там
             section.data = _rewrite(section.data, localized)
+            # Список ссылок секции выводится из уже переписанного html, а не
+            # переписывается второй раз: двойная замена превращала бы
+            # локализованный адрес в адрес третьей страницы.
+            section.links = blocks.links_of(section.html)
 
 
 def _families(site: Site) -> None:

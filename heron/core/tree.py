@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from urllib.parse import unquote
 
 from markdown_it import MarkdownIt
 
@@ -79,21 +80,50 @@ def folder_url(parts: list[str], folder_slugs: dict[str, str]) -> list[str]:
     ]
 
 
-LINK_IN_TEXT = re.compile(r"\]\(\s*(/[^)\s]+)|href=\"(/[^\"]+)\"")
+HTML_HREF = re.compile(r'href="(/[^"]+)"')
 
 
-def _links(body: str, offset: int) -> list[tuple[int, str]]:
+def _links(md, body: str, offset: int) -> list[tuple[int, str]]:
     """Внутренние ссылки тела страницы с номером строки, как их написал автор.
 
     Номер строки нужен именно здесь: после разбора markdown остаётся HTML,
     в котором строк исходника уже нет, а человеку править файл. Тем более
     теперь, когда адрес раздела задаётся слагом: переименовали раздел —
     и руками написанные ссылки на него ведут в никуда, молча.
+
+    Ссылки берутся из токенов того же разборщика, что рендерит страницу, а
+    не регуляркой по строкам: так видны ссылки через определения
+    (`[текст][метка]` и `[метка]: /адрес/`), а «ссылка» в блоке кода
+    ссылкой не считается.
     """
+    lines = body.splitlines()
+
+    def line_of(href: str, start: int, end: int) -> int:
+        for index in range(start, min(end, len(lines))):
+            if href in lines[index]:
+                return offset + index
+        for index, text in enumerate(lines):  # ссылка через определение
+            if "]:" in text and href in text:
+                return offset + index
+        return offset + start
+
     out: list[tuple[int, str]] = []
-    for number, line in enumerate(body.splitlines(), start=offset):
-        for match in LINK_IN_TEXT.finditer(line):
-            out.append((number, match.group(1) or match.group(2)))
+    for token in md.parse(body, {}):
+        start, end = token.map or (0, 0)
+        if token.type == "html_block":
+            for match in HTML_HREF.finditer(token.content):
+                out.append((line_of(match.group(1), start, end), match.group(1)))
+            continue
+        if token.type != "inline":
+            continue
+        for child in token.children or []:
+            if child.type == "link_open":
+                href = unquote(str(child.attrGet("href") or ""))
+                if href.startswith("/") and not href.startswith("//"):
+                    out.append((line_of(href, start, end), href))
+            elif child.type == "html_inline":
+                for match in HTML_HREF.finditer(child.content):
+                    out.append((line_of(match.group(1), start, end), match.group(1)))
     return out
 
 
@@ -233,7 +263,7 @@ def scan(
                 intro=intro,
                 url=url_for(lang, config.site.default_lang, url_parts),
                 type=page_type,
-                links=_links(body, body_line),
+                links=_links(md, body, body_line),
             )
 
             if not meta.published and not drafts:
@@ -246,6 +276,19 @@ def scan(
                     f"адрес {page.url} уже занят файлом {clash.source}",
                     path=rel,
                     hint="переименуйте файл или задайте другой slug во фронтматтере",
+                )
+                continue
+            twin = site.by_key.get((lang, key))
+            if twin is not None:
+                # Ключ связывает переводы и ссылки. Два файла с одним ключом
+                # (`a.md` со своим slug и раздел `a/_index.md`) молча
+                # затирали друг друга: ссылки и переводы вели не туда.
+                collector.error(
+                    "E029",
+                    f"ключ страницы {key!r} ({lang}) уже у файла {twin.source}",
+                    path=rel,
+                    hint="у страницы и раздела одного уровня не может быть одного имени; "
+                    "переименуйте файл",
                 )
                 continue
 

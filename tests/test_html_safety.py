@@ -151,3 +151,32 @@ def test_browser_runs_no_injected_script(tmp_path):
             browser.close()
     nodes = [n for d in data for n in d.get("@graph", [d])]
     assert any(n.get("headline") == PAYLOAD for n in nodes)
+
+
+def test_picture_escapes_site_controlled_paths_and_sizes(tmp_path):
+    """`picture()` возвращает Markup — автоэкранирование Jinja его не трогает.
+
+    Имя файла пишет сайт: кавычка в имени мастера разрывала атрибут src,
+    и дальше шёл любой атрибут, включая обработчик события.
+    """
+    from PIL import Image
+
+    root = site(tmp_path, "image: './media/x\"onerror=\"alert(1).png'\nimage_alt: p\n")
+    page = root / "theme" / "templates" / "page.html"
+    page.write_text(
+        page.read_text(encoding="utf-8").replace(
+            "</h1>",
+            "</h1>{{ picture(page.meta.image, '1:1', alt='p', sizes='100vw\"onload=\"alert(2)') }}",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    (root / "media").mkdir(exist_ok=True)
+    Image.new("RGB", (900, 900), (9, 9, 9)).save(root / "media" / 'x"onerror="alert(1).png')
+    result = pipeline.run(root)
+    assert not result.failed, [str(e) for e in result.collector.errors]
+    html = (root / "dist" / "a" / "index.html").read_text(encoding="utf-8")
+    parser = Scripts()
+    parser.feed(html)
+    assert parser.handlers == []  # ни одного on*-атрибута ни в одном теге
+    assert 'onerror="alert' not in html and 'onload="alert' not in html

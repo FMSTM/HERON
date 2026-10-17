@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -19,7 +18,7 @@ from heron.contracts import wiring
 from heron.contracts.site import SiteConfig, load_site
 from heron.contracts.theme import ThemeConfig, load_theme
 from heron.core import data as data_module
-from heron.core import dates, links, media, notes, notfound, paths, report, resolver, tree
+from heron.core import dates, links, media, notes, notfound, output, paths, report, resolver, tree
 from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError
 from heron.core.hooks import Hooks
@@ -48,10 +47,14 @@ class Result:
     env: BuildEnv = field(default_factory=BuildEnv)
     report: report.Report | None = None
     written: list[str] = field(default_factory=list)
+    # строгий режим, с которым шла сборка: --strict или build.fail_on_warning
+    strict: bool = False
+    applied: output.Applied | None = None
 
     @property
     def failed(self) -> bool:
-        return self.collector.failed
+        """Сборка не удалась: ошибки, а в строгом режиме — и предупреждения."""
+        return self.collector.failed or (self.strict and bool(self.collector.warnings))
 
 
 def _page_path(url: str) -> str:
@@ -59,14 +62,15 @@ def _page_path(url: str) -> str:
     return f"{trimmed}/index.html" if trimmed else "index.html"
 
 
-def _write(dist: Path, name: str, text: str) -> None:
-    path = paths.target(dist, name)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
-
-
-def _copy_tree(source: Path, target: Path) -> None:
-    """Скопировать папку как есть, кроме того, чего в сети быть не должно.
+def _claim_tree(
+    outputs: output.Outputs,
+    source: Path,
+    prefix: str,
+    kind: str,
+    label: str,
+    collector: Collector,
+) -> None:
+    """Заявить папку как есть, кроме того, чего в сети быть не должно.
 
     `static/` уезжает байт в байт — вместе со служебной запиской и с тем,
     что насыпал файловый менеджер. И то и другое оказалось бы опубликовано
@@ -78,26 +82,11 @@ def _copy_tree(source: Path, target: Path) -> None:
     for rel, path in paths.files(source, where=str(source)):
         if any(notes.skip(part) for part in rel.split("/")):
             continue
-        out = paths.target(target, rel)
-        out.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(path, out)
-
-
-def _readable(dist: Path) -> None:
-    """Сделать собранное читаемым для любого сервера.
-
-    Права приезжают вместе с файлами из папки сайта, а отдаёт их потом
-    чужой процесс: nginx в образе работает не под root. Папка, закрытая
-    умаском машины сборки, превращается в 403 на весь сайт — и выглядит
-    это как «образ собрался неправильно», хотя собралось всё верно.
-    """
-    for path in (dist, *dist.rglob("*")):
-        try:
-            mode = path.stat().st_mode & 0o777
-            # папке нужен ещё и вход внутрь, файлу — только чтение
-            path.chmod(mode | (0o755 if path.is_dir() else 0o444))
-        except OSError:
-            continue
+        outputs.add(
+            f"{prefix}{rel}",
+            output.Entry(owner=f"{label}/{rel}", kind=kind, source=path),
+            collector,
+        )
 
 
 def for_env(config: SiteConfig, env: BuildEnv) -> None:
@@ -153,6 +142,7 @@ def run(
     say.step("step_config")
     config, theme, theme_dir, hooks = prepare(site_root, collector)
     paths.layout(site_root, dist, dist.parent / CACHE, sources(site_root, theme_dir))
+    strict = strict or config.build.fail_on_warning
     for_env(config, env)
     say.done("done_config", theme=config.site.theme, langs=len(config.site.languages))
 
@@ -196,12 +186,17 @@ def run(
         )
 
     result = Result(
-        config=config, theme=theme, theme_dir=theme_dir, site=site, collector=collector, env=env
+        config=config,
+        theme=theme,
+        theme_dir=theme_dir,
+        site=site,
+        collector=collector,
+        env=env,
+        strict=strict,
     )
     if collector.failed:
         return result
 
-    dist.mkdir(parents=True, exist_ok=True)
     say.step("step_images")
     media.folder(site_root, collector)
     media.check_video(site, collector)
@@ -234,24 +229,35 @@ def run(
         return result
 
     say.step("step_generators")
-    files: dict[str, str] = {_page_path(url): text for url, text in html.items()}
-    files.update(sitemap.generate(site, config))
-    files.update(robots.generate(config, env))
-    files.update(llms.generate(site, config))
-    moves = redirects.collect(site, collector, config)
-    files.update(redirects.files(moves))
-    files.update(nginx.generate(config, moves))
-    files.update(feed.generate(site, config))
+    outputs = output.Outputs(overrides={paths.normalize(o) for o in config.build.overrides})
 
-    say.done()
+    def claim(files: dict[str, str], kind: str, owner: str) -> None:
+        for name, text in files.items():
+            outputs.add(name, output.Entry(owner=owner, kind=kind, text=text), collector)
+
+    by_url = {page.url: page for page in site.pages}
+    for url, text in html.items():
+        page = by_url.get(url)
+        owner = f"страница {page.source}" if page is not None and page.source else f"страница {url}"
+        outputs.add(_page_path(url), output.Entry(owner=owner, kind="page", text=text), collector)
     not_found = html.get("/404/")
     if not_found:
-        files["404.html"] = not_found
+        claim({"404.html": not_found}, "page", "страница 404")
+    claim(sitemap.generate(site, config), "generator", "генератор sitemap")
+    claim(robots.generate(config, env), "generator", "генератор robots.txt")
+    claim(llms.generate(site, config), "generator", "генератор llms.txt")
+    moves = redirects.collect(site, collector, config)
+    claim(redirects.files(moves), "generator", "генератор карт 301/410")
+    claim(nginx.generate(config, moves), "generator", "генератор конфига nginx")
+    claim(feed.generate(site, config), "generator", "генератор ленты")
+    say.done()
 
     for extra in hooks.call("on_build_finished", site, config):
         if isinstance(extra, dict):
-            files.update(extra)
+            claim(extra, "plugin", "плагин (on_build_finished)")
 
+    _claim_tree(outputs, site_root / STATIC, "", "static", "static", collector)
+    _claim_tree(outputs, theme_dir / ASSETS, f"{ASSETS}/", "asset", "тема assets", collector)
     if collector.failed:
         return result
 
@@ -260,35 +266,42 @@ def run(
         # разметка, файлы плагинов, стили темы и статика. Всё прочее из плана
         # остаётся в кэше и в сборку не едет.
         say.step("step_slices")
-        texts = [text for text in files.values() if isinstance(text, str)]
+        texts = outputs.texts()
         texts += _texts(theme_dir / ASSETS)
         texts += _texts(site_root / STATIC)
         placed = media.finish(
             manifest,
             site_root,
-            dist,
             theme.images,
             used=media.used_in(texts),
             cache_dir=dist.parent / CACHE,
             workers=config.build.workers,
             progress=say,
         )
+        for item in placed:
+            outputs.add(
+                item.rel,
+                output.Entry(owner=item.rel, kind="media", source=item.source, link=item.link),
+                collector,
+            )
         say.done("done_files", count=len(placed))
 
-    say.step("step_write")
-    names = sorted(files)
-    for index, name in enumerate(names, 1):
-        say.tick(index, len(names), name)
-        _write(dist, name, files[name])
-    _copy_tree(site_root / STATIC, dist)
-    _copy_tree(theme_dir / ASSETS, dist / ASSETS)
+    outputs.check_tree(collector)
+    outputs.check_overrides(collector)
 
-    say.done("done_files", count=len(files))
-    result.written = sorted(files)
-    _readable(dist)
+    # Всё, что может забраковать сборку, — до записи: отчёт, разметка,
+    # nginx -t. Строгая сборка с предупреждением не трогает прошлую версию.
     result.report = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
-    result.report.nginx_test = nginx.check(files.get(nginx.NAME), collector)
+    nginx_conf = outputs.entries.get(nginx.NAME)
+    result.report.nginx_test = nginx.check(nginx_conf.text if nginx_conf else None, collector)
     _schema(site, config, theme, collector, result.report)
+    if result.failed:
+        return result
+
+    say.step("step_write")
+    result.applied = output.commit(dist, outputs)
+    say.done("done_files", count=len(outputs.entries))
+    result.written = sorted(outputs.entries)
     return result
 
 
@@ -324,8 +337,11 @@ def _schema(site, config, theme, collector, built) -> None:
             built.schema_nodes[kind] += 1
 
 
-def check(site_root: Path, drafts: bool = False) -> Result:
-    """Обойти и проверить, ничего не собирая."""
+def check(site_root: Path, drafts: bool = False, strict: bool = False) -> Result:
+    """Обойти и проверить, ничего не собирая.
+
+    Строгий режим тот же, что у сборки: `strict` или `build.fail_on_warning`.
+    """
     collector = Collector()
     site_root = site_root.resolve()
     try:
@@ -355,4 +371,5 @@ def check(site_root: Path, drafts: bool = False) -> Result:
         site=site,
         collector=collector,
         report=built,
+        strict=strict or config.build.fail_on_warning,
     )

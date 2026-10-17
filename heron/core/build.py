@@ -62,6 +62,8 @@ class Result:
     # строгий режим, с которым шла сборка: --strict или build.fail_on_warning
     strict: bool = False
     applied: output.Applied | None = None
+    # сказанное после записи: на удачу сборки уже не влияет
+    notices: list[str] = field(default_factory=list)
 
     @property
     def failed(self) -> bool:
@@ -159,19 +161,8 @@ def run(
     say.done("done_config", theme=config.site.theme, langs=len(config.site.languages))
 
     say.step("step_content")
-    md = markdown.make(allow_raw_html=config.build.allow_raw_html)
-    site, collector = tree.scan(site_root / "content", config, md, collector, drafts=drafts)
-    site.data = data_module.load(site_root / "data", collector)
-    dates.resolve(site, site_root, config.build.updated_from, collector)
-    dates.check(site, collector)
-    hooks.call("on_tree_built", site)
+    site = content(site_root, config, theme, theme_dir, hooks, collector, drafts)
     say.done("done_pages", count=len(site.pages))
-
-    notfound.ensure(site, config, theme_dir, collector)
-
-    say.step("step_links")
-    links.resolve(site, config, theme, collector)
-    say.done()
 
     # Сайт без страниц — нормальное состояние на деве: тему доводят раньше,
     # чем пишут контент. В проде это всегда чья-то ошибка — пустой конвейер,
@@ -236,7 +227,7 @@ def run(
 
     say.step("step_templates")
     html = renderer.render_site(
-        theme_dir, site, config, theme, collector, manifest, env, progress=say
+        theme_dir, site, config, theme, collector, manifest, env, progress=say, hooks=hooks
     )
     say.done("done_pages", count=len(html))
     if collector.failed:
@@ -266,9 +257,9 @@ def run(
     claim(feed.generate(site, config), "generator", "генератор ленты")
     say.done()
 
-    for extra in hooks.call("on_build_finished", site, config):
+    for extra in hooks.call("on_generate", site, config):
         if isinstance(extra, dict):
-            claim(extra, "plugin", "плагин (on_build_finished)")
+            claim(extra, "plugin", "плагин (on_generate)")
 
     _claim_tree(outputs, site_root / STATIC, "", "static", "static", collector)
     _claim_tree(outputs, theme_dir / ASSETS, f"{ASSETS}/", "asset", "тема assets", collector)
@@ -321,7 +312,47 @@ def run(
     result.applied = output.commit(dist, outputs)
     say.done("done_files", count=len(outputs.entries))
     result.written = sorted(outputs.entries)
+
+    # После записи: результат уже на месте, хук его видит, но изменить
+    # сборку не может. Файлы отсюда больше не принимаются — для них
+    # on_generate; вернувший файлы старый плагин получает объяснение.
+    for returned in hooks.call("on_build_finished", site, config, dist):
+        if isinstance(returned, dict) and returned:
+            result.notices.append(
+                "плагин вернул файлы из on_build_finished — они не записаны: "
+                "файлы сборки объявляются в on_generate(site, config)"
+            )
     return result
+
+
+def content(
+    site_root: Path,
+    config: SiteConfig,
+    theme: ThemeConfig,
+    theme_dir: Path,
+    hooks: Hooks,
+    collector: Collector,
+    drafts: bool,
+) -> Site:
+    """Этапы 2–4, общие для `build` и `check`: обход, разбор, даты, связи.
+
+    Расширения применяются одинаково в обоих: свои типы секций, правка
+    страницы после разбора, свои связи после обхода. Иначе `check`
+    проверял бы не тот сайт, который соберёт `build`.
+    """
+    md = markdown.make(allow_raw_html=config.build.allow_raw_html)
+    site, _ = tree.scan(
+        site_root / "content", config, md, collector, drafts=drafts, custom=hooks.blocks()
+    )
+    for page in site.pages:
+        hooks.call("on_page_parsed", page)
+    site.data = data_module.load(site_root / "data", collector)
+    dates.resolve(site, site_root, config.build.updated_from, collector)
+    dates.check(site, collector)
+    hooks.call("on_tree_built", site)
+    notfound.ensure(site, config, theme_dir, collector)
+    links.resolve(site, config, theme, collector)
+    return site
 
 
 def _roots(site: Site, config: SiteConfig, collector: Collector, prod: bool) -> None:
@@ -394,13 +425,7 @@ def check(site_root: Path, drafts: bool = False, strict: bool = False) -> Result
         collector.errors.append(error)
         raise
 
-    md = markdown.make(allow_raw_html=config.build.allow_raw_html)
-    site, collector = tree.scan(site_root / "content", config, md, collector, drafts=drafts)
-    site.data = data_module.load(site_root / "data", collector)
-    dates.resolve(site, site_root, config.build.updated_from, collector)
-    dates.check(site, collector)
-    notfound.ensure(site, config, theme_dir, collector)
-    links.resolve(site, config, theme, collector)
+    site = content(site_root, config, theme, theme_dir, hooks, collector, drafts)
     _roots(site, config, collector, prod=False)
     media.folder(site_root, collector)
     media.check_video(site, collector)

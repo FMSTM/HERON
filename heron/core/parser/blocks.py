@@ -505,10 +505,23 @@ def intro_parts(md: MarkdownIt, intro: Section) -> list[Warning_]:
     return []
 
 
-def apply(md: MarkdownIt, sections: dict[str, Section]) -> list[Warning_]:
-    """Проставить модуль, данные и части каждой секции."""
+def apply(
+    md: MarkdownIt, sections: dict[str, Section], custom: dict | None = None
+) -> list[Warning_]:
+    """Проставить модуль, данные и части каждой секции.
+
+    `custom` — свои типы секций от плагинов (`block:<имя>`): класс заголовка
+    `{#id .имя}` отдаёт секцию разборщику плагина, его результат — данные
+    секции, `kind` — имя. Встроенные типы так не подменяются.
+    """
     warnings: list[Warning_] = []
     for section in sections.values():
+        own = [n for n in section.classes if custom and n in custom and n not in BY_CLASS]
+        if own:
+            section.kind = own[0]
+            section.data = custom[own[0]](section)
+            structure(md, section)
+            continue
         kind, data, found = detect(md, section)
         section.kind, section.data = kind, data
         structure(md, section)

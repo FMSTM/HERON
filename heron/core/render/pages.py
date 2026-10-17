@@ -107,9 +107,14 @@ def render_site(
     media: Manifest | None = None,
     build_env: BuildEnv | None = None,
     progress=None,
+    hooks=None,
 ) -> dict[str, str]:
-    """Собрать HTML всех страниц. Ключ — адрес страницы."""
-    env = envmod.make(theme_dir, config)
+    """Собрать HTML всех страниц. Ключ — адрес страницы.
+
+    `on_page_rendered(page, html)` плагина может вернуть новый HTML —
+    он и идёт дальше; `None` — оставить как есть.
+    """
+    env = envmod.make(theme_dir, config, hooks)
     strings = {
         lang: envmod.load_strings(theme_dir, lang, collector) for lang in config.site.languages
     }
@@ -119,9 +124,14 @@ def render_site(
         if progress is not None:
             progress.tick(index, len(site.pages), page.url or "/")
         try:
-            out[page.url] = render_page(
+            html = render_page(
                 env, page, site, config, theme, strings[page.lang], collector, media, build_env
             )
+            if hooks is not None:
+                for changed in hooks.call("on_page_rendered", page, html):
+                    if isinstance(changed, str):
+                        html = changed
+            out[page.url] = html
         except HeronError as error:
             collector.errors.append(error)
     return out

@@ -44,7 +44,7 @@ services:
     command: ["build", "--strict"]
 
   web:
-    image: nginxinc/nginx-unprivileged:1.27-alpine
+    image: nginxinc/nginx-unprivileged:1.30.6-alpine
     restart: unless-stopped
     volumes:
       - ./dist:/usr/share/nginx/html:ro

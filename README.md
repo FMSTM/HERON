@@ -101,7 +101,7 @@ $H build мой-сайт      # → мой-сайт/dist/
 
 ```bash
 docker run --rm -p 8080:8080 -v "$PWD/мой-сайт/dist:/usr/share/nginx/html:ro" \
-  nginxinc/nginx-unprivileged:1.27-alpine
+  nginxinc/nginx-unprivileged:1.30.6-alpine
 ```
 
 Дальше — писать страницы и собирать снова. Дев-сборка закрыта от поисковиков и не вставляет счётчики; боевая — `$H build мой-сайт --env prod --strict`.

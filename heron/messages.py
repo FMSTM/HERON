@@ -353,6 +353,8 @@ TITLES: dict[str, dict[str, str]] = {
         "E025": "a heading attribute is not allowed",
         "E026": "two sources produce the same output file",
         "E027": "two masters produce the same rendition names",
+        "E028": "a language has no home page",
+        "E029": "two files produce the same page key",
     },
 }
 

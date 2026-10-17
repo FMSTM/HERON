@@ -52,13 +52,17 @@ def test_any_file_lands_in_dist_as_is(tmp_path):
     root.mkdir()
     create(root, name="demo", languages=["uk"])
     (root / "content" / "uk" / "index.md").write_text(
-        _page(video="media/video/x.mp4"), encoding="utf-8"
+        _page(video="media/video/x.mp4", video_poster="media/video/x.png"), encoding="utf-8"
     )
     source = root / "media" / "video" / "x.mp4"
     source.parent.mkdir(parents=True)
     source.write_bytes("ролик".encode())
+    from PIL import Image
 
-    pipeline.run(root)
+    Image.new("RGB", (64, 36)).save(source.with_suffix(".png"))
+
+    result = pipeline.run(root)
+    assert not result.failed, [str(e) for e in result.collector.errors]
     copied = root / "dist" / "media" / "video" / "x.mp4"
     assert copied.is_file()
     assert copied.read_bytes() == source.read_bytes()

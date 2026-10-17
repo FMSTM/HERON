@@ -17,7 +17,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -127,6 +126,8 @@ class Manifest:
     entries: dict[str, dict] = field(default_factory=dict)
     # мастера, нужные целиком по объявлению: картинка из текста, og, постер
     raw: set[str] = field(default_factory=set)
+    # файлы, которые движок не режет и кладёт как есть: видео, pdf, as_is
+    copies: dict[str, Path] = field(default_factory=dict)
 
     def get(self, src: str, ratio: str) -> Rendition | None:
         return self.items.get(paths.normalize(src), {}).get(ratio)
@@ -633,22 +634,6 @@ def slice_master(
     return renditions
 
 
-def _place(kept: Path, out: Path) -> None:
-    """Положить нарезку в сборку жёсткой ссылкой, а не копией.
-
-    Копия — это ещё гигабайт на диске и минута на запись при каждой сборке.
-    Ссылка не стоит ничего. Файловая система может её не дать — сетевой том,
-    другой раздел, FAT — тогда копируем и молчим: это не повод падать.
-    """
-    out.parent.mkdir(parents=True, exist_ok=True)
-    if out.exists():
-        out.unlink()
-    try:
-        os.link(kept, out)
-    except OSError:
-        shutil.copyfile(kept, out)
-
-
 def _sweep(slices: Path, used: set[str]) -> None:
     """Убрать из кэша нарезки, которых нет в манифесте этой сборки.
 
@@ -771,9 +756,7 @@ def plan(
         # не иллюстрация, его открывают целиком и в одном виде.
         untouched = any(src.startswith(rule) for rule in spec.as_is)
         if untouched or source.suffix.lower() not in KEEP:
-            out = paths.target(dist, src)
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_bytes(source.read_bytes())
+            manifest.copies[src] = source
             continue
 
         digest = _digest(source, spec)
@@ -812,16 +795,24 @@ def used_in(texts) -> set[str]:
     return found
 
 
+@dataclass(frozen=True, slots=True)
+class Placed:
+    """Файл ресурса для сборки: куда, откуда и можно ли жёсткой ссылкой."""
+
+    rel: str
+    source: Path
+    link: bool
+
+
 def finish(
     manifest: Manifest,
     site_root: Path,
-    dist: Path,
     spec: ImagesSpec,
     used: set[str] | None = None,
     cache_dir: Path | None = None,
     workers: int = 0,
     progress=None,
-) -> list[str]:
+) -> list[Placed]:
     """Вторая половина: закодировать и положить в сборку то, что нужно.
 
     `used` — пути, на которые ссылается собранный сайт. Кодируется и
@@ -851,17 +842,11 @@ def finish(
         progress,
     )
 
-    placed = []
-    for rel in sorted(wanted):
-        _place(slices / rel, paths.target(dist, rel))
-        placed.append(rel)
+    placed = [Placed(rel, slices / rel, True) for rel in sorted(wanted)]
     # Мастер рядом с нарезками — только по ссылке: «открыть целиком»,
     # og:image, картинка из текста. Без ссылки это мегабайты в каждой сборке.
-    for src in sorted(masters):
-        out = paths.target(dist, src)
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_bytes(paths.source(site_root, src).read_bytes())
-        placed.append(src)
+    placed += [Placed(src, paths.source(site_root, src), False) for src in sorted(masters)]
+    placed += [Placed(src, source, False) for src, source in sorted(manifest.copies.items())]
 
     _sweep(slices, set(manifest.planned))
     cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -891,5 +876,11 @@ def build(
     шаблонов нет, — проверить нарезку саму по себе.
     """
     manifest = plan(site, site_root, dist, spec, collector, cache_dir, strict, config)
-    finish(manifest, site_root, dist, spec, None, cache_dir, workers, progress)
+    from heron.core import output
+
+    outputs = output.Outputs()
+    for item in finish(manifest, site_root, spec, None, cache_dir, workers, progress):
+        entry = output.Entry(owner=item.rel, kind="media", source=item.source, link=item.link)
+        outputs.add(item.rel, entry, collector)
+    output.commit(dist, outputs)
     return manifest

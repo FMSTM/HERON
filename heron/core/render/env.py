@@ -264,14 +264,17 @@ def picture(
             collector.warn(f"нет нарезанного варианта {ratio} для {src}", kind="картинки")
             return Markup("")
 
+        # Результат — Markup, автоэкранирование Jinja его не трогает, поэтому
+        # всё, что пришло от сайта, экранируется здесь. Имя файла — тоже от
+        # сайта: кавычка в имени мастера иначе разрывала бы атрибут src.
         parts: list[str] = ["<picture>"]
         for fmt, variants in rendition.sources.items():
             if fmt == "origin":
                 continue
-            srcset = ", ".join(f"/{path} {width}w" for width, path in variants)
-            parts.append(f'<source type="image/{fmt}" srcset="{srcset}" sizes="{sizes}">')
+            srcset = ", ".join(f"/{escape(path)} {width}w" for width, path in variants)
+            parts.append(f'<source type="image/{fmt}" srcset="{srcset}" sizes="{escape(sizes)}">')
         img = [
-            f'src="/{rendition.fallback}"',
+            f'src="/{escape(rendition.fallback)}"',
             f'width="{rendition.width}"',
             f'height="{rendition.height}"',
             f'alt="{escape(alt)}"',

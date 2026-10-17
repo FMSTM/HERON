@@ -15,13 +15,14 @@ FILES = {
 }
 
 
-def git(root, *args):
+def git(root, *args, **env):
     subprocess.run(
         ["git", "-C", str(root), *args],
         check=True,
         capture_output=True,
         env={
             **os.environ,
+            **env,
             "GIT_AUTHOR_NAME": "t",
             "GIT_AUTHOR_EMAIL": "t@t",
             "GIT_COMMITTER_NAME": "t",
@@ -45,6 +46,7 @@ def repo(root, when: str):
         "первый",
         "--date",
         when,
+        GIT_COMMITTER_DATE=when,
     )
 
 
@@ -134,8 +136,9 @@ def test_one_date_feeds_page_sitemap_and_schema(tmp_path):
     dates.resolve(site, tmp_path, "git", collector)
     page = site.by_url["/bio/"]
     body = sitemap.generate(site, config)["sitemap-uk.xml"]
-    assert f"<lastmod>{page.updated.isoformat()}</lastmod>" in body
+    assert "<lastmod>2026-03-14T10:00:00+00:00</lastmod>" in body
     theme = sites.theme(types={"page": {"jsonld": ["Article"]}})
     graph = jsonld.build(page, config, theme, site)
     node = next(n for n in graph if n.get("@type") == "Article")
-    assert node["dateModified"] == page.updated.isoformat()
+    assert node["dateModified"] == "2026-03-14T10:00:00+00:00"
+    assert page.updated == date(2026, 3, 14)  # подпись на странице — день

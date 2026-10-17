@@ -40,7 +40,7 @@ def test_sitemap_contains_absolute_urls_and_lastmod(built):
     site, config, _, _ = built
     uk = sitemap.generate(site, config)["sitemap-uk.xml"]
     assert "<loc>https://example.com/bio/</loc>" in uk
-    assert "<lastmod>2026-09-01</lastmod>" in uk
+    assert "<lastmod>2026-09-01T00:00:00+00:00</lastmod>" in uk
 
 
 def test_hreflang_is_symmetric(built):
@@ -122,7 +122,7 @@ def test_jsonld_types_come_from_theme(built):
     assert graph[0]["@type"] == "Article"
     assert graph[0]["url"] == "https://example.com/bio/"
     assert graph[0]["inLanguage"] == "uk"
-    assert graph[0]["dateModified"] == "2026-09-01"
+    assert graph[0]["dateModified"] == "2026-09-01T00:00:00+00:00"
 
 
 def test_jsonld_without_declaration_still_has_breadcrumbs(built):
@@ -240,7 +240,7 @@ def test_feed_lists_pages_of_the_type(tmp_path):
     links.resolve(site, config, sites.theme(), collector)
     xml = feed.generate(site, config)["feed.xml"]
     assert xml.index("Друга") < xml.index("Перша")
-    assert "<updated>2026-05-05T00:00:00Z</updated>" in xml
+    assert "<updated>2026-05-05T00:00:00+00:00</updated>" in xml
 
 
 def test_home_is_not_listed_as_a_section(built):

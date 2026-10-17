@@ -604,6 +604,12 @@ def site_options(func):
     return func
 
 
+# Код выхода, когда сайт записан, а завершающее действие плагина
+# (on_build_finished) упало: не 0 — CI должен это заметить, и не 1 — сборка
+# удалась, и сообщение «сборка не выполнена» было бы неправдой.
+FINISH_FAILED = 3
+
+
 @main.command()
 @NOTES_OPTION
 @VERBOSE_OPTION
@@ -779,6 +785,10 @@ def build(path: Path, strict: bool, drafts: bool, out: Path | None, env_name: st
     click.secho(say(lang, "build_done", count=len(result.written), target=target), fg="green")
     for notice in result.notices:
         click.secho(notice, fg="yellow", err=True)
+    if result.finish_errors:
+        for problem in result.finish_errors:
+            _err(say(lang, "finish_failed", problem=problem))
+        sys.exit(FINISH_FAILED)
     click.echo(say(lang, "build_next", path=_shown(path)))
 
 

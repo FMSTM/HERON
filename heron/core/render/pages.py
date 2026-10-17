@@ -128,9 +128,7 @@ def render_site(
                 env, page, site, config, theme, strings[page.lang], collector, media, build_env
             )
             if hooks is not None:
-                for changed in hooks.call("on_page_rendered", page, html):
-                    if isinstance(changed, str):
-                        html = changed
+                html = hooks.pipe("on_page_rendered", page, html)
             out[page.url] = html
         except HeronError as error:
             collector.errors.append(error)

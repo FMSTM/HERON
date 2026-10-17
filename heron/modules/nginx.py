@@ -107,7 +107,7 @@ def _variants(path: str) -> list[str]:
     return [path]
 
 
-def _raw_pattern(path: str) -> str:
+def _raw_pattern(path: str, prefix: bool = False) -> str:
     """Регулярка по сырому адресу: регистр букв важен, регистр `%xx` — нет.
 
     `%D0%B0` и `%d0%b0` — один и тот же байт, браузеры шлют оба. Буквы же
@@ -116,7 +116,9 @@ def _raw_pattern(path: str) -> str:
     """
     out: list[str] = []
     index = 0
-    stem = path.rstrip("/")
+    # У точного адреса слеш необязателен (`/?` добавляет вызывающий), у
+    # префикса он — граница: `/%D0/*` не должен захватывать `/%D0extra/`.
+    stem = path if prefix else path.rstrip("/")
     while index < len(stem):
         chunk = stem[index : index + 3]
         if (
@@ -184,7 +186,7 @@ def _maps(plan: Plan) -> tuple[str, str]:
     raw_prefixes = [g for g in plan.gone_prefixes if g in plan.raw]
     if raw_gone or raw_prefixes:
         rows = [f"    {quote('~^' + _raw_pattern(path) + '/?(?:[?].*)?$')} 1;" for path in raw_gone]
-        rows += [f"    {quote('~^' + _raw_pattern(path))} 1;" for path in raw_prefixes]
+        rows += [f"    {quote('~^' + _raw_pattern(path, prefix=True))} 1;" for path in raw_prefixes]
         maps.append(_block("map $request_uri $heron_gone_raw", "0", rows))
         checks.append("    if ($heron_gone_raw) { return 410; }\n")
 

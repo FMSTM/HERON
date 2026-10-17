@@ -117,29 +117,44 @@ def target(root: Path, rel: str) -> Path:
     return out
 
 
+UNREADABLE = "E030"
+
+
+def unreadable(path: Path, error: OSError) -> HeronError:
+    """E030: папку или файл исходников не удалось прочитать."""
+    reason = error.strerror or type(error).__name__
+    return HeronError(
+        code=UNREADABLE,
+        message=f"не читается {path}: {reason}",
+        path=str(path),
+        hint="проверьте права и диск: без этой папки сборка вышла бы неполной",
+    )
+
+
 def files(root: Path, *, where: str) -> Iterator[tuple[str, Path]]:
     """Все файлы папки как (относительный путь, путь) — без выхода наружу.
 
     Символическая ссылка внутри папки допустима, пока ведёт внутрь неё же:
-    так раскладывают общие файлы. Ссылка наружу — E024, а не молчаливое
-    копирование чужого файла в публичную сборку. Папки-ссылки обходятся,
-    если они внутри; петли отсекаются по реальному пути.
+    так раскладывают общие файлы, и папка-ссылка (`latest/` → `v2/`) даёт
+    свои пути рядом с исходными. Ссылка наружу — E024, а не молчаливое
+    копирование чужого файла в публичную сборку. Петля — папка-ссылка на
+    одну из папок своей же цепочки — отсекается по цепочке предков, а не
+    по всем виденным папкам: иначе вторая, законная дорога к тем же файлам
+    терялась бы. Папка, которую не удалось прочитать, — E030.
     """
     if not root.is_dir():
         return
     base = root.resolve()
-    seen: set[Path] = set()
-    stack = [root]
+    stack: list[tuple[Path, frozenset[Path]]] = [(root, frozenset())]
     while stack:
-        folder = stack.pop()
+        folder, chain = stack.pop()
         real = folder.resolve()
-        if real in seen:
-            continue
-        seen.add(real)
+        if real in chain:
+            continue  # петля: папка ссылается на своего предка
         try:
             entries = sorted(os.scandir(folder), key=lambda e: e.name)
-        except OSError:
-            continue
+        except OSError as error:
+            raise unreadable(folder, error) from error
         for entry in entries:
             path = Path(entry.path)
             if entry.is_symlink() and not inside(base, path):
@@ -151,9 +166,44 @@ def files(root: Path, *, where: str) -> Iterator[tuple[str, Path]]:
                     hint="положите сам файл в папку сайта вместо ссылки на него",
                 )
             if entry.is_dir():
-                stack.append(path)
+                stack.append((path, chain | {real}))
             elif entry.is_file():
                 yield path.relative_to(root).as_posix(), path
+
+
+def readable(folders: list[Path]) -> None:
+    """Каждая папка исходников читается целиком — иначе E030.
+
+    `rglob` молча пропускает папку без прав на чтение, и сборка выходила
+    успешной, но без части страниц или данных.
+    """
+    for folder in folders:
+        if not folder.is_dir():
+            continue
+
+        def fail(error: OSError, folder: Path = folder) -> None:
+            raise unreadable(Path(error.filename or folder), error) from error
+
+        for _ in os.walk(folder, onerror=fail):
+            pass
+
+
+def rooted(root: Path, folders: list[Path]) -> None:
+    """Сами папки исходников — внутри своего корня, а не ссылки наружу.
+
+    Проверка файлов внутри папки (`files`, `inside`) сравнивает с её же
+    разрешённым путём; если `static/` целиком — ссылка на чужую папку, её
+    содержимое «внутри» самой себя, и ограничение обходится. Поэтому папка
+    сверяется с корнем сайта (или темы) отдельно.
+    """
+    for folder in folders:
+        if (folder.exists() or folder.is_symlink()) and not inside(root, folder):
+            raise HeronError(
+                code=CODE,
+                message=f"папка {folder.name}/ — ссылка за пределы {root.name}/",
+                path=str(folder),
+                hint="положите саму папку на место ссылки на неё",
+            )
 
 
 def layout(site_root: Path, dist: Path, cache: Path, sources: list[Path]) -> None:

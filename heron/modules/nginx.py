@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 
 from heron.contracts.site import SiteConfig
 from heron.modules.redirects import Plan
@@ -62,8 +61,11 @@ server {
 """
 
 # Язык в своей папке: и страница 404, и всё остальное лежат под префиксом.
+# `^~` отключает регулярные location уровня server — поэтому запрет скрытых
+# файлов повторён внутри, иначе `/ru/.secret` отдавался бы как обычный файл.
 LANG = """
     location ^~ /{lang}/ {{
+        location ~ /\\. {{ return 404; }}
         error_page 404 /{lang}/404/index.html;
         location = /{lang}/404/index.html {{ internal; }}
         try_files $uri $uri/ =404;
@@ -105,125 +107,84 @@ def _variants(path: str) -> list[str]:
     return [path]
 
 
-def _raw_exact(path: str) -> str:
-    """Регулярка по сырому адресу запроса: регистр `%xx` и слеш не важны."""
-    return f"~*^{re.escape(path.rstrip('/'))}/?(?:\\?.*)?$"
+def _raw_pattern(path: str) -> str:
+    """Регулярка по сырому адресу: регистр букв важен, регистр `%xx` — нет.
+
+    `%D0%B0` и `%d0%b0` — один и тот же байт, браузеры шлют оба. Буквы же
+    адреса различаются: `/About/` и `/about/` — разные страницы, как и везде
+    в движке.
+    """
+    out: list[str] = []
+    index = 0
+    stem = path.rstrip("/")
+    while index < len(stem):
+        chunk = stem[index : index + 3]
+        if (
+            len(chunk) == 3
+            and chunk[0] == "%"
+            and all(c in "0123456789abcdefABCDEF" for c in chunk[1:])
+        ):
+            out.append(
+                "%" + "".join(f"[{c.upper()}{c.lower()}]" if c.isalpha() else c for c in chunk[1:])
+            )
+            index += 3
+        else:
+            out.append(re.escape(stem[index]))
+            index += 1
+    return "".join(out)
 
 
 def _block(head: str, default: str, rows: list[str]) -> str:
     return head + " {\n    default " + default + ";\n" + "\n".join(rows) + "\n}\n"
 
 
-# Размер указателя и длины ключа в элементе хэша nginx (ngx_hash_elt_t) на
-# 64-битной машине. Элемент: указатель на значение, длина ключа (2 байта) и
-# сам ключ, выровненные по указателю; корзина — элементы плюс указатель-конец.
-POINTER = 8
-SAFE_BUCKET = 64
-SAFE_MAX_SIZE = 2048
+def _locations(plan: Plan) -> str:
+    """301 и 410 точными и префиксными location.
 
-
-@dataclass(frozen=True, slots=True)
-class HashSizes:
-    """Размеры хэшей карт: что вписать в http {} и откуда это взялось."""
-
-    bucket: int
-    max_size: int
-    longest: int  # самый длинный ключ, байт
-    keys: int  # ключей во всех картах
-
-
-def _power(value: int) -> int:
-    size = 1
-    while size < value:
-        size *= 2
-    return size
-
-
-def _align(value: int) -> int:
-    return (value + POINTER - 1) // POINTER * POINTER
-
-
-def hash_sizes(keys: list[str]) -> HashSizes:
-    """map_hash_bucket_size и map_hash_max_size для этих ключей.
-
-    По умолчанию корзина равна кэш-линии процессора — обычно 64 байта, — и
-    длинный кириллический адрес (2 байта на букву) в неё не помещается:
-    nginx не стартует с «could not build map_hash». Запустится конфиг или
-    нет, не должно зависеть от железа, поэтому движок считает размеры сам.
-    Ключ, который ближе 16 байт к границе корзины, получает корзину вдвое
-    больше: несколько ключей делят одну корзину, и впритык — это ненадёжно.
+    Строковые ключи `map` nginx сравнивает без учёта регистра, а адреса в
+    движке регистр различают: `/Page/` из redirect_from превращался в
+    редирект `/page/` на самого себя, `/Gone/` в gone закрывал живую
+    `/gone/`, а `/A/` и `/a/` вместе роняли конфиг. Точное (`location =`)
+    и префиксное (`location ^~`) сравнение у nginx регистр различает,
+    работает по тому же декодированному `$uri` и не требует хэш-таблиц.
     """
-    longest = max((len(key.encode("utf-8")) for key in keys), default=0)
-    need = _align(POINTER + 2 + longest) + POINTER
-    bucket = _power(max(SAFE_BUCKET, need))
-    if bucket - need < 16:
-        bucket *= 2
-    max_size = _power(max(SAFE_MAX_SIZE, len(keys) * 2))
-    return HashSizes(bucket=bucket, max_size=max_size, longest=longest, keys=len(keys))
-
-
-def _hashed(plan: Plan) -> list[str]:
-    """Ключи карт, которые nginx кладёт в хэш, — как они стоят в конфиге.
-
-    Регулярки (`~^…`) в хэш не входят и не считаются. Ключ берётся в том
-    виде, в каком он записан в кавычках: с экранированием — это не меньше
-    того, что nginx хранит, и запас здесь только на пользу.
-    """
-    keys: list[str] = []
+    rows: list[str] = []
+    for old, new in sorted(plan.moved.items()):
+        if old in plan.raw:
+            continue
+        for variant in _variants(old):
+            rows.append(f"    location = {quote(variant)} {{ return 301 {quote(new)}; }}")
     for path in plan.gone:
+        if path in plan.raw:
+            continue
+        for variant in _variants(path):
+            rows.append(f"    location = {quote(variant)} {{ return 410; }}")
+    for path in plan.gone_prefixes:
         if path not in plan.raw:
-            keys += _variants(path)
-    for old in plan.moved:
-        if old not in plan.raw:
-            keys += _variants(old)
-    return [quote(key)[1:-1] for key in keys]
-
-
-def sizes(plan: Plan | None) -> HashSizes | None:
-    """Размеры хэшей для карт этого сайта. Карт нет — нечего и задавать."""
-    plan = plan or Plan()
-    if not (plan.gone or plan.gone_prefixes or plan.gone_queries or plan.moved):
-        return None
-    return hash_sizes(_hashed(plan))
-
-
-def _directives(found: HashSizes) -> str:
+            rows.append(f"    location ^~ {quote(path)} {{ return 410; }}")
     return (
-        f"# HERON: самый длинный ключ карт — {found.longest} байт, ключей — {found.keys}.\n"
-        "# Значения посчитаны движком: по умолчанию корзина равна кэш-линии процессора,\n"
-        "# и длинный кириллический адрес в неё может не поместиться. Если nginx.conf\n"
-        "# хоста уже задаёт их — nginx: hash_sizes: off в site.yaml.\n"
-        f"map_hash_bucket_size {found.bucket};\n"
-        f"map_hash_max_size {found.max_size};\n\n"
+        ("\n    # 301 и 410: точные адреса, регистр важен\n" + "\n".join(rows) + "\n")
+        if rows
+        else ""
     )
 
 
 def _maps(plan: Plan) -> tuple[str, str]:
-    """Карты 301 и 410 и проверки в начале server.
+    """Карты для того, что location не выразить, и проверки в начале server.
 
-    Карты сравнивают `$uri` — декодированный и нормализованный путь без
-    параметров, поэтому кириллический адрес и его percent-форма попадают в
-    одну строку. Адрес с параметром (`/?p=*`) сверяется отдельной картой по
-    `$uri?$args`. Адреса, которые после декодирования не текст (слаг обрезан
-    посреди буквы), сверяются с сырым `$request_uri`. Проверки стоят на
-    уровне server, до выбора location: ответ уходит без обращения к файлам.
+    Остаются регулярки: адреса, которые после декодирования не текст (слаг
+    обрезан посреди буквы, — сверяются с сырым `$request_uri`), и адреса с
+    параметром (`/?p=*`, по `$uri?$args`). Регулярка в `map` чувствительна
+    к регистру, хэш-таблиц у неё нет — размеры корзин не нужны.
     """
     maps: list[str] = []
     checks: list[str] = []
 
-    gone = [g for g in plan.gone if g not in plan.raw]
-    prefixes = [g for g in plan.gone_prefixes if g not in plan.raw]
-    if gone or prefixes:
-        rows = [f"    {quote(v)} 1;" for path in gone for v in _variants(path)]
-        rows += [f"    {quote('~^' + re.escape(path))} 1;" for path in prefixes]
-        maps.append(_block("map $uri $heron_gone", "0", rows))
-        checks.append("    if ($heron_gone) { return 410; }\n")
-
     raw_gone = [g for g in plan.gone if g in plan.raw]
     raw_prefixes = [g for g in plan.gone_prefixes if g in plan.raw]
     if raw_gone or raw_prefixes:
-        rows = [f"    {quote(_raw_exact(path))} 1;" for path in raw_gone]
-        rows += [f"    {quote('~*^' + re.escape(path))} 1;" for path in raw_prefixes]
+        rows = [f"    {quote('~^' + _raw_pattern(path) + '/?(?:[?].*)?$')} 1;" for path in raw_gone]
+        rows += [f"    {quote('~^' + _raw_pattern(path))} 1;" for path in raw_prefixes]
         maps.append(_block("map $request_uri $heron_gone_raw", "0", rows))
         checks.append("    if ($heron_gone_raw) { return 410; }\n")
 
@@ -237,17 +198,12 @@ def _maps(plan: Plan) -> tuple[str, str]:
         maps.append(_block('map "$uri?$args" $heron_gone_query', "0", rows))
         checks.append("    if ($heron_gone_query) { return 410; }\n")
 
-    moved = {old: new for old, new in sorted(plan.moved.items()) if old not in plan.raw}
-    if moved:
-        rows = [
-            f"    {quote(v)} {quote(new)};" for old, new in moved.items() for v in _variants(old)
-        ]
-        maps.append(_block("map $uri $heron_moved", '""', rows))
-        checks.append("    if ($heron_moved) { return 301 $heron_moved; }\n")
-
     raw_moved = {old: new for old, new in sorted(plan.moved.items()) if old in plan.raw}
     if raw_moved:
-        rows = [f"    {quote(_raw_exact(old))} {quote(new)};" for old, new in raw_moved.items()]
+        rows = [
+            f"    {quote('~^' + _raw_pattern(old) + '/?(?:[?].*)?$')} {quote(new)};"
+            for old, new in raw_moved.items()
+        ]
         maps.append(_block("map $request_uri $heron_moved_raw", '""', rows))
         checks.append("    if ($heron_moved_raw) { return 301 $heron_moved_raw; }\n")
 
@@ -257,17 +213,16 @@ def _maps(plan: Plan) -> tuple[str, str]:
 def generate(config: SiteConfig, plan: Plan | None = None) -> dict[str, str]:
     """Конфиг под языки этого сайта. Основной язык в корень, прочие — в папки.
 
-    Перед server — карты 301 и 410, если они есть; в начале server —
-    проверки по ним.
+    301 и 410 — точными location в начале server; перед server — карты
+    для сырых адресов и параметров, если они есть.
     """
+    plan = plan or Plan()
     default = config.site.default_lang
-    maps, checks = _maps(plan or Plan())
-    head = HEAD.replace("    absolute_redirect off;\n", "    absolute_redirect off;\n" + checks)
-    found = sizes(plan)
-    # Директивы — до первой карты и вне server: это контекст http, куда
-    # файл подключают и образ (conf.d), и хост (sites-enabled).
-    hashes = _directives(found) if found and config.nginx.hash_sizes == "auto" else ""
-    parts = [hashes, maps + "\n" if maps else "", head]
+    maps, checks = _maps(plan)
+    head = HEAD.replace(
+        "    absolute_redirect off;\n", "    absolute_redirect off;\n" + checks + _locations(plan)
+    )
+    parts = [maps + "\n" if maps else "", head]
     for lang in config.site.languages:
         if lang != default:
             parts.append(LANG.format(lang=lang))

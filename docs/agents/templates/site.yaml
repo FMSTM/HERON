@@ -40,9 +40,6 @@ nav:
                                            # на русских страницах about сам станет /ru/o-nas/
   # footer: [privacy]                      # имена групп придумывает тема
 
-nginx:
-  hash_sizes: auto             # auto — движок пишет map_hash_* в конфиг; off — их задаёт nginx.conf хоста
-
 analytics:                     # только в прод-сборке; заготовка выводит ga4 и gtm
   ga4:
   gtm:

@@ -32,7 +32,7 @@ class Scripts(HTMLParser):
         self.handlers: list[tuple[str, str]] = []
 
     def handle_starttag(self, tag, attrs):
-        for key, value in attrs:
+        for key, _value in attrs:
             if key.startswith("on"):
                 self.handlers.append((tag, key))
         if tag == "script":

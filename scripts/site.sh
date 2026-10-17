@@ -75,7 +75,7 @@ do_new() {
   # в терминале new задаёт вопросы — нужен -it; в CI терминала нет, и он берёт умолчания
   local tty=""
   [ -t 0 ] && [ -t 1 ] && tty="-it"
-  docker run --rm $tty --network=none --cap-drop=ALL --security-opt=no-new-privileges \
+  docker run --rm $tty --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges \
     --user "$(id -u):$(id -g)" --tmpfs /tmp \
     ${HERON_NOTES:+-e HERON_NOTES="$HERON_NOTES"} \
     -v "$parent":/work -w /work \
@@ -244,6 +244,7 @@ run_engine() {
     --user "$(id -u):$(id -g)" \
     --tmpfs /tmp \
     -e SITE_ENV="$SITE_ENV" \
+    ${SOURCE_DATE_EPOCH:+-e SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH"} \
     ${SITE_INDEXABLE:+-e SITE_INDEXABLE="$SITE_INDEXABLE"} \
     ${SITE_ANALYTICS:+-e SITE_ANALYTICS="$SITE_ANALYTICS"} \
     -v "$SITE_PATH":/site:ro \
@@ -384,7 +385,7 @@ do_init() {
   note "достраиваю $SITE_PATH по его site.yaml"
   # Единственная команда, которой папка сайта нужна на запись:
   # она в эту папку и кладёт недостающее.
-  docker run --rm --network=none --cap-drop=ALL --security-opt=no-new-privileges \
+  docker run --rm --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges \
     --user "$(id -u):$(id -g)" --tmpfs /tmp \
     ${HERON_NOTES:+-e HERON_NOTES="$HERON_NOTES"} \
     -v "$SITE_PATH":/site -w /site \

@@ -27,6 +27,11 @@ fi
 note "граница ядра"
 git ls-files -z | xargs -0 bash scripts/check-boundaries.sh || die "граница ядра нарушена"
 
+if command -v uv >/dev/null 2>&1; then
+  note "зависимости образа совпадают с uv.lock"
+  bash scripts/lock.sh --check || die "requirements.lock устарел: ./scripts/lock.sh"
+fi
+
 note "формат"
 run ruff format --check . || die "ruff format: есть неотформатированные файлы, поправит ruff format ."
 

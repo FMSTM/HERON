@@ -139,11 +139,31 @@ def _heading_attrs(state) -> None:
             token.attrSet(key, value)
 
 
+MEDIA_PATH = re.compile(r"^(?:\./)?(?:media|img)/", re.I)
+
+
+def _media_paths(state) -> None:
+    """`media/x.svg` в картинке и ссылке — от корня сайта: `/media/x.svg`.
+
+    Контракт пишет пути к ресурсам от корня сайта, а браузер читает
+    `media/x.svg` относительно страницы: на `/services/design/` это
+    `/services/design/media/x.svg`, которого нет. Переписывается здесь, на
+    токенах, — один раз и только у картинок и ссылок, а не в тексте.
+    """
+    for token in state.tokens:
+        for child in token.children or []:
+            name = "src" if child.type == "image" else "href" if child.type == "link_open" else ""
+            value = child.attrGet(name) if name else None
+            if isinstance(value, str) and MEDIA_PATH.match(value):
+                child.attrSet(name, "/" + value.removeprefix("./"))
+
+
 def make(allow_raw_html: bool = False) -> MarkdownIt:
     """Собрать парсер markdown."""
     md = MarkdownIt("commonmark", {"html": allow_raw_html, "typographer": False})
     md.enable(["table", "strikethrough"])
     md.core.ruler.after("block", "heron_heading_attrs", _heading_attrs)
+    md.core.ruler.push("heron_media_paths", _media_paths)
     return md
 
 

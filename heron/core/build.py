@@ -64,6 +64,9 @@ class Result:
     applied: output.Applied | None = None
     # сказанное после записи: на удачу сборки уже не влияет
     notices: list[str] = field(default_factory=list)
+    # упавшие завершающие действия (on_build_finished): сайт записан, но
+    # то, что плагин делал после записи, не сделано
+    finish_errors: list[str] = field(default_factory=list)
 
     @property
     def failed(self) -> bool:
@@ -156,6 +159,7 @@ def run(
     say.step("step_config")
     config, theme, theme_dir, hooks = prepare(site_root, collector)
     paths.layout(site_root, dist, dist.parent / CACHE, sources(site_root, theme_dir))
+    rooted(site_root, theme_dir)
     strict = strict or config.build.fail_on_warning
     for_env(config, env)
     say.done("done_config", theme=config.site.theme, langs=len(config.site.languages))
@@ -215,7 +219,6 @@ def run(
             media.plan(
                 site,
                 site_root,
-                dist,
                 theme.images,
                 collector,
                 cache_dir=cache,
@@ -287,7 +290,6 @@ def run(
                 site_root,
                 theme.images,
                 used=media.used_in(texts),
-                cache_dir=cache,
                 workers=config.build.workers,
                 progress=say,
             )
@@ -310,8 +312,9 @@ def run(
         # Всё, что может забраковать сборку, — до записи: отчёт, разметка,
         # nginx -t. Строгая сборка с предупреждением не трогает прошлую версию.
         result.report = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
-        nginx_conf = outputs.entries.get(nginx.NAME)
-        result.report.nginx_test = nginx.check(nginx_conf.text if nginx_conf else None, collector)
+        # Проверяется то, что действительно ляжет в сборку: конфиг, подменённый
+        # статикой через build.overrides, — его байты, а не сгенерированный.
+        result.report.nginx_test = nginx.check(outputs.text_of(nginx.NAME), collector)
         _schema(site, config, theme, collector, result.report)
         if result.failed:
             return result
@@ -324,7 +327,15 @@ def run(
     # После записи: результат уже на месте, хук его видит, но изменить
     # сборку не может. Файлы отсюда больше не принимаются — для них
     # on_generate; вернувший файлы старый плагин получает объяснение.
-    for returned in hooks.call("on_build_finished", site, config, dist):
+    # Падение завершающего действия — не падение сборки: сайт уже записан и
+    # цел. Это отдельный статус (`finish_errors`), CLI выходит с кодом 3.
+    for handler in hooks.handlers.get("on_build_finished", []):
+        try:
+            returned = handler(site, config, dist)
+        except Exception as error:  # noqa: BLE001 — чужой код, любой отказ
+            name = getattr(handler, "__module__", "") or "плагин"
+            result.finish_errors.append(f"{name}: {type(error).__name__}: {error}")
+            continue
         if isinstance(returned, dict) and returned:
             result.notices.append(
                 "плагин вернул файлы из on_build_finished — они не записаны: "
@@ -392,6 +403,14 @@ def _roots(site: Site, config: SiteConfig, collector: Collector, prod: bool) -> 
 TEXT_SUFFIXES = {".css", ".js", ".html", ".svg", ".json", ".xml", ".txt", ".webmanifest"}
 
 
+def rooted(site_root: Path, theme_dir: Path) -> None:
+    """Папки исходников и папки темы — не ссылки наружу (E024)."""
+    names = ("content", "data", media.MEDIA, media.LEGACY, STATIC, "plugins")
+    paths.rooted(site_root, [site_root / name for name in names])
+    paths.rooted(theme_dir, [theme_dir / name for name in (ASSETS, "i18n", "templates", "modules")])
+    paths.readable([*(site_root / name for name in names), theme_dir])
+
+
 def sources(site_root: Path, theme_dir: Path) -> list[Path]:
     """Папки исходников: в них сборка не пишет и с ними не пересекается."""
     names = ("content", "data", media.MEDIA, media.LEGACY, STATIC)
@@ -434,6 +453,7 @@ def check(site_root: Path, drafts: bool = False, strict: bool = False) -> Result
         collector.errors.append(error)
         raise
 
+    rooted(site_root, theme_dir)
     site = content(site_root, config, theme, theme_dir, hooks, collector, drafts)
     _roots(site, config, collector, prod=False)
     media.folder(site_root, collector)

@@ -690,6 +690,30 @@ def store(cache_dir: Path) -> Path:
     return cache_dir / SLICES / f"v{CACHE_VERSION}-{_encoder()}"
 
 
+def contained(cache_dir: Path, path: Path) -> bool:
+    """Лежит ли путь кэша внутри кэша — после разрешения всех ссылок.
+
+    Каталог версии или записи, подменённый ссылкой наружу, иначе превращал
+    бы уборку кэша в удаление чужих файлов, а запись нарезок — в запись
+    куда угодно.
+    """
+    return paths.inside(cache_dir, path) and not path.is_symlink()
+
+
+def _entry(cache_dir: Path, root: Path, key: str) -> Path:
+    """Запись кэша по хешу — только внутри кэша, иначе E024."""
+    entry = root / key
+    for folder in (cache_dir / SLICES, root, entry):
+        if folder.exists() and not contained(cache_dir, folder):
+            raise HeronError(
+                code=paths.CODE,
+                message=f"кэш нарезок ведёт за свои пределы через ссылку: {folder}",
+                path=str(folder),
+                hint="удалите папку .heron-cache — она пересоздастся при сборке",
+            )
+    return entry
+
+
 def _shape(entry: Path, source: Path) -> Shape:
     """Размеры мастера из записи кэша, а нет — из самой картинки."""
     record = entry / "shape.json"
@@ -719,7 +743,6 @@ def _touch(entry: Path) -> None:
 def plan(
     site: Site,
     site_root: Path,
-    dist: Path,
     spec: ImagesSpec,
     collector: Collector,
     cache_dir: Path | None = None,
@@ -738,8 +761,9 @@ def plan(
     """
     manifest = Manifest()
     manifest.raw = raw_references(site, config)
-    root = store(cache_dir or site_root / ".heron-cache")
-    _forget_legacy(cache_dir or site_root / ".heron-cache")
+    cache = cache_dir or site_root / ".heron-cache"
+    root = store(cache)
+    _forget_legacy(cache)
 
     declared = declared_by(site, config)
     for src in sorted(declared):
@@ -771,7 +795,7 @@ def plan(
             manifest.copies[src] = source
             continue
 
-        entry = root / digest(source)
+        entry = _entry(cache, root, digest(source))
         shape = _shape(entry, source)
         _touch(entry)
         renditions = plan_master(src, source, spec, shape)
@@ -807,9 +831,9 @@ def _forget_legacy(cache_dir: Path) -> None:
     """Убрать кэш прежних форматов: он адресовался путями сайта."""
     for name in LEGACY_CACHE:
         old = cache_dir / name
-        if old.is_file():
-            old.unlink(missing_ok=True)
-        elif old.is_dir():
+        if old.is_symlink() or old.is_file():
+            old.unlink(missing_ok=True)  # ссылку — саму ссылку, не цель
+        elif old.is_dir() and contained(cache_dir, old):
             shutil.rmtree(old, ignore_errors=True)
 
 
@@ -840,11 +864,13 @@ def sweep(cache_dir: Path, days: int = KEEP_DAYS, now: float | None = None) -> l
         except BlockingIOError:
             return []
         for version in base.iterdir():
-            if not version.is_dir():
+            # Каталог версии, ставший ссылкой наружу, не обходится вовсе:
+            # иначе «записи» в нём — чужие папки, и rmtree удалил бы их.
+            if not version.is_dir() or not contained(cache_dir, version):
                 continue
             current = version.name.startswith(f"v{CACHE_VERSION}-")
             for entry in version.iterdir():
-                if not entry.is_dir():
+                if not entry.is_dir() or not contained(cache_dir, entry):
                     continue
                 marker = entry / USED
                 try:
@@ -891,7 +917,6 @@ def finish(
     site_root: Path,
     spec: ImagesSpec,
     used: set[str] | None = None,
-    cache_dir: Path | None = None,
     workers: int = 0,
     progress=None,
 ) -> list[Placed]:
@@ -992,9 +1017,9 @@ def build(
     from heron.core import output
 
     with using(cache_dir or site_root / ".heron-cache"):
-        manifest = plan(site, site_root, dist, spec, collector, cache_dir, strict, config)
+        manifest = plan(site, site_root, spec, collector, cache_dir, strict, config)
         outputs = output.Outputs()
-        for item in finish(manifest, site_root, spec, None, cache_dir, workers, progress):
+        for item in finish(manifest, site_root, spec, None, workers, progress):
             entry = output.Entry(
                 owner=item.owner or item.rel, kind="media", source=item.source, link=item.link
             )

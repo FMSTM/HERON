@@ -44,9 +44,37 @@ jobs:
         # в первый же день — и расходились.
         run: bash scripts/check.sh
 
+  # Браузерный тест XSS: Chromium ставится только здесь и только на время
+  # задания (`uv run --with`), в зависимости движка он не попадает.
+  # HERON_REQUIRE_BROWSER=1 — без браузера тест падает, а не пропускается.
+  browser:
+    name: браузер (Chromium)
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: поставить uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: python 3.12
+        run: uv python install 3.12
+
+      - name: зависимости
+        run: uv sync --group dev
+
+      - name: Chromium
+        run: uv run --with playwright==1.56.0 playwright install --with-deps chromium
+
+      - name: JSON-LD и заголовки в браузере
+        env:
+          HERON_REQUIRE_BROWSER: "1"
+        run: uv run --with playwright==1.56.0 pytest tests/test_html_safety.py -k browser -rs
+
   image:
     name: образ движка
-    needs: quality
+    needs: [quality, browser]
     if: github.event_name == 'push'
     runs-on: ubuntu-26.04
     permissions:

@@ -54,6 +54,19 @@ class Hooks:
         """Вызвать всех подписчиков по порядку регистрации."""
         return [handler(*args, **kwargs) for handler in self.handlers.get(name, [])]
 
+    def pipe(self, name: str, page: Any, value: str) -> str:
+        """Пропустить значение через обработчики по очереди.
+
+        Каждый получает результат предыдущего; `None` — оставить как есть.
+        `call` с одним исходным значением давал бы каждому обработчику
+        нетронутый HTML, и правки всех, кроме последнего, терялись.
+        """
+        for handler in self.handlers.get(name, []):
+            changed = handler(page, value)
+            if isinstance(changed, str):
+                value = changed
+        return value
+
     def block(self, kind: str):
         """Разборщик своего типа секции, если его кто-то предоставил."""
         handlers = self.handlers.get(f"{BLOCK}{kind}")

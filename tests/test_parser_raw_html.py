@@ -29,7 +29,9 @@ def test_escaped_when_parsed():
 
 
 def test_attrs_parse():
-    anchor, classes, rest = markdown.parse_attrs("#quick-facts .alert .wide data=1")
+    anchor, classes, rest = markdown.parse_attrs(
+        "#quick-facts .alert .wide data-x=1 lang=en onclick=alert(1)"
+    )
     assert anchor == "quick-facts"
     assert classes == ["alert", "wide"]
-    assert rest == {"data": "1"}
+    assert rest == {"data-x": "1", "lang": "en"}  # onclick отброшен

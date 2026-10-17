@@ -212,6 +212,7 @@ def scan(
 
             try:
                 markdown.guard_raw_html(body, rel, config.build.allow_raw_html, offset=body_line)
+                markdown.forbidden_attrs(md, body, rel, offset=body_line)
                 intro, found = sections.split(md, body, rel, offset=body_line)
             except HeronError as exc:
                 collector.errors.append(exc)

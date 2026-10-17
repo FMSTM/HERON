@@ -23,6 +23,7 @@ from markupsafe import Markup, escape
 
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
+from heron.core import paths
 from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError
 from heron.core.media import Manifest
@@ -171,7 +172,7 @@ def media_url(
     """
 
     def render(src: str, ratio: str = "", width: int = 0, format: str = "") -> str:
-        clean = src.lstrip("./")
+        clean = paths.normalize(src)
         if not ratio and not width and not format:
             return f"/{clean}"
 

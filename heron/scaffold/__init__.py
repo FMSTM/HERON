@@ -248,18 +248,6 @@ def _version_spec() -> str:
     return f">={major}.{minor},<{major}.{int(minor) + 1}"
 
 
-def _keep(root: Path, rel: str, plan: Plan) -> None:
-    """Пустая папка, которую переживёт git."""
-    path = root / rel
-    if path.is_dir() and any(path.iterdir()):
-        return
-    path.mkdir(parents=True, exist_ok=True)
-    marker = path / ".gitkeep"
-    if not marker.exists():
-        marker.write_text("", encoding="utf-8")
-        plan.created.append(f"{rel}/")
-
-
 def _put(root: Path, rel: str, text: str, plan: Plan, force: bool) -> None:
     path = root / rel
     if path.exists() and not force:

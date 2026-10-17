@@ -97,7 +97,9 @@ def test_questionnaire_fills_site_yaml(here, terminal):
 
 
 def test_questionnaire_asks_again_on_bad_answers(here, terminal):
-    answers = "en\nShop\nhttps://shop.com/\nshop.com\nen, english\nen\ny\n"
+    # «shop» без точки — не домен; https://shop.com/ — домен со схемой: его,
+    # как и site.yaml, принимаем и приводим к shop.com
+    answers = "en\nShop\nshop\nhttps://shop.com/\nen, english\nen\ny\n"
     result = run("new", "shop", input=answers)
 
     assert result.exit_code == 0, result.output

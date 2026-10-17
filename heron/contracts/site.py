@@ -23,7 +23,12 @@ from heron.contracts.loader import build, read_yaml
 from heron.core.errors import HeronError
 
 LANG_RE = re.compile(r"^[a-z]{2}(-[a-z]{2})?$")
-DOMAIN_RE = re.compile(r"^(?!-)[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})+$")
+# Домен: метки из латиницы, цифр и дефиса, не с дефиса и не на дефис, до 63
+# знаков, хотя бы одна точка. Одно правило на всех: опрос `heron new`
+# и валидация site.yaml раньше проверяли домен разными регулярками, и один
+# и тот же адрес мог пройти в одном месте и упасть в другом.
+LABEL = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+DOMAIN_RE = re.compile(rf"^{LABEL}(?:\.{LABEL})+$")
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 RESERVED = {
@@ -92,11 +97,17 @@ class Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+def domain(text: str) -> str | None:
+    """Домен в каноническом виде или None: схема и слеш снимаются, регистр — вниз."""
+    v = text.strip().lower().removeprefix("https://").removeprefix("http://").rstrip("/")
+    return v if DOMAIN_RE.match(v) else None
+
+
 def _clean_domain(v: str) -> str:
-    v = v.strip().lower().removeprefix("https://").removeprefix("http://").rstrip("/")
-    if not DOMAIN_RE.match(v):
+    found = domain(v)
+    if found is None:
         raise ValueError("домен указывается без схемы и слешей, например example.com")
-    return v
+    return found
 
 
 class SiteBlock(Strict):

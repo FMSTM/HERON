@@ -636,7 +636,7 @@ updated: 2026-09-02     # последний раз правили
 heron: ">=0.1,<0.2"          # версия движка, которую требует сайт. Обязательна
 
 site:
-  domain: example.com
+  domain: example.com        # без схемы и пути; https:// и слеш снимаются. Метки — латиница, цифры, дефис не по краям; одно правило у site.yaml и heron new
   theme: main                # имя темы. Локальная theme/ перекрывает
   default_lang: en
   languages: [en, ru]

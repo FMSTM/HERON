@@ -31,7 +31,6 @@ from heron.core.models import Page, Site
 from heron.modules import jsonld, sitemap
 
 MODULES = "modules"
-TEMPLATES = "templates"
 I18N = "i18n"
 
 

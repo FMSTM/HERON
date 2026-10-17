@@ -339,6 +339,7 @@ TITLES: dict[str, dict[str, str]] = {
         "E021": "the default language is empty in production",
         "E022": "gone overlaps a page address or redirect_from",
         "E023": "the theme lists fields the engine does not know",
+        "E024": "a path leaves the allowed folders",
     },
 }
 

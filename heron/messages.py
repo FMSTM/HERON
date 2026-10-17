@@ -147,12 +147,18 @@ TEXT: dict[str, dict[str, str]] = {
         # --- сборка и проверка ---
         "build_head": "HERON {version} · сборка {path} · окружение {env}",
         "check_head": "HERON {version} · проверка {path}",
-        "build_failed": "Сборка не выполнена: ошибок {count}. Исправьте их и соберите снова.",
+        "build_failed": (
+            "Сборка не выполнена: ошибок {count}. Папка сборки не тронута. "
+            "Исправьте и соберите снова."
+        ),
         "check_failed": "Проверка нашла ошибок: {count}. Сборка с ними не пройдёт.",
         "build_strict": (
-            "Сборка остановлена: --strict, предупреждений {count}. Без --strict она прошла бы."
+            "Сборка остановлена: строгий режим (--strict или build.fail_on_warning), "
+            "предупреждений {count}. Папка сборки не тронута — в ней прошлая удачная версия."
         ),
-        "check_strict": "Проверка: --strict, предупреждений {count} — в проде это ошибки.",
+        "check_strict": (
+            "Проверка: строгий режим (--strict или build.fail_on_warning), предупреждений {count}."
+        ),
         "build_env": "окружение {env} · домен {domain} · {index} · {counters}",
         "index_closed": "индексация закрыта",
         "index_open": "ИНДЕКСАЦИЯ ОТКРЫТА",
@@ -293,12 +299,16 @@ TEXT: dict[str, dict[str, str]] = {
         "done_files": "{count} files",
         "build_head": "HERON {version} · building {path} · environment {env}",
         "check_head": "HERON {version} · checking {path}",
-        "build_failed": "Build failed: {count} errors. Fix them and build again.",
+        "build_failed": (
+            "Build failed: {count} errors. The output folder is untouched. "
+            "Fix them and build again."
+        ),
         "check_failed": "Check found {count} errors. A build would fail on them.",
         "build_strict": (
-            "Build stopped: --strict, {count} warnings. Without --strict it would pass."
+            "Build stopped: strict mode (--strict or build.fail_on_warning), {count} warnings. "
+            "The output folder is untouched — it still holds the last good build."
         ),
-        "check_strict": "Check: --strict, {count} warnings — in production these are errors.",
+        "check_strict": "Check: strict mode (--strict or build.fail_on_warning), {count} warnings.",
         "build_env": "environment {env} · domain {domain} · {index} · {counters}",
         "index_closed": "indexing closed",
         "index_open": "INDEXING OPEN",
@@ -341,6 +351,7 @@ TITLES: dict[str, dict[str, str]] = {
         "E023": "the theme lists fields the engine does not know",
         "E024": "a path leaves the allowed folders",
         "E025": "a heading attribute is not allowed",
+        "E026": "two sources produce the same output file",
     },
 }
 

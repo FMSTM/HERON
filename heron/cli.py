@@ -720,10 +720,10 @@ def check(path: Path, strict: bool, drafts: bool) -> None:
         say(lang, "check_head", version=__version__, path=_shown(path)), bold=True, err=True
     )
     try:
-        result = pipeline.check(path, drafts=drafts)
+        result = pipeline.check(path, drafts=drafts, strict=strict)
     except HeronError as error:
         _fail(error, lang)
-    _finish(result, strict, lang, "check")
+    _finish(result, result.strict, lang, "check")
     click.secho(say(lang, "check_done", path=_shown(path)), fg="green")
 
 
@@ -757,7 +757,9 @@ def build(path: Path, strict: bool, drafts: bool, out: Path | None, env_name: st
         _fail(error, lang)
 
     target = out or (path / DIST)
-    _finish(result, strict, lang, "build", full=target.parent / ".heron-cache" / "warnings.txt")
+    _finish(
+        result, result.strict, lang, "build", full=target.parent / ".heron-cache" / "warnings.txt"
+    )
     # Одной строкой — чем собралось. Домен выбирается окружением, и
     # страховки «дев канонизируется на прод» больше нет: «собрал не то»
     # должно быть видно сразу, а не через неделю из выдачи.

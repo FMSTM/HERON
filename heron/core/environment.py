@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 DEV = "dev"
@@ -83,7 +83,7 @@ class BuildEnv:
             indexable=self.indexable,
             analytics=self.analytics,
             version=__version__,
-            built_at=datetime.now().astimezone().strftime("%d.%m.%Y %H:%M"),
+            built_at=_built_at(),
             revision=_revision(site_root) if site_root else "",
         )
 
@@ -107,6 +107,20 @@ class BuildEnv:
             indexable=_flag("SITE_INDEXABLE", base.indexable),
             analytics=_flag("SITE_ANALYTICS", base.analytics),
         )
+
+
+def _built_at() -> str:
+    """Время сборки для метки — или зафиксированное `SOURCE_DATE_EPOCH`.
+
+    Две сборки одного и того же должны давать одинаковые байты: иначе нельзя
+    ни сравнить холодную сборку с повторной, ни понять, изменилось ли что-то
+    кроме часов. `SOURCE_DATE_EPOCH` — общепринятый способ задать время
+    сборки снаружи (CI берёт время коммита); время тогда в UTC.
+    """
+    epoch = os.environ.get("SOURCE_DATE_EPOCH", "").strip()
+    if epoch.isdigit():
+        return datetime.fromtimestamp(int(epoch), UTC).strftime("%d.%m.%Y %H:%M UTC")
+    return datetime.now().astimezone().strftime("%d.%m.%Y %H:%M")
 
 
 def _revision(site_root: Path) -> str:

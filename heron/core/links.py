@@ -38,16 +38,6 @@ def _home_of(site: Site, lang: str, config: SiteConfig) -> Page | None:
     return site.by_url.get(url)
 
 
-def _as_list(value: object) -> list[str]:
-    if value is None:
-        return []
-    if isinstance(value, str):
-        return [value]
-    if isinstance(value, list):
-        return [str(v) for v in value]
-    return []
-
-
 TAGS = re.compile(r"<[^>]+>")
 
 

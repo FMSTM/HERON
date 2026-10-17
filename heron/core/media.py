@@ -29,7 +29,7 @@ from PIL import Image
 from heron.contracts.theme import ImagesSpec
 from heron.core import notes, paths
 from heron.core.errors import Collector, HeronError
-from heron.core.models import Site
+from heron.core.models import EXTERNAL_URL, Site
 
 # Папка ресурсов сайта. Имя `img` обещало только изображения, и видео класть
 # было некуда — оно оседало в `static/` и ехало в сборку без обработки.
@@ -61,7 +61,7 @@ HEAVY = 10 * 1024 * 1024
 # от MEDIA_FIELD, а не «само не совпадёт»: поля со ссылкой на сторонний
 # хостинг будут появляться, и молчаливое совпадение однажды перестанет быть
 # молчаливым — движок пойдёт искать чужой файл у себя на диске.
-EXTERNAL = re.compile(r"^(?:[a-z][a-z0-9+.\-]*:)?//", re.I)
+EXTERNAL = EXTERNAL_URL
 
 # Предел вложенности обхода. YAML-якоря дают общие объекты, и без предела
 # один дурной файл данных уводит обход в бесконечность.

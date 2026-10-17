@@ -229,3 +229,16 @@ def test_fail_on_warning_reaches_the_api(tmp_path):
     assert pipeline.run(root).failed
     # сборка с предупреждением при fail_on_warning не пишет
     assert not (root / "dist").exists()
+
+
+@pytest.mark.parametrize(("lang", "head"), [("en", "## Pages"), ("de", "## Seiten")])
+def test_llms_loose_pages_heading_follows_the_site_language(tmp_path, lang, head):
+    """Заголовок раздела был «Сторінки» для uk и «Страницы» для всех прочих."""
+    root = tmp_path / "site"
+    root.mkdir()
+    create(root, name="demo", languages=[lang])
+    write(root, f"{lang}/about.md", PAGE.format(t="About", extra="", body="Text."))
+    pipeline.run(root)
+    text = (root / "dist/llms.txt").read_text(encoding="utf-8")
+    assert head in text
+    assert "Страницы" not in text and "Сторінки" not in text

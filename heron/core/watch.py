@@ -25,16 +25,39 @@ WATCHED = ("content", "data", "media", "img", "static", "theme")
 POLL = 1.0
 
 
-def _stamp(root: Path) -> float:
-    latest = 0.0
-    for folder in (*WATCHED, "."):
+Snapshot = dict[str, tuple[int, int]]
+
+
+def snapshot(root: Path) -> Snapshot:
+    """Состав и состояние файлов сайта: путь → (время в нс, размер).
+
+    Сравнивался один максимальный mtime — и удаление, переименование или
+    файл, скопированный со старым временем, пересборку не будили. Снимок
+    видит и состав, и каждое изменение. Обход один: папки сайта рекурсивно,
+    корень — только верхним уровнем (site.yaml и соседи), без повторного
+    прохода по тем же папкам.
+    """
+    found: Snapshot = {}
+    for entry in sorted(root.iterdir()) if root.is_dir() else []:
+        if entry.is_file():
+            stat = entry.stat()
+            found[entry.name] = (stat.st_mtime_ns, stat.st_size)
+    for folder in WATCHED:
         base = root / folder
-        if not base.exists():
+        if not base.is_dir():
             continue
-        for path in base.rglob("*") if base.is_dir() else [base]:
-            if path.is_file() and ".heron-cache" not in path.parts and "dist" not in path.parts:
-                latest = max(latest, path.stat().st_mtime)
-    return latest
+        for path in base.rglob("*"):
+            if path.is_file():
+                stat = path.stat()
+                found[path.relative_to(root).as_posix()] = (stat.st_mtime_ns, stat.st_size)
+    return found
+
+
+def changed(before: Snapshot, after: Snapshot) -> list[str]:
+    """Что изменилось: добавлено, удалено, переименовано или правлено."""
+    return sorted(
+        {name for name in before.keys() | after.keys() if before.get(name) != after.get(name)}
+    )
 
 
 def preview_dist(root: Path) -> Path:
@@ -119,14 +142,16 @@ def serve(root: Path, port: int = 8000, drafts: bool = True) -> None:
     threading.Thread(target=server.serve_forever, daemon=True).start()
     click.secho(f"открыто: http://127.0.0.1:{port}/  (Ctrl+C — выход)", fg="green")
 
-    last = _stamp(root)
+    last = snapshot(root)
     try:
         while True:
             time.sleep(POLL)
-            current = _stamp(root)
-            if current > last:
+            current = snapshot(root)
+            diff = changed(last, current)
+            if diff:
                 last = current
-                click.echo("изменения — пересобираю")
+                shown = ", ".join(diff[:3]) + (f" и ещё {len(diff) - 3}" if len(diff) > 3 else "")
+                click.echo(f"изменения ({shown}) — пересобираю")
                 once(root, drafts, dist)
     except KeyboardInterrupt:
         click.echo("\nостановлено")

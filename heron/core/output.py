@@ -30,6 +30,7 @@ ETag, а у кэша — его жёсткая ссылка.
 
 from __future__ import annotations
 
+import fcntl
 import filecmp
 import json
 import os
@@ -216,6 +217,17 @@ def commit(dist: Path, outputs: Outputs) -> Applied:
     по вине содержимого, проверено до первого переименования.
     """
     dist.mkdir(parents=True, exist_ok=True)
+    # Две сборки в одну папку одновременно (CI, наблюдатель и ручная) не
+    # должны применяться вперемешку: применение — под блокировкой. Файл
+    # блокировки лежит рядом с папкой сборки, а не в ней: внутри он уехал бы
+    # в сеть.
+    lock_path = dist.parent / f".{dist.name}.heron-lock"
+    with lock_path.open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        return _commit(dist, outputs)
+
+
+def _commit(dist: Path, outputs: Outputs) -> Applied:
     old = previous(dist)
     wanted = outputs.entries
     stale = old - set(wanted)

@@ -192,14 +192,22 @@ def _for_lang(site: Site, config: SiteConfig, lang: str, langs: list[str]) -> di
         head += [f"> {home.meta.description}", ""]
     head += _note(config, lang)
 
-    catalogs = [p for p in pages if p.children and p is not home]
-    loose = [p for p in pages if not p.children and p.parent in (None, home) and p is not home]
+    # Дети каталога — по той же политике, что и всё остальное: страница с
+    # noindex или вне карты сайта не попадает и сюда, даже если её раздел
+    # индексируемый.
+    shown = {id(p) for p in pages}
+
+    def kids(page):
+        return [child for child in page.children if id(child) in shown]
+
+    catalogs = [p for p in pages if kids(p) and p is not home]
+    loose = [p for p in pages if not kids(p) and p.parent in (None, home) and p is not home]
 
     body: list[str] = []
     for catalog in sorted(catalogs, key=lambda p: (p.meta.order, p.url)):
         body.append(f"## {catalog.h1}")
         body.append("")
-        body.extend(_line(child, config) for child in catalog.children)
+        body.extend(_line(child, config) for child in kids(catalog))
         body.append("")
     if loose:
         body.append("## Сторінки" if lang == "uk" else "## Страницы")

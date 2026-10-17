@@ -351,7 +351,22 @@ def render(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> str
         payload.update(graph[0])
     else:
         payload["@graph"] = graph
-    return json.dumps(payload, ensure_ascii=False, indent=2)
+    return safe_json(payload)
+
+
+# Что нельзя оставить как есть внутри <script>. `</script>` в строке закрывает
+# тег — дальше браузер исполняет то, что написал автор поля. `<!--` и `<script`
+# переключают разборщик в режимы, где закрывающий тег ищется иначе. `&` — ради
+# XHTML-разборщиков. U+2028 и U+2029 — разрывы строки для старых движков JS.
+# Экранирование JSON-ом же (`\u003c`) оставляет данные теми же для любого
+# разборщика JSON: строка «</script>» читается обратно буква в букву.
+_UNSAFE = {"<": "\\u003c", ">": "\\u003e", "&": "\\u0026", "\u2028": "\\u2028", "\u2029": "\\u2029"}
+
+
+def safe_json(payload: Any) -> str:
+    """JSON, который можно вставить в `<script>` без выхода из него."""
+    text = json.dumps(payload, ensure_ascii=False, indent=2)
+    return "".join(_UNSAFE.get(char, char) for char in text)
 
 
 def _keys(node: Any) -> list[str]:

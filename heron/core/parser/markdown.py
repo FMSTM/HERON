@@ -42,8 +42,27 @@ def strip_comments(text: str) -> str:
     return "".join(part if index % 2 else COMMENT.sub("", part) for index, part in enumerate(parts))
 
 
+# Что можно повесить на заголовок хвостом `{…}` кроме `#id` и `.class`.
+# Список закрытый: `onclick=…` в заголовке — это сценарий в странице, и
+# запрет сырого HTML (`build.allow_raw_html: false`) не должен обходиться
+# через атрибуты. Значения экранирует рендерер markdown-it.
+ATTRIBUTES = {"lang", "dir", "title"}
+DATA_ATTR = re.compile(r"^data-[a-z0-9][a-z0-9-]*$")
+ID_OR_CLASS = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_-]*$")
+
+
+def allowed(key: str) -> bool:
+    """Можно ли атрибут `key=…` на заголовке."""
+    return key in ATTRIBUTES or bool(DATA_ATTR.match(key))
+
+
 def parse_attrs(body: str) -> tuple[str | None, list[str], dict[str, str]]:
-    """Разобрать `#id .class key=value` в идентификатор, классы и прочие атрибуты."""
+    """Разобрать `#id .class key=value` в идентификатор, классы и прочие атрибуты.
+
+    Атрибуты вне разрешённого набора сюда не попадают — их отсекает
+    `forbidden_attrs` раньше, с номером строки; здесь они молча
+    отбрасываются, чтобы рендер не вывел их ни при каком пути.
+    """
     anchor: str | None = None
     classes: list[str] = []
     rest: dict[str, str] = {}
@@ -54,9 +73,41 @@ def parse_attrs(body: str) -> tuple[str | None, list[str], dict[str, str]]:
             classes.append(chunk[1:])
         elif "=" in chunk:
             key, _, value = chunk.partition("=")
-            if key:
-                rest[key] = value.strip("\"'")
+            if key and allowed(key.lower()):
+                rest[key.lower()] = value.strip("\"'")
     return anchor, classes, rest
+
+
+def forbidden_attrs(md: MarkdownIt, body: str, path: str, offset: int = 0) -> None:
+    """E025 на атрибут заголовка вне разрешённого набора.
+
+    Разбор токенами, а не строками: «заголовок» внутри блока кода — это
+    код, и ругаться на него нельзя.
+    """
+    lines = body.splitlines()
+    for token in md.parse(body):
+        # Хвост `{…}` к этому моменту уже снят правилом заголовков, поэтому
+        # смотрим исходную строку заголовка по карте токена.
+        if token.type != "heading_open" or not token.map:
+            continue
+        match = ATTRS.search(lines[token.map[0]]) if token.map[0] < len(lines) else None
+        if not match:
+            continue
+        for chunk in match.group("body").split():
+            key = chunk.partition("=")[0].lower()
+            bad = ("=" in chunk and not allowed(key)) or (
+                chunk.startswith(("#", ".")) and not ID_OR_CLASS.match(chunk[1:])
+            )
+            if bad:
+                line = offset + (token.map[0] if token.map else 0) + 1
+                raise HeronError(
+                    code="E025",
+                    message=f"недопустимый атрибут заголовка: {chunk[:60]}",
+                    path=path,
+                    line=line,
+                    hint="у заголовка бывают #id, .class, lang=, dir=, title= и data-*=; "
+                    "обработчики событий и стили — нет",
+                )
 
 
 def _heading_attrs(state) -> None:

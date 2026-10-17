@@ -133,10 +133,10 @@ def test_config_carries_the_maps(tmp_path):
     result = pipeline.run(root)
     assert not result.failed
     conf = (root / "dist" / ".heron-nginx.conf").read_text(encoding="utf-8")
-    assert "map $uri $heron_gone" in conf
-    assert '"/sample-page/" 1;' in conf
-    assert "return 410;" in conf
-    assert "return 301 $heron_moved;" in conf
+    assert 'location = "/sample-page/" { return 410; }' in conf
+    assert 'location ^~ "/wp/" { return 410; }' in conf
+    assert 'location = "/o-nas/" { return 301 "/about/"; }' in conf
+    assert "map $uri" not in conf  # строковые карты сравнивают без регистра
 
 
 @needs_nginx

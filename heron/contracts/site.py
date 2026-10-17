@@ -245,11 +245,10 @@ class BuildBlock(Strict):
 class NginxBlock(Strict):
     """Конфиг nginx, который движок собирает вместе с сайтом.
 
-    `hash_sizes` — писать ли в него map_hash_bucket_size и map_hash_max_size.
-    `auto` (по умолчанию): движок считает их по ключам карт 301 и 410 —
-    иначе запуститься конфиг или нет, решает процессор и сборка nginx.
-    `off`: не писать, их задаёт nginx.conf хоста; повтор директивы там, где
-    хост её уже задал, — «directive is duplicate» и nginx не стартует.
+    `hash_sizes` — устарел и ничего не делает. 301 и 410 теперь точные
+    location, а не строковые карты: хэш-таблицы карт, под которые считались
+    map_hash_bucket_size и map_hash_max_size, больше не строятся. Ключ
+    принимается, чтобы существующие site.yaml собирались без правки.
     """
 
     hash_sizes: Literal["auto", "off"] = "auto"

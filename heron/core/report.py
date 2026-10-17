@@ -50,8 +50,6 @@ class Report:
     # (страниц с ручной датой, всего страниц, источник дат из site.yaml)
     manual_dates: tuple[int, int, str] | None = None
     # размеры хэшей карт nginx и кто их задаёт: движок (auto) или хост (off)
-    nginx_hash: object | None = None
-    nginx_hash_mode: str = "auto"
     # результат `nginx -t` на собранном конфиге: (прошёл, вывод) или None
     nginx_test: tuple[bool, str] | None = None
 
@@ -146,21 +144,6 @@ class Report:
             for owner, where, key, have, total in self.uneven_keys[:20]:
                 lines.append(f"  {owner}: {where} — {key} у {have} из {total}")
 
-        if self.nginx_hash is not None:
-            found = self.nginx_hash
-            lines.append("")
-            if self.nginx_hash_mode == "auto":
-                lines.append(
-                    f"nginx: map_hash_bucket_size {found.bucket}, map_hash_max_size "
-                    f"{found.max_size} — посчитано по картам 301/410: самый длинный ключ "
-                    f"{found.longest} байт, ключей {found.keys}"
-                )
-            else:
-                lines.append(
-                    f"nginx: картам 301/410 нужен map_hash_bucket_size ≥ {found.bucket} и "
-                    f"map_hash_max_size ≥ {found.max_size} — в конфиг не вписаны "
-                    "(nginx.hash_sizes: off), проверьте nginx.conf хоста"
-                )
         if self.nginx_test is not None:
             passed, output = self.nginx_test
             if passed:

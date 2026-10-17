@@ -287,8 +287,6 @@ def run(
     result.written = sorted(files)
     _readable(dist)
     result.report = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
-    result.report.nginx_hash = nginx.sizes(moves)
-    result.report.nginx_hash_mode = config.nginx.hash_sizes
     result.report.nginx_test = nginx.check(files.get(nginx.NAME), collector)
     _schema(site, config, theme, collector, result.report)
     return result

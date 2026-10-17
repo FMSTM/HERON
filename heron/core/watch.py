@@ -21,7 +21,9 @@ from heron.core import build as pipeline
 from heron.core import report as report_module
 from heron.core.errors import HeronError
 
-WATCHED = ("content", "data", "media", "img", "static", "theme")
+# plugins — код локальных плагинов сайта: правка плагина меняет сборку так же,
+# как правка темы.
+WATCHED = ("content", "data", "media", "img", "static", "theme", "plugins")
 POLL = 1.0
 
 

@@ -160,6 +160,10 @@ TEXT: dict[str, dict[str, str]] = {
             "Проверка: строгий режим (--strict или build.fail_on_warning), предупреждений {count}."
         ),
         "build_env": "окружение {env} · домен {domain} · {index} · {counters}",
+        "finish_failed": (
+            "Сайт записан и цел, но упало завершающее действие плагина "
+            "(on_build_finished): {problem}"
+        ),
         "index_closed": "индексация закрыта",
         "index_open": "ИНДЕКСАЦИЯ ОТКРЫТА",
         "counters_off": "счётчики выключены",
@@ -310,6 +314,10 @@ TEXT: dict[str, dict[str, str]] = {
         ),
         "check_strict": "Check: strict mode (--strict or build.fail_on_warning), {count} warnings.",
         "build_env": "environment {env} · domain {domain} · {index} · {counters}",
+        "finish_failed": (
+            "The site is written and intact, but a plugin finishing step "
+            "(on_build_finished) failed: {problem}"
+        ),
         "index_closed": "indexing closed",
         "index_open": "INDEXING OPEN",
         "counters_off": "counters off",
@@ -355,6 +363,7 @@ TITLES: dict[str, dict[str, str]] = {
         "E027": "two masters produce the same rendition names",
         "E028": "a language has no home page",
         "E029": "two files produce the same page key",
+        "E030": "a source folder or file cannot be read",
     },
 }
 

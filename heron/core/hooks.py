@@ -21,6 +21,7 @@ NAMES = (
     "on_page_parsed",
     "on_tree_built",
     "on_page_rendered",
+    "on_generate",
     "on_build_finished",
 )
 
@@ -57,6 +58,14 @@ class Hooks:
         """Разборщик своего типа секции, если его кто-то предоставил."""
         handlers = self.handlers.get(f"{BLOCK}{kind}")
         return handlers[0] if handlers else None
+
+    def blocks(self) -> dict[str, Callable[..., Any]]:
+        """Свои типы секций: имя класса заголовка → разборщик."""
+        return {
+            name[len(BLOCK) :]: handlers[0]
+            for name, handlers in self.handlers.items()
+            if name.startswith(BLOCK) and handlers
+        }
 
     def has(self, name: str) -> bool:
         return bool(self.handlers.get(name))

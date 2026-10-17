@@ -281,7 +281,12 @@ def run(
         for item in placed:
             outputs.add(
                 item.rel,
-                output.Entry(owner=item.rel, kind="media", source=item.source, link=item.link),
+                output.Entry(
+                    owner=item.owner or item.rel,
+                    kind="media",
+                    source=item.source,
+                    link=item.link,
+                ),
                 collector,
             )
         say.done("done_files", count=len(placed))

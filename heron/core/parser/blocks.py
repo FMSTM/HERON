@@ -429,9 +429,8 @@ def structure(md: MarkdownIt, section: Section) -> None:
 
     # основной узел: первый список, таблица или группа `###`
     main_start = main_end = None
-    depth = 0
     for index, token in enumerate(tokens):
-        if token.type in MAIN_NODE and depth == 0 and token.map:
+        if token.type in MAIN_NODE and token.map:
             if token.map[0] in quoted:
                 continue
             main_start, main_end = token.map

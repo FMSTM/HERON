@@ -22,6 +22,8 @@ from pathlib import Path
 import click
 
 from heron import __version__, build_info
+from heron.contracts import site as site_contract
+from heron.contracts.site import LANG_RE
 from heron.core import build as pipeline
 from heron.core import report as report_module
 from heron.core.environment import BuildEnv
@@ -149,8 +151,6 @@ class _Terminal:
         self._detail = f"{bar} {current:>3}/{total:<3} {detail[-room:] if room else ''}"
 
 
-LANG_RE = re.compile(r"^[a-z]{2}(-[a-z]{2})?$")
-DOMAIN_RE = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$")
 CONTAINER_ENV = "HERON_IN_CONTAINER"
 
 
@@ -446,7 +446,7 @@ def _check_langs(lang: str):
 
 def _check_domain(lang: str):
     def check(text: str) -> str | None:
-        return None if DOMAIN_RE.match(text.lower()) else say(lang, "bad_domain")
+        return None if site_contract.domain(text) else say(lang, "bad_domain")
 
     return check
 
@@ -458,7 +458,7 @@ def _questionnaire(
     click.echo(say(lang, "ask_intro") + "\n")
     name = _ask(lang, "ask_name", name, lambda text: None if text else "—")
     domain = _ask(lang, "ask_domain", domain or placeholder_domain(name), _check_domain(lang))
-    domain = domain.lower()
+    domain = site_contract.domain(domain) or domain.lower()
     raw = _ask(lang, "ask_langs", ", ".join(languages), _check_langs(lang))
     languages = list(dict.fromkeys(_parse_langs(raw)))
     if len(languages) > 1:
@@ -549,7 +549,7 @@ def _start_site(
     if bad or not languages:
         _err(say(lang, "bad_langs", bad=", ".join(bad) or "—"))
         sys.exit(2)
-    if domain and not DOMAIN_RE.match(domain.lower()):
+    if domain and not site_contract.domain(domain):
         _err(say(lang, "bad_domain"))
         sys.exit(2)
 

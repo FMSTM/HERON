@@ -138,8 +138,13 @@ def load_strings(theme_dir: Path, lang: str, collector: Collector) -> Strings:
     return Strings(values, lang, collector)
 
 
-def make(theme_dir: Path, config: SiteConfig) -> Environment:
-    """Собрать окружение Jinja2 для темы."""
+def make(theme_dir: Path, config: SiteConfig, hooks=None) -> Environment:
+    """Собрать окружение Jinja2 для темы.
+
+    Фильтры и глобальные переменные плагинов (`hooks.filter`,
+    `hooks.add_global`) добавляются последними, но встроенные не
+    перекрывают: имя, которое уже есть, плагину не отдаётся.
+    """
     env = Environment(
         loader=FileSystemLoader(str(theme_dir)),
         autoescape=True,
@@ -150,6 +155,11 @@ def make(theme_dir: Path, config: SiteConfig) -> Environment:
     )
     env.globals["absolute"] = lambda url: f"https://{config.site.domain}{url}"
     env.filters["absolute"] = env.globals["absolute"]
+    if hooks is not None:
+        for name, handler in hooks.filters.items():
+            env.filters.setdefault(name, handler)
+        for name, value in hooks.globals.items():
+            env.globals.setdefault(name, value)
     return env
 
 

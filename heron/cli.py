@@ -777,6 +777,8 @@ def build(path: Path, strict: bool, drafts: bool, out: Path | None, env_name: st
         fg="yellow" if not env.indexable else "green",
     )
     click.secho(say(lang, "build_done", count=len(result.written), target=target), fg="green")
+    for notice in result.notices:
+        click.secho(notice, fg="yellow", err=True)
     click.echo(say(lang, "build_next", path=_shown(path)))
 
 

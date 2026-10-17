@@ -150,6 +150,7 @@ def scan(
     md: MarkdownIt | None = None,
     collector: Collector | None = None,
     drafts: bool = False,
+    custom: dict | None = None,
 ) -> tuple[Site, Collector]:
     """Прочитать все языковые деревья и собрать страницы."""
     collector = collector or Collector()
@@ -247,7 +248,7 @@ def scan(
             except HeronError as exc:
                 collector.errors.append(exc)
                 continue
-            collector.warnings.extend(blocks.apply(md, found))
+            collector.warnings.extend(blocks.apply(md, found, custom))
             if intro is not None:
                 intro.kind, intro.data = "prose", intro.html
                 for warning in blocks.intro_parts(md, intro):

@@ -100,6 +100,10 @@ def read(path: Path, rel: str | None = None) -> tuple[PageMeta, str, int, list[W
             path=where,
             hint="пересохраните файл в UTF-8 без BOM",
         ) from exc
+    except OSError as exc:
+        from heron.core import paths
+
+        raise paths.unreadable(Path(where), exc) from exc
 
     data, body, body_line = split(text, where)
     meta = parse_meta(data, where)

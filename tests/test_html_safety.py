@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import os
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -123,7 +124,12 @@ def test_forbidden_attrs_reports_the_line():
 
 
 def test_browser_runs_no_injected_script(tmp_path):
-    sync_api = pytest.importorskip("playwright.sync_api")
+    # В обязательном задании CI (HERON_REQUIRE_BROWSER=1) браузер обязан
+    # быть: без него тест падает, а не пропускается. Локально — пропуск.
+    if os.environ.get("HERON_REQUIRE_BROWSER"):
+        import playwright.sync_api as sync_api
+    else:
+        sync_api = pytest.importorskip("playwright.sync_api")
     root = site(tmp_path, f"schema:\n  Article:\n    headline: {json.dumps(PAYLOAD)}\n")
     result = pipeline.run(root)
     assert not result.failed

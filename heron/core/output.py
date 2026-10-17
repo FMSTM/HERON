@@ -137,6 +137,18 @@ class Outputs:
                 kind="прочее",
             )
 
+    def text_of(self, rel: str) -> str | None:
+        """Итоговое содержимое файла сборки текстом — кто бы его ни заявил."""
+        entry = self.entries.get(rel)
+        if entry is None:
+            return None
+        if entry.text is not None:
+            return entry.text
+        try:
+            return entry.source.read_text(encoding="utf-8") if entry.source else None
+        except (OSError, UnicodeDecodeError):
+            return None
+
     def texts(self) -> list[str]:
         return [e.text for e in self.entries.values() if e.text is not None]
 
@@ -236,14 +248,53 @@ def commit(dist: Path, outputs: Outputs) -> Applied:
         return _commit(dist, outputs)
 
 
+def _write_manifest(dist: Path, staging: Path, files: set[str] | list[str]) -> None:
+    """Список своих файлов — атомарно: временный файл и `os.replace`."""
+    listing = json.dumps({"format": FORMAT, "files": sorted(files)}, ensure_ascii=False, indent=0)
+    current = dist / MANIFEST
+    if current.is_file() and current.read_text(encoding="utf-8") == listing:
+        return
+    manifest = staging / f"{MANIFEST}.{uuid.uuid4().hex}"
+    manifest.write_text(listing, encoding="utf-8")
+    manifest.chmod(0o644)
+    os.replace(manifest, current)
+
+
+def _legacy(dist: Path) -> bool:
+    """Папка собрана движком до манифеста: в ней лежит его конфиг nginx.
+
+    Тогда файлы на нужных путях — прошлая сборка, а не чужие: их можно
+    заменить. Без этого признака и без манифеста файл на нужном месте
+    положил не движок.
+    """
+    return not (dist / MANIFEST).exists() and (dist / ".heron-nginx.conf").is_file()
+
+
 def _commit(dist: Path, outputs: Outputs) -> Applied:
     old = previous(dist)
     wanted = outputs.entries
     stale = old - set(wanted)
     applied = Applied()
+    adopt = _legacy(dist)
 
     for rel in sorted(wanted):
         paths.target(dist, rel)  # E024, если путь уводит наружу через ссылку
+        out = dist / rel
+        # Чужой обычный файл на нужном месте: его положил не движок (нет в
+        # манифесте) — молча затирать нельзя. Те же байты — не спор.
+        if (
+            out.is_file()
+            and not out.is_symlink()
+            and rel not in old
+            and not adopt
+            and not _same(out, wanted[rel])
+        ):
+            raise HeronError(
+                code=CONFLICT,
+                message=f"в папке сборки чужой файл на месте {rel}",
+                path=str(out),
+                hint="его положил не движок; уберите его или соберите в чистую папку",
+            )
         blocker = _blocker(dist, rel, stale)
         if blocker is not None:
             raise HeronError(
@@ -265,6 +316,12 @@ def _commit(dist: Path, outputs: Outputs) -> Applied:
                 continue
             ready.append((rel, _prepare(staging, entry)))
 
+        # Журнал до первой правки: манифест заранее перечисляет всё, что
+        # может оказаться в dist после этого применения, — старое и новое.
+        # Оборвётся посреди переименований — следующая сборка знает, что
+        # новые файлы её, и уберёт лишние, не трогая чужого.
+        _write_manifest(dist, staging, old | set(wanted))
+
         # Сначала убрать своё устаревшее: на его месте может встать папка.
         # Только внутри dist по настоящему пути: папка, подменённая ссылкой
         # наружу, не даёт удалить чужой файл по старому имени.
@@ -285,15 +342,7 @@ def _commit(dist: Path, outputs: Outputs) -> Applied:
             os.replace(temp, out)
             applied.written.append(rel)
 
-        listing = json.dumps(
-            {"format": FORMAT, "files": sorted(wanted)}, ensure_ascii=False, indent=0
-        )
-        current = dist / MANIFEST
-        if not (current.is_file() and current.read_text(encoding="utf-8") == listing):
-            manifest = staging / MANIFEST
-            manifest.write_text(listing, encoding="utf-8")
-            manifest.chmod(0o644)
-            os.replace(manifest, current)
+        _write_manifest(dist, staging, set(wanted))
     finally:
         shutil.rmtree(staging, ignore_errors=True)
     # Папки, в которые сборка что-то положила, должны открываться серверу.

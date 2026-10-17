@@ -236,7 +236,9 @@ run_engine() {
   # смотрит на isatty и решает, крутить ему строку или писать лог.
   local tty=()
   [ -t 2 ] && tty=(-t)
-  docker run --rm "${tty[@]}" \
+  # ${arr[@]+"${arr[@]}"}: пустой массив под set -u в bash 3.2 (macOS) —
+  # «unbound variable»; такая запись раскрывается в ничто и там.
+  docker run --rm ${tty[@]+"${tty[@]}"} \
     --network=none \
     --read-only \
     --cap-drop=ALL \
@@ -260,7 +262,9 @@ do_build() {
   pull_engine
   note "сборка $SITE [$ENV_NAME]"
   note "контент: $SITE_PATH (только чтение)"
-  rm -rf "$OUT"
+  # Прошлый результат не стирается: движок пишет только после удачной
+  # сборки и сам убирает своё устаревшее по манифесту. Неудачная сборка
+  # оставляет в out/ прошлый рабочий сайт.
   # shellcheck disable=SC2046
   run_engine build --env "$SITE_ENV" $(strict_flag) --out "/out/${SITE}-${ENV_NAME}" /site
   ok "готово: out/${SITE}-${ENV_NAME}"
@@ -370,7 +374,7 @@ do_push() {
 
   docker tag "$IMAGE_NAME:$IMAGE_TAG" "$remote"
   note "отправка $remote"
-  docker "${cfg[@]}" push "$remote" || die "не отправилось. Если реестр не пускает — авторизуйтесь:
+  docker ${cfg[@]+"${cfg[@]}"} push "$remote" || die "не отправилось. Если реестр не пускает — авторизуйтесь:
   docker ${where:+--config $where }login ${REGISTRY%%/*}"
   ok "отправлено: $remote"
 }

@@ -115,6 +115,14 @@ def load_strings(theme_dir: Path, lang: str, collector: Collector) -> Strings:
     """Прочитать `theme/i18n/<lang>.yaml`."""
     path = theme_dir / I18N / f"{lang}.yaml"
     values: dict[str, Any] = {}
+    if path.is_file() and not paths.inside(theme_dir, path):
+        # Файл строк — ссылка за пределы темы: её текст ушёл бы в страницы.
+        raise HeronError(
+            code=paths.CODE,
+            message=f"i18n/{lang}.yaml ведёт за пределы темы через ссылку",
+            path=str(path),
+            hint="положите сам файл в тему вместо ссылки на него",
+        )
     if path.is_file():
         loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
         if isinstance(loaded, dict):

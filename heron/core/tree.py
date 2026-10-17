@@ -255,6 +255,19 @@ def scan(
                     warning.path = rel
                     collector.warnings.append(warning)
 
+            # Сегмент адреса из имени папки проверяется так же, как имя файла:
+            # `$` в адресе nginx прочёл бы как переменную, пробел и точка в
+            # начале дают адрес, который сервер не отдаст.
+            bad = [part for part in url_parts if not SLUG.match(part)]
+            if bad:
+                collector.error(
+                    "E005",
+                    f"недопустимый сегмент адреса {bad[0]!r} (имя папки или slug раздела)",
+                    path=rel,
+                    hint="папки — латиница, цифры и дефис; или задайте slug в _index.md раздела",
+                )
+                continue
+
             page = Page(
                 lang=lang,
                 source=rel,

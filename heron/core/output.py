@@ -45,6 +45,7 @@ from heron.core.errors import Collector, HeronError
 MANIFEST = ".heron-manifest.json"
 STAGING = ".heron-staging"
 CONFLICT = "E026"
+RESERVED = {MANIFEST}
 FORMAT = 1
 
 
@@ -75,6 +76,14 @@ class Outputs:
     def add(self, rel: str, entry: Entry, collector: Collector) -> None:
         """Заявить файл. Спор владельцев — E026 с обоими именами."""
         clean = paths.normalize(rel)
+        if clean in RESERVED or clean.split("/", 1)[0] == STAGING:
+            collector.error(
+                CONFLICT,
+                f"{entry.owner}: {clean} — служебное имя сборки, его пишет сам движок",
+                path=entry.owner,
+                hint="переименуйте файл",
+            )
+            return
         if not clean or clean == "." or paths.escapes(clean):
             collector.error(
                 paths.CODE,
@@ -257,8 +266,12 @@ def _commit(dist: Path, outputs: Outputs) -> Applied:
             ready.append((rel, _prepare(staging, entry)))
 
         # Сначала убрать своё устаревшее: на его месте может встать папка.
+        # Только внутри dist по настоящему пути: папка, подменённая ссылкой
+        # наружу, не даёт удалить чужой файл по старому имени.
         for rel in sorted(stale, key=lambda r: r.count("/"), reverse=True):
             spot = dist / rel
+            if not paths.inside(dist, spot.parent):
+                continue
             if spot.is_symlink() or spot.is_file():
                 spot.unlink()
                 applied.removed.append(rel)
@@ -283,7 +296,17 @@ def _commit(dist: Path, outputs: Outputs) -> Applied:
             os.replace(manifest, current)
     finally:
         shutil.rmtree(staging, ignore_errors=True)
-    for folder in (dist, *(p for p in dist.rglob("*") if p.is_dir())):
+    # Папки, в которые сборка что-то положила, должны открываться серверу.
+    # Только свои и только внутри dist: чужие папки и цели ссылок не трогаем.
+    folders = {dist}
+    for rel in applied.written:
+        parent = (dist / rel).parent
+        while parent != dist and parent.is_relative_to(dist):
+            folders.add(parent)
+            parent = parent.parent
+    for folder in sorted(folders):
+        if folder.is_symlink() or not paths.inside(dist, folder):
+            continue
         try:
             folder.chmod(folder.stat().st_mode | 0o755)
         except OSError:
@@ -294,6 +317,8 @@ def _commit(dist: Path, outputs: Outputs) -> Applied:
 def _prune(dist: Path, folder: Path) -> None:
     """Убрать опустевшие папки вверх до корня сборки."""
     while folder != dist and folder.is_relative_to(dist):
+        if folder.is_symlink() or not paths.inside(dist, folder):
+            return
         try:
             folder.rmdir()
         except OSError:

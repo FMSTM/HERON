@@ -44,17 +44,40 @@ def _covers(prefix: str, url: str) -> bool:
     return url.startswith(prefix)
 
 
+def _stem(path: str) -> str:
+    """Адрес без завершающего слеша: конфиг отвечает и на `/x`, и на `/x/`.
+
+    Сверять 301 и 410 между собой, со страницами и со служебными адресами
+    надо по этой форме: иначе `/a.html` и `/a.html/` проходят проверку
+    порознь и дают в конфиге дважды один `location`.
+    """
+    return path.rstrip("/") or "/"
+
+
+CONTROL = {chr(code) for code in range(32)} | {"\x7f"}
+
+
 def collect(site: Site, collector: Collector, config: SiteConfig | None = None) -> Plan:
     """Собрать карту 301 и список 410, проверив их друг против друга и против сайта."""
     plan = Plan()
     owner: dict[str, str] = {}
+    pages = {_stem(url) for url in site.by_url}
+    moved_stems: dict[str, str] = {}
 
     for page in site.pages:
         for written in page.meta.redirect_from:
             old, ok = canonical_path(written)
+            if CONTROL & set(old):
+                collector.error(
+                    "E009",
+                    f"redirect_from {written!r}: управляющий символ в адресе",
+                    path=page.source,
+                    hint="такой адрес не придёт от браузера и ломает карты",
+                )
+                continue
             if not ok:
                 plan.raw.add(old)
-            if old in site.by_url:
+            if old in site.by_url or _stem(old) in pages:
                 collector.error(
                     "E009",
                     f"redirect_from {written!r} совпадает с существующим адресом {old}",
@@ -62,16 +85,20 @@ def collect(site: Site, collector: Collector, config: SiteConfig | None = None) 
                     hint="страница по этому адресу уже есть, редирект перекрыл бы её",
                 )
                 continue
-            if old in plan.moved and plan.moved[old] != page.url:
+            twin = moved_stems.get(_stem(old))
+            if twin is not None and (twin != old or plan.moved[twin] != page.url):
                 collector.error(
                     "E009",
-                    f"{written!r} ведёт сразу в два места: {plan.moved[old]} и {page.url}",
+                    f"{written!r} ведёт сразу в два места: {plan.moved[twin]} и {page.url}"
+                    if twin == old
+                    else f"{written!r} и {twin!r} — один адрес для сервера (со слешем и без)",
                     path=page.source,
-                    hint=f"первый раз объявлен в {owner[old]}",
+                    hint=f"первый раз объявлен в {owner[twin]}",
                 )
                 continue
             plan.moved[old] = page.url
             owner[old] = page.source
+            moved_stems[_stem(old)] = old
 
     for old, target in plan.moved.items():
         if target in plan.moved:
@@ -101,6 +128,26 @@ def collect(site: Site, collector: Collector, config: SiteConfig | None = None) 
     for entry, source in entries:
         kind, path, name, value = parse_gone(entry)
         path, ok = canonical_path(path, slash=kind != "prefix")
+        if CONTROL & set(path):
+            collector.error(
+                "E022",
+                f"gone {entry!r}: управляющий символ в адресе",
+                path=source,
+                hint="такой адрес не придёт от браузера и ломает карты",
+            )
+            continue
+        if (
+            kind == "exact"
+            and _stem(path) in {_stem(g) for g in plan.gone}
+            and path not in plan.gone
+        ):
+            collector.error(
+                "E022",
+                f"gone {entry!r}: этот адрес уже есть в gone со слешем или без",
+                path=source,
+                hint="оставьте одну запись",
+            )
+            continue
         if (kind, path, name, value) in seen:
             collector.warn(f"gone: {entry!r} указан дважды", path=source, kind="прочее")
             continue
@@ -115,8 +162,8 @@ def collect(site: Site, collector: Collector, config: SiteConfig | None = None) 
             hit = sorted(url for url in site.by_url if _covers(path, url))
             moved = sorted(old for old in plan.moved if _covers(path, old))
         else:
-            hit = [path] if path in site.by_url else []
-            moved = [path] if path in plan.moved else []
+            hit = [path] if path in site.by_url or _stem(path) in pages else []
+            moved = [moved_stems[_stem(path)]] if _stem(path) in moved_stems else []
         if hit:
             collector.error(
                 "E022",
@@ -171,8 +218,9 @@ def _reserved(plan: Plan, collector: Collector, config: SiteConfig | None) -> No
                 path="site.yaml",
                 hint="410 на всю папку ресурсов или язык закрыл бы сайт; уточните адрес",
             )
+    stems = {_stem(path) for path in exact}
     for path in [*plan.gone, *plan.moved]:
-        if path in exact:
+        if _stem(path) in stems:
             collector.error(
                 "E022",
                 f"{path} — служебный адрес сайта, 301 и 410 на нём невозможны",

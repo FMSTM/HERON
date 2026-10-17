@@ -137,6 +137,31 @@ def load_strings(theme_dir: Path, lang: str, collector: Collector) -> Strings:
     return Strings(values, lang, collector)
 
 
+class ThemeLoader(FileSystemLoader):
+    """Шаблоны только изнутри темы.
+
+    `FileSystemLoader` идёт по символическим ссылкам: ссылка
+    `theme/partials/x.html` на чужой файл вставляла бы его текст в
+    публичные страницы. Политика чтения та же, что у `data/` и `static/`
+    (`paths`): файл после разрешения ссылок обязан лежать в теме.
+    """
+
+    def __init__(self, root: Path) -> None:
+        super().__init__(str(root))
+        self.root = root
+
+    def get_source(self, environment, template):
+        source, filename, uptodate = super().get_source(environment, template)
+        if filename and not paths.inside(self.root, Path(filename)):
+            raise HeronError(
+                code=paths.CODE,
+                message=f"шаблон {template} ведёт за пределы темы через ссылку",
+                path=str(filename),
+                hint="положите сам файл в тему вместо ссылки на него",
+            )
+        return source, filename, uptodate
+
+
 def make(theme_dir: Path, config: SiteConfig, hooks=None) -> Environment:
     """Собрать окружение Jinja2 для темы.
 
@@ -145,7 +170,7 @@ def make(theme_dir: Path, config: SiteConfig, hooks=None) -> Environment:
     перекрывают: имя, которое уже есть, плагину не отдаётся.
     """
     env = Environment(
-        loader=FileSystemLoader(str(theme_dir)),
+        loader=ThemeLoader(theme_dir),
         autoescape=True,
         undefined=StrictUndefined,
         trim_blocks=True,

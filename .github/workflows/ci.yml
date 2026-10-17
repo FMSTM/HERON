@@ -54,15 +54,10 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
 
       - uses: docker/setup-buildx-action@v4
-
-      - name: вход в ghcr
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: теги
         id: meta
@@ -75,31 +70,55 @@ jobs:
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-') }}
             type=sha,format=short
 
-      - name: время сборки
+      - name: время сборки — время коммита
+        # Воспроизводимость: одно и то же дерево даёт одну и ту же метку
+        # (heron --version) и одинаковые времена файлов в слоях.
         id: stamp
-        run: echo "built=$(date -u '+%Y-%m-%d %H:%M UTC')" >> "$GITHUB_OUTPUT"
+        run: |
+          epoch="$(git log -1 --format=%ct)"
+          echo "epoch=$epoch" >> "$GITHUB_OUTPUT"
+          echo "built=$(date -u -d "@$epoch" '+%Y-%m-%d %H:%M UTC')" >> "$GITHUB_OUTPUT"
 
-      - name: сборка и публикация
+      - name: сборка кандидата
+        # Образ собирается один раз и грузится в локальный докер: проверяется
+        # и публикуется именно он, а не пересобранный заново.
         uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: ${{ steps.stamp.outputs.epoch }}
         with:
           context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          load: true
+          push: false
+          tags: heron:candidate
           labels: ${{ steps.meta.outputs.labels }}
           # heron --version → 0.1.0 (beta, 55249f0, 2026-10-05 19:12 UTC)
           build-args: |
             HERON_CHANNEL=${{ github.ref_name }}
             HERON_REVISION=${{ github.sha }}
             HERON_BUILT=${{ steps.stamp.outputs.built }}
+            SOURCE_DATE_EPOCH=${{ steps.stamp.outputs.epoch }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: дымовая проверка образа движка
+      - name: дымовая проверка кандидата
+        # Временный сайт: new, затем строгая прод-сборка — с теми же
+        # ограничениями контейнера, что у site.sh и workflow образа сайта.
+        env:
+          SOURCE_DATE_EPOCH: ${{ steps.stamp.outputs.epoch }}
+        run: bash scripts/smoke-engine.sh heron:candidate "$GITHUB_SHA"
+
+      - name: вход в ghcr
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: публикация проверенного образа
         run: |
-          tag=$(echo "${{ steps.meta.outputs.tags }}" | head -1)
-          docker run --rm --network=none --read-only --tmpfs /tmp \
-            --cap-drop=ALL --security-opt=no-new-privileges \
-            --user 65534:65534 "$tag" --version > version.txt
-          cat version.txt
-          # в образе должна быть отметка именно этого коммита
-          grep -q "${GITHUB_SHA::7}" version.txt
+          while IFS= read -r tag; do
+            [ -n "$tag" ] || continue
+            docker tag heron:candidate "$tag"
+            docker push "$tag"
+          done <<< "${{ steps.meta.outputs.tags }}"
+          docker image inspect --format '{{json .RepoDigests}}' heron:candidate

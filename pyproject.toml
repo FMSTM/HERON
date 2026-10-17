@@ -28,6 +28,12 @@ dev = [
     "pre-commit>=3.7",
 ]
 
+[tool.uv]
+# Нижняя граница транзитивной зависимости (через pre-commit): ниже 21.7.13
+# открыты CVE-2026-102930, -102938, -102937, -102925 (GHSA-94p9-xgh2-xp45,
+# GHSA-9h9j-4vrj-gf7g, GHSA-x78j-v8h9-3j2q, GHSA-p58f-9548-mpm2).
+constraint-dependencies = ["virtualenv>=21.7.13"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["heron"]
 

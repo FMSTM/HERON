@@ -50,7 +50,8 @@ on:
           Стоковый nginx, на котором до сборки образа проверяется конфиг
           (`nginx -t`): битый конфиг не должен уехать в реестр.
         type: string
-        default: nginx:stable
+        # тот же nginx 1.30.6, что в Dockerfile.site, — прибит по digest
+        default: nginx:1.30.6-alpine@sha256:970364228b1e4f932abc22d321932816782cca8a20b85a77552a7cfe9acfb3b5
       push:
         description: Отправлять ли образ в реестр.
         type: boolean
@@ -91,6 +92,8 @@ jobs:
             *) ref="v${{ inputs.engine }}" ;;
           esac
           echo "heron_ref=$ref" >> "$GITHUB_OUTPUT"
+          # время сборки — время последнего коммита контента: воспроизводимо
+          echo "epoch=$(git log -1 --format=%ct)" >> "$GITHUB_OUTPUT"
           echo "image=$image:$tag" >> "$GITHUB_OUTPUT"
           echo "strict=$strict" >> "$GITHUB_OUTPUT"
 
@@ -103,20 +106,30 @@ jobs:
           sparse-checkout: |
             Dockerfile.site
             scripts/smoke-site.sh
+            scripts/smoke_site.py
           sparse-checkout-cone-mode: false
 
       - name: сборка сайта
+        # Те же ограничения, что у scripts/site.sh: без сети, корень только на
+        # чтение, без capabilities, чужой uid. Контент — только на чтение;
+        # писать можно в /out (сборка и кэш нарезок) и /tmp.
         run: |
-          flags="--env ${{ inputs.env }} --out /site/.heron-out"
+          out="$RUNNER_TEMP/heron-out"
+          mkdir -p "$out"
+          echo "HERON_OUT=$out" >> "$GITHUB_ENV"
+          flags="--env ${{ inputs.env }} --out /out/dist"
           [ "${{ steps.names.outputs.strict }}" = true ] && flags="$flags --strict"
-          docker run --rm --network=none \
-            -v "$PWD":/site -w "/site/${{ inputs.path }}" \
-            --user "$(id -u):$(id -g)" \
-            "ghcr.io/fmstm/heron:${{ inputs.engine }}" --version
-          docker run --rm --network=none \
-            -v "$PWD":/site -w "/site/${{ inputs.path }}" \
-            --user "$(id -u):$(id -g)" \
-            "ghcr.io/fmstm/heron:${{ inputs.engine }}" build . $flags
+          engine() {
+            docker run --rm --network=none --read-only --tmpfs /tmp \
+              --cap-drop=ALL --security-opt=no-new-privileges \
+              --user "$(id -u):$(id -g)" \
+              -e SOURCE_DATE_EPOCH="${{ steps.names.outputs.epoch }}" \
+              -v "$PWD":/site:ro -v "$out":/out \
+              -w "/site/${{ inputs.path }}" \
+              "ghcr.io/fmstm/heron:${{ inputs.engine }}" "$@"
+          }
+          engine --version
+          engine build . $flags
 
       - name: конфиг nginx на стоковом nginx
         # Образ сайта проверяет конфиг на nginx-unprivileged при сборке; здесь —
@@ -124,23 +137,24 @@ jobs:
         # и в образе: conf.d внутри http.
         run: |
           docker run --rm \
-            -v "$PWD/.heron-out/.heron-nginx.conf:/etc/nginx/conf.d/default.conf:ro" \
+            -v "$HERON_OUT/dist/.heron-nginx.conf:/etc/nginx/conf.d/default.conf:ro" \
             "${{ inputs.nginx_image }}" nginx -t
 
       - name: образ
         run: |
           docker build -f .heron/Dockerfile.site \
             --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
-            -t "${{ steps.names.outputs.image }}" .heron-out
+            -t "${{ steps.names.outputs.image }}" "$HERON_OUT/dist"
 
       - name: дымовая проверка
+        # Проверяется ровно тот образ, который уйдёт в реестр.
         run: |
           docker run -d --name heron-smoke -p 18080:8080 "${{ steps.names.outputs.image }}"
           for i in $(seq 1 30); do
             curl -s -o /dev/null http://localhost:18080/ && break
             sleep 0.5
           done
-          bash .heron/scripts/smoke-site.sh http://localhost:18080 .heron-out \
+          bash .heron/scripts/smoke-site.sh http://localhost:18080 "$HERON_OUT/dist" \
             || { docker logs heron-smoke; exit 1; }
           docker rm -f heron-smoke
 

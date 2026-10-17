@@ -7,7 +7,12 @@
 #
 # Собирается через scripts/site.sh <сайт> image <окружение>.
 
-FROM nginxinc/nginx-unprivileged:1.27-alpine
+# nginx 1.30.6 (stable, 2026-10-14; njs 1.0.2) — закрывает все опубликованные
+# на дату advisories nginx.org, включая CVE-2026-15176, -93479, -95101,
+# -97629, -97205 (исправлены в 1.30.6) и -90439 (1.30.5). Прибит по digest
+# индекса образа: тег мог бы уехать под ногами. Обновляется отдельным
+# коммитом после сверки https://nginx.org/en/security_advisories.html.
+FROM nginxinc/nginx-unprivileged:1.30.6-alpine@sha256:782bb89768cc87b7f95c18b95baa1af250e5d451f26794f59363540161147c01
 
 LABEL org.opencontainers.image.source="https://github.com/FMSTM/HERON"
 

@@ -55,6 +55,13 @@ TO_SHORT = {
     "de": "Kurzes Seitenverzeichnis:",
     "pl": "Krótki spis stron:",
 }
+PAGES = {
+    "uk": "## Сторінки",
+    "ru": "## Страницы",
+    "en": "## Pages",
+    "de": "## Seiten",
+    "pl": "## Strony",
+}
 FULL_TITLE = {
     "uk": "## Повні тексти",
     "ru": "## Полные тексты",
@@ -210,7 +217,7 @@ def _for_lang(site: Site, config: SiteConfig, lang: str, langs: list[str]) -> di
         body.extend(_line(child, config) for child in kids(catalog))
         body.append("")
     if loose:
-        body.append("## Сторінки" if lang == "uk" else "## Страницы")
+        body.append(_label(PAGES, lang))
         body.append("")
         body.extend(_line(page, config) for page in loose)
         body.append("")

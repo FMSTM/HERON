@@ -45,93 +45,113 @@ def run(tmp_path, site, collector, images=None, workers=1):
 
 
 def slices(tmp_path) -> set[str]:
+    """Файлы нарезок в кэше (без служебных отметок)."""
     root = tmp_path / ".heron-cache" / media.SLICES
-    return {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()}
+    return {
+        p.relative_to(root).as_posix()
+        for p in root.rglob("*")
+        if p.is_file() and not p.name.startswith(".") and p.name != "shape.json"
+    }
+
+
+def cached(tmp_path, src: str) -> Path:
+    """Запись кэша мастера — по содержимому, а не по имени."""
+    return media.store(tmp_path / ".heron-cache") / media.digest(tmp_path / src)
+
+
+def dist_files(tmp_path) -> dict[str, bytes]:
+    return {
+        p.relative_to(tmp_path / "dist").as_posix(): p.read_bytes()
+        for p in (tmp_path / "dist").rglob("*")
+        if p.is_file() and not p.name.startswith(".")
+    }
 
 
 def test_second_build_encodes_nothing_and_gives_the_same_dist(tmp_path):
     site, collector = prepared(tmp_path)
     run(tmp_path, site, collector)
-    first = {
-        p.relative_to(tmp_path / "dist").as_posix(): p.read_bytes()
-        for p in (tmp_path / "dist").rglob("*")
-        if p.is_file()
-    }
-    stamps = {
-        p: p.stat().st_mtime_ns
-        for p in (tmp_path / ".heron-cache" / media.SLICES).rglob("*")
-        if p.is_file()
-    }
+    first = dist_files(tmp_path)
+    root = tmp_path / ".heron-cache" / media.SLICES
+    stamps = {p: p.stat().st_mtime_ns for p in root.rglob("*.webp")}
 
-    # dist расходный: его стирают перед каждой сборкой
     import shutil
 
     shutil.rmtree(tmp_path / "dist")
     run(tmp_path, site, collector)
 
-    again = {
-        p.relative_to(tmp_path / "dist").as_posix(): p.read_bytes()
-        for p in (tmp_path / "dist").rglob("*")
-        if p.is_file()
-    }
-    assert again == first
+    assert dist_files(tmp_path) == first
     assert {p: p.stat().st_mtime_ns for p in stamps} == stamps
 
 
-def test_changed_master_recodes_only_itself(tmp_path):
+def test_changed_master_gets_new_bytes_and_others_keep_theirs(tmp_path):
     extra = {"uk/about.md": sites.page("Про", image="media/bio/other.png", image_alt="Інше")}
     site, collector = prepared(tmp_path, extra)
     master(tmp_path / "media" / "bio" / "other.png", colour=(10, 90, 200))
     run(tmp_path, site, collector)
-    keep = {
-        name: (tmp_path / ".heron-cache" / media.SLICES / name).read_bytes()
-        for name in slices(tmp_path)
-        if "other" in name
-    }
-    before = (
-        tmp_path / ".heron-cache" / media.SLICES / "media/bio/portrait-1x1-400.webp"
-    ).read_bytes()
+    other = cached(tmp_path, "media/bio/other.png")
+    keep = {p.name: p.read_bytes() for p in other.glob("*.webp")}
+    before = (tmp_path / "dist/media/bio/portrait-1x1-400.webp").read_bytes()
 
     master(tmp_path / "media" / "bio" / "portrait.png", colour=(0, 200, 0))
     run(tmp_path, site, collector)
 
-    after = (
-        tmp_path / ".heron-cache" / media.SLICES / "media/bio/portrait-1x1-400.webp"
-    ).read_bytes()
+    after = (tmp_path / "dist/media/bio/portrait-1x1-400.webp").read_bytes()
     assert after != before
-    assert {
-        name: (tmp_path / ".heron-cache" / media.SLICES / name).read_bytes() for name in keep
-    } == keep
+    assert {p.name: p.read_bytes() for p in other.glob("*.webp")} == keep
+    # в сборке — ровно файл записи нового мастера
+    fresh = cached(tmp_path, "media/bio/portrait.png") / "crop-1x1-400.webp"
+    assert after == fresh.read_bytes()
 
 
-def test_master_removed_from_content_leaves_no_slices(tmp_path):
+def test_entries_nobody_used_for_a_long_time_are_swept(tmp_path):
+    import time
+
     extra = {"uk/about.md": sites.page("Про", image="media/bio/other.png", image_alt="Інше")}
     site, collector = prepared(tmp_path, extra)
-    master(tmp_path / "media" / "bio" / "other.png")
+    master(tmp_path / "media" / "bio" / "other.png", colour=(1, 2, 3))
     run(tmp_path, site, collector)
-    assert any("other" in name for name in slices(tmp_path))
+    other = cached(tmp_path, "media/bio/other.png")
+    portrait = cached(tmp_path, "media/bio/portrait.png")
 
-    (tmp_path / "content" / "uk" / "about.md").unlink()
+    later = time.time() + (media.KEEP_DAYS + 1) * 86400
+    import os
+
+    os.utime(portrait / media.USED, (later, later))  # его отметила «живая» сборка
+    removed = media.sweep(tmp_path / ".heron-cache", now=later)
+    assert other in removed and not other.exists()
+    assert portrait.exists()
+
+
+def test_sweep_never_touches_what_a_build_already_placed(tmp_path):
+    import time
+
     site, collector = prepared(tmp_path)
-    # dist расходный и стирается перед сборкой — движок его не чистит
-    import shutil
-
-    shutil.rmtree(tmp_path / "dist")
     run(tmp_path, site, collector)
+    out = tmp_path / "dist/media/bio/portrait-1x1-400.webp"
+    data = out.read_bytes()
+    media.sweep(tmp_path / ".heron-cache", now=time.time() + 400 * 86400)
+    assert out.read_bytes() == data  # жёсткая ссылка пережила удаление записи
 
-    assert not any("other" in name for name in slices(tmp_path))
-    assert not any("other" in p.name for p in (tmp_path / "dist").rglob("*"))
-    assert any("portrait" in name for name in slices(tmp_path))
 
-
-def test_width_dropped_from_the_theme_leaves_no_slices_of_it(tmp_path):
+def test_width_dropped_from_the_theme_leaves_the_build(tmp_path):
     site, collector = prepared(tmp_path)
     run(tmp_path, site, collector)
-    assert any("-800." in name for name in slices(tmp_path))
+    assert (tmp_path / "dist/media/bio/portrait-1x1-800.webp").is_file()
 
     run(tmp_path, site, collector, images=spec(widths=[400], fallback_width=400))
-    assert not any("-800." in name for name in slices(tmp_path))
-    assert any("-400." in name for name in slices(tmp_path))
+    assert not (tmp_path / "dist/media/bio/portrait-1x1-800.webp").exists()
+    assert (tmp_path / "dist/media/bio/portrait-1x1-400.webp").is_file()
+
+
+def test_old_cache_formats_are_forgotten(tmp_path):
+    old = tmp_path / ".heron-cache"
+    (old / "media/bio").mkdir(parents=True)
+    (old / "media/bio/portrait-1x1-400.webp").write_bytes(b"stale")
+    (old / "media.json").write_text("{}", encoding="utf-8")
+    site, collector = prepared(tmp_path)
+    run(tmp_path, site, collector)
+    assert not (old / "media").exists() and not (old / "media.json").exists()
+    assert (tmp_path / "dist/media/bio/portrait-1x1-400.webp").read_bytes() != b"stale"
 
 
 def test_several_workers_give_the_same_result(tmp_path):
@@ -149,8 +169,10 @@ def test_several_workers_give_the_same_result(tmp_path):
 
 
 def test_dist_gets_a_copy_when_hard_links_are_impossible(tmp_path, monkeypatch):
+    from heron.core import output
+
     site, collector = prepared(tmp_path)
-    monkeypatch.setattr(media.os, "link", lambda *a, **k: (_ for _ in ()).throw(OSError("нельзя")))
+    monkeypatch.setattr(output.os, "link", lambda *a, **k: (_ for _ in ()).throw(OSError("нельзя")))
     run(tmp_path, site, collector)
     out = tmp_path / "dist" / "media" / "bio" / "portrait-1x1-400.webp"
     assert out.is_file()

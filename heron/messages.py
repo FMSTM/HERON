@@ -352,6 +352,7 @@ TITLES: dict[str, dict[str, str]] = {
         "E024": "a path leaves the allowed folders",
         "E025": "a heading attribute is not allowed",
         "E026": "two sources produce the same output file",
+        "E027": "two masters produce the same rendition names",
     },
 }
 

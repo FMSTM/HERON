@@ -20,7 +20,6 @@ from markdown_it import MarkdownIt
 from heron.core.errors import HeronError
 
 ATTRS = re.compile(r"\s*\{(?P<body>[^{}]*)\}\s*$")
-RAW_HTML = re.compile(r"<\s*/?\s*[a-zA-Z][a-zA-Z0-9:-]*(\s[^<>]*)?/?>")
 ALLOWED_INLINE = re.compile(r"^\s*<(br|wbr)\s*/?>\s*$", re.I)
 
 
@@ -167,19 +166,51 @@ def make(allow_raw_html: bool = False) -> MarkdownIt:
     return md
 
 
+# Разборщик только для поиска сырого HTML: с включённым HTML он отличает
+# тег в тексте от `<div>` в блоке кода или в `инлайн-коде` — там это пример,
+# а не разметка, и ругаться на него нельзя.
+_HTML_FINDER = MarkdownIt("commonmark", {"html": True}).enable(["table", "strikethrough"])
+
+
+def raw_html(body: str) -> list[tuple[int, str]]:
+    """Сырой HTML вне кода: (строка от начала тела, фрагмент)."""
+    lines = body.splitlines()
+    found: list[tuple[int, str]] = []
+    for token in _HTML_FINDER.parse(body):
+        start = token.map[0] if token.map else 0
+        if token.type == "html_block":
+            text = token.content.strip()
+            if text.startswith("<!--"):
+                continue  # заметка автора, её снимает strip_comments
+            found.append((start, text.splitlines()[0] if text else ""))
+        elif token.type == "inline":
+            for child in token.children or []:
+                if child.type != "html_inline":
+                    continue
+                text = child.content
+                if text.startswith("<!--") or ALLOWED_INLINE.match(text):
+                    continue
+                number = next((i for i in range(start, len(lines)) if text in lines[i]), start)
+                found.append((number, text))
+    return found
+
+
 def guard_raw_html(body: str, path: str, allow: bool, offset: int = 0) -> None:
-    """Остановить сборку, если в теле есть сырой HTML, а он запрещён."""
+    """Остановить сборку, если в теле есть сырой HTML, а он запрещён.
+
+    Разрешено без флага: `<br>` и `<wbr>` внутри строки, HTML-комментарии
+    (заметки автора) и любой HTML внутри блоков кода и `инлайн-кода`.
+    """
     if allow:
         return
-    for number, line in enumerate(body.splitlines(), start=offset + 1):
-        if RAW_HTML.search(line) and not ALLOWED_INLINE.match(line):
-            raise HeronError(
-                code="E015",
-                message=f"сырой HTML в markdown: {line.strip()[:80]}",
-                path=path,
-                line=number,
-                hint=(
-                    "перепишите средствами markdown, или разрешите осознанно: "
-                    "build.allow_raw_html: true в site.yaml"
-                ),
-            )
+    for number, text in raw_html(body):
+        raise HeronError(
+            code="E015",
+            message=f"сырой HTML в markdown: {text.strip()[:80]}",
+            path=path,
+            line=offset + number + 1,
+            hint=(
+                "перепишите средствами markdown, или разрешите осознанно: "
+                "build.allow_raw_html: true в site.yaml"
+            ),
+        )

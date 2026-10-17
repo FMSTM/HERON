@@ -226,13 +226,21 @@ def test_empty_default_language_stops_prod_naming_the_language(tmp_path):
     assert "'uk'" in str(errors[0])
 
 
-def test_empty_second_language_is_only_a_warning_in_prod(tmp_path):
+def test_empty_second_language_is_e028_in_prod(tmp_path):
+    """Язык в site.yaml без главной: /ru/ ответил бы 404 — в проде это ошибка."""
     root = make(
         tmp_path,
         ["uk", "ru"],
         {"uk/index.md": HOME.format(title="Головна")},
     )
     result = pipeline.run(root, env=BuildEnv.named("prod"))
+    assert [e.code for e in result.collector.errors] == ["E028"]
+    assert "'ru'" in result.collector.errors[0].message
+
+
+def test_empty_second_language_is_a_warning_in_dev(tmp_path):
+    root = make(tmp_path, ["uk", "ru"], {"uk/index.md": HOME.format(title="Головна")})
+    result = pipeline.run(root)
     assert not result.failed
     assert any("'ru'" in w.message for w in result.collector.warnings if w.kind == "языки")
 

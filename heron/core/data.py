@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import Any
 
 from heron.contracts.loader import read_yaml
-from heron.core.errors import Collector
+from heron.core import paths
+from heron.core.errors import Collector, HeronError
 
 SUFFIXES = (".yaml", ".yml")
 
@@ -26,6 +27,20 @@ def load(root: Path, collector: Collector | None = None) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for path in sorted(root.rglob("*")):
         if not path.is_file() or path.suffix.lower() not in SUFFIXES:
+            continue
+        if not paths.inside(root, path):
+            if collector is None:
+                raise HeronError(
+                    code=paths.CODE,
+                    message="символическая ссылка ведёт за пределы data/",
+                    path=str(path),
+                )
+            collector.error(
+                paths.CODE,
+                "символическая ссылка ведёт за пределы data/",
+                path=str(path.relative_to(root.parent)),
+                hint="положите сам файл в data/ вместо ссылки на него",
+            )
             continue
         node = out
         for part in path.relative_to(root).parts[:-1]:

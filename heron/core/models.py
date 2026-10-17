@@ -15,6 +15,7 @@ from datetime import UTC, date, datetime, time
 from typing import Any
 
 from heron.contracts.frontmatter import PageMeta
+from heron.core import paths
 
 # Чужой адрес: своя схема или протокол-относительная ссылка.
 EXTERNAL_URL = re.compile(r"^(?:[a-z][a-z0-9+.\-]*:)?//", re.I)
@@ -187,10 +188,10 @@ class Page:
         external = bool(EXTERNAL_URL.match(src))
         poster = (self.meta.video_poster or "").strip()
         return Video(
-            src=src if external else f"/{src.lstrip('./')}",
+            src=src if external else f"/{paths.normalize(src)}",
             poster=""
             if not poster
-            else (poster if EXTERNAL_URL.match(poster) else f"/{poster.lstrip('./')}"),
+            else (poster if EXTERNAL_URL.match(poster) else f"/{paths.normalize(poster)}"),
             title=(self.meta.video_title or "").strip(),
             external=external,
         )

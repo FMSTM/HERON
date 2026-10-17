@@ -27,6 +27,7 @@ from typing import Any
 
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
+from heron.core import paths
 from heron.core.models import Page, stamp
 from heron.core.urls import absolute
 
@@ -204,7 +205,7 @@ def _data(config: SiteConfig, lang: str, site=None) -> dict[str, Any]:
                 "h1": page.h1,
             }
             if page.meta.image:
-                entry["image"] = absolute(config, "/" + page.meta.image.lstrip("./"))
+                entry["image"] = absolute(config, "/" + paths.normalize(page.meta.image))
             pages[key] = entry
         # В подстановке путь пишется через точки, и `/` в нём не напишешь,
         # поэтому главная доступна как `pages.home`. Это имя всегда за

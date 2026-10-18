@@ -690,6 +690,26 @@ def store(cache_dir: Path) -> Path:
     return cache_dir / SLICES / f"v{CACHE_VERSION}-{_encoder()}"
 
 
+def guard(cache_dir: Path) -> None:
+    """Корень кэша и `renditions/` — настоящие папки, а не ссылки, иначе E024.
+
+    `contained` сравнивает пути с разрешённым корнем. Если сам корень —
+    ссылка наружу, разрешённый корень и есть чужая папка, и всё в ней
+    «внутри кэша»: уборка удалила бы её содержимое, запись — писала бы туда.
+    Битая ссылка тоже отвергается: `mkdir` создал бы папку по ней. Ссылка
+    выше корня (вся папка сайта — ссылкой) законна: кэш остаётся рядом со
+    сборкой, где бы она ни лежала.
+    """
+    for folder in (cache_dir, cache_dir / SLICES):
+        if folder.is_symlink():
+            raise HeronError(
+                code=paths.CODE,
+                message=f"кэш — ссылка, а не папка: {folder}",
+                path=str(folder),
+                hint="удалите эту ссылку — папка кэша пересоздастся при сборке",
+            )
+
+
 def contained(cache_dir: Path, path: Path) -> bool:
     """Лежит ли путь кэша внутри кэша — после разрешения всех ссылок.
 
@@ -697,6 +717,7 @@ def contained(cache_dir: Path, path: Path) -> bool:
     бы уборку кэша в удаление чужих файлов, а запись нарезок — в запись
     куда угодно.
     """
+    guard(cache_dir)
     return paths.inside(cache_dir, path) and not path.is_symlink()
 
 
@@ -829,6 +850,7 @@ def plan(
 
 def _forget_legacy(cache_dir: Path) -> None:
     """Убрать кэш прежних форматов: он адресовался путями сайта."""
+    guard(cache_dir)
     for name in LEGACY_CACHE:
         old = cache_dir / name
         if old.is_symlink() or old.is_file():
@@ -849,6 +871,7 @@ def sweep(cache_dir: Path, days: int = KEEP_DAYS, now: float | None = None) -> l
     import fcntl
     import time
 
+    guard(cache_dir)
     base = cache_dir / SLICES
     if not base.is_dir():
         return []
@@ -971,6 +994,7 @@ def using(cache_dir: Path):
     """
     import fcntl
 
+    guard(cache_dir)
     base = cache_dir / SLICES
     base.mkdir(parents=True, exist_ok=True)
     with (base / LOCK).open("a") as lock:
@@ -985,6 +1009,7 @@ def sweep_daily(cache_dir: Path) -> None:
     """Уборка кэша — не чаще раза в сутки: обход всех записей не бесплатен."""
     import time
 
+    guard(cache_dir)
     mark = cache_dir / SLICES / ".swept"
     try:
         if time.time() - mark.stat().st_mtime < 86400:

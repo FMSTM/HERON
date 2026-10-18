@@ -158,6 +158,9 @@ def run(
 
     say.step("step_config")
     config, theme, theme_dir, hooks = prepare(site_root, collector)
+    # Корень кэша проверяется первым: в него пишет и отчёт о предупреждениях,
+    # даже когда сборка упала на контенте.
+    media.guard(dist.parent / CACHE)
     paths.layout(site_root, dist, dist.parent / CACHE, sources(site_root, theme_dir))
     rooted(site_root, theme_dir)
     strict = strict or config.build.fail_on_warning

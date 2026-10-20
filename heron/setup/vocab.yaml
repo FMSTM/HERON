@@ -84,8 +84,9 @@ fields:
     to: contact.country
     prop: address.addressCountry
     group: address
+    kind: country
     label: {en: "Country", ru: "Страна"}
-    hint: {en: "Two-letter code: AT, DE, US.", ru: "Код из двух букв: AT, DE, US."}
+    hint: {en: "In site.yaml as a two-letter code: AT, DE, UA.", ru: "В site.yaml — кодом из двух букв: AT, DE, UA."}
   latitude:
     to: contact.geo.latitude
     prop: geo.latitude
@@ -121,7 +122,7 @@ fields:
     prop: knowsAbout
     kind: direction
     label: {en: "Field of work", ru: "Сфера деятельности"}
-    hint: {en: "From the list of fields; the nearest broader one if yours is not there.", ru: "Из списка направлений; нет своего — ближайшее общее."}
+    hint: {en: "From the list; the nearest one if yours is not there.", ru: "Из списка; нет своей — выберите ближайшую."}
   job_title:
     to: organization.job_title
     prop: jobTitle
@@ -148,12 +149,12 @@ fields:
     hint: {en: "Goes into the markup only if prices are allowed in the Search group.", ru: "Попадает в разметку, только если цены разрешены в группе «Поиск»."}
 
 # Поля, общие для всех типов, идут первыми; у частного типа добавляются свои.
-common: [name, about]
+common: [name]
 
 types:
   Organization:
     label: {en: "Organization", ru: "Организация"}
-    fields: [legal_name, logo, founding_date, country, postal_code, region, city, street, house]
+    fields: [field_of_work, legal_name, founding_date, logo, about, country, city, region, postal_code, street, house]
   Corporation:
     parent: Organization
     label: {en: "Company", ru: "Компания"}
@@ -226,4 +227,37 @@ types:
     label: {en: "Childcare", ru: "Присмотр за детьми"}
   Person:
     label: {en: "Person", ru: "Человек"}
-    fields: [image, field_of_work, job_title, works_for, country, city]
+    fields: [field_of_work, job_title, works_for, about, image, country, city]
+
+# Сферы деятельности — и для людей, и для организаций. Не типы schema.org:
+# тип говорит, что это (компания, клиника, человек), сфера — чем занимается.
+# В разметку идёт подписью на основном языке сайта (knowsAbout).
+directions:
+  - {ru: "Медицина и здоровье", en: "Healthcare"}
+  - {ru: "Красота и уход", en: "Beauty and care"}
+  - {ru: "Реклама и маркетинг", en: "Advertising and marketing"}
+  - {ru: "IT и разработка", en: "IT and software"}
+  - {ru: "Производство", en: "Manufacturing"}
+  - {ru: "Строительство и ремонт", en: "Construction and renovation"}
+  - {ru: "Недвижимость", en: "Real estate"}
+  - {ru: "Юридические услуги", en: "Legal services"}
+  - {ru: "Финансы и бухгалтерия", en: "Finance and accounting"}
+  - {ru: "Консалтинг", en: "Consulting"}
+  - {ru: "Образование", en: "Education"}
+  - {ru: "Торговля", en: "Retail and trade"}
+  - {ru: "Еда и рестораны", en: "Food and restaurants"}
+  - {ru: "Гостиницы и туризм", en: "Hospitality and travel"}
+  - {ru: "Транспорт и логистика", en: "Transport and logistics"}
+  - {ru: "Автомобили", en: "Automotive"}
+  - {ru: "Спорт и фитнес", en: "Sports and fitness"}
+  - {ru: "Искусство и культура", en: "Arts and culture"}
+  - {ru: "Медиа и издательство", en: "Media and publishing"}
+  - {ru: "Дизайн и фотография", en: "Design and photography"}
+  - {ru: "Сельское хозяйство", en: "Agriculture"}
+  - {ru: "Энергетика", en: "Energy"}
+  - {ru: "Благотворительность", en: "Charity"}
+  - {ru: "Наука и исследования", en: "Science and research"}
+  - {ru: "Дети и семья", en: "Children and family"}
+  - {ru: "Животные", en: "Animals"}
+  - {ru: "Государственные услуги", en: "Public services"}
+  - {ru: "Другое", en: "Other"}

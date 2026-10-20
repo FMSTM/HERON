@@ -23,7 +23,7 @@ def test_theme_generator_is_kept():
 
 def _site(tmp_path: Path) -> Path:
     root = tmp_path / "s"
-    create(root, name="S", languages=["en", "ru"], fish=True)
+    create(root, name="S", languages=["en", "ru"], demo=True)
     return root
 
 

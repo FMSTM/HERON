@@ -1,6 +1,10 @@
 <header class="site-header">
   <div class="wrap">
-    <a class="logo" href="{{ '/' if lang == site.site.default_lang else '/' ~ lang ~ '/' }}">{{ site.site.name or site.site.domain }}</a>
+    {% set logo = site.get_path('organization.logo') %}
+    <a class="logo" href="{{ '/' if lang == site.site.default_lang else '/' ~ lang ~ '/' }}">
+      {% if logo %}<img src="{{ media_url(logo) }}" alt="" width="32" height="32">{% else %}{% include "partials/mark.html" %}{% endif %}
+      <span>{{ site.site.name or site.site.domain }}</span>
+    </a>
     <nav aria-label="{{ t.menu }}">
       {% for item in nav.get('main', []) %}
       <a href="{{ item.url }}"{% if item.url == page.url %} aria-current="page"{% endif %}>{{ item.meta.nav_title or item.h1 }}</a>
@@ -16,5 +20,8 @@
       {% endfor %}
     </ul>
     {% endif %}
+    <button type="button" class="theme-toggle" data-theme-toggle aria-label="{{ t.theme_toggle }}" title="{{ t.theme_toggle }}">
+      <span class="sun" aria-hidden="true">☀</span><span class="moon" aria-hidden="true">☾</span>
+    </button>
   </div>
 </header>

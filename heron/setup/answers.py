@@ -577,6 +577,11 @@ def _clean_value(spec: dict[str, Any], value: Any) -> Any:
             return float(value)
         except (TypeError, ValueError):
             raise ValueError(f"{value!r} is not a number") from None
+    if kind == "country" and isinstance(value, str):
+        value = value.strip().upper()
+        if value and not re.fullmatch(r"[A-Z]{2}", value):
+            raise ValueError(f"country {value!r}: a two-letter code, e.g. AT")
+        return value
     if kind == "media" and isinstance(value, str):
         return value.strip().removeprefix("./").removeprefix("/")
     return value.strip() if isinstance(value, str) else value

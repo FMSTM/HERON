@@ -15,6 +15,11 @@
 <link rel="alternate" hreflang="{{ code }}" href="{{ href }}">
 {% endfor %}
 {% if page.meta.noindex or not env.indexable %}<meta name="robots" content="noindex, nofollow">{% endif %}
+<meta name="color-scheme" content="light dark">
+<script>
+  // светлая или тёмная: выбор человека, иначе — как в системе
+  try { var v = localStorage.getItem("theme"); if (v === "light" || v === "dark") document.documentElement.dataset.theme = v; } catch (e) {}
+</script>
 <link rel="stylesheet" href="/assets/site.css">
 {% set ld = jsonld() %}
 {% if ld %}<script type="application/ld+json">{{ ld }}</script>{% endif %}
@@ -27,5 +32,21 @@
 </main>
 {% include "partials/footer.html" %}
 {% if env.analytics %}{% include "partials/analytics.html" %}{% endif %}
+<script>
+  (function () {
+    var button = document.querySelector("[data-theme-toggle]");
+    if (!button) return;
+    function current() {
+      var set = document.documentElement.dataset.theme;
+      if (set) return set;
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    button.addEventListener("click", function () {
+      var next = current() === "dark" ? "light" : "dark";
+      document.documentElement.dataset.theme = next;
+      try { localStorage.setItem("theme", next); } catch (e) {}
+    });
+  })();
+</script>
 </body>
 </html>

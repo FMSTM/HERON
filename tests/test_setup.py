@@ -54,7 +54,7 @@ publish:
 @pytest.fixture
 def site(tmp_path: Path) -> Path:
     root = tmp_path / "site"
-    create(root, name="Example", languages=["en"], fish=True)
+    create(root, name="Example", languages=["en"], demo=True)
     data = yaml.safe_load((root / "site.yaml").read_text(encoding="utf-8"))
     data["gone"] = ["/old/"]
     data["custom_block"] = {"keep": True}
@@ -64,7 +64,8 @@ def site(tmp_path: Path) -> Path:
 
 def test_vocab_fields_inherit_from_parents():
     fields = fields_of("Dentist")
-    assert fields[:2] == ["name", "about"]
+    assert fields[:2] == ["name", "field_of_work"]  # сфера деятельности — рядом с «кто вы»
+    assert "about" in fields and "country" in fields
     assert "opening_hours" in fields  # от LocalBusiness
     assert "street" in fields  # от Organization
     assert "job_title" not in fields  # это у Person
@@ -89,7 +90,7 @@ def test_apply_writes_valid_config_and_keeps_foreign_blocks(site: Path):
     assert config.extras["organization"]["price_range"] == "$$"
     # новый язык — папка с главной и демо
     assert (site / "content" / "de" / "index.md").is_file()
-    assert (site / "content" / "de" / "forms.md").is_file()
+    assert (site / "content" / "de" / "blocks.md").is_file()
     assert "site.yaml" in result.written
     assert result.backup.startswith(".heron-cache/setup/")
 
@@ -266,3 +267,28 @@ def test_recipe_command():
     out = CliRunner().invoke(main, ["recipe"])
     assert out.exit_code == 0
     assert "nginx-unprivileged" in out.output
+
+
+def test_countries_and_directions_in_state(site: Path):
+    from heron.setup import state
+
+    seen = state(site, in_container=False)
+    austria = next(row for row in seen["countries"] if row[0] == "AT")
+    assert austria[1] == "Австрия" and austria[3] == "+43"
+    assert len(seen["countries"]) > 240
+    assert {"ru": "Реклама и маркетинг", "en": "Advertising and marketing"} in seen["vocab"][
+        "directions"
+    ]
+
+
+def test_country_is_a_code(site: Path):
+    answers = load_answers(ANSWERS)
+    answers.about.fields["country"] = "at"
+    apply(site, answers)
+    assert (
+        yaml.safe_load((site / "site.yaml").read_text(encoding="utf-8"))["contact"]["country"]
+        == "AT"
+    )
+    answers.about.fields["country"] = "Austria"
+    with pytest.raises(ValueError, match="two-letter"):
+        apply(site, answers)

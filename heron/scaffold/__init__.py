@@ -45,79 +45,94 @@ __pycache__/
 STRINGS = {
     "uk": (
         "powered_by: Працює на\nread_more: Читати далі\nskip: До змісту\n"
-        "menu: Меню\nbreadcrumbs: Ви тут\n"
+        "menu: Меню\nbreadcrumbs: Ви тут\ntheme_toggle: Світла або темна тема\n"
         "contact_main: Основний\ncontact_sales: Продажі\n"
         "contact_marketing: Маркетинг\ncontact_support: Підтримка\n"
         "contact_booking: Запис\ncontact_press: Преса\n"
     ),
     "ru": (
         "powered_by: Работает на\nread_more: Читать дальше\nskip: К содержимому\n"
-        "menu: Меню\nbreadcrumbs: Вы здесь\n"
+        "menu: Меню\nbreadcrumbs: Вы здесь\ntheme_toggle: Светлая или тёмная тема\n"
         "contact_main: Основной\ncontact_sales: Продажи\n"
         "contact_marketing: Маркетинг\ncontact_support: Поддержка\n"
         "contact_booking: Запись\ncontact_press: Пресса\n"
     ),
     "en": (
         "powered_by: Powered by\nread_more: Read more\nskip: Skip to content\n"
-        "menu: Menu\nbreadcrumbs: You are here\n"
+        "menu: Menu\nbreadcrumbs: You are here\ntheme_toggle: Light or dark theme\n"
         "contact_main: Main\ncontact_sales: Sales\n"
         "contact_marketing: Marketing\ncontact_support: Support\n"
         "contact_booking: Booking\ncontact_press: Press\n"
     ),
 }
 
-# Рыбный контент белой темы: тема без своего контента — это пустая витрина.
-# Главная, «Формы» (все формы секций, которые рисует тема), «Темы»,
+# Демонстрационный сайт белой темы: тема без своих страниц — пустая витрина.
+# Главная, «Блоки» (все виды блоков, которые рисует тема), «Темы»,
 # «Документация» — в каждом языке сайта: страницы стоят в меню, и без них
-# меню второго языка вело бы в никуда (строгая сборка падает). Тексты пока
-# на русском во всех языках: перевод — после вычитки.
-FISH = HERE / "demo" / "ru"
-FISH_MEDIA = HERE / "demo" / "media"
-FISH_PAGES = (
-    # файл, порядок в меню, (title, h1, description, пункт меню)
-    (
-        "index",
-        0,
-        (
+# меню второго языка вело бы в никуда (строгая сборка падает). Тексты есть
+# на русском и английском; остальные языки получают английские.
+DEMO = HERE / "demo"
+DEMO_MEDIA = DEMO / "media"
+DEMO_LANGS = ("ru", "en")
+DEMO_PAGES = ("index", "blocks", "themes", "docs")
+DEMO_TITLES = {
+    # страница → (title, h1, description, пункт меню), {name} — название сайта
+    "ru": {
+        "index": (
             "{name} — сайт на HERON",
             "{name}",
-            "Рыбный сайт белой темы HERON: как устроены страницы и что править.",
+            "Демонстрационный сайт белой темы HERON: как устроены страницы и что править.",
             "Главная",
         ),
-    ),
-    (
-        "forms",
-        10,
-        (
-            "Формы блоков — что рисует тема",
-            "Формы блоков",
-            "Все формы блоков HERON на одной странице: список, шаги, таблица, факты, "
+        "blocks": (
+            "Блоки страницы — что умеет тема",
+            "Блоки страницы",
+            "Все виды блоков HERON на одной странице: список, шаги, таблица, факты, "
             "вопросы, вкладки и другие.",
-            "Формы",
+            "Блоки",
         ),
-    ),
-    (
-        "themes",
-        20,
-        (
+        "themes": (
             "Темы — как сменить внешний вид",
             "Темы",
             "Как сменить тему сайта на HERON и что приезжает вместе с ней.",
             "Темы",
         ),
-    ),
-    (
-        "docs",
-        30,
-        (
-            "Документация — где читать про HERON",
+        "docs": (
+            "Документация — главные команды HERON",
             "Документация",
-            "Где читать документацию HERON и главные команды.",
+            "Главные команды HERON: создать, настроить, посмотреть, проверить, собрать.",
             "Документация",
         ),
-    ),
-)
-FISH_NAV = ["/", "forms", "themes", "docs"]
+    },
+    "en": {
+        "index": (
+            "{name} — a site on HERON",
+            "{name}",
+            "The demo site of the HERON white theme: how pages are made and what to edit.",
+            "Home",
+        ),
+        "blocks": (
+            "Page blocks — what the theme draws",
+            "Page blocks",
+            "Every kind of HERON block on one page: list, steps, table, facts, "
+            "questions, tabs and more.",
+            "Blocks",
+        ),
+        "themes": (
+            "Themes — how to change the look",
+            "Themes",
+            "How to change the theme of a HERON site and what comes with it.",
+            "Themes",
+        ),
+        "docs": (
+            "Documentation — the main HERON commands",
+            "Documentation",
+            "The main HERON commands: create, set up, look, check, build.",
+            "Documentation",
+        ),
+    },
+}
+DEMO_NAV = ["/", "blocks", "themes", "docs"]
 
 # Язык комментариев и пояснений, которые кладёт скелет: site.yaml,
 # theme.yaml, SEO-блок страниц, записки heron-readme.md.
@@ -307,14 +322,15 @@ def seo_block(
     )
 
 
-def _fish(root: Path, lang: str, name: str, plan: Plan, force: bool, notes: str) -> None:
-    """Рыбный контент белой темы в язык `lang` и картинки к нему."""
-    for page, order, texts in FISH_PAGES:
-        title, h1, description, nav = (part.format(name=name) for part in texts)
+def _demo(root: Path, lang: str, name: str, plan: Plan, force: bool, notes: str) -> None:
+    """Демонстрационные страницы белой темы в язык `lang` и картинки к ним."""
+    source = lang if lang in DEMO_LANGS else "en"
+    for page, order in zip(DEMO_PAGES, (0, 10, 20, 30), strict=True):
+        title, h1, description, nav = (part.format(name=name) for part in DEMO_TITLES[source][page])
         head = seo_block(title, h1, description, order=order, notes=notes, nav_title=nav)
-        body = (FISH / f"{page}.md").read_text(encoding="utf-8")
+        body = (DEMO / source / f"{page}.md").read_text(encoding="utf-8")
         _put(root, f"content/{lang}/{page}.md", head + "\n" + body, plan, force)
-    for image in sorted(FISH_MEDIA.glob("*")):
+    for image in sorted(DEMO_MEDIA.glob("*")):
         rel = f"media/demo/{image.name}"
         if rel not in plan.created:
             _put(root, rel, image.read_text(encoding="utf-8"), plan, force)
@@ -325,7 +341,7 @@ def starter_theme(stage: Path, languages: list[str], notes: str = "en") -> None:
 
     Тот же источник, что у `heron new`: тема, которую получает новый сайт,
     и тема, которую ставит `heron theme get starter`, — одна и та же, вместе
-    с рыбным контентом в основном языке.
+    с демонстрационными страницами.
     """
     plan = Plan(notes=notes)
     fields = {"theme": "starter", "theme_title": '"HERON starter"'}
@@ -336,7 +352,7 @@ def starter_theme(stage: Path, languages: list[str], notes: str = "en") -> None:
     for lang in languages:
         _put(stage, f"theme/i18n/{lang}.yaml", STRINGS.get(lang, STRINGS["en"]), plan, True)
     for lang in languages:
-        _fish(stage / "demo", lang, "HERON", plan, True, notes)
+        _demo(stage / "demo", lang, "HERON", plan, True, notes)
 
 
 def _starter(
@@ -415,7 +431,7 @@ def create(
     notes: str = "en",
     domain: str | None = None,
     default_lang: str | None = None,
-    fish: bool = False,
+    demo: bool = False,
 ) -> Plan:
     """Разложить скелет сайта в папку.
 
@@ -423,7 +439,7 @@ def create(
     `ru` или `en`. Языки самого сайта — отдельно, в `languages`.
     `default_lang` — основной язык; не задан — первый из `languages`.
     `domain` не задан — заглушка `<имя>.example`.
-    `fish` — рыбный контент белой темы в каждом языке (главная, «Формы»,
+    `demo` — демонстрационные страницы белой темы в каждом языке (главная, «Блоки»,
     «Темы», «Документация») и меню к нему. `init` его не кладёт: там у сайта
     свой контент.
     """
@@ -455,16 +471,16 @@ def create(
     }
 
     site_yaml = _text(notes, "site.yaml").format(**fields)
-    if fish:
-        menu = ", ".join(json.dumps(item) if item == "/" else item for item in FISH_NAV)
+    if demo:
+        menu = ", ".join(json.dumps(item) if item == "/" else item for item in DEMO_NAV)
         site_yaml = site_yaml.replace('  main: ["/"]', f"  main: [{menu}]", 1)
     _put(root, "site.yaml", site_yaml, plan, force)
     _put(root, ".gitignore", GITIGNORE, plan, force)
     _note(root, "root", "", notes, plan, force, name=name, slug=slugify(name) or name)
 
     for lang in languages:
-        if fish:
-            _fish(root, lang, name, plan, force, notes)
+        if demo:
+            _demo(root, lang, name, plan, force, notes)
             _starter(root, lang, name, plan, force, notes, pages=("404",))
         else:
             _starter(root, lang, name, plan, force, notes)
@@ -525,11 +541,11 @@ def adopt(root: Path, force: bool = False, notes: str | None = None) -> Plan:
     languages = declared["languages"] if declared else present
     theme = declared["theme"] if declared else None
 
-    # Рыба белой темы стоит в меню. Новый язык получает её, если она ещё
+    # Демонстрационные страницы стоят в меню. Новый язык получает их, если они ещё
     # есть в основном языке, — иначе его меню вело бы в никуда. Сайт, где
-    # рыбу уже заменили своими страницами, ничего лишнего не получает.
+    # их уже заменили своими страницами, ничего лишнего не получает.
     first = (languages or present or [None])[0]
-    fish = bool(first) and (content / first / "forms.md").is_file()
+    demo = bool(first) and (content / first / "blocks.md").is_file()
     made = create(
         root,
         name=root.resolve().name,
@@ -537,7 +553,7 @@ def adopt(root: Path, force: bool = False, notes: str | None = None) -> Plan:
         theme=theme,
         force=force,
         notes=notes,
-        fish=fish,
+        demo=demo,
     )
     plan.created = made.created
     plan.skipped = made.skipped

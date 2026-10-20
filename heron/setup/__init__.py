@@ -5,7 +5,6 @@
 - `answers` — модель ответов и их место в `site.yaml`;
 - `vocab.yaml` — справочник типов schema.org и полей анкеты;
 - `files` — что ещё ложится рядом с `site.yaml` по способу публикации;
-- `keys` — ключи доступа, вне папки сайта;
 - `server` — локальная страница анкеты.
 
 `apply` делает всё целиком и одинаково при любом входе: проверяет ответы,
@@ -27,8 +26,16 @@ from typing import Any
 import yaml
 
 from heron.setup import files as files_module
-from heron.setup import keys as keys_module
-from heron.setup.answers import Answers, fields_of, merge, ordered, read, vocab
+from heron.setup.answers import (
+    CONTACT_TYPES,
+    PURPOSES,
+    Answers,
+    fields_of,
+    merge,
+    ordered,
+    read,
+    vocab,
+)
 
 __all__ = ["Answers", "apply", "current_answers", "load_answers", "state"]
 
@@ -87,7 +94,6 @@ class Result:
     removed: list[str] = field(default_factory=list)
     kept: list[str] = field(default_factory=list)
     created: list[str] = field(default_factory=list)
-    keys_saved: list[str] = field(default_factory=list)
     theme: str = ""
     backup: str = ""
     warnings: list[str] = field(default_factory=list)
@@ -107,14 +113,11 @@ def notes_lang(data: dict[str, Any], flag: str | None = None) -> str:
 
 
 def state(root: Path, in_container: bool) -> dict[str, Any]:
-    """Всё, что нужно странице анкеты: ответы, справочник, ключи «задан/нет»."""
+    """Всё, что нужно странице анкеты: ответы, справочник, темы, репозиторий."""
     from heron import __version__, build_info
 
     data = raw_config(root)
     answers = read(data)
-    base = keys_module.folder(in_container)
-    ident = keys_module.site_id(answers.site.domain, root.resolve().name)
-    keys_path = keys_module.path_for(base, ident) if base is not None else None
     themes = []
     try:
         from heron.themes import catalog
@@ -123,14 +126,12 @@ def state(root: Path, in_container: bool) -> dict[str, Any]:
     except Exception:  # каталог тем — подсказка, а не условие анкеты
         themes = []
     return {
-        "answers": json.loads(answers.model_dump_json(exclude={"keys"})),
+        "answers": json.loads(answers.model_dump_json()),
         "vocab": vocab(),
         "fields_by_type": {kind: fields_of(kind) for kind in vocab()["types"]},
-        "keys": {
-            "where": str(keys_path) if keys_path else "",
-            "can_save": keys_path is not None,
-            "set": keys_module.status(keys_path),
-        },
+        "contact_types": list(CONTACT_TYPES),
+        "purposes": list(PURPOSES),
+        "git_remote": git_remote(root),
         "themes": themes,
         "site_theme": str((data.get("site") or {}).get("theme") or ""),
         "notes": notes_lang(data),
@@ -138,6 +139,22 @@ def state(root: Path, in_container: bool) -> dict[str, Any]:
         "version": __version__,
         "exists": bool(data),
     }
+
+
+def git_remote(root: Path) -> str:
+    """`владелец/репозиторий` из origin в .git/config — подсказка для адреса образа."""
+    import re
+
+    config = Path(root) / ".git" / "config"
+    try:
+        text = config.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    found = re.search(r'\[remote "origin"\][^\[]*?url\s*=\s*(\S+)', text, re.S)
+    if not found:
+        return ""
+    match = re.search(r"github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$", found.group(1))
+    return f"{match.group(1)}/{match.group(2)}" if match else ""
 
 
 def _version_spec() -> str:
@@ -159,11 +176,12 @@ def apply(
     answers: Answers,
     in_container: bool = False,
     lang: str | None = None,
-    clear_keys: set[str] | None = None,
     upload: Path | None = None,
 ) -> Result:
     """Записать ответы: site.yaml, папки языков, тему, файлы публикации, ключи."""
     root = Path(root)
+    if not (root / SITE_YAML).is_file():
+        raise ValueError(f"no {SITE_YAML} in {root}: create the site first (heron new)")
     result = Result()
     old = raw_config(root)
     lang = notes_lang(old, lang)
@@ -208,19 +226,8 @@ def apply(
     made = adopt(root, notes=lang)
     result.created.extend(made.created)
 
-    # ключи
-    base = keys_module.folder(in_container)
-    ident = keys_module.site_id(answers.site.domain, root.resolve().name)
-    given = answers.keys.model_dump()
-    if base is not None:
-        result.keys_saved = keys_module.save(
-            keys_module.path_for(base, ident), given, clear_keys or set()
-        )
-    elif any(given.values()):
-        result.warnings.append("keys_not_saved")
-
     # файлы публикации
-    generated = files_module.plan(answers, lang, ident, keys_here=base is not None)
+    generated = files_module.plan(answers, lang)
     wanted = {item.rel for item in generated}
     for item in generated:
         target = root / item.rel
@@ -269,5 +276,5 @@ def load_answers(text: str) -> Answers:
 def current_answers(root: Path) -> str:
     """Записанные ответы в YAML — чтобы поправить и подать обратно."""
     answers = read(raw_config(root))
-    data = json.loads(answers.model_dump_json(exclude={"keys"}))
+    data = json.loads(answers.model_dump_json())
     return yaml.dump(data, Dumper=_Dumper, sort_keys=False, allow_unicode=True, width=100)

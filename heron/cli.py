@@ -908,6 +908,12 @@ def setup(
 
     lang = _lang(notes, path)
     _need_dir(path, lang)
+    if not (path / "site.yaml").is_file():
+        # Без этой проверки анкета открывалась пустой в любой папке: человек
+        # заполнял её, а сайт лежал рядом, в другой папке, и ничего не знал.
+        _err(say(lang, "setup_no_site", path=_shown(path)))
+        _err(say(lang, "setup_no_site_hint", path=_shown(path)), None)
+        sys.exit(1)
     if dump:
         click.echo(configurator.current_answers(path), nl=False)
         return
@@ -951,15 +957,12 @@ def _setup_report(result, lang: str, path: Path) -> None:
         ("setup_created", result.created),
         ("setup_removed", result.removed),
         ("setup_kept", result.kept),
-        ("setup_keys", result.keys_saved),
     ):
         if items:
             shown = ", ".join(items[:8]) + (" …" if len(items) > 8 else "")
             click.echo("  " + say(lang, key, files=shown))
     if result.backup:
         click.echo("  " + say(lang, "setup_backup", file=result.backup))
-    if "keys_not_saved" in result.warnings:
-        click.secho("  " + say(lang, "setup_keys_container"), fg="yellow")
     click.echo(say(lang, "setup_next", path=_shown(path)))
 
 

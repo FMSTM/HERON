@@ -5,7 +5,11 @@
 для этого вызова. Кладёт только контент: markdown, картинки, тему, site.yaml. Ни
 Dockerfile, ни compose, ни скриптов сборки, ни .env здесь нет и быть не
 может — сборка, окружения и упаковка живут в HERON, а папка сайта остаётся
-папкой сайта. Решение «папка или образ» принимается при сборке.
+папкой сайта. Скрипты публикации под выбранный способ кладёт только
+конфигуратор (`heron setup`), и это короткие вызовы образа HERON.
+
+Тема скелета — стартовая: белая, рисует все формы секций. Её же ставит
+`heron theme get starter` (`starter_theme`).
 
 Спецификация: docs/spec/23-distribution.md, раздел 4.
 """
@@ -39,9 +43,40 @@ __pycache__/
 
 # Строки интерфейса темы на языке сайта. Нет языка — английские.
 STRINGS = {
-    "uk": "powered_by: Працює на\nread_more: Читати далі\n",
-    "ru": "powered_by: Работает на\nread_more: Читать дальше\n",
-    "en": "powered_by: Powered by\nread_more: Read more\n",
+    "uk": (
+        "powered_by: Працює на\nread_more: Читати далі\nskip: До змісту\n"
+        "menu: Меню\nbreadcrumbs: Ви тут\n"
+    ),
+    "ru": (
+        "powered_by: Работает на\nread_more: Читать дальше\nskip: К содержимому\n"
+        "menu: Меню\nbreadcrumbs: Вы здесь\n"
+    ),
+    "en": (
+        "powered_by: Powered by\nread_more: Read more\nskip: Skip to content\n"
+        "menu: Menu\nbreadcrumbs: You are here\n"
+    ),
+}
+
+# Демо стартовой темы: страница «Формы секций» на каждом языке сайта и две
+# картинки для галереи. Показывает все формы, которые знает движок, — и
+# служит инструкцией: файл и страница рядом. Нет перевода — английский.
+DEMO = HERE / "demo"
+DEMO_PAGE = "forms"
+DEMO_TITLES = {
+    "ru": (
+        "Формы секций — как писать страницы",
+        "Формы секций",
+        "Все формы секций HERON на одной странице: список, шаги, таблица, факты, "
+        "вопросы, вкладки и другие.",
+        "Формы",
+    ),
+    "en": (
+        "Section forms — how to write pages",
+        "Section forms",
+        "Every section form of HERON on one page: list, steps, table, facts, "
+        "questions, tabs and more.",
+        "Forms",
+    ),
 }
 
 # Язык комментариев и пояснений, которые кладёт скелет: site.yaml,
@@ -232,6 +267,42 @@ def seo_block(
     )
 
 
+def _demo(root: Path, lang: str, plan: Plan, force: bool, notes: str) -> None:
+    """Страница «Формы секций» на языке `lang` и картинки к ней."""
+    source = DEMO / lang / f"{DEMO_PAGE}.md"
+    texts = DEMO_TITLES.get(lang)
+    if not source.is_file() or texts is None:
+        source = DEMO / "en" / f"{DEMO_PAGE}.md"
+        texts = DEMO_TITLES["en"]
+    title, h1, description, nav = texts
+    head = seo_block(title, h1, description, order=10, notes=notes, nav_title=nav)
+    body = source.read_text(encoding="utf-8")
+    _put(root, f"content/{lang}/{DEMO_PAGE}.md", head + "\n" + body, plan, force)
+    for image in sorted((DEMO / "media").glob("*")):
+        rel = f"media/demo/{image.name}"
+        if rel not in plan.created:
+            _put(root, rel, image.read_text(encoding="utf-8"), plan, force)
+
+
+def starter_theme(stage: Path, languages: list[str], notes: str = "en") -> None:
+    """Стартовая тема в папку `stage`: theme/ и demo/ — как архив темы.
+
+    Тот же источник, что у `heron new`: тема, которую получает новый сайт,
+    и тема, которую ставит `heron theme get starter`, — одна и та же.
+    """
+    plan = Plan(notes=notes)
+    fields = {"theme": "starter", "theme_title": '"HERON starter"'}
+    _put(stage, "theme/theme.yaml", _text(notes, "theme.yaml").format(**fields), plan, True)
+    for source in sorted(TEMPLATES.rglob("*")):
+        if source.is_file():
+            _copy(stage, source, f"theme/{source.relative_to(TEMPLATES).as_posix()}", plan, True)
+    for lang in languages:
+        _put(stage, f"theme/i18n/{lang}.yaml", STRINGS.get(lang, STRINGS["en"]), plan, True)
+    demo = stage / "demo"
+    for lang in languages:
+        _demo(demo, lang, plan, True, notes)
+
+
 def _starter(root: Path, lang: str, name: str, plan: Plan, force: bool, notes: str) -> None:
     """Главная и страница 404 языка: сайт собирается сразу после создания."""
     texts = STARTER.get(lang, STARTER["en"])
@@ -298,6 +369,7 @@ def create(
     notes: str = "en",
     domain: str | None = None,
     default_lang: str | None = None,
+    demo: bool = False,
 ) -> Plan:
     """Разложить скелет сайта в папку.
 
@@ -305,6 +377,7 @@ def create(
     `ru` или `en`. Языки самого сайта — отдельно, в `languages`.
     `default_lang` — основной язык; не задан — первый из `languages`.
     `domain` не задан — заглушка `<имя>.example`.
+    `demo` — страница «Формы секций» на каждом языке и пункт меню к ней.
     """
     if notes not in NOTE_LANGS:
         raise ValueError(message("en", "bad_notes", value=notes))
@@ -333,12 +406,17 @@ def create(
         "spec": _version_spec(),
     }
 
-    _put(root, "site.yaml", _text(notes, "site.yaml").format(**fields), plan, force)
+    site_yaml = _text(notes, "site.yaml").format(**fields)
+    if demo:
+        site_yaml = site_yaml.replace('  main: ["/"]', f'  main: ["/", {DEMO_PAGE}]', 1)
+    _put(root, "site.yaml", site_yaml, plan, force)
     _put(root, ".gitignore", GITIGNORE, plan, force)
     _note(root, "root", "", notes, plan, force, name=name, slug=slugify(name) or name)
 
     for lang in languages:
         _starter(root, lang, name, plan, force, notes)
+        if demo:
+            _demo(root, lang, plan, force, notes)
 
     for folder in ("data", "media", "static", "plugins"):
         path = root / folder
@@ -396,6 +474,10 @@ def adopt(root: Path, force: bool = False, notes: str | None = None) -> Plan:
     languages = declared["languages"] if declared else present
     theme = declared["theme"] if declared else None
 
+    # Сайт заведён с демо-страницей — новый язык получает её тоже: она стоит
+    # в меню, и без неё меню нового языка ссылалось бы в никуда.
+    first = (languages or present or [None])[0]
+    demo = bool(first) and (content / first / f"{DEMO_PAGE}.md").is_file()
     made = create(
         root,
         name=root.resolve().name,
@@ -403,6 +485,7 @@ def adopt(root: Path, force: bool = False, notes: str | None = None) -> Plan:
         theme=theme,
         force=force,
         notes=notes,
+        demo=demo,
     )
     plan.created = made.created
     plan.skipped = made.skipped

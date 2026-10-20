@@ -1,4 +1,8 @@
+{% set phone = site.get_path('contact.phone') %}
+{% set email = site.get_path('contact.email') %}
 <footer class="site-footer">
-  <p>{{ site.site.name or site.site.domain }}</p>
-  <p class="powered">{{ t.powered_by }} <a href="https://github.com/FMSTM/HERON">HERON</a></p>
+  <div class="wrap">
+    <p>{{ site.site.name or site.site.domain }}{% if phone %} · <a href="tel:{{ phone|replace(' ', '') }}">{{ phone }}</a>{% endif %}{% if email %} · <a href="mailto:{{ email }}">{{ email }}</a>{% endif %}</p>
+    <p class="powered">{{ t.powered_by }} <a href="https://github.com/FMSTM/HERON">HERON</a></p>
+  </div>
 </footer>

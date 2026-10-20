@@ -1,4 +1,11 @@
-<section id="{{ section.id }}" class="list {{ 'alert' if 'alert' in section.classes else '' }}">
+<section id="{{ section.id }}" class="block list{{ ' alert' if section.kind == 'alert-list' else '' }}">
   {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
-  <ul>{% for item in items %}<li>{{ item|safe }}</li>{% endfor %}</ul>
+  {% if section.lead %}<p class="lead-in">{{ section.lead|safe }}</p>{% endif %}
+  <ul>
+  {% for item in items %}
+    {% if item.term is defined and item.term %}<li><strong>{{ item.term }}.</strong> {{ item.text|safe }}</li>
+    {% else %}<li>{{ item|safe }}</li>{% endif %}
+  {% endfor %}
+  </ul>
+  {% if section.callout %}<aside class="note">{{ section.callout|safe }}</aside>{% endif %}
 </section>

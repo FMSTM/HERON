@@ -16,7 +16,7 @@ docker run --rm -v "$PWD":/site -w /site --user $(id -u):$(id -g) \
 
 ## Что такое HERON — за минуту
 
-HERON — движок статических сайтов, образ `ghcr.io/fmstm/heron:<тег>` (или pip-пакет, команда `heron`). Он **создаёт** папку сайта (`new`, `init`, `page`) и **собирает** её по контракту (`build`, `check`, `serve`).
+HERON — движок статических сайтов, образ `ghcr.io/fmstm/heron:<тег>` (или pip-пакет, команда `heron`). Он **создаёт** папку сайта (`new`, `init`, `page`), **настраивает** её (`setup` — анкета, `theme get` — тема) и **собирает** по контракту (`build`, `check`, `serve`).
 
 Сайт — папка без кода движка: `site.yaml` (единственный конфиг), `content/<язык>/` (страницы в markdown), `media/`, `data/`, `static/`, `theme/`. Страница = файл, путь файла = адрес. Каждый файл начинается с SEO-блока из восьми групп, дальше — вступление и секции `## Заголовок {#якорь}`. Тема ставит секции на места по якорям.
 
@@ -27,7 +27,14 @@ H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm
 $H new мой-сайт --notes ru --name "Сайт" --domain example.com --lang en,ru -y   # без вопросов
 $H check мой-сайт              # отчёт без сборки
 $H build мой-сайт --env prod --strict
+$H setup мой-сайт --dump > answers.yaml        # ответы анкеты: поправить и подать обратно
+$H setup мой-сайт --answers answers.yaml       # site.yaml, schema.org, workflow и скрипты публикации
+$H schema                                       # JSON Schema site.yaml — проверять свой черновик
 ```
+
+## Навыки
+
+Те же роли упакованы навыками в [`skills/`](skills/): `heron` — вся работа целиком, `heron-architect`, `heron-content`, `heron-designer`, `heron-builder` — по роли, у каждой свои папки, которые ей можно и нельзя трогать. Поставить: `npx skills add FMSTM/HERON` (или одну: `--skill heron`). Навыки ссылаются на `heron docs` образа, поэтому сами по себе не устаревают: документация приходит той же версии, что и движок.
 
 ## Роли
 

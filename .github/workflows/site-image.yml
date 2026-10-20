@@ -26,7 +26,9 @@ on:
         type: string
         default: dev
       engine:
-        description: Тег образа движка ghcr.io/fmstm/heron — prod, beta или X.Y.Z.
+        description: >-
+          Тег образа движка ghcr.io/fmstm/heron — prod, beta или X.Y.Z; закрепить
+          точно — с digest: prod@sha256:<digest>.
         type: string
         default: prod
       path:
@@ -87,9 +89,13 @@ jobs:
           fi
           # Dockerfile.site и smoke той же ветки HERON, что и движок:
           # prod → prod, beta → beta, dev → dev, 0.1.0 → тег v0.1.0
-          case "${{ inputs.engine }}" in
-            prod|beta|dev) ref="${{ inputs.engine }}" ;;
-            *) ref="v${{ inputs.engine }}" ;;
+          # Движок можно закрепить по digest: `prod@sha256:…` — рецепт тогда
+          # берётся с той же ветки, а образ движка — ровно этот.
+          channel="${{ inputs.engine }}"
+          channel="${channel%%@*}"
+          case "$channel" in
+            prod|beta|dev) ref="$channel" ;;
+            *) ref="v$channel" ;;
           esac
           echo "heron_ref=$ref" >> "$GITHUB_OUTPUT"
           # время сборки — время последнего коммита контента: воспроизводимо

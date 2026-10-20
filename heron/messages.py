@@ -85,8 +85,13 @@ TEXT: dict[str, dict[str, str]] = {
         "placeholder": "заглушка — замените в site.yaml",
         # --- что дальше ---
         "next_title": "Что дальше:",
-        "next_config": "Проверьте {path}/site.yaml: домен, название, меню (nav.main), счётчики.",
-        "next_domain": "Домен сейчас заглушка {domain} — впишите настоящий в site.yaml.",
+        "next_config": (
+            "Настройте сайт анкетой: `heron setup {path}` — название, домен, кто вы, "
+            "публикация. Или руками в {path}/site.yaml."
+        ),
+        "next_domain": (
+            "Домен сейчас заглушка {domain} — впишите настоящий в анкете или в site.yaml."
+        ),
         "next_home": "Главная — {files}: SEO-блок наверху (title, h1, description), ниже текст.",
         "next_page": "Новая страница: `heron page page about {path}`",
         "next_build": "Собрать: `heron build {path}` — результат в {path}/dist/",
@@ -246,8 +251,14 @@ TEXT: dict[str, dict[str, str]] = {
         "bad_default": "the main language must be one of: {langs}",
         "placeholder": "placeholder — replace it in site.yaml",
         "next_title": "What next:",
-        "next_config": "Check {path}/site.yaml: domain, name, menu (nav.main), counters.",
-        "next_domain": "The domain is a placeholder {domain} — put the real one into site.yaml.",
+        "next_config": (
+            "Set the site up with the questionnaire: `heron setup {path}` — name, domain, "
+            "who you are, publishing. Or by hand in {path}/site.yaml."
+        ),
+        "next_domain": (
+            "The domain is a placeholder {domain} — put the real one in the questionnaire "
+            "or in site.yaml."
+        ),
         "next_home": "Home page — {files}: SEO block on top (title, h1, description), text below.",
         "next_page": "New page: `heron page page about {path}`",
         "next_build": "Build: `heron build {path}` — output in {path}/dist/",
@@ -365,6 +376,7 @@ TITLES: dict[str, dict[str, str]] = {
         "E029": "two files produce the same page key",
         "E030": "a source folder or file cannot be read",
         "E031": "the preview cannot take the address and port",
+        "E032": "the theme cannot be installed: archive, catalog or check",
     },
 }
 
@@ -431,5 +443,50 @@ TEXT["en"].update(
             "the port is used by another program or the address is not this machine's: "
             "take another port, for example --port {next}, and -p {next}:{next} in docker run"
         ),
+    }
+)
+
+
+# --- setup и темы ----------------------------------------------------------------
+TEXT["ru"].update(
+    {
+        "setup_open": "Анкета открыта: {url}  — заполните и нажмите «Сохранить». Ctrl+C — выход.",
+        "setup_done": "Настройки записаны.",
+        "setup_written": "записано: {files}",
+        "setup_created": "создано: {files}",
+        "setup_removed": "убрано (способ публикации сменился): {files}",
+        "setup_kept": "не тронуто, файл не от конфигуратора: {files}",
+        "setup_keys": "ключи сохранены: {files}",
+        "setup_backup": "прежняя версия: {file}",
+        "setup_keys_container": (
+            "ключи не сохранены: в контейнере нет настроек HERON с компьютера. "
+            "Выполните scripts/keys.sh на компьютере"
+        ),
+        "setup_next": "Дальше: `heron serve {path}` — посмотреть сайт.",
+        "setup_bad": "ответы не прошли проверку: {problem}",
+        "theme_done": "Тема {name} поставлена.",
+        "theme_demo": "демо-страниц добавлено: {count} (ваши страницы не тронуты)",
+        "theme_https": "тему по ссылке берём только по https",
+    }
+)
+TEXT["en"].update(
+    {
+        "setup_open": "The questionnaire is open: {url}  — fill it in, press Save. Ctrl+C to stop.",
+        "setup_done": "Settings written.",
+        "setup_written": "written: {files}",
+        "setup_created": "created: {files}",
+        "setup_removed": "removed (the publishing way changed): {files}",
+        "setup_kept": "left alone, not written by the configurator: {files}",
+        "setup_keys": "keys saved: {files}",
+        "setup_backup": "previous version: {file}",
+        "setup_keys_container": (
+            "keys not saved: the container does not see the HERON settings of your computer. "
+            "Run scripts/keys.sh on your computer"
+        ),
+        "setup_next": "Next: `heron serve {path}` — look at the site.",
+        "setup_bad": "the answers did not pass the check: {problem}",
+        "theme_done": "Theme {name} is in place.",
+        "theme_demo": "demo pages added: {count} (your pages untouched)",
+        "theme_https": "a theme by link is taken over https only",
     }
 )

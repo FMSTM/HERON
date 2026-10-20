@@ -41,6 +41,8 @@ packages = ["heron"]
 # и движок, без клона и без сети. Только текст — картинки бренда не нужны.
 [tool.hatch.build.targets.wheel.force-include]
 "AGENTS.md" = "heron/_docs/AGENTS.md"
+# рецепт образа сайта: `heron recipe` отдаёт его ровно этой версии
+"Dockerfile.site" = "heron/_recipe/Dockerfile.site"
 "README.md" = "heron/_docs/README.md"
 "docs/architecture.md" = "heron/_docs/docs/architecture.md"
 "docs/agents" = "heron/_docs/docs/agents"

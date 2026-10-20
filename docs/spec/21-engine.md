@@ -497,7 +497,7 @@ heron new [путь] [--notes ru|en] [--name …] [--domain …] [--lang en,ru] 
                                              создать сайт с нуля; путь по умолчанию — «.»
 heron init [путь] [--force] [--notes ru|en] [--name …] [--domain …] [--lang …] [-y] [-v]
                                              достроить папку под написанное в site.yaml
-heron check [путь] [--strict] [--drafts]     отчёт без сборки
+heron check [путь] [--strict] [--drafts] [--json]  отчёт без сборки; --json — коды, файлы, строки для агента
 heron serve [путь] [--port 8000] [--host Х]  локальный просмотр с пересборкой
 heron build [путь] [--out папка] [--env prod] [--strict] [--drafts]   собрать
 heron page <тип> <слаг> [путь] [--lang ru] [--folder раздел]          заготовка страницы

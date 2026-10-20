@@ -290,6 +290,53 @@ def _finish(
         sys.exit(1)
 
 
+def _check_json(path: Path, strict: bool, drafts: bool) -> None:
+    """`heron check --json`: коды, файлы и строки — разбирать, а не читать.
+
+    Агенту текст отчёта на языке человека не нужен: ему нужны код ошибки,
+    файл, строка и подсказка. Код выхода тот же, что у обычного check.
+    """
+    import json
+
+    def error(item: HeronError) -> dict:
+        return {
+            "code": item.code,
+            "path": item.path,
+            "line": item.line,
+            "message": item.message,
+            "hint": item.hint,
+        }
+
+    try:
+        result = pipeline.check(path, drafts=drafts, strict=strict)
+        errors = [error(item) for item in result.collector.errors]
+        warnings = [
+            {"kind": w.kind, "path": w.path, "line": w.line, "message": w.message}
+            for w in result.collector.warnings
+        ]
+        strict = result.strict
+        pages = len(result.site.pages) if getattr(result, "site", None) is not None else None
+    except HeronError as item:
+        errors, warnings, pages = [error(item)], [], None
+    failed = bool(errors) or (strict and bool(warnings))
+    click.echo(
+        json.dumps(
+            {
+                "ok": not failed,
+                "version": build_info.label(),
+                "strict": strict,
+                "pages": pages,
+                "errors": errors,
+                "warnings": warnings,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    if failed:
+        sys.exit(1)
+
+
 # --- сводка того, что разложено --------------------------------------------------
 
 
@@ -726,11 +773,17 @@ def init(
 @main.command()
 @click.option("--strict", is_flag=True, help="Считать предупреждения ошибками.")
 @click.option("--drafts", is_flag=True, help="Включить страницы с published: false.")
+@click.option(
+    "--json", "as_json", is_flag=True, help="Ошибки и предупреждения в JSON — для агента и CI."
+)
 @click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
-def check(path: Path, strict: bool, drafts: bool) -> None:
+def check(path: Path, strict: bool, drafts: bool, as_json: bool) -> None:
     """Проверить контент и конфиг, ничего не собирая."""
     lang = _lang(None, path)
     _need_site(path, lang)
+    if as_json:
+        _check_json(path, strict, drafts)
+        return
     click.secho(
         say(lang, "check_head", version=__version__, path=_shown(path)), bold=True, err=True
     )

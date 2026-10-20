@@ -19,7 +19,8 @@ COPY requirements.lock requirements-build.lock ./
 RUN python -m pip install --no-cache-dir --require-hashes --no-deps \
       --target /install -r requirements.lock \
  && python -m pip install --no-cache-dir --require-hashes -r requirements-build.lock
-COPY pyproject.toml README.md AGENTS.md ./
+# Dockerfile.site едет в пакет: `heron recipe` отдаёт рецепт образа сайта этой версии
+COPY pyproject.toml README.md AGENTS.md Dockerfile.site ./
 COPY heron ./heron
 # текст документации для `heron docs`; картинки бренда в образ не идут
 COPY docs/architecture.md ./docs/architecture.md

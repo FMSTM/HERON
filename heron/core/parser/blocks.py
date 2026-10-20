@@ -52,6 +52,7 @@ BY_CLASS = {
     "prose": "prose",
     "steps": "steps",
     "table": "table",
+    "tabs": "tabs",
     "timeline": "timeline",
     "two-lists": "two-lists",
 }
@@ -271,14 +272,21 @@ def _steps(md: MarkdownIt, tokens: list[Token], env: dict) -> list[dict[str, Any
         # Остаток — markdown, а поле называется html: ссылки и выделения
         # внутри шага должны быть разметкой, а не текстом
         text = md.renderInline(rest, {}) if rest else ""
+        # Всё, что в пункте после первого абзаца: блок кода с командой,
+        # второй абзац, вложенный список. Раньше это молча терялось, и шаг
+        # «выполните команду» приезжал на страницу без команды. Шаг без
+        # продолжения выглядит ровно как прежде: старые темы не меняются.
+        more = _render(md, _after_first_paragraph(inner), env)
+        html = f"<p>{text}</p>\n{more}" if more and text else (more or text)
         steps.append(
             {
                 "n": number,
                 "tag": tag,
                 "title": title,
                 "text": text,
-                "html": text,
-                "links": links_of(text),
+                "more": more,
+                "html": html,
+                "links": links_of(html),
                 "top": "top" in classes,
             }
         )
@@ -286,6 +294,42 @@ def _steps(md: MarkdownIt, tokens: list[Token], env: dict) -> list[dict[str, Any
     if steps and not any(step["top"] for step in steps):
         steps[0]["top"] = True
     return steps or None
+
+
+def _after_first_paragraph(inner: list[Token]) -> list[Token]:
+    """Токены пункта после его первого абзаца (только верхнего уровня)."""
+    depth = 0
+    for index, token in enumerate(inner):
+        if token.type == "paragraph_close" and depth == 0:
+            return inner[index + 1 :]
+        depth += token.nesting if token.type != "paragraph_open" else 0
+    return []
+
+
+def _tabs(md: MarkdownIt, tokens: list[Token], env: dict) -> list[dict[str, Any]] | None:
+    """Группы `###` во вкладки: заголовок вкладки и всё её содержимое.
+
+    Только по классу `.tabs`: по форме вкладки не отличить от чек-листа.
+    Якорь вкладки — `{#id}` в хвосте её заголовка или порядковый номер.
+    """
+    starts = [i for i, t in enumerate(tokens) if t.type == "heading_open" and t.tag == "h3"]
+    tabs: list[dict[str, Any]] = []
+    for position, index in enumerate(starts):
+        end = starts[position + 1] if position + 1 < len(starts) else len(tokens)
+        title = tokens[index + 1].content.strip() if index + 1 < len(tokens) else ""
+        content = tokens[index + 3 : end]
+        html = _render(md, content, env)
+        tabs.append(
+            {
+                "n": position + 1,
+                "id": tokens[index].attrGet("id") or f"tab-{position + 1}",
+                "title": title,
+                "html": html,
+                "items": _items(md, content, env),
+                "links": links_of(html),
+            }
+        )
+    return tabs or None
 
 
 def _classes_of(token: Token) -> list[str]:
@@ -336,6 +380,9 @@ def detect(md: MarkdownIt, section: Section) -> tuple[str, Any, list[Warning_]]:
         if kind == "steps":
             steps = _steps(md, tokens, env)
             return ("steps", steps) if steps else None
+        if kind == "tabs":
+            tabs = _tabs(md, tokens, env)
+            return ("tabs", tabs) if tabs else None
         if kind == "faq":
             return ("faq", [{"q": g["title"], "a": g["html"]} for g in groups]) if groups else None
         if kind in ("two-lists", "checklist"):

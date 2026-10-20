@@ -26,6 +26,38 @@ from heron.core.models import Site
 
 LINK = re.compile(r'href="(/[^"#?]*)')
 MODULE_CALL = re.compile(r"mod\.([a-z_][a-z0-9_]*)\s*\(")
+# Вызов модуля по имени из переменной: `mod[name](…)`, `mod|attr(name)`.
+# Какие модули так зовутся, по тексту шаблона не узнать — и тогда честнее
+# промолчать, чем объявить половину темы лишней.
+DYNAMIC_CALL = re.compile(r"\bmod\s*(?:\[|\|\s*attr\b)")
+
+
+def unused_modules(theme_dir: Path) -> list[str]:
+    """Модули темы, которые не зовёт ни один шаблон.
+
+    Смотрим все шаблоны темы на любой глубине: типы, базу, partials и сами
+    модули — модуль вправе позвать другой. Вызов модулем самого себя не
+    считается: такой модуль всё равно никто не рисует.
+    """
+    modules = theme_dir / "modules"
+    available = {path.stem for path in modules.glob("*.html")} if modules.is_dir() else set()
+    if not available:
+        return []
+    called: set[str] = set()
+    for template in sorted(theme_dir.rglob("*.html")):
+        try:
+            text = template.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if DYNAMIC_CALL.search(text):
+            return []
+        own = template.stem if template.parent == modules else None
+        called.update(
+            name.replace("_", "-")
+            for name in MODULE_CALL.findall(text)
+            if name.replace("_", "-") != own
+        )
+    return sorted(available - called)
 
 
 @dataclass(slots=True)
@@ -256,13 +288,7 @@ def build(
 
     # модули темы, которые никто не зовёт
     if theme_dir is not None:
-        called: set[str] = set()
-        for template in (theme_dir / "templates").glob("*.html"):
-            called.update(MODULE_CALL.findall(template.read_text(encoding="utf-8")))
-        for template in theme_dir.glob("*.html"):
-            called.update(MODULE_CALL.findall(template.read_text(encoding="utf-8")))
-        available = {path.stem for path in (theme_dir / "modules").glob("*.html")}
-        report.unused_modules = sorted(available - {name.replace("_", "-") for name in called})
+        report.unused_modules = unused_modules(theme_dir)
 
     if site_root is not None:
         report.unused_media = media.unused(site, site_root, config)

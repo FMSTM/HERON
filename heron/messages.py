@@ -364,6 +364,7 @@ TITLES: dict[str, dict[str, str]] = {
         "E028": "a language has no home page",
         "E029": "two files produce the same page key",
         "E030": "a source folder or file cannot be read",
+        "E031": "the preview cannot take the address and port",
     },
 }
 
@@ -381,3 +382,54 @@ def title(lang: str, code: str) -> str:
     if lang == "ru":
         return ERRORS.get(code, code)
     return TITLES["en"].get(code) or ERRORS.get(code, code)
+
+
+# --- serve ---------------------------------------------------------------------
+TEXT["ru"].update(
+    {
+        "serve_built": "собрано: {count} файлов",
+        "serve_warnings": "предупреждений: {count}",
+        "serve_dist": "собрано в {dist}",
+        "serve_open": "открыто: {url}  (Ctrl+C — выход)",
+        "serve_container": (
+            "HERON работает в контейнере: откройте адрес на своём компьютере. "
+            "Порт {port} должен быть проброшен в docker run: -p {port}:{port}"
+        ),
+        "serve_lan": (
+            "просмотр открыт для всей сети: любой в ней увидит черновики "
+            "по адресу этого компьютера и порту {port}"
+        ),
+        "serve_changed": "изменения ({files}) — пересобираю",
+        "serve_more": " и ещё {count}",
+        "serve_stopped": "остановлено",
+        "serve_busy": "не удалось открыть просмотр на {host}:{port}: {problem}",
+        "serve_busy_hint": (
+            "порт занят другой программой или адрес не принадлежит машине: "
+            "возьмите другой порт, например --port {next}, и в docker run -p {next}:{next}"
+        ),
+    }
+)
+TEXT["en"].update(
+    {
+        "serve_built": "built: {count} files",
+        "serve_warnings": "warnings: {count}",
+        "serve_dist": "built into {dist}",
+        "serve_open": "open: {url}  (Ctrl+C to stop)",
+        "serve_container": (
+            "HERON runs in a container: open the address on your computer. "
+            "Port {port} must be published in docker run: -p {port}:{port}"
+        ),
+        "serve_lan": (
+            "the preview is open to the whole network: anyone on it sees the drafts "
+            "at this computer's address and port {port}"
+        ),
+        "serve_changed": "changes ({files}) — rebuilding",
+        "serve_more": " and {count} more",
+        "serve_stopped": "stopped",
+        "serve_busy": "cannot open the preview on {host}:{port}: {problem}",
+        "serve_busy_hint": (
+            "the port is used by another program or the address is not this machine's: "
+            "take another port, for example --port {next}, and -p {next}:{next} in docker run"
+        ),
+    }
+)

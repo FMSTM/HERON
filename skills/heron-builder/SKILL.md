@@ -9,13 +9,13 @@ Read first: `$H docs agents` (role «Builder»), `$H docs first-site`, `$H docs 
 `H="docker run --rm -i -p 8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"`
 
 **You may write:** anything the other roles may, when you lead them; plus `heron setup` answers for publishing.
-**You do not touch:** the engine. Add no Dockerfile, compose or `.env` to the site; tokens live outside the folder (`~/.config/heron/sites/<domain>.env`, `scripts/keys.sh`).
+**You do not touch:** the engine. Add no Dockerfile, compose, `.env` or tokens to the site: Docker Hub uses `docker login`, GitHub builds with its own short-lived token.
 
 Steps:
 
 1. `$H check .` — the report without a build; fix errors, sort warnings into content debt or fixes.
 2. `$H serve .` — preview on localhost:8000 with a rebuild on every save.
 3. `$H build . --env prod --strict` — the final build into `dist/`.
-4. Publishing: `$H setup . --dump`, set `publish` (git, dockerhub, static), apply with `--answers`; then `scripts/publish.sh`, or `git push` for the git way.
+4. Publishing: `$H setup . --dump`, set `publish` (github, dockerhub, static), apply with `--answers`; then `scripts/publish.sh`, or `git push` for the git way.
 
 Report: what was done, content debt, questions, warnings left on purpose and why.

@@ -6,8 +6,8 @@
 трогая того, чего конфигуратор не знает: `gone`, `forms`, `nginx`, свои блоки
 сайта переживают любое число запусков.
 
-Ключи доступа сюда не попадают никогда: у них своё хранилище вне папки
-сайта (`heron.setup.keys`). Модель ответов — та же для формы в браузере и для
+Ключей доступа здесь нет: в site.yaml и git им не место. Модель ответов —
+та же для формы в браузере и для
 `heron setup --answers файл`, поэтому агент и человек проходят одну проверку.
 """
 
@@ -28,7 +28,7 @@ from heron.contracts.site import domain as clean_domain
 
 HERE = Path(__file__).parent
 
-WAYS = ("git", "dockerhub", "static", "none")
+WAYS = ("github", "dockerhub", "static", "none")
 ENVS = ("dev", "prod")
 REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 DOCKER_NAME_RE = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
@@ -110,16 +110,120 @@ class SiteAnswers(Model):
 
 
 class ThemeAnswers(Model):
-    # keep — оставить тему как есть; starter — встроенная стартовая;
-    # name — тема каталога HERON; url — архив по ссылке; file — архив с диска;
-    # later — решу потом (ставится стартовая).
-    source: Literal["keep", "starter", "name", "url", "file", "later"] = "keep"
+    # keep — оставить тему как есть; name — тема каталога HERON (белая —
+    # `starter`); url — архив по ссылке; file — архив с диска. `starter` —
+    # то же, что name=starter: так тему зовут агенты и старые ответы.
+    source: Literal["keep", "starter", "name", "url", "file"] = "keep"
     value: str = ""
+
+    @field_validator("source", mode="before")
+    @classmethod
+    def _later(cls, value: Any) -> Any:
+        # «решу потом» убран из анкеты: белая тема и так стоит у нового сайта
+        return "keep" if value == "later" else value
+
+
+# Каналы связи: что это за канал и для чего он. Тип решает, как значение
+# становится ссылкой; назначение — contactType точки связи в schema.org.
+CONTACT_TYPES = (
+    "phone",
+    "email",
+    "website",
+    "whatsapp",
+    "telegram",
+    "viber",
+    "signal",
+    "instagram",
+    "facebook",
+    "linkedin",
+    "youtube",
+    "tiktok",
+    "x",
+    "other",
+)
+PURPOSES = {
+    # назначение → contactType schema.org
+    "main": "customer service",
+    "sales": "sales",
+    "marketing": "marketing",
+    "support": "technical support",
+    "booking": "reservations",
+    "press": "press",
+}
+PHONE_RE = re.compile(r"^\+?[0-9][0-9 ()./-]{4,}$")
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+HANDLE_RE = re.compile(r"^@?[A-Za-z0-9_.]{2,64}$")
+
+
+def contact_url(kind: str, value: str) -> str | None:
+    """Адрес канала для ссылки и для sameAs. Телефон и почта ссылками не считаются."""
+    value = value.strip()
+    if kind in ("phone", "email"):
+        return None
+    if value.startswith(("https://", "http://")):
+        return value
+    digits = re.sub(r"[^0-9]", "", value)
+    if kind == "whatsapp" and digits:
+        return f"https://wa.me/{digits}"
+    if kind == "viber" and digits:
+        return f"viber://chat?number=%2B{digits}"
+    handle = value.lstrip("@")
+    bases = {
+        "telegram": "https://t.me/",
+        "instagram": "https://www.instagram.com/",
+        "tiktok": "https://www.tiktok.com/@",
+        "x": "https://x.com/",
+        "youtube": "https://www.youtube.com/@",
+    }
+    if kind in bases and HANDLE_RE.match(value):
+        return bases[kind] + handle
+    if kind == "website" and "." in value and " " not in value:
+        return "https://" + value
+    return None
+
+
+class ContactAnswer(Model):
+    type: Literal[CONTACT_TYPES] = "phone"  # type: ignore[valid-type]
+    purpose: str = ""
+    value: str
+
+    @field_validator("value")
+    @classmethod
+    def _value(cls, value: str) -> str:
+        value = (value or "").strip()
+        if not value:
+            raise ValueError("a contact needs a value")
+        return value
+
+    @field_validator("purpose")
+    @classmethod
+    def _purpose(cls, value: str) -> str:
+        value = (value or "").strip()
+        if value and value not in PURPOSES:
+            raise ValueError(f"purpose {value!r}: one of {', '.join(PURPOSES)}")
+        return value
+
+    @model_validator(mode="after")
+    def _shape(self) -> ContactAnswer:
+        if self.type == "phone" and not PHONE_RE.match(self.value):
+            raise ValueError(f"{self.value!r} does not look like a phone: +00 000 000 00 00")
+        if self.type == "email" and not EMAIL_RE.match(self.value):
+            raise ValueError(f"{self.value!r} does not look like an email")
+        if self.type in ("website", "facebook", "linkedin") and not contact_url(
+            self.type, self.value
+        ):
+            raise ValueError(f"{self.type}: a link is expected, https://…")
+        return self
+
+    @property
+    def url(self) -> str | None:
+        return contact_url(self.type, self.value)
 
 
 class AboutAnswers(Model):
     type: str = ""
     fields: dict[str, Any] = Field(default_factory=dict)
+    contacts: list[ContactAnswer] = Field(default_factory=list)
 
     @field_validator("type")
     @classmethod
@@ -141,13 +245,37 @@ class SearchAnswers(Model):
     title_suffix: str = ""
     llms_note: dict[str, str] = Field(default_factory=dict)
     og_image: str = ""
-    ga4: str = ""
-    gtm: str = ""
     allow_prices: bool = False
 
 
+class AnalyticsAnswers(Model):
+    """Публичные номера счётчиков: видны в исходнике страницы, это не секреты."""
+
+    ga4: str = ""
+    gtm: str = ""
+    metrika: str = ""
+
+    @field_validator("ga4", "gtm", "metrika", mode="before")
+    @classmethod
+    def _text(cls, value: Any) -> str:
+        return str(value).strip() if value is not None else ""
+
+    @model_validator(mode="after")
+    def _shape(self) -> AnalyticsAnswers:
+        if self.ga4 and not re.match(r"^G-[A-Z0-9]{4,}$", self.ga4):
+            raise ValueError(f"Google Analytics {self.ga4!r}: G-XXXXXXX")
+        if self.gtm and not re.match(r"^GTM-[A-Z0-9]{4,}$", self.gtm):
+            raise ValueError(f"Tag Manager {self.gtm!r}: GTM-XXXXXX")
+        if self.metrika and not self.metrika.isdigit():
+            raise ValueError(f"Yandex Metrica {self.metrika!r}: digits only")
+        return self
+
+
 class PublishAnswers(Model):
-    way: Literal["git", "dockerhub", "static", "none"] = "none"
+    way: Literal["github", "dockerhub", "static", "none"] = "none"
+    # GitHub: собирать и публиковать образ самому GitHub на каждый push.
+    # Выключено — workflow не пишется, публикация — git push и своя сборка.
+    auto: bool = True
     env: Literal["dev", "prod"] = "dev"
     engine: str = "prod"
     branch: str = "main"
@@ -157,6 +285,11 @@ class PublishAnswers(Model):
     static_target: Literal["server", "pages"] = "server"
     server: str = ""
     path: str = ""
+
+    @field_validator("way", mode="before")
+    @classmethod
+    def _way(cls, value: Any) -> Any:
+        return "github" if value == "git" else value
 
     @field_validator("engine")
     @classmethod
@@ -187,22 +320,13 @@ class PublishAnswers(Model):
         return self
 
 
-class KeysAnswers(Model):
-    """Ключи. В site.yaml и git не попадают, хранятся вне папки сайта."""
-
-    github_token: str = ""
-    dockerhub_token: str = ""
-    db_url: str = ""
-    db_key: str = ""
-
-
 class Answers(Model):
     site: SiteAnswers = Field(default_factory=SiteAnswers)
     theme: ThemeAnswers = Field(default_factory=ThemeAnswers)
     about: AboutAnswers = Field(default_factory=AboutAnswers)
     search: SearchAnswers = Field(default_factory=SearchAnswers)
+    analytics: AnalyticsAnswers = Field(default_factory=AnalyticsAnswers)
     publish: PublishAnswers = Field(default_factory=PublishAnswers)
-    keys: KeysAnswers = Field(default_factory=KeysAnswers)
 
     @model_validator(mode="after")
     def _languages_of_notes(self) -> Answers:
@@ -292,7 +416,7 @@ def read(data: dict[str, Any]) -> Answers:
                 value = {default: value or "", **per_lang}
         if value not in (None, "", []):
             fields[name] = value
-    out["about"] = {"type": kind, "fields": fields}
+    out["about"] = {"type": kind, "fields": fields, "contacts": _read_contacts(data)}
     seo = data.get("seo") or {}
     analytics = data.get("analytics") or {}
     out["search"] = {
@@ -301,10 +425,9 @@ def read(data: dict[str, Any]) -> Answers:
             str(k): str(v) for k, v in (seo.get("llms_note") or {}).items() if k in languages
         },
         "og_image": str(seo.get("og_default_image") or ""),
-        "ga4": str(analytics.get("ga4") or ""),
-        "gtm": str(analytics.get("gtm") or ""),
         "allow_prices": bool(seo.get("allow_prices")),
     }
+    out["analytics"] = {key: str(analytics.get(key) or "") for key in ("ga4", "gtm", "metrika")}
     publish = data.get("publish") or {}
     if isinstance(publish, dict):
         known = PublishAnswers.model_fields
@@ -315,7 +438,7 @@ def read(data: dict[str, Any]) -> Answers:
         # Сырой конфиг не повод отказать в конфигураторе: он и нужен, чтобы
         # конфиг поправить. Берём то, что проходит по отдельности.
         answers = Answers()
-        for block in ("site", "about", "search", "publish"):
+        for block in ("site", "about", "search", "analytics", "publish"):
             with contextlib.suppress(ValueError):
                 setattr(
                     answers,
@@ -323,6 +446,49 @@ def read(data: dict[str, Any]) -> Answers:
                     type(getattr(answers, block)).model_validate(out.get(block) or {}),
                 )
         return answers
+
+
+def _read_contacts(data: dict[str, Any]) -> list[dict[str, str]]:
+    """Каналы связи: `contact.channels`, а у старого конфига — телефон, почта, профили."""
+    channels = _get(data, "contact.channels")
+    out: list[dict[str, str]] = []
+    if isinstance(channels, list):
+        for item in channels:
+            if isinstance(item, dict) and item.get("value"):
+                out.append(
+                    {
+                        "type": str(item.get("type") or "other"),
+                        "purpose": str(item.get("purpose") or ""),
+                        "value": str(item["value"]),
+                    }
+                )
+        return out
+    for kind, path in (("phone", "contact.phone"), ("email", "contact.email")):
+        value = _get(data, path)
+        if isinstance(value, str) and value.strip():
+            out.append({"type": kind, "purpose": "", "value": value.strip()})
+    for url in _get(data, "organization.same_as") or []:
+        if isinstance(url, str) and url.strip():
+            out.append({"type": _kind_of_url(url), "purpose": "", "value": url.strip()})
+    return out
+
+
+def _kind_of_url(url: str) -> str:
+    hosts = {
+        "t.me": "telegram",
+        "wa.me": "whatsapp",
+        "instagram.com": "instagram",
+        "facebook.com": "facebook",
+        "linkedin.com": "linkedin",
+        "youtube.com": "youtube",
+        "tiktok.com": "tiktok",
+        "x.com": "x",
+        "twitter.com": "x",
+    }
+    for host, kind in hosts.items():
+        if host in url:
+            return kind
+    return "website"
 
 
 # --- ответы → site.yaml ---------------------------------------------------------
@@ -346,8 +512,12 @@ def _entity(answers: Answers) -> dict[str, Any] | None:
             continue
         hole = "{{ " + spec["to"] + " }}"
         prop = spec["prop"]
+        if prop == "address.house":
+            continue  # дом входит в streetAddress вместе с улицей, ниже
         if prop.startswith("address."):
             address = node.setdefault("address", {"@type": "PostalAddress"})
+            if prop == "address.streetAddress" and "house" in answers.about.fields:
+                hole = "{{ contact.street }}, {{ contact.house }}"
             address[prop.split(".", 1)[1]] = hole
         elif prop.startswith("geo."):
             geo = node.setdefault("geo", {"@type": "GeoCoordinates"})
@@ -358,8 +528,42 @@ def _entity(answers: Answers) -> dict[str, Any] | None:
             node[prop] = "{{ site.base }}" + "{{ " + spec["to"] + " }}"
         else:
             node[prop] = hole
+    if "house" in answers.about.fields and "street" not in answers.about.fields:
+        address = node.setdefault("address", {"@type": "PostalAddress"})
+        address["streetAddress"] = "{{ contact.house }}"
+    _entity_contacts(node, answers.about.contacts)
     node.setdefault("url", "{{ site.base }}")
     return node
+
+
+def _entity_contacts(node: dict[str, Any], contacts: list[ContactAnswer]) -> None:
+    """Связь в разметке: основной телефон и почта, точки связи по назначению, профили.
+
+    Телефон и почта — подстановкой из `contact.phone`/`contact.email`, как у
+    всего остального. Точки связи и профили — списком: их состав пишет анкета
+    при каждом сохранении, из того же `contact.channels`.
+    """
+    kinds = {item.type for item in contacts}
+    if "phone" in kinds:
+        node["telephone"] = "{{ contact.phone }}"
+    if "email" in kinds:
+        node["email"] = "{{ contact.email }}"
+    points = []
+    for item in contacts:
+        if item.purpose and item.type in ("phone", "email"):
+            key = "telephone" if item.type == "phone" else "email"
+            points.append(
+                {"@type": "ContactPoint", "contactType": PURPOSES[item.purpose], key: item.value}
+            )
+    if points:
+        node["contactPoint"] = points
+    urls = [
+        item.url
+        for item in contacts
+        if item.url and item.url.startswith("https://") and item.type != "website"
+    ]
+    if urls:
+        node["sameAs"] = list(dict.fromkeys(urls))
 
 
 def _clean_value(spec: dict[str, Any], value: Any) -> Any:
@@ -440,6 +644,32 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
         if isinstance(out.get(name), dict):
             out[name] = _tidy(out[name])
 
+    # связь: все каналы списком, первый телефон и первая почта — отдельно:
+    # их зовут подвал темы и подстановки разметки
+    contact = out.get("contact") if isinstance(out.get("contact"), dict) else {}
+    channels = [
+        {k: v for k, v in item.model_dump().items() if v} for item in answers.about.contacts
+    ]
+    for kind, key in (("phone", "phone"), ("email", "email")):
+        first = next((c.value for c in answers.about.contacts if c.type == kind), None)
+        if first:
+            contact[key] = first
+        else:
+            contact.pop(key, None)
+    if channels:
+        contact["channels"] = channels
+    else:
+        contact.pop("channels", None)
+    if contact:
+        out["contact"] = _tidy(contact)
+    else:
+        out.pop("contact", None)
+    # профили раньше жили списком organization.same_as — теперь они каналы
+    if isinstance(out.get("organization"), dict):
+        out["organization"].pop("same_as", None)
+        if not out["organization"]:
+            out.pop("organization")
+
     entity = _entity(answers)
     schema = out.get("schema") if isinstance(out.get("schema"), dict) else {}
     if entity:
@@ -468,16 +698,22 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
     else:
         seo.pop("allow_prices", None)
     analytics = out.setdefault("analytics", {})
-    analytics["ga4"] = s.ga4 or None
-    analytics["gtm"] = s.gtm or None
+    for key in ("ga4", "gtm", "metrika"):
+        value = getattr(answers.analytics, key)
+        if value:
+            analytics[key] = value
+        elif key == "metrika":
+            analytics.pop(key, None)
+        else:
+            analytics[key] = None
 
     p = answers.publish
     if p.way == "none":
         out.pop("publish", None)
     else:
         block: dict[str, Any] = {"way": p.way, "env": p.env, "engine": p.engine}
-        if p.way == "git":
-            block.update(branch=p.branch or "main")
+        if p.way == "github":
+            block.update(branch=p.branch or "main", auto=p.auto)
             if p.repo:
                 block["repo"] = p.repo
         elif p.way == "dockerhub":

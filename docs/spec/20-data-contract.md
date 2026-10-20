@@ -696,6 +696,8 @@ build:
   allow_raw_html: false      # сырой HTML в markdown. По умолчанию запрещён
   updated_from: manual       # откуда дата обновления: manual | git | file
   workers: 0                 # процессов на нарезку картинок. 0 — по числу ядер
+  generator: true            # подпись движка: <meta name="generator" content="HERON"> и
+                             # комментарий в каждой странице. false — без подписи
 
 plugins: []                  # имена установленных плагинов
 

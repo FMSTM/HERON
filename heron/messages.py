@@ -456,14 +456,14 @@ TEXT["ru"].update(
         "setup_created": "создано: {files}",
         "setup_removed": "убрано (способ публикации сменился): {files}",
         "setup_kept": "не тронуто, файл не от конфигуратора: {files}",
-        "setup_keys": "ключи сохранены: {files}",
         "setup_backup": "прежняя версия: {file}",
-        "setup_keys_container": (
-            "ключи не сохранены: в контейнере нет настроек HERON с компьютера. "
-            "Выполните scripts/keys.sh на компьютере"
-        ),
         "setup_next": "Дальше: `heron serve {path}` — посмотреть сайт.",
         "setup_bad": "ответы не прошли проверку: {problem}",
+        "setup_no_site": "В папке {path} нет site.yaml — здесь нет сайта, настраивать нечего.",
+        "setup_no_site_hint": (
+            "Перейдите в папку сайта (cd имя-сайта) и запустите setup там, "
+            "или создайте сайт: heron new имя-сайта"
+        ),
         "theme_done": "Тема {name} поставлена.",
         "theme_demo": "страниц-примеров темы добавлено: {count} (ваши страницы не тронуты)",
         "theme_https": "тему по ссылке берём только по https",
@@ -477,14 +477,14 @@ TEXT["en"].update(
         "setup_created": "created: {files}",
         "setup_removed": "removed (the publishing way changed): {files}",
         "setup_kept": "left alone, not written by the configurator: {files}",
-        "setup_keys": "keys saved: {files}",
         "setup_backup": "previous version: {file}",
-        "setup_keys_container": (
-            "keys not saved: the container does not see the HERON settings of your computer. "
-            "Run scripts/keys.sh on your computer"
-        ),
         "setup_next": "Next: `heron serve {path}` — look at the site.",
         "setup_bad": "the answers did not pass the check: {problem}",
+        "setup_no_site": "There is no site.yaml in {path} — no site here, nothing to set up.",
+        "setup_no_site_hint": (
+            "Go to the site folder (cd site-name) and run setup there, "
+            "or create a site: heron new site-name"
+        ),
         "theme_done": "Theme {name} is in place.",
         "theme_demo": "theme example pages added: {count} (your pages untouched)",
         "theme_https": "a theme by link is taken over https only",

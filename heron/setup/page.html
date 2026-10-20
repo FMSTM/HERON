@@ -73,7 +73,30 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .toast button { float: right; background: none; border: 0; color: inherit; font-size: 1.1rem; cursor: pointer; }
 .check { display: flex; gap: .5rem; align-items: center; }
 .muted { color: var(--muted); }
-@media (max-width: 40rem) { section.group { padding: 1.1rem 1rem; } }
+.was[hidden] { display: none; }
+.was { font-size: .82rem; color: var(--gold); display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+.was::before { content: "●"; font-size: .6rem; }
+.was button { border: 0; background: none; color: var(--accent); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
+.chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .4rem; }
+.chip { display: inline-flex; align-items: center; gap: .35rem; background: var(--accent-soft); border: 1px solid #c9d8f6; border-radius: 999px; padding: .2rem .35rem .2rem .7rem; font-size: .9rem; }
+.chip.main { background: var(--ink); color: #fff; border-color: var(--ink); }
+.chip button { border: 0; background: rgba(0,0,0,.08); border-radius: 50%; width: 1.3rem; height: 1.3rem; cursor: pointer; line-height: 1; color: inherit; }
+.tabs-row { display: flex; gap: .25rem; flex-wrap: wrap; }
+.tabs-row button { border: 1px solid var(--line); border-bottom: 0; background: #f3f2ee; border-radius: 8px 8px 0 0; padding: .35rem .8rem; cursor: pointer; font: inherit; font-size: .88rem; }
+.tabs-row button[aria-selected="true"] { background: #fff; font-weight: 600; }
+.tab-body textarea { border-top-left-radius: 0; }
+.contact-row { display: grid; grid-template-columns: 11rem 11rem 1fr 2.2rem; gap: .5rem; align-items: center; margin-bottom: .5rem; }
+.contact-row button.x { border: 1px solid var(--line); background: #fff; border-radius: 8px; height: 2.4rem; cursor: pointer; }
+.add { border: 1px dashed var(--accent); background: #fff; color: var(--accent); border-radius: 8px; padding: .45rem .9rem; cursor: pointer; font: inherit; }
+.subbox { border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; background: #fcfbf8; }
+.subbox > h3 { margin: 0 0 .75rem; font-size: 1rem; }
+table.envs { width: 100%; border-collapse: collapse; font-size: .9rem; }
+table.envs th, table.envs td { text-align: left; padding: .45rem .5rem; border-top: 1px solid var(--line); vertical-align: top; }
+table.envs tr.on td { background: var(--accent-soft); }
+table.envs code { word-break: break-all; }
+.preview { font-size: .9rem; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: .5rem .7rem; margin-top: .3rem; }
+.dev { display: inline-block; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--gold); border-radius: 999px; padding: .05rem .5rem; margin-left: .5rem; vertical-align: middle; }
+@media (max-width: 40rem) { section.group { padding: 1.1rem 1rem; } .contact-row { grid-template-columns: 1fr 1fr; } .contact-row input { grid-column: 1 / -1; } }
 </style>
 </head>
 <body>
@@ -99,132 +122,190 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 <script>
 "use strict";
 const TOKEN = "__HERON_TOKEN__";
+const DOCS = "https://github.com/FMSTM/HERON/blob/beta/docs/guide/06-deploy.md";
+const LANGS = [
+  ["ru", "Русский", "Russian"], ["en", "Английский", "English"], ["uk", "Украинский", "Ukrainian"],
+  ["de", "Немецкий", "German"], ["fr", "Французский", "French"], ["es", "Испанский", "Spanish"],
+  ["it", "Итальянский", "Italian"], ["pt", "Португальский", "Portuguese"], ["pt-br", "Португальский (Бразилия)", "Portuguese (Brazil)"],
+  ["pl", "Польский", "Polish"], ["cs", "Чешский", "Czech"], ["sk", "Словацкий", "Slovak"],
+  ["hu", "Венгерский", "Hungarian"], ["ro", "Румынский", "Romanian"], ["bg", "Болгарский", "Bulgarian"],
+  ["sr", "Сербский", "Serbian"], ["hr", "Хорватский", "Croatian"], ["sl", "Словенский", "Slovenian"],
+  ["nl", "Нидерландский", "Dutch"], ["da", "Датский", "Danish"], ["sv", "Шведский", "Swedish"],
+  ["no", "Норвежский", "Norwegian"], ["fi", "Финский", "Finnish"], ["et", "Эстонский", "Estonian"],
+  ["lv", "Латышский", "Latvian"], ["lt", "Литовский", "Lithuanian"], ["el", "Греческий", "Greek"],
+  ["tr", "Турецкий", "Turkish"], ["he", "Иврит", "Hebrew"], ["ar", "Арабский", "Arabic"],
+  ["ka", "Грузинский", "Georgian"], ["hy", "Армянский", "Armenian"], ["az", "Азербайджанский", "Azerbaijani"],
+  ["kk", "Казахский", "Kazakh"], ["uz", "Узбекский", "Uzbek"], ["be", "Белорусский", "Belarusian"],
+  ["zh", "Китайский", "Chinese"], ["ja", "Японский", "Japanese"], ["ko", "Корейский", "Korean"],
+  ["hi", "Хинди", "Hindi"], ["th", "Тайский", "Thai"], ["vi", "Вьетнамский", "Vietnamese"],
+  ["id", "Индонезийский", "Indonesian"], ["en-gb", "Английский (Британия)", "English (UK)"], ["en-us", "Английский (США)", "English (US)"],
+];
 const T = {
-  en: {
-    title: "setup", save: "Save", saving: "Saving…", h1: "Set up your site",
-    lead: "Fill in what you know. Only the first two groups are needed to start; the rest can wait until you publish. Every answer lands in site.yaml, and you can come back and change it later.",
-    need: "needed",
-    g_site: "Site and domains", g_site_about: "The name and two addresses: the working domain and a service domain for previews. No domain yet? Leave the placeholder and change it before you publish.",
-    g_lang: "Languages", g_lang_about: "Which languages the site has and which one is the main. The main one lives at the root, the others get a prefix: /de/. Each language gets its own folder in content/.",
-    g_who: "Who the site is about", g_who_about: "A short questionnaire on schema.org, the vocabulary search engines use. Pick the type, then answer what it asks. A skipped question simply leaves the field out.",
-    g_search: "Search and AI", g_search_about: "What search engines and AI assistants should know. Counters start only on the live domain and after the visitor agrees.",
-    g_pub: "Where you publish", g_pub_about: "How you store and publish the site. The configurator shows only the fields that way needs and writes the files it uses.",
-    g_keys: "Access keys and modules", g_keys_about: "A token is a long password for one purpose. Keys are kept in the HERON settings on your computer, outside the site folder, and never go into site.yaml or git.",
-    g_theme: "Theme", g_theme_about: "The look of the site. Pick one now or later; until then the white starter theme shows every section form.",
-    name: "Site name", name_h: "In the header, in search results and in the browser tab.",
-    domain: "Working domain", domain_h: "The address visitors use, without https://: example.com. Search engines see only this one.",
-    preview: "Service domain", preview_h: "For previews and checks: preview.example.com. Closed to search engines. Optional.",
-    langs: "Languages of the site", langs_h: "Codes separated by commas: en, de, ru. A new language gets a folder with a home page and a 404 page.",
-    main_lang: "Main language", main_lang_h: "Served from the root of the site.",
-    type: "Type", type_h: "From general to specific. Not in the list? Take the nearest broader type: the markup stays correct, only less detailed.",
-    type_none: "— not now —", type_more: "more specific (optional)",
-    suffix: "Title suffix", suffix_h: "Added after every page title: \" — Smith Dental\".",
-    note: "Short note for AI", note_h: "A few lines of facts for the top of llms.txt: what you do, where, how to reach you. Markdown.",
-    og: "Social image", og_h: "Shown when a link is shared: 1200×630, a file in media/, e.g. media/share.jpg.",
-    ga4: "Google Analytics", ga4_h: "Measurement ID: G-XXXXXXX.", gtm: "Tag Manager", gtm_h: "Container ID: GTM-XXXXXX.",
-    prices: "Show prices in search markup", prices_h: "Off by default, so a price never leaks into search results by accident.",
-    way: "Way", way_git: "git push", way_git_s: "GitHub builds the image", way_hub: "Docker Hub", way_hub_s: "your own image registry", way_static: "Static files", way_static_s: "a server or GitHub Pages", way_none: "Not sure yet", way_none_s: "build and preview only",
-    env: "Environment", env_h: "dev is closed to search engines; switch to prod when the domain is ready.",
-    engine: "HERON version", engine_h: "prod — stable, beta — the next one. Pin exactly: prod@sha256:<digest>.",
-    repo: "Repository", repo_h: "owner/name on GitHub: you/my-site. Optional: GitHub knows it.",
-    branch: "Branch", branch_h: "Pushes to this branch build the site.",
-    hub_user: "Docker Hub user", hub_image: "Image name", hub_image_h: "lowercase: my-site",
-    target: "Where to", target_server: "My server", target_pages: "GitHub Pages",
-    server: "Server", server_h: "user@host for rsync over ssh.", path: "Folder on the server", path_h: "Absolute path: /var/www/example.com",
-    gh_token: "GitHub token", gh_token_h: "Only for a private image. Settings → Developer settings → Personal access tokens, packages.",
-    hub_token: "Docker Hub token", hub_token_h: "Account settings → Personal access tokens, read and write.",
-    db: "Database module", db_h: "Optional. The address of your database and the private key the site uses for it. Empty — the site is built without it.",
-    db_url: "Database address", db_key: "Private key",
-    is_set: "saved", not_set: "not set", clear: "remove",
-    keys_where: "Saved to", keys_cannot: "The configurator runs inside Docker and does not see the HERON settings on your computer, so it does not take keys here. After saving, run on your computer:",
-    keys_mount: "Or start the configurator with the settings folder mounted, and the fields appear here:",
-    th_keep: "Keep the current theme", th_starter: "Starter", th_starter_s: "white, every form, built in", th_name: "From the HERON catalog", th_url: "By link", th_file: "My archive", th_later: "Later", th_later_s: "starter until then",
-    th_url_h: "https address of a .zip or .tar.gz; #sha256=<hash> at the end is checked.", th_file_h: ".zip or .tar.gz with theme/ inside.",
-    th_none: "The catalog is not reachable now: the starter theme is always here.",
-    saved: "Saved", nothing: "Nothing changed.", written: "Written", removed: "Removed", kept: "Kept, not ours", created: "Created", keys_saved: "Keys saved", backup: "Previous version", next: "Next: heron serve . — look at the site.",
-    error: "Not saved", writes_t: "What this way writes",
-    w_site: "all settings", w_build: "the final build in one command", w_image: "the build on GitHub: build, image, check, publish", w_publish: "publishes the way you chose", w_ignore: "keeps tokens, caches and dist/ out of git", w_keys: "asks for keys without echo, stores them outside the folder", w_pages: "the build and publishing on GitHub Pages",
-    paid: "Paid.",
-  },
   ru: {
     title: "настройка", save: "Сохранить", saving: "Сохраняю…", h1: "Настройка сайта",
-    lead: "Заполните, что знаете. Для начала нужны только первые две группы, остальное — к публикации. Каждый ответ ложится в site.yaml, к нему можно вернуться и поменять.",
-    need: "нужно",
-    g_site: "Сайт и домены", g_site_about: "Название и два адреса: рабочий домен и служебный для показа. Домена пока нет — оставьте заглушку и поменяйте перед публикацией.",
-    g_lang: "Языки", g_lang_about: "Какие языки у сайта и какой основной. Основной живёт в корне, остальные — с приставкой: /de/. У каждого языка своя папка в content/.",
-    g_who: "О ком сайт", g_who_about: "Короткая анкета по schema.org — словарю, которым поисковики описывают компании и людей. Выберите тип и ответьте на его вопросы. Пропущенный вопрос просто не попадёт в разметку.",
-    g_search: "Поиск и ИИ", g_search_about: "Что знать поисковикам и ИИ-ассистентам. Счётчики работают только на рабочем домене и после согласия посетителя.",
-    g_pub: "Где публикуете", g_pub_about: "Как хранить и публиковать сайт. Конфигуратор покажет только нужные этому способу поля и запишет его файлы.",
-    g_keys: "Ключи доступа и модули", g_keys_about: "Токен — длинный пароль для одной цели. Ключи хранятся в настройках HERON на вашем компьютере, вне папки сайта, и никогда не попадают в site.yaml и git.",
-    g_theme: "Тема", g_theme_about: "Внешний вид сайта. Выберите сейчас или потом; до тех пор белая стартовая тема показывает все формы секций.",
-    name: "Название сайта", name_h: "В шапке, в выдаче поисковиков и во вкладке браузера.",
-    domain: "Рабочий домен", domain_h: "Адрес для посетителей, без https://: example.com. Поисковики видят только его.",
-    preview: "Служебный домен", preview_h: "Для показа и проверок: preview.example.com. Закрыт от поисковиков. Необязательно.",
-    langs: "Языки сайта", langs_h: "Коды через запятую: en, de, ru. Новый язык получит папку с главной и страницей 404.",
-    main_lang: "Основной язык", main_lang_h: "Отдаётся из корня сайта.",
-    type: "Тип", type_h: "От общего к частному. Нет в списке — возьмите ближайший общий: разметка останется верной, только менее подробной.",
+    lead: "Заполните, что знаете. Для начала нужны только первые две группы, остальное — к публикации. Каждый ответ ложится в site.yaml: к нему можно вернуться и поменять. Изменённое поле помечено, его можно вернуть.",
+    need: "нужно", dev: "в разработке", was: "было", undo: "вернуть", empty: "пусто",
+    g_site: "Сайт и домены", g_site_about: "Название сайта и два адреса: рабочий и служебный. Домена пока нет — оставьте заглушку и поменяйте перед публикацией.",
+    name: "Название сайта", name_h: "Название вашего сайта. Из него строятся шапка и заголовки страниц, подписи в выдаче поисковиков, файл llms.txt для нейросетей. Само по себе в поисковики оно не уходит — только вместе с опубликованным сайтом.",
+    domain: "Рабочий домен", domain_h: "Адрес, на котором будет работать рабочая версия сайта, без https://: example.com. Это основной домен: его видят посетители и поисковики.",
+    preview: "Служебный домен", preview_h: "Если вам нужны тесты и проверки, заведите для этого отдельный домен и укажите его здесь: dev.example.com. Такие сайты обычно закрыты от поисковиков. Сборка для dev и скрипт публикации возьмут этот адрес — при публикации обратите на это внимание.",
+    preview_link: "Как работают окружения dev и prod",
+    g_lang: "Языки", g_lang_about: "Какие языки у сайта и какой основной. Основной живёт в корне сайта, остальные — с приставкой: /de/. У каждого языка своя папка в content/.",
+    langs: "Языки сайта", langs_h: "Выберите из списка — язык появится ниже. Крестик убирает язык. Новый язык получит папку с главной и страницей 404.",
+    lang_add: "— добавить язык —", main_lang: "Основной язык", main_lang_h: "Выбирается из языков сайта. Отдаётся из корня сайта.",
+    g_who: "О ком сайт", g_who_about: "Это разметка schema.org — словарь, которым Google, Bing и другие поисковики описывают компании и людей. По ней поисковик понимает, кто вы, где вы и как с вами связаться, и может показать это прямо в выдаче: карточку с адресом, часами работы, телефоном. Без разметки он угадывает по тексту страниц. Заполните один раз — HERON добавит разметку на каждую страницу. Пропущенный вопрос просто не попадёт в разметку: пустых или выдуманных значений не будет.",
+    type: "Кто вы", type_h: "От общего к частному: человек или организация, затем вид деятельности. Нет в списке — возьмите ближайший общий: разметка останется верной, только менее подробной.",
     type_none: "— не сейчас —", type_more: "точнее (необязательно)",
-    suffix: "Хвост заголовка", suffix_h: "Добавляется после заголовка каждой страницы: « — Смит Дентал».",
-    note: "Заметка для ИИ", note_h: "Несколько строк фактов в начало llms.txt: чем занимаетесь, где, как связаться. Markdown.",
-    og: "Картинка для соцсетей", og_h: "Видна, когда ссылкой делятся: 1200×630, файл в media/, например media/share.jpg.",
-    ga4: "Google Analytics", ga4_h: "Идентификатор потока: G-XXXXXXX.", gtm: "Tag Manager", gtm_h: "Идентификатор контейнера: GTM-XXXXXX.",
-    prices: "Показывать цены в разметке", prices_h: "По умолчанию выключено, чтобы цена не утекла в выдачу случайно.",
-    way: "Способ", way_git: "git push", way_git_s: "образ собирает GitHub", way_hub: "Docker Hub", way_hub_s: "свой реестр образов", way_static: "Статические файлы", way_static_s: "сервер или GitHub Pages", way_none: "Пока не знаю", way_none_s: "только сборка и просмотр",
-    env: "Окружение", env_h: "dev закрыт от поисковиков; prod — когда домен готов.",
+    address: "Юридический адрес", address_person: "Адрес",
+    contacts: "Контакты", contacts_h: "Каждый канал — отдельной строкой: что это, для чего и значение. Телефонов, почт и мессенджеров может быть сколько угодно. Первый телефон и первая почта — основные: их покажет подвал сайта.",
+    contact_add: "+ Добавить контакт", purpose_none: "— назначение —",
+    direction_none: "— выберите —",
+    g_search: "Поиск и ИИ", g_search_about: "Что знать поисковикам и ИИ-ассистентам о сайте в целом.",
+    suffix: "Хвост заголовка", suffix_h: "Текст, который добавляется после заголовка каждой страницы. Его видно во вкладке браузера и в выдаче поисковиков: по нему понятно, чей это сайт. Обычно — тире и название.",
+    suffix_example: "Так будет выглядеть страница «О нас»:",
+    note: "Заметка для ИИ", note_h: "Несколько строк фактов, которые HERON поставит в начало llms.txt — файла для нейросетей: чем занимаетесь, где, как связаться. На каждом языке сайта своя вкладка. Markdown.",
+    og: "Картинка для соцсетей", og_h: "Видна, когда ссылкой делятся в мессенджере или соцсети: 1200×630, файл в media/, например media/share.jpg.",
+    prices: "Показывать цены в разметке", prices_h: "Если включить, уровень цен и цены из страниц попадут в разметку schema.org, и поисковик может показать их в выдаче. Выключено по умолчанию: устаревшая цена в выдаче хуже, чем никакой. Включайте, только если цены на сайте актуальны и вы готовы их публиковать.",
+    g_an: "Аналитика", g_an_about: "Счётчики посещаемости. Это публичные номера, не пароли: они видны в коде страницы. Счётчики работают только в рабочей сборке (prod) и только после согласия посетителя.",
+    ga4: "Google Analytics", ga4_h: "Идентификатор потока: G-XXXXXXX.", gtm: "Google Tag Manager", gtm_h: "Идентификатор контейнера: GTM-XXXXXX.", metrika: "Яндекс Метрика", metrika_h: "Номер счётчика: только цифры.",
+    g_pub: "Где публикуете", g_pub_about: "Как хранить и публиковать сайт. Конфигуратор покажет только нужные этому способу поля и запишет его файлы.",
+    way_github: "GitHub", way_github_s: "код в репозитории", way_hub: "Docker Hub", way_hub_s: "свой реестр образов", way_static: "Статические файлы", way_static_s: "сервер или GitHub Pages", way_none: "Пока не знаю", way_none_s: "только сборка и просмотр",
+    repo: "Репозиторий", repo_h: "владелец/имя на GitHub: you/my-site.", branch: "Ветка", branch_h: "Отправка в эту ветку запускает сборку.",
+    auto: "Автоматическая сборка и публикация", auto_h: "Отправили изменения в git — GitHub сам запускает проверки, собирает образ сайта и публикует его по адресу ниже. Без галочки GitHub только хранит код, а собираете вы сами.",
+    env: "Что собирается", env_h: "dev — проверочная версия на служебном домене, закрыта от поисковиков. prod — рабочая версия на рабочем домене. Обычно начинают с dev и переключают на prod, когда сайт готов.",
     engine: "Версия HERON", engine_h: "prod — стабильная, beta — следующая. Закрепить точно: prod@sha256:<digest>.",
-    repo: "Репозиторий", repo_h: "владелец/имя на GitHub: you/my-site. Необязательно: GitHub знает его сам.",
-    branch: "Ветка", branch_h: "Отправка в эту ветку собирает сайт.",
-    hub_user: "Пользователь Docker Hub", hub_image: "Имя образа", hub_image_h: "строчными: my-site",
+    envs_t: "Что получится", env_col: "Сборка", env_domain: "Домен", env_index: "Поисковики", env_image: "Адрес образа", index_closed: "закрыт", index_open: "открыт", env_now: "сейчас",
+    hub_user: "Пользователь Docker Hub", hub_image: "Имя образа", hub_image_h: "строчными: my-site. Вход в Docker Hub — один раз на компьютере: docker login.",
     target: "Куда", target_server: "Свой сервер", target_pages: "GitHub Pages",
     server: "Сервер", server_h: "user@host для rsync по ssh.", path: "Папка на сервере", path_h: "Абсолютный путь: /var/www/example.com",
-    gh_token: "Токен GitHub", gh_token_h: "Только для закрытого образа. Settings → Developer settings → Personal access tokens, доступ к packages.",
-    hub_token: "Токен Docker Hub", hub_token_h: "Account settings → Personal access tokens, чтение и запись.",
-    db: "Модуль базы данных", db_h: "Необязательно. Адрес вашей базы и закрытый ключ, по которому сайт с ней работает. Пусто — сайт собирается без модуля.",
-    db_url: "Адрес базы", db_key: "Закрытый ключ",
-    is_set: "сохранён", not_set: "не задан", clear: "удалить",
-    keys_where: "Хранятся в", keys_cannot: "Конфигуратор работает внутри Docker и не видит настроек HERON на вашем компьютере, поэтому ключи здесь не принимает. После сохранения выполните на компьютере:",
-    keys_mount: "Или запустите конфигуратор с папкой настроек — и поля появятся здесь:",
-    th_keep: "Оставить текущую тему", th_starter: "Стартовая", th_starter_s: "белая, все формы, встроена", th_name: "Из каталога HERON", th_url: "По ссылке", th_file: "Свой архив", th_later: "Потом", th_later_s: "пока стартовая",
+    writes_t: "Что запишет конфигуратор",
+    w_site: "все настройки", w_build: "итоговая сборка одной командой", w_image: "сборка на GitHub: проверки, образ, публикация", w_publish: "публикует выбранным способом", w_ignore: "не пускает в git кэш и dist/", w_pages: "сборка и публикация на GitHub Pages",
+    g_keys: "Ключи доступа и модули", g_keys_about: "Токены для закрытых реестров и подключение модулей — например, внешней базы данных, CRM или другой CMS. Раздел в разработке: сейчас здесь ничего настраивать не нужно.",
+    g_theme: "Тема", g_theme_about: "Внешний вид сайта. Вместе с темой приезжают её страницы-примеры — только туда, где страниц ещё нет: ваши файлы не перезаписываются.",
+    th_keep: "Текущая", th_white: "белая", th_name: "Из каталога HERON", th_url: "По ссылке", th_file: "Свой архив",
     th_url_h: "https-адрес .zip или .tar.gz; #sha256=<хеш> в конце сверяется.", th_file_h: ".zip или .tar.gz с папкой theme/ внутри.",
-    th_none: "Каталог сейчас недоступен: стартовая тема есть всегда.",
-    saved: "Сохранено", nothing: "Ничего не изменилось.", written: "Записано", removed: "Убрано", kept: "Оставлено, файл не наш", created: "Создано", keys_saved: "Ключи сохранены", backup: "Прежняя версия", next: "Дальше: heron serve . — посмотреть сайт.",
-    error: "Не сохранено", writes_t: "Что запишет этот способ",
-    w_site: "все настройки", w_build: "итоговая сборка одной командой", w_image: "сборка на GitHub: сборка, образ, проверка, отправка", w_publish: "публикует выбранным способом", w_ignore: "не пускает в git токены, кэш и dist/", w_keys: "спрашивает ключи без эха и хранит вне папки", w_pages: "сборка и публикация на GitHub Pages",
-    paid: "Платно.",
+    saved: "Сохранено", nothing: "Ничего не изменилось.", written: "Записано", removed: "Убрано", kept: "Оставлено, файл не наш", created: "Создано", backup: "Прежняя версия", next: "Дальше: heron serve . — посмотреть сайт.", error: "Не сохранено",
+  },
+  en: {
+    title: "setup", save: "Save", saving: "Saving…", h1: "Set up your site",
+    lead: "Fill in what you know. Only the first two groups are needed to start; the rest can wait until you publish. Every answer lands in site.yaml, you can come back and change it. A changed field is marked and can be undone.",
+    need: "needed", dev: "in development", was: "was", undo: "undo", empty: "empty",
+    g_site: "Site and domains", g_site_about: "The name of the site and two addresses: the working one and a service one. No domain yet? Leave the placeholder and change it before you publish.",
+    name: "Site name", name_h: "The name of your site. The header, page titles, search result captions and llms.txt for AI are built from it. It does not go to search engines by itself, only with the published site.",
+    domain: "Working domain", domain_h: "The address where the working version of the site will live, without https://: example.com. This is the main domain: visitors and search engines see it.",
+    preview: "Service domain", preview_h: "If you need tests and checks, get a separate domain for them and enter it here: dev.example.com. Such sites are usually closed to search engines. The dev build and the publishing script use this address — keep it in mind when you publish.",
+    preview_link: "How the dev and prod environments work",
+    g_lang: "Languages", g_lang_about: "Which languages the site has and which one is the main. The main one lives at the root, the others get a prefix: /de/. Each language gets its own folder in content/.",
+    langs: "Languages of the site", langs_h: "Pick from the list, the language appears below. The cross removes it. A new language gets a folder with a home page and a 404 page.",
+    lang_add: "— add a language —", main_lang: "Main language", main_lang_h: "Chosen from the languages of the site. Served from the root.",
+    g_who: "Who the site is about", g_who_about: "This is schema.org markup, the vocabulary Google, Bing and other search engines use to describe companies and people. From it a search engine learns who you are, where and how to reach you, and can show it right in the results: a card with the address, opening hours, phone. Without it, it guesses from the page texts. Fill it in once and HERON adds the markup to every page. A skipped question simply stays out: nothing empty or invented.",
+    type: "Who you are", type_h: "From general to specific: a person or an organization, then the kind of work. Not in the list? Take the nearest broader one: the markup stays correct, only less detailed.",
+    type_none: "— not now —", type_more: "more specific (optional)",
+    address: "Registered address", address_person: "Address",
+    contacts: "Contacts", contacts_h: "Each channel on its own line: what it is, what for, and the value. As many phones, emails and messengers as you need. The first phone and the first email are the main ones: the footer shows them.",
+    contact_add: "+ Add a contact", purpose_none: "— purpose —",
+    direction_none: "— pick one —",
+    g_search: "Search and AI", g_search_about: "What search engines and AI assistants should know about the site as a whole.",
+    suffix: "Title suffix", suffix_h: "Text added after the title of every page. It shows in the browser tab and in search results, so people see whose site it is. Usually a dash and the name.",
+    suffix_example: "This is how the page «About» will look:",
+    note: "Note for AI", note_h: "A few lines of facts HERON puts at the top of llms.txt, the file for AI: what you do, where, how to reach you. A tab per language of the site. Markdown.",
+    og: "Social image", og_h: "Shown when a link is shared in a messenger or a social network: 1200×630, a file in media/, e.g. media/share.jpg.",
+    prices: "Show prices in markup", prices_h: "When on, the price range and the prices from your pages go into schema.org markup, and a search engine may show them in results. Off by default: an outdated price in results is worse than none. Turn it on only if the prices on the site are current and you are ready to publish them.",
+    g_an: "Analytics", g_an_about: "Visit counters. These are public IDs, not passwords: they are visible in the page code. Counters run only in the working build (prod) and only after the visitor agrees.",
+    ga4: "Google Analytics", ga4_h: "Measurement ID: G-XXXXXXX.", gtm: "Google Tag Manager", gtm_h: "Container ID: GTM-XXXXXX.", metrika: "Yandex Metrica", metrika_h: "Counter number: digits only.",
+    g_pub: "Where you publish", g_pub_about: "How you store and publish the site. The configurator shows only the fields that way needs and writes the files it uses.",
+    way_github: "GitHub", way_github_s: "code in a repository", way_hub: "Docker Hub", way_hub_s: "your own image registry", way_static: "Static files", way_static_s: "a server or GitHub Pages", way_none: "Not sure yet", way_none_s: "build and preview only",
+    repo: "Repository", repo_h: "owner/name on GitHub: you/my-site.", branch: "Branch", branch_h: "Pushes to this branch start the build.",
+    auto: "Automatic build and publishing", auto_h: "Push the changes to git, and GitHub runs the checks, builds the image of the site and publishes it at the address below. Unticked, GitHub only keeps the code and you build yourself.",
+    env: "What is built", env_h: "dev is the check version on the service domain, closed to search engines. prod is the working version on the working domain. Usually you start with dev and switch to prod when the site is ready.",
+    engine: "HERON version", engine_h: "prod — stable, beta — the next one. Pin exactly: prod@sha256:<digest>.",
+    envs_t: "What you get", env_col: "Build", env_domain: "Domain", env_index: "Search engines", env_image: "Image address", index_closed: "closed", index_open: "open", env_now: "now",
+    hub_user: "Docker Hub user", hub_image: "Image name", hub_image_h: "lowercase: my-site. Sign in to Docker Hub once per computer: docker login.",
+    target: "Where to", target_server: "My server", target_pages: "GitHub Pages",
+    server: "Server", server_h: "user@host for rsync over ssh.", path: "Folder on the server", path_h: "Absolute path: /var/www/example.com",
+    writes_t: "What the configurator writes",
+    w_site: "all settings", w_build: "the final build in one command", w_image: "the build on GitHub: checks, image, publishing", w_publish: "publishes the way you chose", w_ignore: "keeps caches and dist/ out of git", w_pages: "the build and publishing on GitHub Pages",
+    g_keys: "Access keys and modules", g_keys_about: "Tokens for private registries and modules, such as an external database, a CRM or another CMS. In development: nothing to set up here yet.",
+    g_theme: "Theme", g_theme_about: "The look of the site. A theme brings its example pages, only where there are no pages yet: your files are never overwritten.",
+    th_keep: "Current", th_white: "white", th_name: "From the HERON catalog", th_url: "By link", th_file: "My archive",
+    th_url_h: "https address of a .zip or .tar.gz; #sha256=<hash> at the end is checked.", th_file_h: ".zip or .tar.gz with theme/ inside.",
+    saved: "Saved", nothing: "Nothing changed.", written: "Written", removed: "Removed", kept: "Kept, not ours", created: "Created", backup: "Previous version", next: "Next: heron serve . — look at the site.", error: "Not saved",
   },
 };
-let L = "en", ST = null, A = null, UPLOAD = "";
+const CT = {
+  ru: { phone: "Телефон", email: "Почта", website: "Сайт", whatsapp: "WhatsApp", telegram: "Telegram", viber: "Viber", signal: "Signal", instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", youtube: "YouTube", tiktok: "TikTok", x: "X", other: "Другое" },
+  en: { phone: "Phone", email: "Email", website: "Website", whatsapp: "WhatsApp", telegram: "Telegram", viber: "Viber", signal: "Signal", instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", youtube: "YouTube", tiktok: "TikTok", x: "X", other: "Other" },
+};
+const PU = {
+  ru: { main: "основной", sales: "продажи", marketing: "маркетинг", support: "поддержка", booking: "запись", press: "пресса" },
+  en: { main: "main", sales: "sales", marketing: "marketing", support: "support", booking: "booking", press: "press" },
+};
+const PLACEHOLDER = { phone: "+00 000 000 00 00", email: "hello@example.com", website: "https://example.com", whatsapp: "+00 000 000 00 00", telegram: "@name или https://t.me/name", viber: "+00 000 000 00 00", signal: "+00 000 000 00 00", instagram: "@name", facebook: "https://facebook.com/name", linkedin: "https://linkedin.com/in/name", youtube: "@name", tiktok: "@name", x: "@name", other: "" };
+
+let L = "ru", ST = null, A = null, BASE = null, UPLOAD = "", NOTE_TAB = "";
+const TRACKS = [];
 const $ = (s, el = document) => el.querySelector(s);
 const t = (k) => (T[L] && T[L][k]) || T.en[k] || k;
+const clone = (x) => JSON.parse(JSON.stringify(x));
 function h(tag, attrs = {}, ...kids) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
     if (v === null || v === undefined || v === false) continue;
     if (k === "class") el.className = v;
     else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
-    else if (k === "html") el.innerHTML = v;
     else el.setAttribute(k, v === true ? "" : v);
   }
   for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false) el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
   return el;
 }
-function hint(text) { const p = h("div", { class: "hint" }); p.innerHTML = esc(text).replace(/`([^`]+)`/g, "<code>$1</code>"); return p; }
 function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
-function input(path, type = "text", attrs = {}) {
-  const value = get(path);
-  const el = h(type === "textarea" ? "textarea" : "input", { type: type === "textarea" ? null : type, id: path, name: path, ...attrs });
-  el.value = value === undefined || value === null ? "" : (Array.isArray(value) ? value.join("\n") : value);
-  el.addEventListener("input", () => set(path, type === "checkbox" ? el.checked : el.value));
-  return el;
+function hint(text, link) {
+  const p = h("div", { class: "hint" });
+  p.innerHTML = esc(text).replace(/`([^`]+)`/g, "<code>$1</code>");
+  if (link) { p.append(" "); p.append(h("a", { href: link[0], target: "_blank", rel: "noopener" }, link[1])); }
+  return p;
 }
-function field(label, path, help, type = "text", attrs = {}, wide = false) {
-  return h("div", { class: "field" + (wide ? " wide" : "") }, h("label", { for: path }, label), input(path, type, attrs), help ? hint(help) : null);
-}
-function get(path) { return path.split(".").reduce((o, k) => (o == null ? undefined : o[k]), A); }
+function pick(obj, path) { return path.split(".").reduce((o, k) => (o == null ? undefined : o[k]), obj); }
+function get(path) { return pick(A, path); }
 function set(path, value) {
   const parts = path.split("."); let o = A;
   for (const k of parts.slice(0, -1)) { if (typeof o[k] !== "object" || o[k] === null) o[k] = {}; o = o[k]; }
-  o[parts.at(-1)] = value;
+  if (value === undefined) delete o[parts.at(-1)]; else o[parts.at(-1)] = value;
+  refresh();
+}
+function blank(v) { return v === undefined || v === null || v === "" || (Array.isArray(v) && !v.length) || (typeof v === "object" && !Array.isArray(v) && !Object.keys(v).length); }
+function same(a, b) { return (blank(a) && blank(b)) || JSON.stringify(a) === JSON.stringify(b); }
+function shown(v) {
+  if (blank(v)) return t("empty");
+  if (Array.isArray(v)) return v.map((x) => (typeof x === "object" ? [CT[L][x.type] || x.type, x.purpose ? PU[L][x.purpose] : "", x.value].filter(Boolean).join(" · ") : x)).join("; ");
+  if (typeof v === "object") return Object.entries(v).map(([k, x]) => k + ": " + x).join("; ");
+  if (v === true) return "✓"; if (v === false) return "—";
+  return String(v);
+}
+// Отметка «было → стало» под полем: сравнение с тем, что сейчас записано в site.yaml.
+function track(path) {
+  const el = h("div", { class: "was", hidden: true });
+  TRACKS.push([path, el]);
+  return el;
+}
+function refresh() {
+  for (const [path, el] of TRACKS) {
+    const before = pick(BASE, path), now = get(path);
+    if (same(before, now)) { el.hidden = true; el.replaceChildren(); continue; }
+    el.hidden = false;
+    el.replaceChildren(h("span", {}, t("was") + ": " + shown(before)),
+      h("button", { type: "button", onclick: () => { set(path, clone(before === undefined ? undefined : before)); render(); } }, t("undo")));
+  }
+}
+function input(path, type = "text", attrs = {}) {
+  const value = get(path);
+  const el = h(type === "textarea" ? "textarea" : "input", { type: type === "textarea" ? null : type, id: path, name: path, ...attrs });
+  el.value = value ?? "";
+  el.addEventListener("input", () => set(path, el.value));
+  return el;
+}
+function field(label, path, help, type = "text", attrs = {}, wide = false, link = null) {
+  return h("div", { class: "field" + (wide ? " wide" : "") }, h("label", { for: path }, label), input(path, type, attrs), help ? hint(help, link) : null, track(path));
 }
 function choices(path, items, onchange) {
   const box = h("div", { class: "choices", role: "radiogroup" });
@@ -235,46 +316,55 @@ function choices(path, items, onchange) {
     radio.addEventListener("change", () => { set(path, value); onchange && onchange(); });
     box.append(h("label", { class: "choice", for: id }, radio, h("span", {}, h("b", {}, title), sub ? h("small", {}, sub) : null)));
   }
-  return box;
+  return h("div", {}, box, track(path));
 }
-function group(id, n, title, about, need, ...body) {
-  return h("section", { class: "group", id: "g-" + id }, h("h2", {}, h("span", { class: "n" }, n), title, need ? h("span", { class: "need" }, t("need")) : null), h("p", { class: "about" }, about), ...body);
+function group(id, n, title, about, flag, ...body) {
+  const tag = flag === "need" ? h("span", { class: "need" }, t("need")) : flag === "dev" ? h("span", { class: "dev" }, t("dev")) : null;
+  return h("section", { class: "group", id: "g-" + id }, h("h2", {}, h("span", { class: "n" }, n), h("span", { class: "title" }, title), tag), h("p", { class: "about" }, about), ...body);
 }
+function langName(code) { const row = LANGS.find((x) => x[0] === code); return row ? (L === "ru" ? row[1] : row[2]) + " — " + code : code; }
 
-// --- groups ---------------------------------------------------------------
+// --- группы -----------------------------------------------------------------
 function gSite() {
-  return group("site", "1", t("g_site"), t("g_site_about"), true,
+  return group("site", "1", t("g_site"), t("g_site_about"), "need",
     h("div", { class: "grid" },
       field(t("name"), "site.name", t("name_h")),
       field(t("domain"), "site.domain", t("domain_h"), "text", { placeholder: "example.com", inputmode: "url" }),
-      field(t("preview"), "site.preview_domain", t("preview_h"), "text", { placeholder: "preview.example.com", inputmode: "url" })));
+      field(t("preview"), "site.preview_domain", t("preview_h"), "text", { placeholder: "dev.example.com", inputmode: "url" }, false, [DOCS, t("preview_link")])));
 }
 function gLang() {
-  const langs = h("input", { type: "text", id: "site.languages", value: (A.site.languages || []).join(", ") });
-  langs.addEventListener("change", () => {
-    const list = langs.value.split(/[\s,;]+/).map((x) => x.trim().toLowerCase()).filter(Boolean);
-    A.site.languages = [...new Set(list)];
-    if (!A.site.languages.includes(A.site.default_lang)) A.site.default_lang = A.site.languages[0] || "en";
-    render();
-  });
-  const main = h("select", { id: "site.default_lang" }, ...(A.site.languages || []).map((c) => h("option", { value: c, selected: c === A.site.default_lang }, c)));
+  const chosen = A.site.languages || [];
+  const add = h("select", { id: "lang-add", "aria-label": t("langs") }, h("option", { value: "" }, t("lang_add")),
+    ...LANGS.filter(([c]) => !chosen.includes(c)).map(([c]) => h("option", { value: c }, langName(c))));
+  add.addEventListener("change", () => { if (!add.value) return; A.site.languages = [...chosen, add.value]; if (!A.site.default_lang) A.site.default_lang = add.value; refresh(); render(); });
+  const chips = h("div", { class: "chips" }, ...chosen.map((c) => h("span", { class: "chip" + (c === A.site.default_lang ? " main" : "") }, langName(c),
+    chosen.length > 1 ? h("button", { type: "button", "aria-label": "×", onclick: () => {
+      A.site.languages = chosen.filter((x) => x !== c);
+      if (A.site.default_lang === c) A.site.default_lang = A.site.languages[0];
+      for (const k of Object.keys(A.search.llms_note || {})) if (!A.site.languages.includes(k)) delete A.search.llms_note[k];
+      render();
+    } }, "×") : null)));
+  const main = h("select", { id: "site.default_lang" }, ...chosen.map((c) => h("option", { value: c, selected: c === A.site.default_lang }, langName(c))));
   main.addEventListener("change", () => { A.site.default_lang = main.value; render(); });
-  return group("lang", "2", t("g_lang"), t("g_lang_about"), true,
+  return group("lang", "2", t("g_lang"), t("g_lang_about"), "need",
     h("div", { class: "grid" },
-      h("div", { class: "field" }, h("label", { for: "site.languages" }, t("langs")), langs, hint(t("langs_h"))),
-      h("div", { class: "field" }, h("label", { for: "site.default_lang" }, t("main_lang")), main, hint(t("main_lang_h")))));
+      h("div", { class: "field" }, h("label", { for: "lang-add" }, t("langs")), add, chips, hint(t("langs_h")), track("site.languages")),
+      h("div", { class: "field" }, h("label", { for: "site.default_lang" }, t("main_lang")), main, hint(t("main_lang_h")), track("site.default_lang"))));
 }
 function lineage(kind) {
   const chain = []; const types = ST.vocab.types;
   while (kind && types[kind] && !chain.includes(kind)) { chain.unshift(kind); kind = types[kind].parent; }
   return chain;
 }
-function childrenOf(parent) {
-  return Object.entries(ST.vocab.types).filter(([, v]) => (v.parent || "") === (parent || "")).map(([k]) => k);
+function childrenOf(parent) { return Object.entries(ST.vocab.types).filter(([, v]) => (v.parent || "") === (parent || "")).map(([k]) => k); }
+function label(spec, person) { const src = (person && spec.label_person) || spec.label; return (src && (src[L] || src.en)) || ""; }
+function directions() {
+  // направления — все виды организаций, кроме самого общего
+  return Object.entries(ST.vocab.types).filter(([k]) => { const chain = lineage(k); return chain[0] === "Organization" && k !== "Organization"; });
 }
-function label(spec) { return (spec.label && (spec.label[L] || spec.label.en)) || ""; }
 function gWho() {
   const chain = lineage(A.about.type);
+  const person = chain[0] === "Person";
   const cascade = h("div", { class: "cascade" });
   let parent = "";
   for (let level = 0; level <= chain.length; level++) {
@@ -290,148 +380,176 @@ function gWho() {
     if (!chain[level]) break;
     parent = chain[level];
   }
-  const fieldsBox = h("div", { class: "grid" });
   const names = A.about.type ? ST.fields_by_type[A.about.type] : ST.vocab.common;
+  const main = h("div", { class: "grid" });
+  const address = h("div", { class: "grid" });
   for (const name of names) {
     const spec = ST.vocab.fields[name];
     if (spec.money && !A.search.allow_prices) continue;
-    fieldsBox.append(aboutField(name, spec));
+    (spec.group === "address" ? address : main).append(aboutField(name, spec, person));
   }
-  return group("who", "3", t("g_who"), t("g_who_about"), false,
-    h("div", { class: "field wide" }, h("span", { class: "legend" }, t("type")), cascade, hint(t("type_h"))),
-    h("div", { style: "height:1rem" }), fieldsBox);
+  const body = [
+    h("div", { class: "field wide" }, h("span", { class: "legend" }, t("type")), cascade, hint(t("type_h")), track("about.type")),
+    h("div", { style: "height:1rem" }), main,
+  ];
+  if (address.childNodes.length) body.push(h("div", { style: "height:1rem" }), h("div", { class: "subbox" }, h("h3", {}, person ? t("address_person") : t("address")), address));
+  body.push(h("div", { style: "height:1rem" }), contactsBox());
+  return group("who", "3", t("g_who"), t("g_who_about"), null, ...body);
 }
 function prune() {
   const allowed = new Set(A.about.type ? ST.fields_by_type[A.about.type] : ST.vocab.common);
   for (const k of Object.keys(A.about.fields)) if (!allowed.has(k)) delete A.about.fields[k];
 }
-function aboutField(name, spec) {
+function aboutField(name, spec, person) {
   const kind = spec.kind || "text";
   const langs = A.site.languages || ["en"];
-  const main = A.site.default_lang;
+  const mainLang = A.site.default_lang;
   const wide = kind === "textarea" || kind === "lines";
+  const path = "about.fields." + name;
+  const put = (value) => { if (value === "" || (Array.isArray(value) && !value.join("").trim())) set(path, undefined); else set(path, value); };
   const make = (value, onset, id) => {
+    if (kind === "direction") {
+      const sel = h("select", { id }, h("option", { value: "" }, t("direction_none")),
+        ...directions().map(([k, v]) => { const text = (v.label && (v.label[mainLang] || v.label.en)) || k; return h("option", { value: text, selected: value === text }, label(v)); }));
+      sel.addEventListener("change", () => onset(sel.value));
+      return sel;
+    }
     const tag = wide ? "textarea" : "input";
-    const type = { tel: "tel", email: "email", number: "number", date: "text" }[kind] || "text";
+    const type = { number: "number" }[kind] || "text";
     const el = h(tag, { id, type: wide ? null : type, step: kind === "number" ? "any" : null, placeholder: kind === "media" ? "media/…" : null });
     el.value = Array.isArray(value) ? value.join("\n") : (value ?? "");
     el.addEventListener("input", () => onset(kind === "lines" ? el.value.split("\n") : el.value));
     return el;
   };
-  const box = h("div", { class: "field" + (wide ? " wide" : "") }, h("label", { for: "f-" + name }, label(spec)));
+  const box = h("div", { class: "field" + (wide ? " wide" : "") }, h("label", { for: "f-" + name }, label(spec, person)));
   const current = A.about.fields[name];
-  const put = (value) => { if (value === "" || (Array.isArray(value) && !value.join("").trim())) delete A.about.fields[name]; else A.about.fields[name] = value; };
   if (spec.localized && langs.length > 1) {
     const per = h("div", { class: "per-lang" });
-    const values = typeof current === "object" && current && !Array.isArray(current) ? { ...current } : { [main]: current ?? "" };
-    for (const code of [main, ...langs.filter((x) => x !== main)]) {
+    const values = typeof current === "object" && current && !Array.isArray(current) ? { ...current } : { [mainLang]: current ?? "" };
+    for (const code of [mainLang, ...langs.filter((x) => x !== mainLang)]) {
       per.append(h("div", { class: "row" }, h("span", { class: "code" }, code),
-        make(values[code] ?? "", (v) => { values[code] = v; const clean = Object.fromEntries(Object.entries(values).filter(([, x]) => (Array.isArray(x) ? x.join("").trim() : String(x).trim()))); put(Object.keys(clean).length ? clean : ""); }, code === main ? "f-" + name : null)));
+        make(values[code] ?? "", (v) => { values[code] = v; const clean = Object.fromEntries(Object.entries(values).filter(([, x]) => (Array.isArray(x) ? x.join("").trim() : String(x).trim()))); put(Object.keys(clean).length ? clean : ""); }, code === mainLang ? "f-" + name : null)));
     }
     box.append(per);
   } else {
-    const value = typeof current === "object" && current && !Array.isArray(current) ? current[main] : current;
+    const value = typeof current === "object" && current && !Array.isArray(current) ? current[mainLang] : current;
     box.append(make(value, put, "f-" + name));
   }
   const help = spec.hint && (spec.hint[L] || spec.hint.en);
   if (help) box.append(hint(help));
+  box.append(track(path));
   return box;
+}
+function contactsBox() {
+  A.about.contacts = A.about.contacts || [];
+  const list = h("div", {});
+  A.about.contacts.forEach((c, i) => {
+    const type = h("select", { "aria-label": "type" }, ...ST.contact_types.map((k) => h("option", { value: k, selected: c.type === k }, CT[L][k] || k)));
+    type.addEventListener("change", () => { c.type = type.value; render(); });
+    const purpose = h("select", { "aria-label": "purpose" }, h("option", { value: "" }, t("purpose_none")), ...ST.purposes.map((k) => h("option", { value: k, selected: c.purpose === k }, PU[L][k] || k)));
+    purpose.addEventListener("change", () => { c.purpose = purpose.value; refresh(); });
+    const value = h("input", { type: "text", placeholder: PLACEHOLDER[c.type] || "" });
+    value.value = c.value || "";
+    value.addEventListener("input", () => { c.value = value.value; refresh(); });
+    list.append(h("div", { class: "contact-row" }, type, purpose, value, h("button", { type: "button", class: "x", "aria-label": "×", onclick: () => { A.about.contacts.splice(i, 1); render(); } }, "×")));
+  });
+  const add = h("button", { type: "button", class: "add", onclick: () => { A.about.contacts.push({ type: A.about.contacts.some((x) => x.type === "phone") ? "email" : "phone", purpose: "", value: "" }); render(); } }, t("contact_add"));
+  return h("div", { class: "field wide" }, h("span", { class: "legend" }, t("contacts")), hint(t("contacts_h")), list, h("div", {}, add), track("about.contacts"));
 }
 function gSearch() {
   const langs = A.site.languages || ["en"];
-  const notes = h("div", { class: "per-lang" });
-  for (const code of langs) {
-    const el = h("textarea", { "aria-label": t("note") + " " + code });
-    el.value = (A.search.llms_note || {})[code] || "";
-    el.addEventListener("input", () => { A.search.llms_note = A.search.llms_note || {}; if (el.value.trim()) A.search.llms_note[code] = el.value; else delete A.search.llms_note[code]; });
-    notes.append(h("div", { class: "row" }, h("span", { class: "code" }, code), el));
-  }
+  if (!langs.includes(NOTE_TAB)) NOTE_TAB = A.site.default_lang || langs[0];
+  const tabs = h("div", { class: "tabs-row", role: "tablist" }, ...langs.map((code) => h("button", { type: "button", role: "tab", "aria-selected": String(code === NOTE_TAB), onclick: () => { NOTE_TAB = code; render(); } }, langName(code))));
+  const area = h("textarea", { "aria-label": t("note") + " " + NOTE_TAB });
+  area.value = (A.search.llms_note || {})[NOTE_TAB] || "";
+  area.addEventListener("input", () => { A.search.llms_note = A.search.llms_note || {}; if (area.value.trim()) A.search.llms_note[NOTE_TAB] = area.value; else delete A.search.llms_note[NOTE_TAB]; refresh(); });
+  const suffix = input("search.title_suffix", "text", { placeholder: " — " + (A.site.name || "Smith Dental") });
+  const preview = h("div", { class: "preview" });
+  const draw = () => { preview.textContent = (L === "ru" ? "О нас" : "About") + (A.search.title_suffix || ""); };
+  suffix.addEventListener("input", draw); draw();
   const prices = h("input", { type: "checkbox", id: "search.allow_prices" });
   prices.checked = !!A.search.allow_prices;
   prices.addEventListener("change", () => { A.search.allow_prices = prices.checked; render(); });
-  return group("search", "4", t("g_search"), t("g_search_about"), false,
+  return group("search", "4", t("g_search"), t("g_search_about"), null,
     h("div", { class: "grid" },
-      field(t("suffix"), "search.title_suffix", t("suffix_h")),
+      h("div", { class: "field" }, h("label", { for: "search.title_suffix" }, t("suffix")), suffix, hint(t("suffix_h")), h("div", { class: "hint" }, t("suffix_example")), preview, track("search.title_suffix")),
       field(t("og"), "search.og_image", t("og_h"), "text", { placeholder: "media/share.jpg" }),
-      field(t("ga4"), "search.ga4", t("ga4_h"), "text", { placeholder: "G-XXXXXXX" }),
-      field(t("gtm"), "search.gtm", t("gtm_h"), "text", { placeholder: "GTM-XXXXXX" }),
-      h("div", { class: "field wide" }, h("span", { class: "legend" }, t("note")), notes, hint(t("note_h"))),
-      h("div", { class: "field wide" }, h("label", { class: "check" }, prices, t("prices")), hint(t("prices_h")))));
+      h("div", { class: "field wide" }, h("span", { class: "legend" }, t("note")), tabs, h("div", { class: "tab-body" }, area), hint(t("note_h")), track("search.llms_note")),
+      h("div", { class: "field wide" }, h("label", { class: "check" }, prices, t("prices")), hint(t("prices_h")), track("search.allow_prices"))));
+}
+function gAnalytics() {
+  return group("an", "5", t("g_an"), t("g_an_about"), null,
+    h("div", { class: "grid" },
+      field(t("ga4"), "analytics.ga4", t("ga4_h"), "text", { placeholder: "G-XXXXXXX" }),
+      field(t("gtm"), "analytics.gtm", t("gtm_h"), "text", { placeholder: "GTM-XXXXXX" }),
+      field(t("metrika"), "analytics.metrika", t("metrika_h"), "text", { placeholder: "00000000", inputmode: "numeric" })));
+}
+function imageOf(env) {
+  const p = A.publish;
+  if (p.way === "github") { const repo = (p.repo || ST.git_remote || "<owner>/<repo>").toLowerCase(); return "ghcr.io/" + repo + ":" + env; }
+  if (p.way === "dockerhub") return "docker.io/" + (p.dockerhub_user || "<user>") + "/" + (p.image || "<image>") + ":" + env;
+  return "—";
 }
 function gPublish() {
   const p = A.publish;
+  if (p.way === "git") p.way = "github";
   const body = [choices("publish.way", [
-    ["git", t("way_git"), t("way_git_s")], ["dockerhub", t("way_hub"), t("way_hub_s")],
+    ["github", t("way_github"), t("way_github_s")], ["dockerhub", t("way_hub"), t("way_hub_s")],
     ["static", t("way_static"), t("way_static_s")], ["none", t("way_none"), t("way_none_s")],
   ], render)];
   const grid = h("div", { class: "grid", style: "margin-top:1rem" });
-  if (p.way !== "none") {
-    const env = h("select", { id: "publish.env" }, ...["dev", "prod"].map((x) => h("option", { value: x, selected: p.env === x }, x)));
-    env.addEventListener("change", () => (p.env = env.value));
-    grid.append(h("div", { class: "field" }, h("label", { for: "publish.env" }, t("env")), env, hint(t("env_h"))));
-    grid.append(field(t("engine"), "publish.engine", t("engine_h")));
+  if (p.way === "github") {
+    grid.append(field(t("repo"), "publish.repo", t("repo_h"), "text", { placeholder: ST.git_remote || "you/my-site" }), field(t("branch"), "publish.branch", t("branch_h")));
+    const auto = h("input", { type: "checkbox", id: "publish.auto" }); auto.checked = p.auto !== false;
+    auto.addEventListener("change", () => { p.auto = auto.checked; render(); });
+    grid.append(h("div", { class: "field wide" }, h("label", { class: "check" }, auto, t("auto")), hint(t("auto_h")), track("publish.auto")));
   }
-  if (p.way === "git") { grid.append(field(t("repo"), "publish.repo", t("repo_h"), "text", { placeholder: "you/my-site" }), field(t("branch"), "publish.branch", t("branch_h"))); }
-  if (p.way === "dockerhub") { grid.append(field(t("hub_user"), "publish.dockerhub_user", ""), field(t("hub_image"), "publish.image", t("hub_image_h"))); }
+  if (p.way === "dockerhub") grid.append(field(t("hub_user"), "publish.dockerhub_user", ""), field(t("hub_image"), "publish.image", t("hub_image_h")));
   if (p.way === "static") {
     grid.append(h("div", { class: "field wide" }, h("span", { class: "legend" }, t("target")), choices("publish.static_target", [["server", t("target_server")], ["pages", t("target_pages")]], render)));
     if (p.static_target === "server") grid.append(field(t("server"), "publish.server", t("server_h"), "text", { placeholder: "deploy@example.com" }), field(t("path"), "publish.path", t("path_h"), "text", { placeholder: "/var/www/" + (A.site.domain || "example.com") }));
     else grid.append(field(t("branch"), "publish.branch", t("branch_h")));
   }
-  body.push(grid);
-  const rows = [["site.yaml", t("w_site")], ["scripts/build.sh", t("w_build")]];
-  if (p.way === "git") rows.push([".github/workflows/image.yml", t("w_image")], ["scripts/publish.sh", t("w_publish")], [".gitignore", t("w_ignore")]);
-  if (p.way === "dockerhub") rows.push(["scripts/publish.sh", t("w_publish")]);
-  if (p.way === "static") rows.push(p.static_target === "pages" ? [".github/workflows/pages.yml", t("w_pages")] : ["scripts/publish.sh", t("w_publish")], ["scripts/publish.sh", t("w_publish")]);
-  if (!ST.keys.can_save) rows.push(["scripts/keys.sh", t("w_keys")]);
-  const seen = new Set();
-  body.push(h("div", { class: "field wide", style: "margin-top:1rem" }, h("span", { class: "legend" }, t("writes_t")),
-    h("table", { class: "writes" }, ...rows.filter(([f]) => !seen.has(f) && seen.add(f)).map(([f, d]) => h("tr", {}, h("td", {}, f), h("td", {}, d))))));
-  return group("pub", "5", t("g_pub"), t("g_pub_about"), false, ...body);
-}
-function keyField(name, title, help) {
-  const isSet = ST.keys.set[name];
-  const el = h("input", { type: "password", id: "k-" + name, autocomplete: "new-password", placeholder: isSet ? "••••••••" : "" });
-  el.addEventListener("input", () => (A.keys[name] = el.value));
-  const clear = h("input", { type: "checkbox", id: "c-" + name });
-  clear.addEventListener("change", () => { A._clear = A._clear || new Set(); clear.checked ? A._clear.add(name) : A._clear.delete(name); });
-  return h("div", { class: "field" }, h("label", { for: "k-" + name }, title, " ", h("span", { class: isSet ? "tag-ok" : "tag-no" }, isSet ? t("is_set") : t("not_set"))), el,
-    isSet ? h("label", { class: "check hint" }, clear, t("clear")) : null, help ? hint(help) : null);
-}
-function gKeys() {
-  A.keys = A.keys || {};
-  const body = [];
-  if (ST.keys.can_save) {
-    const grid = h("div", { class: "grid" });
-    if (A.publish.way === "git") grid.append(keyField("github_token", t("gh_token"), t("gh_token_h")));
-    if (A.publish.way === "dockerhub") grid.append(keyField("dockerhub_token", t("hub_token"), t("hub_token_h")));
-    grid.append(h("div", { class: "field wide" }, h("span", { class: "legend" }, t("db")), hint(t("db_h"))));
-    grid.append(keyField("db_url", t("db_url"), ""), keyField("db_key", t("db_key"), ""));
-    body.push(grid, h("p", { class: "hint" }, t("keys_where") + " " + ST.keys.where));
-  } else {
-    const run = 'docker run --rm -it -p 8000:8000 -v "$PWD":/site -w /site -v "$HOME/.config/heron":/config -e HERON_CONFIG_DIR=/config --user $(id -u):$(id -g) ghcr.io/fmstm/heron:' + (A.publish.engine || "prod").split("@")[0] + " setup .";
-    body.push(h("div", { class: "box" }, t("keys_cannot"), h("pre", {}, "./scripts/keys.sh"), h("div", { style: "margin-top:.8rem" }, t("keys_mount")), h("pre", {}, run)));
-    body.push(h("p", { class: "hint" }, t("db") + ": " + t("db_h")));
+  if (p.way !== "none") {
+    const env = h("select", { id: "publish.env" }, ...["dev", "prod"].map((x) => h("option", { value: x, selected: p.env === x }, x)));
+    env.addEventListener("change", () => { p.env = env.value; render(); });
+    grid.append(h("div", { class: "field" }, h("label", { for: "publish.env" }, t("env")), env, hint(t("env_h")), track("publish.env")));
+    grid.append(field(t("engine"), "publish.engine", t("engine_h")));
+    const image = p.way === "github" ? p.auto !== false : p.way === "dockerhub";
+    const rows = ["dev", "prod"].map((e) => h("tr", { class: e === p.env ? "on" : null },
+      h("td", {}, e, e === p.env ? " · " + t("env_now") : ""),
+      h("td", {}, h("code", {}, e === "dev" ? (A.site.preview_domain || "—") : (A.site.domain || "—"))),
+      h("td", {}, e === "dev" ? t("index_closed") : t("index_open")),
+      image ? h("td", {}, h("code", {}, imageOf(e))) : null));
+    grid.append(h("div", { class: "field wide" }, h("span", { class: "legend" }, t("envs_t")),
+      h("table", { class: "envs" }, h("tr", {}, h("th", {}, t("env_col")), h("th", {}, t("env_domain")), h("th", {}, t("env_index")), image ? h("th", {}, t("env_image")) : null), ...rows)));
   }
-  return group("keys", "6", t("g_keys"), t("g_keys_about"), false, ...body);
+  body.push(grid);
+  const files = [["site.yaml", t("w_site")], ["scripts/build.sh", t("w_build")]];
+  if (p.way === "github") { if (p.auto !== false) files.push([".github/workflows/image.yml", t("w_image")]); files.push(["scripts/publish.sh", t("w_publish")], [".gitignore", t("w_ignore")]); }
+  if (p.way === "dockerhub") files.push(["scripts/publish.sh", t("w_publish")]);
+  if (p.way === "static") files.push(p.static_target === "pages" ? [".github/workflows/pages.yml", t("w_pages")] : ["scripts/publish.sh", t("w_publish")]);
+  body.push(h("div", { class: "field wide", style: "margin-top:1rem" }, h("span", { class: "legend" }, t("writes_t")),
+    h("table", { class: "writes" }, ...files.map(([f, d]) => h("tr", {}, h("td", {}, f), h("td", {}, d))))));
+  return group("pub", "6", t("g_pub"), t("g_pub_about"), null, ...body);
 }
+function gKeys() { return group("keys", "7", t("g_keys"), t("g_keys_about"), "dev"); }
 function gTheme() {
   const th = A.theme;
-  const items = [];
-  if (ST.exists && ST.site_theme) items.push(["keep", t("th_keep"), ST.site_theme]);
-  items.push(["starter", t("th_starter"), t("th_starter_s")], ["name", t("th_name"), ""], ["url", t("th_url"), ""], ["file", t("th_file"), ""], ["later", t("th_later"), t("th_later_s")]);
-  if (!items.find(([v]) => v === th.source)) th.source = items[0][0];
-  const body = [choices("theme.source", items, render)];
+  if (!["keep", "name", "url", "file"].includes(th.source)) th.source = "keep";
+  const current = ST.site_theme || "main";
+  const white = ["main", "starter"].includes(current);
+  const body = [choices("theme.source", [
+    ["keep", t("th_keep") + ": " + current, white ? t("th_white") : ""],
+    ["name", t("th_name"), ""], ["url", t("th_url"), ""], ["file", t("th_file"), ""],
+  ], render)];
   const grid = h("div", { class: "grid", style: "margin-top:1rem" });
   if (th.source === "name") {
-    const others = (ST.themes || []).filter((x) => !x.builtin);
-    if (!others.length) grid.append(h("p", { class: "hint field wide" }, t("th_none")));
-    else {
-      const sel = h("select", { id: "theme.value" }, ...others.map((x) => h("option", { value: x.name, selected: th.value === x.name }, (x.title || x.name) + (x.description ? " — " + x.description : ""))));
-      if (!th.value) th.value = others[0].name;
-      sel.addEventListener("change", () => (th.value = sel.value));
-      grid.append(h("div", { class: "field wide" }, sel));
-    }
+    const list = ST.themes || [];
+    const sel = h("select", { id: "theme.value" }, ...list.map((x) => h("option", { value: x.name, selected: th.value === x.name }, (x.title || x.name) + (x.description ? " — " + x.description : ""))));
+    if (!th.value && list.length) th.value = list[0].name;
+    sel.addEventListener("change", () => (th.value = sel.value));
+    grid.append(h("div", { class: "field wide" }, sel));
   }
   if (th.source === "url") grid.append(field(t("th_url"), "theme.value", t("th_url_h"), "url", { placeholder: "https://…/theme.tar.gz" }, true));
   if (th.source === "file") {
@@ -444,7 +562,7 @@ function gTheme() {
     grid.append(h("div", { class: "field wide" }, file, hint(t("th_file_h"))));
   }
   body.push(grid);
-  return group("theme", "7", t("g_theme"), t("g_theme_about"), false, ...body);
+  return group("theme", "8", t("g_theme"), t("g_theme_about"), null, ...body);
 }
 
 function render() {
@@ -452,8 +570,10 @@ function render() {
   for (const el of document.querySelectorAll("[data-t]")) el.textContent = t(el.dataset.t);
   for (const b of document.querySelectorAll(".langswitch button")) b.setAttribute("aria-pressed", String(b.dataset.lang === L));
   const y = window.scrollY;
-  const form = $("#form"); form.replaceChildren(gSite(), gLang(), gWho(), gSearch(), gPublish(), gKeys(), gTheme());
-  const nav = $("#groups"); nav.replaceChildren(...[...form.querySelectorAll("section.group")].map((s) => h("a", { href: "#" + s.id }, h("span", { class: "n" }, $(".n", s).textContent), s.querySelector("h2").childNodes[1].textContent)));
+  TRACKS.length = 0;
+  const form = $("#form"); form.replaceChildren(gSite(), gLang(), gWho(), gSearch(), gAnalytics(), gPublish(), gKeys(), gTheme());
+  $("#groups").replaceChildren(...[...form.querySelectorAll("section.group")].map((s) => h("a", { href: "#" + s.id }, h("span", { class: "n" }, $(".n", s).textContent), $(".title", s).textContent)));
+  refresh();
   window.scrollTo(0, y);
   $("#engine").textContent = "HERON " + ST.engine;
 }
@@ -462,12 +582,13 @@ function toast(kind, title, lines) {
   el.replaceChildren(h("button", { type: "button", "aria-label": "close", onclick: () => (el.style.display = "none") }, "×"), h("b", {}, title), lines && lines.length ? h("ul", {}, ...lines.map((x) => h("li", {}, x))) : null);
   el.style.display = "block";
 }
+function load(state) { ST = state; A = clone(state.answers); BASE = clone(state.answers); UPLOAD = ""; }
 async function save() {
   const btn = $("#save"); btn.disabled = true; btn.textContent = t("saving");
   try {
-    const payload = { answers: { ...A, keys: A.keys || {} }, clear_keys: [...(A._clear || [])], upload: UPLOAD };
-    delete payload.answers._clear;
-    const r = await fetch("/api/save", { method: "POST", headers: { "Content-Type": "application/json", "X-Heron-Token": TOKEN }, body: JSON.stringify(payload) });
+    const answers = clone(A);
+    answers.about.contacts = (answers.about.contacts || []).filter((c) => (c.value || "").trim());
+    const r = await fetch("/api/save", { method: "POST", headers: { "Content-Type": "application/json", "X-Heron-Token": TOKEN }, body: JSON.stringify({ answers, upload: UPLOAD }) });
     const j = await r.json();
     if (!j.ok) { toast("bad", t("error"), [j.error, j.hint].filter(Boolean)); return; }
     const lines = [];
@@ -475,11 +596,10 @@ async function save() {
     if (j.created.length) lines.push(t("created") + ": " + j.created.slice(0, 8).join(", ") + (j.created.length > 8 ? " …" : ""));
     if (j.removed.length) lines.push(t("removed") + ": " + j.removed.join(", "));
     if (j.kept.length) lines.push(t("kept") + ": " + j.kept.join(", "));
-    if (j.keys_saved.length) lines.push(t("keys_saved") + ": " + j.keys_saved.join(", "));
     if (j.backup) lines.push(t("backup") + ": " + j.backup);
     if (!lines.length) lines.push(t("nothing"));
     lines.push(t("next"));
-    ST = j.state; A = ST.answers; A.keys = {}; UPLOAD = "";
+    load(j.state);
     render();
     toast("ok", t("saved"), lines);
   } catch (e) { toast("bad", t("error"), [String(e)]); }
@@ -488,7 +608,7 @@ async function save() {
 document.querySelectorAll(".langswitch button").forEach((b) => b.addEventListener("click", () => { L = b.dataset.lang; render(); }));
 $("#save").addEventListener("click", save);
 document.addEventListener("keydown", (e) => { if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); save(); } });
-fetch("/api/state").then((r) => r.json()).then((s) => { ST = s; A = s.answers; A.keys = {}; L = s.notes || "en"; render(); });
+fetch("/api/state").then((r) => r.json()).then((s) => { load(s); L = s.notes === "en" ? "en" : "ru"; render(); });
 </script>
 </body>
 </html>

@@ -241,6 +241,10 @@ class BuildBlock(Strict):
     notes: Literal["ru", "en"] = "en"
     fail_on_warning: bool = False
     allow_raw_html: bool = False
+    # Подпись движка в каждой странице: <meta name="generator" content="HERON">
+    # и комментарий с подписью. Ставится при сборке, ключ пишут только чтобы
+    # её отключить: generator: false.
+    generator: bool = True
 
     # Откуда берётся дата обновления страницы, если её не задали руками.
     # Умолчание `manual` — прежнее поведение: подъём движка не должен

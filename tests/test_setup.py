@@ -4,7 +4,6 @@
 """
 
 import json
-import os
 import stat
 from pathlib import Path
 
@@ -15,7 +14,7 @@ from click.testing import CliRunner
 from heron.cli import main
 from heron.contracts.site import load_site
 from heron.scaffold import create
-from heron.setup import apply, current_answers, load_answers, state
+from heron.setup import apply, current_answers, load_answers
 from heron.setup.answers import Answers, fields_of, read
 
 ANSWERS = """
@@ -29,18 +28,25 @@ about:
   fields:
     name: Example Studio
     about: {en: "We make things.", de: "Wir machen Dinge."}
-    telephone: "+00 000 000 00 00"
     city: {en: Vienna, de: Wien}
     country: AT
     latitude: 48.2
     longitude: 16.37
     opening_hours: ["Mo-Fr 08:00-18:00"]
     price_range: "$$"
+  contacts:
+    - {type: phone, purpose: main, value: "+00 000 000 00 00"}
+    - {type: phone, purpose: support, value: "+00 000 000 00 01"}
+    - {type: email, value: hello@studio.example.com}
+    - {type: telegram, purpose: support, value: "@studio_help"}
+    - {type: website, value: https://blog.example.com}
 search:
   title_suffix: " — Example Studio"
   llms_note: {en: "Call us."}
+analytics:
+  metrika: "12345678"
 publish:
-  way: git
+  way: github
   engine: beta
 """
 
@@ -54,12 +60,6 @@ def site(tmp_path: Path) -> Path:
     data["custom_block"] = {"keep": True}
     (root / "site.yaml").write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
     return root
-
-
-@pytest.fixture(autouse=True)
-def keys_home(tmp_path: Path, monkeypatch):
-    monkeypatch.setenv("HERON_CONFIG_DIR", str(tmp_path / "config"))
-    monkeypatch.delenv("HERON_IN_CONTAINER", raising=False)
 
 
 def test_vocab_fields_inherit_from_parents():
@@ -99,7 +99,8 @@ def test_roundtrip_reads_back_what_it_wrote(site: Path):
     again = load_answers(current_answers(site))
     assert again.about.type == "LocalBusiness"
     assert again.about.fields["city"] == {"en": "Vienna", "de": "Wien"}
-    assert again.publish.way == "git" and again.publish.engine == "beta"
+    assert again.publish.way == "github" and again.publish.engine == "beta"
+    assert [c.value for c in again.about.contacts][:2] == ["+00 000 000 00 00", "+00 000 000 00 01"]
     # второй прогон с теми же ответами ничего не переписывает
     assert apply(site, again).written == []
 
@@ -107,10 +108,12 @@ def test_roundtrip_reads_back_what_it_wrote(site: Path):
 def test_skipped_answer_removes_the_key(site: Path):
     apply(site, load_answers(ANSWERS))
     answers = load_answers(current_answers(site))
-    del answers.about.fields["telephone"]
+    answers.about.contacts = [c for c in answers.about.contacts if c.type != "phone"]
+    del answers.about.fields["country"]
     apply(site, answers)
     data = yaml.safe_load((site / "site.yaml").read_text(encoding="utf-8"))
     assert "phone" not in data["contact"]
+    assert "country" not in data["contact"]
     assert "telephone" not in data["schema"]["entity"]
 
 
@@ -155,30 +158,51 @@ def test_foreign_script_is_not_overwritten(site: Path):
     assert "mine" in (site / "scripts/build.sh").read_text(encoding="utf-8")
 
 
-def test_keys_go_outside_the_site_folder(site: Path, tmp_path: Path):
-    answers = load_answers(ANSWERS)
-    answers.keys.db_key = "secret-value"
-    result = apply(site, answers)
-    assert result.keys_saved == ["db_key"]
-    stored = tmp_path / "config" / "sites" / "studio.example.com.env"
-    assert stored.read_text(encoding="utf-8") == "HERON_DB_KEY=secret-value\n"
-    assert stat.S_IMODE(stored.stat().st_mode) == 0o600
-    for path in site.rglob("*"):
-        if path.is_file():
-            assert b"secret-value" not in path.read_bytes(), path
-    # страница видит только «задан / нет»
-    seen = state(site, in_container=False)
-    assert seen["keys"]["set"]["db_key"] is True
-    assert "secret-value" not in json.dumps(seen)
+def test_contacts_go_to_channels_and_markup(site: Path):
+    apply(site, load_answers(ANSWERS))
+    data = yaml.safe_load((site / "site.yaml").read_text(encoding="utf-8"))
+    contact = data["contact"]
+    assert contact["phone"] == "+00 000 000 00 00"  # первый телефон — основной
+    assert contact["email"] == "hello@studio.example.com"
+    assert len(contact["channels"]) == 5
+    entity = data["schema"]["entity"]
+    assert entity["telephone"] == "{{ contact.phone }}"
+    kinds = {(p["contactType"], p.get("telephone")) for p in entity["contactPoint"]}
+    assert ("technical support", "+00 000 000 00 01") in kinds
+    assert entity["sameAs"] == ["https://t.me/studio_help"]
+    assert data["analytics"]["metrika"] == "12345678"
 
 
-def test_in_container_without_config_keys_are_refused(site: Path, monkeypatch):
-    monkeypatch.delenv("HERON_CONFIG_DIR")
+def test_old_config_contacts_are_read_as_channels():
+    answers = read(
+        {
+            "site": {"languages": ["en"], "domain": "a.example.com"},
+            "contact": {"phone": "+00 000 000 00 00", "email": "a@a.example.com"},
+            "organization": {"same_as": ["https://t.me/abc", "https://abc.example.com"]},
+        }
+    )
+    assert [(c.type, c.value) for c in answers.about.contacts] == [
+        ("phone", "+00 000 000 00 00"),
+        ("email", "a@a.example.com"),
+        ("telegram", "https://t.me/abc"),
+        ("website", "https://abc.example.com"),
+    ]
+
+
+def test_setup_needs_a_site(tmp_path: Path):
+    out = CliRunner().invoke(main, ["setup", str(tmp_path)])
+    assert out.exit_code == 1
+    assert "site.yaml" in out.output
+    with pytest.raises(ValueError, match="site.yaml"):
+        apply(tmp_path, load_answers(ANSWERS))
+
+
+def test_github_without_auto_writes_no_workflow(site: Path):
     answers = load_answers(ANSWERS)
-    answers.keys.db_key = "secret-value"
-    result = apply(site, answers, in_container=True)
-    assert "keys_not_saved" in result.warnings
-    assert (site / "scripts" / "keys.sh").is_file()
+    answers.publish.auto = False
+    apply(site, answers)
+    assert not (site / ".github/workflows/image.yml").exists()
+    assert "git push" in (site / "scripts/publish.sh").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize(
@@ -189,6 +213,8 @@ def test_in_container_without_config_keys_are_refused(site: Path, monkeypatch):
         ({"about": {"type": "Spaceship"}}, "type"),
         ({"about": {"type": "Person", "fields": {"opening_hours": ["x"]}}}, "opening_hours"),
         ({"publish": {"way": "dockerhub"}}, "Docker Hub"),
+        ({"about": {"contacts": [{"type": "email", "value": "nope"}]}}, "email"),
+        ({"analytics": {"ga4": "UA-1"}}, "G-XXXXXXX"),
         ({"publish": {"engine": "latest"}}, "engine"),
     ],
 )
@@ -240,7 +266,3 @@ def test_recipe_command():
     out = CliRunner().invoke(main, ["recipe"])
     assert out.exit_code == 0
     assert "nginx-unprivileged" in out.output
-
-
-def test_no_keys_in_env_of_tests():
-    assert "HERON_DB_KEY" not in os.environ

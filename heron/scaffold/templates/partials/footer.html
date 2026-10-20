@@ -1,8 +1,32 @@
-{% set phone = site.get_path('contact.phone') %}
-{% set email = site.get_path('contact.email') %}
+{# Контакты — из site.yaml: contact.channels пишет конфигуратор (heron setup).
+   У старого конфига каналов нет — тогда основной телефон и почта. #}
+{% set channels = site.get_path('contact.channels') or [] %}
+{% if not channels %}
+  {% set channels = [] %}
+  {% if site.get_path('contact.phone') %}{% set channels = channels + [{'type': 'phone', 'value': site.get_path('contact.phone')}] %}{% endif %}
+  {% if site.get_path('contact.email') %}{% set channels = channels + [{'type': 'email', 'value': site.get_path('contact.email')}] %}{% endif %}
+{% endif %}
 <footer class="site-footer">
   <div class="wrap">
-    <p>{{ site.site.name or site.site.domain }}{% if phone %} · <a href="tel:{{ phone|replace(' ', '') }}">{{ phone }}</a>{% endif %}{% if email %} · <a href="mailto:{{ email }}">{{ email }}</a>{% endif %}</p>
+    <p class="name">{{ site.site.name or site.site.domain }}</p>
+    {% if channels %}
+    <ul class="contacts">
+      {% for c in channels %}
+        {% set v = c.get('value', '')|string %}{% set kind = c.get('type', 'other') %}{% set purpose = c.get('purpose', '') %}
+        {% set digits = v|select('in', '0123456789')|join %}
+        {% if kind == 'phone' %}{% set href = 'tel:+' ~ digits %}
+        {% elif kind == 'email' %}{% set href = 'mailto:' ~ v %}
+        {% elif v.startswith('https://') or v.startswith('http://') %}{% set href = v %}
+        {% elif kind == 'whatsapp' %}{% set href = 'https://wa.me/' ~ digits %}
+        {% elif kind == 'telegram' %}{% set href = 'https://t.me/' ~ v.lstrip('@') %}
+        {% elif kind == 'instagram' %}{% set href = 'https://www.instagram.com/' ~ v.lstrip('@') %}
+        {% elif kind == 'website' %}{% set href = 'https://' ~ v %}
+        {% else %}{% set href = '' %}
+        {% endif %}
+        <li class="contact contact-{{ kind }}">{% if purpose %}<span class="purpose">{{ t['contact_' ~ purpose] if ('contact_' ~ purpose) in t else purpose }}</span> {% endif %}{% if href %}<a href="{{ href }}">{{ v }}</a>{% else %}{{ v }}{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     <p class="powered">{{ t.powered_by }} <a href="https://github.com/FMSTM/HERON">HERON</a></p>
   </div>
 </footer>

@@ -154,3 +154,10 @@ def export(target: Path) -> list[str]:
         shutil.copyfile(root() / rel, destination)
         written.append(rel)
     return written
+
+
+def recipe_text() -> str:
+    """Рецепт образа nginx для собранного сайта: из пакета или из клона."""
+    packed = Path(__file__).parent / "_recipe" / "Dockerfile.site"
+    source = Path(__file__).resolve().parent.parent / "Dockerfile.site"
+    return (packed if packed.is_file() else source).read_text(encoding="utf-8")

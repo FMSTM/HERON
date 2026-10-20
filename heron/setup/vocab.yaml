@@ -1,0 +1,225 @@
+# Справочник конфигуратора: типы schema.org и поля, которые у них спрашивают.
+#
+# Это не весь словарь schema.org, а ветки, под которые обычно делают сайты:
+# организация и её местные виды, человек. Тип выбирается каскадом — от общего
+# к частному; у частного типа все поля общего плюс свои. Нет нужного типа —
+# берут ближайший общий: разметка остаётся верной, только менее подробной.
+#
+# Каждое поле знает, куда его ответ ложится в site.yaml (`to`), и как оно
+# называется в разметке (`prop`). Разметку движок строит сам из site.yaml
+# блоком `schema.entity` с подстановками — значения не дублируются.
+#
+# Добавить тип — дописать его в `types` (родитель — `parent`). Добавить поле —
+# в `fields` и в список `fields` типа. Код конфигуратора менять не нужно.
+
+fields:
+  name:
+    to: organization.name
+    prop: name
+    label: {en: "Name", ru: "Название"}
+    hint: {en: "As people and search engines should call you.", ru: "Как вас называют люди и поисковики."}
+  legal_name:
+    to: organization.legal_name
+    prop: legalName
+    label: {en: "Legal name", ru: "Юридическое название"}
+    hint: {en: "Only if it differs from the name.", ru: "Только если отличается от названия."}
+  about:
+    to: organization.about
+    prop: description
+    localized: true
+    kind: textarea
+    label: {en: "What you do", ru: "Чем занимаетесь"}
+    hint: {en: "One or two sentences, plain words.", ru: "Одно-два предложения простыми словами."}
+  logo:
+    to: organization.logo
+    prop: logo
+    kind: media
+    label: {en: "Logo", ru: "Логотип"}
+    hint: {en: "A file in media/, for example media/logo.png.", ru: "Файл в media/, например media/logo.png."}
+  image:
+    to: organization.image
+    prop: image
+    kind: media
+    label: {en: "Photo", ru: "Фото"}
+    hint: {en: "A file in media/: the place, the team or you.", ru: "Файл в media/: место, команда или вы."}
+  telephone:
+    to: contact.phone
+    prop: telephone
+    kind: tel
+    label: {en: "Phone", ru: "Телефон"}
+    hint: {en: "International format: +00 000 000 00 00.", ru: "В международном формате: +00 000 000 00 00."}
+  email:
+    to: contact.email
+    prop: email
+    kind: email
+    label: {en: "Email", ru: "Почта"}
+    hint: {en: "Shown on the site and in the markup.", ru: "Видна на сайте и в разметке."}
+  street:
+    to: contact.street
+    prop: address.streetAddress
+    localized: true
+    label: {en: "Street and number", ru: "Улица и дом"}
+    hint: {en: "", ru: ""}
+  postal_code:
+    to: contact.postal_code
+    prop: address.postalCode
+    label: {en: "Postal code", ru: "Индекс"}
+    hint: {en: "", ru: ""}
+  city:
+    to: contact.city
+    prop: address.addressLocality
+    localized: true
+    label: {en: "City", ru: "Город"}
+    hint: {en: "", ru: ""}
+  region:
+    to: contact.region
+    prop: address.addressRegion
+    localized: true
+    label: {en: "Region", ru: "Регион"}
+    hint: {en: "State, province or land, if it matters.", ru: "Область или земля, если это важно."}
+  country:
+    to: contact.country
+    prop: address.addressCountry
+    label: {en: "Country", ru: "Страна"}
+    hint: {en: "Two-letter code: AT, DE, US.", ru: "Код из двух букв: AT, DE, US."}
+  latitude:
+    to: contact.geo.latitude
+    prop: geo.latitude
+    kind: number
+    label: {en: "Latitude", ru: "Широта"}
+    hint: {en: "From the map: right click on the place.", ru: "С карты: правый клик по месту."}
+  longitude:
+    to: contact.geo.longitude
+    prop: geo.longitude
+    kind: number
+    label: {en: "Longitude", ru: "Долгота"}
+    hint: {en: "", ru: ""}
+  opening_hours:
+    to: contact.hours
+    prop: openingHours
+    kind: lines
+    label: {en: "Opening hours", ru: "Часы работы"}
+    hint: {en: "One line per rule, schema.org form: Mo-Fr 08:00-18:00", ru: "По строке на правило, в форме schema.org: Mo-Fr 08:00-18:00"}
+  area_served:
+    to: organization.area_served
+    prop: areaServed
+    localized: true
+    label: {en: "Area served", ru: "Где работаете"}
+    hint: {en: "A city, a region or a country.", ru: "Город, регион или страна."}
+  founding_date:
+    to: organization.founding_date
+    prop: foundingDate
+    kind: date
+    label: {en: "Founded", ru: "Год основания"}
+    hint: {en: "A year or a date: 2013 or 2013-05-01.", ru: "Год или дата: 2013 или 2013-05-01."}
+  same_as:
+    to: organization.same_as
+    prop: sameAs
+    kind: lines
+    label: {en: "Profiles elsewhere", ru: "Профили в других местах"}
+    hint: {en: "One address per line: social networks, maps, catalogues.", ru: "По адресу на строку: соцсети, карты, каталоги."}
+  job_title:
+    to: organization.job_title
+    prop: jobTitle
+    localized: true
+    label: {en: "Job title", ru: "Должность или профессия"}
+    hint: {en: "", ru: ""}
+  knows_about:
+    to: organization.knows_about
+    prop: knowsAbout
+    kind: lines
+    localized: true
+    label: {en: "Areas of expertise", ru: "В чём разбираетесь"}
+    hint: {en: "One topic per line.", ru: "По теме на строку."}
+  works_for:
+    to: organization.works_for
+    prop: worksFor.name
+    label: {en: "Works for", ru: "Где работаете"}
+    hint: {en: "The company, if any.", ru: "Компания, если есть."}
+  price_range:
+    to: organization.price_range
+    prop: priceRange
+    money: true
+    label: {en: "Price range", ru: "Уровень цен"}
+    hint: {en: "Goes into the markup only if prices are allowed in the Search group.", ru: "Попадает в разметку, только если цены разрешены в группе «Поиск»."}
+
+# Поля, общие для всех типов, идут первыми; у частного типа добавляются свои.
+common: [name, about, telephone, email, same_as]
+
+types:
+  Organization:
+    label: {en: "Organization", ru: "Организация"}
+    fields: [legal_name, logo, founding_date, street, postal_code, city, region, country]
+  Corporation:
+    parent: Organization
+    label: {en: "Company", ru: "Компания"}
+  NGO:
+    parent: Organization
+    label: {en: "Non-profit", ru: "Некоммерческая организация"}
+  EducationalOrganization:
+    parent: Organization
+    label: {en: "School or courses", ru: "Школа или курсы"}
+  LocalBusiness:
+    parent: Organization
+    label: {en: "Local business", ru: "Местный бизнес"}
+    fields: [image, latitude, longitude, opening_hours, area_served, price_range]
+  ProfessionalService:
+    parent: LocalBusiness
+    label: {en: "Professional service", ru: "Профессиональные услуги"}
+  LegalService:
+    parent: LocalBusiness
+    label: {en: "Law firm", ru: "Юридическая фирма"}
+  AccountingService:
+    parent: LocalBusiness
+    label: {en: "Accounting", ru: "Бухгалтерия"}
+  MedicalBusiness:
+    parent: LocalBusiness
+    label: {en: "Health practice", ru: "Медицинская практика"}
+  Dentist:
+    parent: MedicalBusiness
+    label: {en: "Dental clinic", ru: "Стоматология"}
+  FoodEstablishment:
+    parent: LocalBusiness
+    label: {en: "Food and drink", ru: "Еда и напитки"}
+  Restaurant:
+    parent: FoodEstablishment
+    label: {en: "Restaurant", ru: "Ресторан"}
+  CafeOrCoffeeShop:
+    parent: FoodEstablishment
+    label: {en: "Cafe", ru: "Кафе"}
+  Bakery:
+    parent: FoodEstablishment
+    label: {en: "Bakery", ru: "Пекарня"}
+  Store:
+    parent: LocalBusiness
+    label: {en: "Shop", ru: "Магазин"}
+  HealthAndBeautyBusiness:
+    parent: LocalBusiness
+    label: {en: "Beauty and wellness", ru: "Красота и здоровье"}
+  BeautySalon:
+    parent: HealthAndBeautyBusiness
+    label: {en: "Beauty salon", ru: "Салон красоты"}
+  HomeAndConstructionBusiness:
+    parent: LocalBusiness
+    label: {en: "Home and construction", ru: "Дом и ремонт"}
+  AutomotiveBusiness:
+    parent: LocalBusiness
+    label: {en: "Car services", ru: "Автосервис"}
+  LodgingBusiness:
+    parent: LocalBusiness
+    label: {en: "Accommodation", ru: "Жильё для гостей"}
+  Hotel:
+    parent: LodgingBusiness
+    label: {en: "Hotel", ru: "Гостиница"}
+  RealEstateAgent:
+    parent: LocalBusiness
+    label: {en: "Real estate", ru: "Недвижимость"}
+  SportsActivityLocation:
+    parent: LocalBusiness
+    label: {en: "Sports", ru: "Спорт"}
+  ChildCare:
+    parent: LocalBusiness
+    label: {en: "Childcare", ru: "Присмотр за детьми"}
+  Person:
+    label: {en: "Person", ru: "Человек"}
+    fields: [image, job_title, knows_about, works_for, city, country]

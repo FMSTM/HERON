@@ -1,0 +1,10 @@
+{# Pages of a section: an _index.md page lists its children as cards. #}
+{% if page.children %}
+<section class="block children">
+  <ul class="cards">
+  {% for child in page.children %}
+    <li><a href="{{ child.url }}"><strong>{{ child.h1 }}</strong>{% if child.meta.description %}<span>{{ child.meta.description }}</span>{% endif %}</a></li>
+  {% endfor %}
+  </ul>
+</section>
+{% endif %}

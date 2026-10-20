@@ -1,0 +1,14 @@
+{# Tabs without scripts: a radio button per tab, CSS shows the chosen one.
+   Without CSS every tab is a plain heading with its content, readable as is. #}
+<section id="{{ section.id }}" class="block tabs">
+  {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
+  <div class="tabset" style="--tabs: {{ items|length }}">
+  {% for tab in items %}
+    <input type="radio" name="tabs-{{ section.id }}" id="{{ section.id }}-{{ tab.id }}"{% if loop.first %} checked{% endif %}>
+    <label for="{{ section.id }}-{{ tab.id }}">{{ tab.title }}</label>
+  {% endfor %}
+  {% for tab in items %}
+    <div class="panel" id="{{ tab.id }}">{{ tab.html|safe }}</div>
+  {% endfor %}
+  </div>
+</section>

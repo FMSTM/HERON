@@ -38,8 +38,34 @@ engine -v "$WORK/site":/work -w /work "$IMAGE" \
 engine -v "$WORK/site":/site:ro -v "$WORK/out":/out -w /site "$IMAGE" \
   build . --env prod --strict --out /out/dist
 
-for file in index.html ru/index.html 404.html sitemap.xml robots.txt .heron-nginx.conf; do
+for file in index.html ru/index.html forms/index.html ru/forms/index.html 404.html sitemap.xml robots.txt .heron-nginx.conf; do
   [ -s "$WORK/out/dist/$file" ] || { echo "в сборке нет $file" >&2; exit 1; }
 done
 grep -q 'Disallow: /$' "$WORK/out/dist/robots.txt" && { echo "прод закрыт от индексации" >&2; exit 1; }
-echo "образ движка создал и строго собрал сайт"
+# все тринадцать форм секций стартовая тема рисует на демо-странице
+forms="$(grep -o 'class="block [a-z -]*"' "$WORK/out/dist/forms/index.html" | sort -u | wc -l)"
+[ "$forms" -ge 13 ] || { echo "демо-страница рисует $forms форм из 13" >&2; exit 1; }
+
+# пересборка того же даёт те же байты
+sums() { (cd "$WORK/out/dist" && find . -type f ! -name '.heron-*' -print0 | sort -z | xargs -0 sha256sum); }
+first="$(sums)"
+rm -rf "$WORK/out/dist"
+engine -v "$WORK/site":/site:ro -v "$WORK/out":/out -w /site "$IMAGE" \
+  build . --env prod --strict --out /out/dist
+[ "$first" = "$(sums)" ] || { echo "пересборка дала другие файлы" >&2; exit 1; }
+
+# анкета без браузера: ответы → site.yaml, schema.org, workflow; сайт собирается
+cat > "$WORK/answers.yaml" <<'YAML'
+site: {name: Smoke, domain: smoke.example.com, languages: [en, ru]}
+about: {type: LocalBusiness, fields: {name: Smoke, city: Vienna, telephone: "+00 000 000 00 00"}}
+publish: {way: git, engine: beta}
+YAML
+engine -v "$WORK/site":/work -v "$WORK/answers.yaml":/answers.yaml:ro -w /work "$IMAGE" \
+  setup . --answers /answers.yaml
+[ -s "$WORK/site/.github/workflows/image.yml" ] || { echo "setup не записал workflow" >&2; exit 1; }
+rm -rf "$WORK/out/dist"
+engine -v "$WORK/site":/site:ro -v "$WORK/out":/out -w /site "$IMAGE" \
+  build . --env prod --strict --out /out/dist
+grep -q '"LocalBusiness"' "$WORK/out/dist/index.html" || { echo "нет разметки из анкеты" >&2; exit 1; }
+engine "$IMAGE" recipe | grep -q nginx-unprivileged || { echo "recipe пуст" >&2; exit 1; }
+echo "образ движка создал, настроил и строго собрал сайт; пересборка совпала побайтно"

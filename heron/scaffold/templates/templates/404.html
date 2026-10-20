@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>{{ page.h1 }}</h1>
-{% if page.intro %}{{ page.intro.html|safe }}{% endif %}
+<header class="page-head">
+  <h1>{{ page.h1 }}</h1>
+  {% if page.intro %}<div class="intro">{{ page.intro.html|safe }}</div>{% endif %}
+</header>
 {% endblock %}

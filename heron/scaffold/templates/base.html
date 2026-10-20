@@ -20,8 +20,9 @@
 {% if ld %}<script type="application/ld+json">{{ ld }}</script>{% endif %}
 </head>
 <body>
+<a class="skip" href="#main">{{ t.skip }}</a>
 {% include "partials/header.html" %}
-<main>
+<main id="main">
 {% block content %}{% endblock %}
 </main>
 {% include "partials/footer.html" %}

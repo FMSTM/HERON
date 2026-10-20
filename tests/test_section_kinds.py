@@ -61,7 +61,10 @@ def test_shapes_the_theme_gets(md):
     s, _ = one(md, VALID["timeline"][0])
     assert s.data[0] == {"key": "1 день", "value": "вдома"}
     s, _ = one(md, VALID["table"][0])
-    assert s.data == {"head": ["Що", "Де"], "rows": [["а", "б"]]}
+    assert {k: s.data[k] for k in ("head", "rows")} == {"head": ["Що", "Де"], "rows": [["а", "б"]]}
+    s, _ = one(md, "## A {#a}\n\n| Що | Де |\n|---|---|\n| `x` | [б](/b/) |\n")
+    assert s.data["rows"] == [["`x`", "[б](/b/)"]]  # текст как написан — как раньше
+    assert s.data["rows_html"] == [["<code>x</code>", '<a href="/b/">б</a>']]
     s, _ = one(md, VALID["faq"][0])
     assert s.data[0]["q"] == "Питання?" and "Відповідь" in s.data[0]["a"]
     s, _ = one(md, VALID["steps"][0])

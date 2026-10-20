@@ -1,0 +1,17 @@
+{# Every section of the page, each with the module of its form.
+   A theme of your own usually places sections by anchor instead:
+   {{ mod.faq('faq') }} exactly where the questions belong. #}
+{% for section in page.sections.values() %}
+  {% if section.kind in ('list', 'alert-list') %}{{ mod.list(section.id) }}
+  {% elif section.kind in ('checklist', 'two-lists') %}{{ mod.checklist(section.id) }}
+  {% elif section.kind == 'steps' %}{{ mod.steps(section.id) }}
+  {% elif section.kind == 'table' %}{{ mod.table(section.id) }}
+  {% elif section.kind == 'facts' %}{{ mod.facts(section.id) }}
+  {% elif section.kind == 'faq' %}{{ mod.faq(section.id) }}
+  {% elif section.kind == 'timeline' %}{{ mod.timeline(section.id) }}
+  {% elif section.kind == 'callout' %}{{ mod.callout(section.id) }}
+  {% elif section.kind == 'gallery' %}{{ mod.gallery(section.id) }}
+  {% elif section.kind == 'tabs' %}{{ mod.tabs(section.id) }}
+  {% else %}{{ mod.prose(section.id) }}
+  {% endif %}
+{% endfor %}

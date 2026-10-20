@@ -5,7 +5,7 @@ description: Write and move page texts into a HERON site - markdown files with t
 
 # HERON content and SEO
 
-Read first: `$H docs content` (the role), `$H docs pages`, `$H docs seo`, and `forms.md` from the white theme's example content: it shows every section form next to its markdown.
+Read first: `$H docs content` (the role), `$H docs pages`, `$H docs seo`, and `blocks.md` from the white theme demo site: it shows every section form next to its markdown.
 `H="docker run --rm -i -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"`
 
 **You may write:** `content/`, `media/`, `data/`.

@@ -576,7 +576,7 @@ def _start_site(
     yes: bool,
     present: list[str] | None = None,
     done_key: str = "new_done",
-    fish: bool = False,
+    demo: bool = False,
 ) -> None:
     """Завести сайт: опрос в терминале или флаги, затем скелет и «Что дальше».
 
@@ -623,7 +623,7 @@ def _start_site(
         notes=lang,
         domain=domain.lower() if domain else None,
         default_lang=default,
-        fish=fish,
+        demo=demo,
     )
     click.secho("\n" + say(lang, done_key, path=_shown(path)), fg="green", bold=True)
     _report_plan(plan, verbose)
@@ -707,7 +707,7 @@ def new(
             _err(_missing_hint(path, lang), None)
             sys.exit(1)
 
-    _start_site(path, notes, verbose, site_name, domain, langs, yes, fish=True)
+    _start_site(path, notes, verbose, site_name, domain, langs, yes, demo=True)
 
 
 @main.command()
@@ -1010,7 +1010,7 @@ def theme() -> None:
 def theme_get(source: str, path: Path) -> None:
     """Поставить тему: starter, имя из каталога, https-ссылка или файл архива.
 
-    Прежняя тема уезжает в .heron-cache/setup/. Рыбный контент темы
+    Прежняя тема уезжает в .heron-cache/setup/. Демонстрационные страницы темы
     кладётся только туда, где страницы нет: страницы сайта не перезаписываются.
     """
     from heron import themes
@@ -1074,7 +1074,7 @@ def theme_list() -> None:
 @click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
 @click.option("--out", "out", default=None, type=click.Path(path_type=Path))
 def theme_pack(path: Path, out: Path | None) -> None:
-    """Упаковать тему сайта вместе с его контентом (рыбой темы) в архив для heron theme get."""
+    """Упаковать тему сайта вместе с его контентом — демо-страницами для heron theme get."""
     from heron import themes
 
     lang = _lang(None, path)

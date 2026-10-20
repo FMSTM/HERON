@@ -132,6 +132,7 @@ def state(root: Path, in_container: bool) -> dict[str, Any]:
         "contact_types": list(CONTACT_TYPES),
         "purposes": list(PURPOSES),
         "git_remote": git_remote(root),
+        "countries": countries(),
         "themes": themes,
         "site_theme": str((data.get("site") or {}).get("theme") or ""),
         "notes": notes_lang(data),
@@ -139,6 +140,12 @@ def state(root: Path, in_container: bool) -> dict[str, Any]:
         "version": __version__,
         "exists": bool(data),
     }
+
+
+def countries() -> list[list[str]]:
+    """Справочник стран: код ISO, название по-русски и по-английски, телефонный код."""
+    data = json.loads((Path(__file__).parent / "countries.json").read_text(encoding="utf-8"))
+    return data["countries"]
 
 
 def git_remote(root: Path) -> str:

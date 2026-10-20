@@ -38,7 +38,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 HASHES = HERE / "boundary-hashes.txt"
 LOCAL = HERE / "boundary-patterns.local.txt"
-SKIP = {"scripts/boundary-hashes.txt", "uv.lock"}
+# classifier.yaml — общий классификатор сфер деятельности для анкеты (как
+# словарь schema.org): медицина, право и прочее там — это рубрики для любого
+# сайта, а не данные конкретного. Решено 2026-10-20.
+SKIP = {"scripts/boundary-hashes.txt", "uv.lock", "heron/setup/classifier.yaml"}
 
 WORD = re.compile(r"[^\W_]+", re.UNICODE)
 # Настоящий международный номер. Вымышленные в тестах и доках пишутся

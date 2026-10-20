@@ -4,10 +4,15 @@
 
 | способ    | файлы                                                             |
 |-----------|-------------------------------------------------------------------|
-| всегда    | `scripts/build.sh` — итоговая сборка одной командой                |
-| GitHub    | `scripts/publish.sh`, `.gitignore`; с автосборкой — `.github/workflows/image.yml` |
-| Docker Hub| `scripts/publish.sh`                                               |
-| статика   | `scripts/publish.sh` (на сервер) или `.github/workflows/pages.yml`  |
+| помощник  | `.heron/scripts/build.sh` — итоговая сборка одной командой          |
+| помощник  | `.heron/scripts/publish.sh` — публикация выбранным способом         |
+| помощник  | `.gitignore` — кэш и `dist/` мимо git                               |
+| GitHub    | с автосборкой — `.github/workflows/image.yml` (путь задаёт GitHub)  |
+| статика   | GitHub Pages — `.github/workflows/pages.yml`                        |
+
+Помощники включаются и выключаются в анкете (`publish.helpers`). Скрипты
+лежат в скрытой папке `.heron/`: в сборку сайта она не попадает. Внутри —
+свои папки (`scripts/`, дальше и другое), чтобы корень сайта не зарастал.
 
 Длинная часть сборки живёт в HERON: workflow сайта зовёт общий
 `site-image.yml` той же ветки, что и движок, а рецепт образа nginx скрипт
@@ -53,7 +58,7 @@ T = {
         ),
         "build_head": (
             "# Итоговая сборка сайта одной командой: открыт поисковикам, предупреждения —\n"
-            "# ошибки. Результат — папка dist/. Окружение: ./scripts/build.sh dev\n"
+            "# ошибки. Результат — папка dist/. Окружение: ./.heron/scripts/build.sh dev\n"
             "# Записал heron setup; движок — {engine}.\n"
         ),
         "publish_git": "# Публикация: отправить изменения в git — образ соберёт GitHub.",
@@ -79,7 +84,8 @@ T = {
         ),
         "build_head": (
             "# Final build of the site in one command: open to search engines, warnings\n"
-            "# are errors. The result is dist/. Another environment: ./scripts/build.sh dev\n"
+            "# are errors. The result is dist/.\n"
+            "# Another environment: ./.heron/scripts/build.sh dev\n"
             "# Written by heron setup; engine {engine}.\n"
         ),
         "publish_git": "# Publish: send the changes to git, GitHub builds the image.",
@@ -118,14 +124,14 @@ def build_sh(answers: Answers, lang: str) -> Generated:
         "#!/usr/bin/env bash\n"
         + t["build_head"].format(engine=engine_image(engine))
         + "set -euo pipefail\n"
-        + 'cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"\n'
+        + 'cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"\n'
         + 'env="${1:-prod}"\n'
         + 'strict=""\n'
         + '[ "$env" = prod ] && strict="--strict"\n'
         + _engine_run(engine)
         + ' build . --env "$env" $strict\n'
     )
-    return Generated("scripts/build.sh", text, executable=True)
+    return Generated(BUILD, text, executable=True)
 
 
 def publish_sh(answers: Answers, lang: str, ident: str) -> Generated | None:
@@ -134,7 +140,7 @@ def publish_sh(answers: Answers, lang: str, ident: str) -> Generated | None:
     if p.way == "none":
         return None
     head = "#!/usr/bin/env bash\n" + t["written"] + "\n"
-    body = "set -euo pipefail\n" + 'cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"\n'
+    body = "set -euo pipefail\n" + 'cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"\n'
     if p.way == "github" or (p.way == "static" and p.static_target == "pages"):
         note = t["publish_git"] if p.way == "github" and p.auto else t["publish_pages"]
         if p.way == "github" and not p.auto:
@@ -143,12 +149,12 @@ def publish_sh(answers: Answers, lang: str, ident: str) -> Generated | None:
             f'if [ -n "$(git status --porcelain)" ]; then echo "{t["dirty"]}" >&2; exit 1; fi\n'
             f"git push origin {p.branch or 'main'}\n"
         )
-        return Generated("scripts/publish.sh", head + note + "\n" + body, executable=True)
+        return Generated(PUBLISH, head + note + "\n" + body, executable=True)
     if p.way == "dockerhub":
         image = f"{p.dockerhub_user}/{p.image}"
         body += (
             f'env="${{1:-{p.env}}}"\n'
-            + './scripts/build.sh "$env"\n'
+            + './.heron/scripts/build.sh "$env"\n'
             + 'recipe="$(mktemp)"\n'
             + "trap 'rm -f \"$recipe\"' EXIT\n"
             + _engine_run(p.engine)
@@ -157,14 +163,14 @@ def publish_sh(answers: Answers, lang: str, ident: str) -> Generated | None:
             + f"# {t['hub_login']}\n"
             + f'docker push "{image}:$env"\n'
         )
-        return Generated("scripts/publish.sh", head + t["publish_hub"] + "\n" + body, True)
+        return Generated(PUBLISH, head + t["publish_hub"] + "\n" + body, True)
     target = f"{p.server}:{(p.path or '/var/www').rstrip('/')}/"
     body += (
         f'env="${{1:-{p.env}}}"\n'
-        './scripts/build.sh "$env"\n'
+        './.heron/scripts/build.sh "$env"\n'
         f'rsync -az --delete --exclude .heron-nginx.conf dist/ "{target}"\n'
     )
-    return Generated("scripts/publish.sh", head + t["publish_static"] + "\n" + body, True)
+    return Generated(PUBLISH, head + t["publish_static"] + "\n" + body, True)
 
 
 def image_yml(answers: Answers, lang: str) -> Generated:
@@ -243,16 +249,25 @@ def gitignore(current: str) -> str | None:
 
 def plan(answers: Answers, lang: str, ident: str = "") -> list[Generated]:
     """Что записать для этих ответов."""
-    out = [build_sh(answers, lang)]
     p = answers.publish
+    out: list[Generated] = []
+    # скрипт публикации зовёт скрипт сборки — без него он бесполезен
+    wants_publish = p.helpers.get("publish", True)
+    if p.helpers.get("build", True) or (wants_publish and p.way in ("dockerhub", "static")):
+        out.append(build_sh(answers, lang))
     if p.way == "github" and p.auto:
         out.append(image_yml(answers, lang))
     if p.way == "static" and p.static_target == "pages":
         out.append(pages_yml(answers, lang))
-    publish = publish_sh(answers, lang, ident)
-    if publish:
-        out.append(publish)
+    if wants_publish:
+        publish = publish_sh(answers, lang, ident)
+        if publish:
+            out.append(publish)
     return out
+
+
+BUILD = ".heron/scripts/build.sh"
+PUBLISH = ".heron/scripts/publish.sh"
 
 
 # Файлы, которые конфигуратор писал сам и вправе переписать или убрать, когда
@@ -260,6 +275,9 @@ def plan(answers: Answers, lang: str, ident: str = "") -> list[Generated]:
 # нет нашей отметки.
 MARK = "heron setup"
 OWNED = (
+    BUILD,
+    PUBLISH,
+    # прежние места: анкета их писала раньше и убирает, переселяя в .heron/
     "scripts/build.sh",
     "scripts/publish.sh",
     "scripts/keys.sh",

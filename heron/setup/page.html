@@ -172,7 +172,15 @@ const LANGS = [
 ];
 const T = {
   ru: {
-    bot: "Вопросы или нужна помощь? Напишите в наш Telegram-бот", bot_off: "Бот пока не подключён. Как только заработает, кнопка откроет его.",
+    bot: "Нужна помощь или есть вопросы?", bot_off: "Скоро здесь будет связь с нами.",
+    dir: "Сфера деятельности", dir_none: "— сфера деятельности —", spec_none: "— специализация (необязательно) —", kind_none: "— вид (необязательно) —",
+    sep: "Разделитель", suffix_text: "Текст после разделителя",
+    helpers_t: "Помощники для вашего удобства", helpers_about: "site.yaml записывается всегда — это настройки сайта. Остальное — по желанию: скрипты лягут в скрытую папку .heron/ и в сборку сайта не попадут.",
+    h_build: "Скрипт сборки", h_build_s: ".heron/scripts/build.sh — итоговая сборка одной командой",
+    h_publish: "Скрипт публикации", h_publish_s: ".heron/scripts/publish.sh — публикует выбранным способом",
+    h_gitignore: ".gitignore", h_gitignore_s: "не пускает в git кэш и папку dist/",
+    h_workflow: ".github/workflows/image.yml — сборка на GitHub. Записывается вместе с автосборкой: GitHub ищет его только там.",
+    h_pages: ".github/workflows/pages.yml — сборка и публикация на GitHub Pages. GitHub ищет его только там.",
     title: "настройка", save: "Сохранить", saving: "Сохраняю…", h1: "Настройка сайта",
     lead: "Заполните, что знаете. Для начала нужны только первые две группы, остальное — к публикации. Каждый ответ ложится в site.yaml: к нему можно вернуться и поменять. Изменённое поле помечено, его можно вернуть.",
     need: "нужно", dev: "в разработке", was: "было", undo: "вернуть", empty: "пусто",
@@ -185,7 +193,7 @@ const T = {
     langs: "Языки сайта", langs_h: "Выберите из списка — язык появится ниже. Крестик убирает язык. Новый язык получит папку с главной и страницей 404.",
     lang_add: "— добавить язык —", main_lang: "Основной язык", main_lang_h: "Выбирается из языков сайта. Отдаётся из корня сайта.",
     g_who: "О ком сайт: schema.org для вашего сайта", g_who_about: "Поисковики сами пытаются понять по страницам сайта, о ком он: компания это или человек, чем занимается, где находится, как связаться. Получается не всегда: что-то они не находят, что-то путают. Чтобы помочь им, Google, Bing, Яндекс и другие поисковики договорились о словаре schema.org — разметке, в которой эти сведения записаны однозначно. По ней поисковик может показать в выдаче карточку с адресом, часами работы и телефоном. Заполните анкету один раз — HERON добавит разметку на каждую страницу. Пропущенный вопрос просто не попадёт в разметку: пустых или выдуманных значений не будет.",
-    type: "Кто вы", type_h: "Сначала — человек или организация, затем вид: компания, некоммерческая организация, местный бизнес и точнее. Нет в списке — возьмите ближайший общий: разметка останется верной, только менее подробной.",
+    type: "Кто вы", type_h: "Человек или организация; у организации — вид. Затем сфера деятельности и специализация. Нет точной — выберите ближайшую: разметка останется верной, только менее подробной.",
     type_none: "— не сейчас —", type_more: "точнее (необязательно)",
     address: "Юридический адрес", address_person: "Адрес",
     contacts: "Контакты", contacts_h: "Каждый канал — отдельной строкой: что это, для чего и значение. Телефонов, почт и мессенджеров может быть сколько угодно. Первый телефон и первая почта — основные: их покажет подвал сайта. Строка без значения не сохраняется.",
@@ -220,7 +228,15 @@ const T = {
     saved: "Сохранено", nothing: "Ничего не изменилось.", written: "Записано", removed: "Убрано", kept: "Оставлено, файл не наш", created: "Создано", backup: "Прежняя версия", next: "Дальше: heron serve . — посмотреть сайт.", error: "Не сохранено",
   },
   en: {
-    bot: "Questions or need help? Write to our Telegram bot", bot_off: "The bot is not connected yet. Once it works, the button opens it.",
+    bot: "Need help or have questions?", bot_off: "A way to reach us will be here soon.",
+    dir: "Field of work", dir_none: "— field of work —", spec_none: "— specialization (optional) —", kind_none: "— kind (optional) —",
+    sep: "Separator", suffix_text: "Text after the separator",
+    helpers_t: "Helpers for your convenience", helpers_about: "site.yaml is always written: it is the settings of the site. The rest is up to you: scripts go to the hidden .heron/ folder and never into the build of the site.",
+    h_build: "Build script", h_build_s: ".heron/scripts/build.sh — the final build in one command",
+    h_publish: "Publish script", h_publish_s: ".heron/scripts/publish.sh — publishes the way you chose",
+    h_gitignore: ".gitignore", h_gitignore_s: "keeps caches and dist/ out of git",
+    h_workflow: ".github/workflows/image.yml — the build on GitHub. Written together with the automatic build: GitHub looks for it there only.",
+    h_pages: ".github/workflows/pages.yml — the build and publishing on GitHub Pages. GitHub looks for it there only.",
     title: "setup", save: "Save", saving: "Saving…", h1: "Set up your site",
     lead: "Fill in what you know. Only the first two groups are needed to start; the rest can wait until you publish. Every answer lands in site.yaml, you can come back and change it. A changed field is marked and can be undone.",
     need: "needed", dev: "in development", was: "was", undo: "undo", empty: "empty",
@@ -233,7 +249,7 @@ const T = {
     langs: "Languages of the site", langs_h: "Pick from the list, the language appears below. The cross removes it. A new language gets a folder with a home page and a 404 page.",
     lang_add: "— add a language —", main_lang: "Main language", main_lang_h: "Chosen from the languages of the site. Served from the root.",
     g_who: "Who the site is about: schema.org for your site", g_who_about: "Search engines try to work out from the pages who a site is about: a company or a person, what they do, where they are, how to reach them. It does not always work: some things they miss, some they mix up. To help them, Google, Bing and others agreed on schema.org, a vocabulary that states these facts unambiguously. From it a search engine can show a card with the address, opening hours and phone right in the results. Fill in the questionnaire once and HERON adds the markup to every page. A skipped question simply stays out: nothing empty or invented.",
-    type: "Who you are", type_h: "First a person or an organization, then the kind: a company, a non-profit, a local business and more specific. Not in the list? Take the nearest broader one: the markup stays correct, only less detailed.",
+    type: "Who you are", type_h: "A person or an organization; for an organization, its kind. Then the field of work and the specialization. Nothing exact? Take the nearest: the markup stays correct, only less detailed.",
     type_none: "— not now —", type_more: "more specific (optional)",
     address: "Registered address", address_person: "Address",
     contacts: "Contacts", contacts_h: "Each channel on its own line: what it is, what for, and the value. As many phones, emails and messengers as you need. The first phone and the first email are the main ones: the footer shows them. A line without a value is not saved.",
@@ -401,36 +417,54 @@ function countryName(row) { return L === "ru" ? row[1] : row[2]; }
 function siteCountry() { return A.about.fields.country || ""; }
 function dialCode() { const row = (ST.countries || []).find((r) => r[0] === siteCountry()); return row ? row[3] : ""; }
 const TABS = {};
+function dirOf(id) { return (ST.classifier || []).find((d) => d.id === id); }
+function clabel(entry) { return entry[L] || entry.en; }
 function gWho() {
   const chain = lineage(A.about.type);
   const person = chain[0] === "Person";
+  const ab = A.about;
   const cascade = h("div", { class: "cascade" });
-  let parent = "";
-  for (let level = 0; level <= chain.length; level++) {
-    const options = childrenOf(parent);
-    if (!options.length) break;
-    const select = h("select", { "aria-label": t("type") + " " + (level + 1) },
-      h("option", { value: "" }, level === 0 ? t("type_none") : t("type_more")),
-      ...options.map((k) => h("option", { value: k, selected: chain[level] === k }, label(ST.vocab.types[k]))));
-    const keep = parent;
-    select.addEventListener("change", () => { A.about.type = select.value || keep; prune(); render(); });
-    if (level) cascade.append(h("span", { class: "arrow", "aria-hidden": "true" }, "→"));
-    cascade.append(select);
-    if (!chain[level]) break;
-    parent = chain[level];
+  const arrow = () => h("span", { class: "arrow", "aria-hidden": "true" }, "→");
+  // 1. человек или организация
+  const root = h("select", { "aria-label": t("type") }, h("option", { value: "" }, t("type_none")),
+    ...childrenOf("").map((k) => h("option", { value: k, selected: chain[0] === k }, label(ST.vocab.types[k]))));
+  root.addEventListener("change", () => { ab.type = root.value; ab.direction = ""; ab.specialization = ""; prune(); render(); });
+  cascade.append(root);
+  // 2. вид организации
+  if (chain[0] === "Organization") {
+    const kinds = childrenOf("Organization");
+    const kind = h("select", { "aria-label": t("type") + " 2" }, h("option", { value: "" }, t("kind_none")),
+      ...kinds.map((k) => h("option", { value: k, selected: chain[1] === k }, label(ST.vocab.types[k]))));
+    kind.addEventListener("change", () => { ab.type = kind.value || "Organization"; prune(); render(); });
+    cascade.append(arrow(), kind);
+  }
+  // 3. сфера деятельности → 4. специализация
+  if (chain.length) {
+    const dir = h("select", { "aria-label": t("dir") }, h("option", { value: "" }, t("dir_none")),
+      ...(ST.classifier || []).map((d) => h("option", { value: d.id, selected: ab.direction === d.id }, clabel(d))));
+    dir.addEventListener("change", () => { ab.direction = dir.value; ab.specialization = ""; render(); });
+    cascade.append(arrow(), dir);
+    const d = dirOf(ab.direction);
+    if (d) {
+      const sp = h("select", { "aria-label": t("spec_none") }, h("option", { value: "" }, t("spec_none")),
+        ...d.items.map((it) => h("option", { value: it.id, selected: ab.specialization === it.id }, clabel(person ? it.person || it : it))));
+      sp.addEventListener("change", () => { ab.specialization = sp.value; refresh(); });
+      cascade.append(arrow(), sp);
+    }
   }
   const names = A.about.type ? ST.fields_by_type[A.about.type] : ST.vocab.common;
   const main = h("div", { class: "grid" });
   const address = h("div", { class: "grid" });
-  let work = null;
   for (const name of names) {
     const spec = ST.vocab.fields[name];
     if (spec.money && !A.search.allow_prices) continue;
-    if (name === "field_of_work") { work = aboutField(name, spec, person); continue; }
     (spec.group === "address" ? address : main).append(aboutField(name, spec, person));
   }
-  const who = h("div", { class: "grid" }, h("div", { class: "field wide" }, h("span", { class: "legend" }, t("type")), cascade, hint(t("type_h")), track("about.type")));
-  if (work) who.append(work);
+  const typeNames = Object.fromEntries(Object.entries(ST.vocab.types).map(([k, v]) => [k, label(v)]));
+  const dirNames = Object.fromEntries((ST.classifier || []).map((d) => [d.id, clabel(d)]));
+  const specNames = Object.fromEntries((ST.classifier || []).flatMap((d) => d.items.map((it) => [it.id, clabel(person ? it.person || it : it)])));
+  const who = h("div", { class: "grid" }, h("div", { class: "field wide" }, h("span", { class: "legend" }, t("type")), cascade, hint(t("type_h")),
+    track("about.type", typeNames), track("about.direction", dirNames), track("about.specialization", specNames)));
   const body = [who, h("div", { style: "height:1rem" }), main];
   if (address.childNodes.length) body.push(h("div", { style: "height:1rem" }), h("div", { class: "subbox" }, h("h3", {}, person ? t("address_person") : t("address")), address));
   body.push(h("div", { style: "height:1rem" }), contactsBox());
@@ -514,27 +548,37 @@ function contactsBox() {
   } }, t("contact_add"));
   return h("div", { class: "field wide" }, h("span", { class: "legend" }, t("contacts")), hint(t("contacts_h")), list, h("div", {}, add), track("about.contacts"));
 }
+const SEPS = ["—", "|", "·", "–", "/", ":"];
+function splitSuffix(v) {
+  const m = /^\s*([—–\-|·:\/])\s*(.*)$/.exec(v || "");
+  if (m) return [m[1] === "-" ? "–" : m[1], m[2]];
+  return ["—", (v || "").trim()];
+}
 function gSearch() {
   const name = A.site.name || "Smith Dental";
-  const sample = " — " + name;
-  const suffix = input("search.title_suffix", "text", { placeholder: sample });
+  const [sepNow, textNow] = splitSuffix(A.search.title_suffix);
+  const sep = h("select", { id: "suffix-sep", "aria-label": t("sep") }, ...SEPS.map((x) => h("option", { value: x, selected: x === sepNow }, x)));
+  const text = h("input", { type: "text", id: "search.title_suffix", placeholder: name });
+  text.value = textNow;
   const preview = h("div", { class: "preview" });
-  const warn = h("div", { class: "suffix-warn", hidden: true }, t("suffix_warn"));
   const page = L === "ru" ? "О нас" : "About";
-  const draw = () => {
-    const v = A.search.title_suffix || "";
-    if (v) preview.replaceChildren(page + v);
-    else preview.replaceChildren(page, h("span", { class: "ex" }, sample + "  (" + t("example") + ")"));
-    warn.hidden = !v || /^\s/.test(v);
+  const compose = () => {
+    const v = text.value.trim();
+    A.search.title_suffix = v ? " " + sep.value + " " + v : "";
+    if (v) preview.replaceChildren(page + A.search.title_suffix);
+    else preview.replaceChildren(page, h("span", { class: "ex" }, " " + sep.value + " " + name + "  (" + t("example") + ")"));
+    refresh();
   };
-  suffix.addEventListener("input", draw); draw();
-  const use = h("button", { type: "button", class: "use", onclick: () => { set("search.title_suffix", sample); render(); } }, t("suffix_use") + " «" + sample + "»");
+  text.addEventListener("input", compose); sep.addEventListener("change", compose);
+  const use = h("button", { type: "button", class: "use", onclick: () => { text.value = name; compose(); } }, t("suffix_use") + " «" + name + "»");
+  const row = h("div", { style: "display:grid;grid-template-columns:4.5rem 1fr;gap:.5rem" }, sep, text);
+  setTimeout(compose, 0);
   const prices = h("input", { type: "checkbox", id: "search.allow_prices" });
   prices.checked = !!A.search.allow_prices;
   prices.addEventListener("change", () => { A.search.allow_prices = prices.checked; render(); });
   return group("search", "4", t("g_search"), t("g_search_about"), null,
     h("div", { class: "grid" },
-      h("div", { class: "field" }, h("label", { for: "search.title_suffix" }, t("suffix")), suffix, A.search.title_suffix ? null : use, warn, hint(t("suffix_h")), h("div", { class: "hint" }, t("suffix_example")), preview, track("search.title_suffix")),
+      h("div", { class: "field" }, h("label", { for: "search.title_suffix" }, t("suffix")), row, textNow ? null : use, hint(t("suffix_h")), h("div", { class: "hint" }, t("suffix_example")), preview, track("search.title_suffix")),
       field(t("og"), "search.og_image", t("og_h"), "text", { placeholder: "media/social.jpg" }),
       h("div", { class: "field wide" }, h("label", { class: "check" }, prices, t("prices")), hint(t("prices_h")), track("search.allow_prices"))));
 }
@@ -561,23 +605,21 @@ function imageOf(env) {
   if (p.way === "dockerhub") return "docker.io/" + (p.dockerhub_user || "<user>") + "/" + (p.image || "<image>") + ":" + env;
   return "—";
 }
+function toggle(id, on, title, sub, onchange) {
+  const box = h("input", { type: "checkbox", id, role: "switch" }); box.checked = on;
+  box.addEventListener("change", () => onchange(box.checked));
+  return h("div", { class: "field" }, h("label", { class: "switch", for: id }, box, h("span", { class: "track", "aria-hidden": "true" }), title), sub ? h("div", { class: "hint" }, sub) : null);
+}
 function gPublish() {
   const p = A.publish;
   if (p.way === "git") p.way = "github";
+  p.helpers = Object.assign({ build: true, publish: true, gitignore: true }, p.helpers || {});
   const body = [choices("publish.way", [
-    ["github", t("way_github"), t("way_github_s")], ["dockerhub", t("way_hub"), t("way_hub_s")],
-    ["static", t("way_static"), t("way_static_s")], ["none", t("way_none"), t("way_none_s")],
+    ["none", t("way_none"), t("way_none_s")], ["github", t("way_github"), t("way_github_s")],
+    ["dockerhub", t("way_hub"), t("way_hub_s")], ["static", t("way_static"), t("way_static_s")],
   ], render)];
   const grid = h("div", { class: "grid", style: "margin-top:1rem" });
-  if (p.way === "github") {
-    grid.append(field(t("repo"), "publish.repo", t("repo_h"), "text", { placeholder: ST.git_remote || "you/my-site" }), field(t("branch"), "publish.branch", t("branch_h")));
-    const on = p.auto !== false;
-    const auto = h("input", { type: "checkbox", id: "publish.auto", role: "switch" }); auto.checked = on;
-    auto.addEventListener("change", () => { p.auto = auto.checked; render(); });
-    const explain = on ? h("div", {}, h("div", { class: "hint" }, t("auto_on")), h("ol", {}, ...t("auto_steps").map((x) => h("li", {}, x)))) : h("div", { class: "hint" }, t("auto_off"));
-    grid.append(h("div", { class: "field wide" }, h("div", { class: "autobox " + (on ? "on" : "off") },
-      h("label", { class: "switch", for: "publish.auto" }, auto, h("span", { class: "track", "aria-hidden": "true" }), t("auto")), explain), track("publish.auto")));
-  }
+  if (p.way === "github") grid.append(field(t("repo"), "publish.repo", t("repo_h"), "text", { placeholder: ST.git_remote || "you/my-site" }), field(t("branch"), "publish.branch", t("branch_h")));
   if (p.way === "dockerhub") grid.append(field(t("hub_user"), "publish.dockerhub_user", ""), field(t("hub_image"), "publish.image", t("hub_image_h")));
   if (p.way === "static") {
     grid.append(h("div", { class: "field wide" }, h("span", { class: "legend" }, t("target")), choices("publish.static_target", [["server", t("target_server")], ["pages", t("target_pages")]], render)));
@@ -585,26 +627,38 @@ function gPublish() {
     else grid.append(field(t("branch"), "publish.branch", t("branch_h")));
   }
   if (p.way !== "none") {
+    grid.append(field(t("engine"), "publish.engine", t("engine_h")));
     const env = h("select", { id: "publish.env" }, ...["dev", "prod"].map((x) => h("option", { value: x, selected: p.env === x }, x)));
     env.addEventListener("change", () => { p.env = env.value; render(); });
-    grid.append(h("div", { class: "field" }, h("label", { for: "publish.env" }, t("env")), env, hint(t("env_h")), track("publish.env")));
-    grid.append(field(t("engine"), "publish.engine", t("engine_h")));
-    const image = p.way === "github" ? p.auto !== false : p.way === "dockerhub";
+    grid.append(h("div", { class: "field" }, h("label", { for: "publish.env" }, t("env")), env, hint(t("env_h")), track("publish.env", { dev: "dev", prod: "prod" })));
+  }
+  if (p.way === "github") {
+    const on = p.auto !== false;
+    const auto = h("input", { type: "checkbox", id: "publish.auto", role: "switch" }); auto.checked = on;
+    auto.addEventListener("change", () => { p.auto = auto.checked; render(); });
+    const explain = on ? h("div", {}, h("div", { class: "hint" }, t("auto_on")), h("ol", {}, ...t("auto_steps").map((x) => h("li", {}, x)))) : h("div", { class: "hint" }, t("auto_off"));
+    grid.append(h("div", { class: "field wide" }, h("div", { class: "autobox " + (on ? "on" : "off") },
+      h("label", { class: "switch", for: "publish.auto" }, auto, h("span", { class: "track", "aria-hidden": "true" }), t("auto")), explain), track("publish.auto")));
+  }
+  const image = (p.way === "github" && p.auto !== false) || p.way === "dockerhub";
+  if (image) {
     const rows = ["dev", "prod"].map((e) => h("tr", { class: e === p.env ? "on" : null },
       h("td", {}, e, e === p.env ? " · " + t("env_now") : ""),
       h("td", {}, h("code", {}, e === "dev" ? (A.site.preview_domain || "—") : (A.site.domain || "—"))),
       h("td", {}, e === "dev" ? t("index_closed") : t("index_open")),
-      image ? h("td", {}, h("code", {}, imageOf(e))) : null));
+      h("td", {}, h("code", {}, imageOf(e)))));
     grid.append(h("div", { class: "field wide" }, h("span", { class: "legend" }, t("envs_t")),
-      h("table", { class: "envs" }, h("tr", {}, h("th", {}, t("env_col")), h("th", {}, t("env_domain")), h("th", {}, t("env_index")), image ? h("th", {}, t("env_image")) : null), ...rows)));
+      h("table", { class: "envs" }, h("tr", {}, h("th", {}, t("env_col")), h("th", {}, t("env_domain")), h("th", {}, t("env_index")), h("th", {}, t("env_image"))), ...rows)));
   }
   body.push(grid);
-  const files = [["site.yaml", t("w_site")], ["scripts/build.sh", t("w_build")]];
-  if (p.way === "github") { if (p.auto !== false) files.push([".github/workflows/image.yml", t("w_image")]); files.push(["scripts/publish.sh", t("w_publish")], [".gitignore", t("w_ignore")]); }
-  if (p.way === "dockerhub") files.push(["scripts/publish.sh", t("w_publish")]);
-  if (p.way === "static") files.push(p.static_target === "pages" ? [".github/workflows/pages.yml", t("w_pages")] : ["scripts/publish.sh", t("w_publish")]);
-  body.push(h("div", { class: "field wide", style: "margin-top:1rem" }, h("span", { class: "legend" }, t("writes_t")),
-    h("table", { class: "writes" }, ...files.map(([f, d]) => h("tr", {}, h("td", {}, f), h("td", {}, d))))));
+  const helpers = h("div", { class: "grid" },
+    toggle("h-build", p.helpers.build, t("h_build"), t("h_build_s"), (v) => { p.helpers.build = v; refresh(); }));
+  if (p.way !== "none") helpers.append(toggle("h-publish", p.helpers.publish, t("h_publish"), t("h_publish_s"), (v) => { p.helpers.publish = v; refresh(); }));
+  helpers.append(toggle("h-gitignore", p.helpers.gitignore, t("h_gitignore"), t("h_gitignore_s"), (v) => { p.helpers.gitignore = v; refresh(); }));
+  const fixed = [];
+  if (p.way === "github" && p.auto !== false) fixed.push(h("div", { class: "hint", style: "margin-top:.9rem" }, t("h_workflow")));
+  if (p.way === "static" && p.static_target === "pages") fixed.push(h("div", { class: "hint", style: "margin-top:.9rem" }, t("h_pages")));
+  body.push(h("div", { class: "subbox", style: "margin-top:1rem" }, h("h3", {}, t("helpers_t")), h("p", { class: "hint", style: "margin:0 0 .8rem" }, t("helpers_about")), helpers, ...fixed));
   return group("pub", "7", t("g_pub"), t("g_pub_about"), null, ...body);
 }
 function gKeys() { return group("keys", "8", t("g_keys"), t("g_keys_about"), "dev"); }

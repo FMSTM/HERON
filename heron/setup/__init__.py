@@ -181,7 +181,6 @@ def apply(
             root,
             answers.theme.source,
             answers.theme.value,
-            demo=answers.theme.demo,
             languages=new["site"]["languages"],
             upload=upload,
         )

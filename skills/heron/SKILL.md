@@ -22,7 +22,7 @@ Use `:prod` for a live site, `:beta` to try the next version. Read `$H docs agen
 2. **Create and set up.** `$H new my-site -y --lang en,de`, then `$H setup my-site --dump > answers.yaml`, fill it from the structure (name, domains, type by schema.org and its fields, publishing), `$H setup my-site --answers answers.yaml`. Check the draft against `$H schema` / `$H schema --setup`.
 3. **Content and SEO** (`heron-content`). One markdown file per page, the SEO block on top, sections `## Title {#anchor}`. The theme demo pages (`index.md`, `blocks.md`, `themes.md`, `docs.md` of the white theme) shows every section form; replace it with the site's pages.
 4. **Designer** (`heron-designer`). Start from the starter theme or `$H theme get <name|url|archive> my-site`; change only `theme/`.
-5. **Builder** (`heron-builder`). `$H check my-site`, `$H serve my-site` (localhost:8000), `$H build my-site --env prod --strict`, then `scripts/publish.sh`.
+5. **Builder** (`heron-builder`). `$H check my-site`, `$H serve my-site` (localhost:8000), `$H build my-site --env prod --strict`, then `.heron/scripts/publish.sh`.
 
 ## Rules for every role
 

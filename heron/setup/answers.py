@@ -43,6 +43,30 @@ def vocab() -> dict[str, Any]:
     return yaml.safe_load((HERE / "vocab.yaml").read_text(encoding="utf-8"))
 
 
+@cache
+def classifier() -> list[dict[str, Any]]:
+    """Сферы деятельности со специализациями (classifier.yaml)."""
+    data = yaml.safe_load((HERE / "classifier.yaml").read_text(encoding="utf-8"))
+    return data["directions"]
+
+
+def direction(ident: str) -> dict[str, Any] | None:
+    return next((d for d in classifier() if d["id"] == ident), None)
+
+
+def specialization(ident: str) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    for item in classifier():
+        for spec in item["items"]:
+            if spec["id"] == ident:
+                return item, spec
+    return None
+
+
+def label_for(entry: dict[str, Any], lang: str) -> str:
+    """Подпись на языке сайта: русская или английская, другие языки — английская."""
+    return str(entry.get(lang) or entry.get("en") or "")
+
+
 def lineage(kind: str) -> list[str]:
     """Тип и все его родители, от общего к частному."""
     types = vocab()["types"]
@@ -222,8 +246,26 @@ class ContactAnswer(Model):
 
 class AboutAnswers(Model):
     type: str = ""
+    # сфера деятельности и специализация — по классификатору (classifier.yaml)
+    direction: str = ""
+    specialization: str = ""
     fields: dict[str, Any] = Field(default_factory=dict)
     contacts: list[ContactAnswer] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _classified(self) -> AboutAnswers:
+        if self.direction and direction(self.direction) is None:
+            raise ValueError(f"field of work {self.direction!r} is not in the classifier")
+        if self.specialization:
+            found = specialization(self.specialization)
+            if found is None:
+                raise ValueError(f"specialization {self.specialization!r} is not in the classifier")
+            if self.direction and found[0]["id"] != self.direction:
+                raise ValueError(
+                    f"specialization {self.specialization!r} is not in {self.direction!r}"
+                )
+            self.direction = found[0]["id"]
+        return self
 
     @field_validator("type")
     @classmethod
@@ -241,11 +283,35 @@ class AboutAnswers(Model):
         return self
 
 
+SEPARATORS = ("—", "–", "-", "|", "·", ":", "/")
+
+
+def clean_suffix(value: str) -> str:
+    """Хвост заголовка всегда отделён: « — Название», а не «О насНазвание».
+
+    Начинается с разделителя — вокруг него ставятся пробелы. Начинается
+    с текста — перед ним ставится « — ». Пустой остаётся пустым.
+    """
+    value = (value or "").rstrip()
+    text = value.strip()
+    if not text:
+        return ""
+    if text[0] in SEPARATORS:
+        rest = text[1:].strip()
+        return f" {text[0]} {rest}" if rest else ""
+    return f" — {text}"
+
+
 class SearchAnswers(Model):
     title_suffix: str = ""
     llms_note: dict[str, str] = Field(default_factory=dict)
     og_image: str = ""
     allow_prices: bool = False
+
+    @field_validator("title_suffix")
+    @classmethod
+    def _suffix(cls, value: str) -> str:
+        return clean_suffix(value)
 
 
 class AnalyticsAnswers(Model):
@@ -285,6 +351,22 @@ class PublishAnswers(Model):
     static_target: Literal["server", "pages"] = "server"
     server: str = ""
     path: str = ""
+    # Помощники для удобства: какие файлы анкета кладёт рядом с site.yaml.
+    # Скрипты — в скрытую папку .heron/scripts/, в сборку сайта они не идут.
+    helpers: dict[str, bool] = Field(
+        default_factory=lambda: {"build": True, "publish": True, "gitignore": True}
+    )
+
+    @field_validator("helpers", mode="before")
+    @classmethod
+    def _helpers(cls, value: Any) -> Any:
+        base = {"build": True, "publish": True, "gitignore": True}
+        if isinstance(value, dict):
+            unknown = sorted(set(value) - set(base))
+            if unknown:
+                raise ValueError(f"helpers: unknown {', '.join(unknown)}")
+            base.update({k: bool(v) for k, v in value.items()})
+        return base
 
     @field_validator("way", mode="before")
     @classmethod
@@ -398,8 +480,9 @@ def read(data: dict[str, Any]) -> Answers:
         }
     }
     entity = _get(data, "schema.entity") or {}
-    kind = entity.get("@type") if isinstance(entity, dict) else None
-    kind = kind if isinstance(kind, str) and kind in vocab()["types"] else ""
+    raw_type = entity.get("@type") if isinstance(entity, dict) else None
+    kind, guessed = _read_type(raw_type)
+    picked_direction, picked_spec = _read_classified(data, kind, guessed)
     fields: dict[str, Any] = {}
     for name in fields_of(kind) if kind else vocab()["common"]:
         spec = vocab()["fields"][name]
@@ -416,7 +499,13 @@ def read(data: dict[str, Any]) -> Answers:
                 value = {default: value or "", **per_lang}
         if value not in (None, "", []):
             fields[name] = value
-    out["about"] = {"type": kind, "fields": fields, "contacts": _read_contacts(data)}
+    out["about"] = {
+        "type": kind,
+        "direction": picked_direction,
+        "specialization": picked_spec,
+        "fields": fields,
+        "contacts": _read_contacts(data),
+    }
     seo = data.get("seo") or {}
     analytics = data.get("analytics") or {}
     out["search"] = {
@@ -446,6 +535,38 @@ def read(data: dict[str, Any]) -> Answers:
                     type(getattr(answers, block)).model_validate(out.get(block) or {}),
                 )
         return answers
+
+
+def _read_type(raw: Any) -> tuple[str, str]:
+    """Тип из записанной разметки: (вид для анкеты, точный тип специализации)."""
+    kinds = vocab()["types"]
+    values = raw if isinstance(raw, list) else [raw]
+    values = [v for v in values if isinstance(v, str)]
+    kind = next((v for v in values if v in kinds), "")
+    precise = next((v for v in values if v not in kinds), "")
+    if precise and not kind:
+        kind = "LocalBusiness"  # точный тип без вида — местный бизнес
+    return kind, precise
+
+
+def _read_classified(data: dict[str, Any], kind: str, precise: str) -> tuple[str, str]:
+    """Сфера и специализация по записанным подписям, иначе по точному типу."""
+    work = _get(data, "organization.field_of_work")
+    spec = _get(data, "organization.specialization")
+    person = bool(kind) and lineage(kind)[0] == "Person"
+    for item in classifier():
+        names = {item.get("ru"), item.get("en")}
+        if work and work not in names:
+            continue
+        for entry in item["items"]:
+            labels = entry.get("person", {}) if person else entry
+            if spec and spec in {labels.get("ru"), labels.get("en")}:
+                return item["id"], entry["id"]
+            if not spec and precise and entry.get("type") == precise and not work:
+                return item["id"], entry["id"]
+        if work:
+            return item["id"], ""
+    return "", ""
 
 
 def _read_contacts(data: dict[str, Any]) -> list[dict[str, str]]:
@@ -503,7 +624,15 @@ def _entity(answers: Answers) -> dict[str, Any] | None:
     kind = answers.about.type
     if not kind:
         return None
-    node: dict[str, Any] = {"@type": kind, "@id": ENTITY_ID}
+    node: dict[str, Any] = {"@type": entity_type(answers.about), "@id": ENTITY_ID}
+    person = lineage(kind)[0] == "Person"
+    if answers.about.direction or answers.about.specialization:
+        node["knowsAbout"] = "{{ organization.field_of_work }}"
+    if answers.about.specialization and person:
+        node["hasOccupation"] = {
+            "@type": "Occupation",
+            "name": "{{ organization.specialization }}",
+        }
     for name in fields_of(kind):
         if name not in answers.about.fields:
             continue
@@ -534,6 +663,24 @@ def _entity(answers: Answers) -> dict[str, Any] | None:
     _entity_contacts(node, answers.about.contacts)
     node.setdefault("url", "{{ site.base }}")
     return node
+
+
+def entity_type(about: AboutAnswers) -> str | list[str]:
+    """Тип узла: вид организации и, если есть, точный тип специализации.
+
+    Местный бизнес и организация вообще получают тип специализации вместо
+    своего (стоматология → Dentist: это и есть местный бизнес). Компания,
+    некоммерческая или учебная организация — оба типа списком: так schema.org
+    и записывает организацию, которая одновременно и то, и другое.
+    """
+    kind = about.type
+    found = specialization(about.specialization) if about.specialization else None
+    precise = found[1].get("type") if found else None
+    if not precise or lineage(kind)[0] == "Person" or precise == kind:
+        return kind
+    if kind in ("Organization", "LocalBusiness"):
+        return precise
+    return [kind, precise]
 
 
 def _entity_contacts(node: dict[str, Any], contacts: list[ContactAnswer]) -> None:
@@ -645,6 +792,25 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
         else:
             _set(out, target, value)
 
+    # сфера и специализация — подписями на языках сайта: их видит и тема,
+    # и разметка (knowsAbout, профессия человека)
+    org = out.setdefault("organization", {})
+    for key in [k for k in org if re.fullmatch(r"(field_of_work|specialization)(_.+)?", k)]:
+        org.pop(key)
+    about = answers.about
+    person = bool(about.type) and lineage(about.type)[0] == "Person"
+    found = specialization(about.specialization) if about.specialization else None
+    work = direction(about.direction) if about.direction else (found[0] if found else None)
+    for lang in [a.default_lang, *[x for x in a.languages if x != a.default_lang]]:
+        tail = "" if lang == a.default_lang else f"_{lang}"
+        if work:
+            org[f"field_of_work{tail}"] = label_for(work, lang)
+        if found:
+            labels = found[1].get("person", {}) if person else found[1]
+            org[f"specialization{tail}"] = label_for(labels, lang)
+    if not org:
+        out.pop("organization")
+
     for name in ("organization", "contact"):
         if isinstance(out.get(name), dict):
             out[name] = _tidy(out[name])
@@ -717,6 +883,9 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
         out.pop("publish", None)
     else:
         block: dict[str, Any] = {"way": p.way, "env": p.env, "engine": p.engine}
+        off = sorted(k for k, v in p.helpers.items() if not v)
+        if off:
+            block["helpers"] = {k: False for k in off}
         if p.way == "github":
             block.update(branch=p.branch or "main", auto=p.auto)
             if p.repo:

@@ -30,6 +30,7 @@ from heron.contracts.theme import ImagesSpec
 from heron.core import notes, paths
 from heron.core.errors import Collector, HeronError
 from heron.core.models import EXTERNAL_URL, Site
+from heron.core.parser import markdown
 
 # Папка ресурсов сайта. Имя `img` обещало только изображения, и видео класть
 # было некуда — оно оседало в `static/` и ехало в сборку без обработки.
@@ -281,7 +282,10 @@ def _page_images(page) -> set[str]:
     walk(page.meta.model_extra or {}, found)
     chunks = [page.intro.raw if page.intro else "", *(s.raw for s in page.sections.values())]
     for chunk in chunks:
-        found.update(paths.normalize(match.group(1)) for match in REFERENCE.finditer(chunk))
+        found.update(
+            paths.normalize(match.group(1))
+            for match in REFERENCE.finditer(markdown.without_code(chunk))
+        )
     return found
 
 
@@ -303,7 +307,10 @@ def raw_references(site: Site, config=None) -> set[str]:
                 found.add(paths.normalize(value))
         chunks = [page.intro.raw if page.intro else "", *(s.raw for s in page.sections.values())]
         for chunk in chunks:
-            found.update(paths.normalize(match.group(1)) for match in REFERENCE.finditer(chunk))
+            found.update(
+                paths.normalize(match.group(1))
+                for match in REFERENCE.finditer(markdown.without_code(chunk))
+            )
     if config is not None:
         seo = config.seo.model_dump()
         for value in [

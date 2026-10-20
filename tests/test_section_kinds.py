@@ -1,4 +1,4 @@
-"""Все двенадцать форм секций: валидный ввод, битый ввод, порядок распознавания.
+"""Все тринадцать форм секций: валидный ввод, битый ввод, порядок распознавания.
 
 Спецификация: docs/spec/20-data-contract.md, раздел 4.4.
 """
@@ -20,8 +20,8 @@ def one(md, body):
     return next(iter(found.values())), warnings
 
 
-def test_twelve_forms_and_classes_cover_them():
-    assert len(KINDS) == 12
+def test_thirteen_forms_and_classes_cover_them():
+    assert len(KINDS) == 13
     assert set(blocks.BY_CLASS.values()) == set(KINDS)
 
 
@@ -43,6 +43,7 @@ VALID = {
     "timeline": ("## A {#a .timeline}\n\n1 день | вдома\n2 тижні | робота\n", None),
     "callout": ("## A {#a}\n\n> Порада.\n", None),
     "gallery": ("## A {#a .gallery}\n\n- ![a](media/a.png)\n- ![b](media/b.png)\n", None),
+    "tabs": ("## A {#a .tabs}\n\n### Git {#git}\nТекст.\n\n### Файлы\n- раз\n", None),
 }
 
 

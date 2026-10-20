@@ -793,15 +793,34 @@ def build(path: Path, strict: bool, drafts: bool, out: Path | None, env_name: st
 
 
 @main.command()
-@click.option("--port", default=8000, show_default=True)
+@click.option("--port", default=8000, show_default=True, type=click.IntRange(1, 65535))
+@click.option(
+    "--host",
+    default=None,
+    help="Где слушать. По умолчанию 127.0.0.1, а в образе HERON — 0.0.0.0, "
+    "чтобы проброшенный порт открывался снаружи контейнера.",
+)
 @click.option("--drafts/--no-drafts", default=True, show_default=True)
 @click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
-def serve(path: Path, port: int, drafts: bool) -> None:
+def serve(path: Path, port: int, host: str | None, drafts: bool) -> None:
     """Локальный просмотр с пересборкой при изменениях."""
+    from heron.core.watch import default_host
     from heron.core.watch import serve as run_server
 
-    _need_site(path, _lang(None, path))
-    run_server(path, port=port, drafts=drafts)
+    lang = _lang(None, path)
+    _need_site(path, lang)
+    inside = in_container()
+    try:
+        run_server(
+            path,
+            port=port,
+            drafts=drafts,
+            host=host or default_host(inside),
+            lang=lang,
+            in_container=inside,
+        )
+    except HeronError as error:
+        _fail(error, lang)
 
 
 @main.command()

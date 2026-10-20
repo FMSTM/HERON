@@ -20,6 +20,7 @@ from heron.core.errors import Collector, HeronError
 from heron.core.media import Manifest
 from heron.core.models import Page, Site
 from heron.core.render import env as envmod
+from heron.core.render import signature
 
 TEMPLATES = "templates"
 
@@ -129,6 +130,8 @@ def render_site(
             )
             if hooks is not None:
                 html = hooks.pipe("on_page_rendered", page, html)
+            if config.build.generator:
+                html = signature.sign(html)
             out[page.url] = html
         except HeronError as error:
             collector.errors.append(error)

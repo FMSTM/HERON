@@ -57,8 +57,8 @@ engine -v "$WORK/site":/site:ro -v "$WORK/out":/out -w /site "$IMAGE" \
 # анкета без браузера: ответы → site.yaml, schema.org, workflow; сайт собирается
 cat > "$WORK/answers.yaml" <<'YAML'
 site: {name: Smoke, domain: smoke.example.com, languages: [en, ru]}
-about: {type: LocalBusiness, fields: {name: Smoke, city: Vienna, telephone: "+00 000 000 00 00"}}
-publish: {way: git, engine: beta}
+about: {type: LocalBusiness, fields: {name: Smoke, city: Vienna}, contacts: [{type: phone, value: "+00 000 000 00 00"}]}
+publish: {way: github, engine: beta}
 YAML
 engine -v "$WORK/site":/work -v "$WORK/answers.yaml":/answers.yaml:ro -w /work "$IMAGE" \
   setup . --answers /answers.yaml

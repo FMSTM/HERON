@@ -1,4 +1,16 @@
-<section id="{{ section.id }}" class="steps">
+<section id="{{ section.id }}" class="block steps">
   {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
-  <ol>{% for step in items %}<li>{% if step.title %}<strong>{{ step.title }}</strong> {% endif %}{{ step.html|safe }}</li>{% endfor %}</ol>
+  <ol>
+  {% for step in items %}
+    <li{% if step.top %} class="top"{% endif %}>
+      <span class="n" aria-hidden="true">{{ step.n }}</span>
+      <div>
+        {% if step.tag %}<span class="tag">{{ step.tag }}</span>{% endif %}
+        {% if step.title %}<h3>{{ step.title }}</h3>{% endif %}
+        {% if step.text %}<p>{{ step.text|safe }}</p>{% endif %}
+        {% if step.more %}{{ step.more|safe }}{% endif %}
+      </div>
+    </li>
+  {% endfor %}
+  </ol>
 </section>

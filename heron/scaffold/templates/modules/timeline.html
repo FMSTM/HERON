@@ -1,0 +1,10 @@
+{# timeline comes as "period | event" pairs or as numbered steps #}
+<section id="{{ section.id }}" class="block timeline">
+  {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
+  <ol>
+  {% for row in items %}
+    {% if row.key is defined %}<li><span class="when">{{ row.key|safe }}</span><span class="what">{{ row.value|safe }}</span></li>
+    {% else %}<li><span class="when">{{ row.title or row.n }}</span><span class="what">{{ row.html|safe }}</span></li>{% endif %}
+  {% endfor %}
+  </ol>
+</section>

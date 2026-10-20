@@ -1,0 +1,17 @@
+{# checklist: three or more ### groups with lists; two-lists: exactly two, side by side #}
+<section id="{{ section.id }}" class="block groups {{ section.kind }}">
+  {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
+  <div class="grid">
+  {% for group in items %}
+    <article class="card">
+      <h3>{{ group.title }}</h3>
+      <ul>
+      {% for item in group['items'] %}
+        {% if item.term is defined and item.term %}<li><strong>{{ item.term }}.</strong> {{ item.text|safe }}</li>
+        {% else %}<li>{{ item|safe }}</li>{% endif %}
+      {% endfor %}
+      </ul>
+    </article>
+  {% endfor %}
+  </div>
+</section>

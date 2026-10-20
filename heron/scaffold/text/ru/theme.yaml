@@ -1,17 +1,17 @@
 name: {theme}
-version: "0.1"
+version: "0.2"
 title: {theme_title}
 
 # Что тема ждёт от site.yaml. Движок проверит, что эти пути заполнены
 requires: []
 
-modules: [prose, facts, list, steps, faq, cards, breadcrumbs]
+modules: [prose, list, checklist, steps, table, facts, faq, timeline, callout, gallery, tabs, breadcrumbs, children]
 
 # Тип страницы → секции, которые он использует. Шаблон — templates/<тип>.html.
 # После двоеточия можно назвать ожидаемую форму: "how:steps"
 types:
   home:
-    uses: [intro, about]
+    uses: [intro, "*"]
   page:
     uses: [intro, "*"]
   "404":

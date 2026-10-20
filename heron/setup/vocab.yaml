@@ -1,12 +1,13 @@
 # Справочник конфигуратора: типы schema.org и поля, которые у них спрашивают.
+# Сферы деятельности и специализации — отдельный классификатор, classifier.yaml.
 #
-# Это не весь словарь schema.org, а ветки, под которые обычно делают сайты:
-# организация и её местные виды, человек. Тип выбирается каскадом — от общего
-# к частному; у частного типа все поля общего плюс свои. Нет нужного типа —
-# берут ближайший общий: разметка остаётся верной, только менее подробной.
+# Здесь — «кто вы»: человек или организация и вид организации. Что именно
+# делает человек или организация, говорит классификатор: сфера → специализация,
+# у специализации бывает свой точный тип schema.org (стоматология → Dentist).
+# У вида организации все поля общего типа плюс свои.
 #
-# `group: address` — поля юридического адреса: анкета показывает их одним
-# блоком в порядке страна, индекс, регион, город, улица, дом. Телефоны, почта
+# `group: address` — поля адреса: анкета показывает их одним блоком в порядке
+# страна, город, регион, индекс, улица, дом. Телефоны, почта
 # и профили — не поля, а конструктор каналов связи (`about.contacts`).
 #
 # Каждое поле знает, куда его ответ ложится в site.yaml (`to`), и как оно
@@ -20,12 +21,14 @@ fields:
   name:
     to: organization.name
     prop: name
+    localized: true
     label: {en: "Name of the organization", ru: "Название организации"}
     label_person: {en: "Full name", ru: "Имя и фамилия"}
     hint: {en: "As people and search engines should call you.", ru: "Как вас называют люди и поисковики."}
   legal_name:
     to: organization.legal_name
     prop: legalName
+    localized: true
     label: {en: "Legal name", ru: "Юридическое название"}
     hint: {en: "Only if it differs from the name.", ru: "Только если отличается от названия."}
   about:
@@ -117,12 +120,6 @@ fields:
     kind: date
     label: {en: "Founded", ru: "Год основания"}
     hint: {en: "A year or a date: 2013 or 2013-05-01.", ru: "Год или дата: 2013 или 2013-05-01."}
-  field_of_work:
-    to: organization.field_of_work
-    prop: knowsAbout
-    kind: direction
-    label: {en: "Field of work", ru: "Сфера деятельности"}
-    hint: {en: "From the list; the nearest one if yours is not there.", ru: "Из списка; нет своей — выберите ближайшую."}
   job_title:
     to: organization.job_title
     prop: jobTitle
@@ -139,6 +136,7 @@ fields:
   works_for:
     to: organization.works_for
     prop: worksFor.name
+    localized: true
     label: {en: "Works for", ru: "Где работаете"}
     hint: {en: "The company, if any.", ru: "Компания, если есть."}
   price_range:
@@ -154,110 +152,21 @@ common: [name]
 types:
   Organization:
     label: {en: "Organization", ru: "Организация"}
-    fields: [field_of_work, legal_name, founding_date, logo, about, country, city, region, postal_code, street, house]
+    fields: [legal_name, founding_date, logo, about, country, city, region, postal_code, street, house]
   Corporation:
     parent: Organization
     label: {en: "Company", ru: "Компания"}
+  LocalBusiness:
+    parent: Organization
+    label: {en: "Local business", ru: "Местный бизнес"}
+    fields: [image, latitude, longitude, opening_hours, area_served, price_range]
   NGO:
     parent: Organization
     label: {en: "Non-profit", ru: "Некоммерческая организация"}
   EducationalOrganization:
     parent: Organization
-    label: {en: "School or courses", ru: "Школа или курсы"}
-  LocalBusiness:
-    parent: Organization
-    label: {en: "Local business", ru: "Местный бизнес"}
-    fields: [image, latitude, longitude, opening_hours, area_served, price_range]
-  ProfessionalService:
-    parent: LocalBusiness
-    label: {en: "Professional service", ru: "Профессиональные услуги"}
-  LegalService:
-    parent: LocalBusiness
-    label: {en: "Law firm", ru: "Юридическая фирма"}
-  AccountingService:
-    parent: LocalBusiness
-    label: {en: "Accounting", ru: "Бухгалтерия"}
-  MedicalBusiness:
-    parent: LocalBusiness
-    label: {en: "Health practice", ru: "Медицинская практика"}
-  Dentist:
-    parent: MedicalBusiness
-    label: {en: "Dental clinic", ru: "Стоматология"}
-  FoodEstablishment:
-    parent: LocalBusiness
-    label: {en: "Food and drink", ru: "Еда и напитки"}
-  Restaurant:
-    parent: FoodEstablishment
-    label: {en: "Restaurant", ru: "Ресторан"}
-  CafeOrCoffeeShop:
-    parent: FoodEstablishment
-    label: {en: "Cafe", ru: "Кафе"}
-  Bakery:
-    parent: FoodEstablishment
-    label: {en: "Bakery", ru: "Пекарня"}
-  Store:
-    parent: LocalBusiness
-    label: {en: "Shop", ru: "Магазин"}
-  HealthAndBeautyBusiness:
-    parent: LocalBusiness
-    label: {en: "Beauty and wellness", ru: "Красота и здоровье"}
-  BeautySalon:
-    parent: HealthAndBeautyBusiness
-    label: {en: "Beauty salon", ru: "Салон красоты"}
-  HomeAndConstructionBusiness:
-    parent: LocalBusiness
-    label: {en: "Home and construction", ru: "Дом и ремонт"}
-  AutomotiveBusiness:
-    parent: LocalBusiness
-    label: {en: "Car services", ru: "Автосервис"}
-  LodgingBusiness:
-    parent: LocalBusiness
-    label: {en: "Accommodation", ru: "Жильё для гостей"}
-  Hotel:
-    parent: LodgingBusiness
-    label: {en: "Hotel", ru: "Гостиница"}
-  RealEstateAgent:
-    parent: LocalBusiness
-    label: {en: "Real estate", ru: "Недвижимость"}
-  SportsActivityLocation:
-    parent: LocalBusiness
-    label: {en: "Sports", ru: "Спорт"}
-  ChildCare:
-    parent: LocalBusiness
-    label: {en: "Childcare", ru: "Присмотр за детьми"}
+    label: {en: "Educational organization", ru: "Учебная организация"}
   Person:
     label: {en: "Person", ru: "Человек"}
-    fields: [field_of_work, job_title, works_for, about, image, country, city]
+    fields: [job_title, works_for, about, image, country, city]
 
-# Сферы деятельности — и для людей, и для организаций. Не типы schema.org:
-# тип говорит, что это (компания, клиника, человек), сфера — чем занимается.
-# В разметку идёт подписью на основном языке сайта (knowsAbout).
-directions:
-  - {ru: "Медицина и здоровье", en: "Healthcare"}
-  - {ru: "Красота и уход", en: "Beauty and care"}
-  - {ru: "Реклама и маркетинг", en: "Advertising and marketing"}
-  - {ru: "IT и разработка", en: "IT and software"}
-  - {ru: "Производство", en: "Manufacturing"}
-  - {ru: "Строительство и ремонт", en: "Construction and renovation"}
-  - {ru: "Недвижимость", en: "Real estate"}
-  - {ru: "Юридические услуги", en: "Legal services"}
-  - {ru: "Финансы и бухгалтерия", en: "Finance and accounting"}
-  - {ru: "Консалтинг", en: "Consulting"}
-  - {ru: "Образование", en: "Education"}
-  - {ru: "Торговля", en: "Retail and trade"}
-  - {ru: "Еда и рестораны", en: "Food and restaurants"}
-  - {ru: "Гостиницы и туризм", en: "Hospitality and travel"}
-  - {ru: "Транспорт и логистика", en: "Transport and logistics"}
-  - {ru: "Автомобили", en: "Automotive"}
-  - {ru: "Спорт и фитнес", en: "Sports and fitness"}
-  - {ru: "Искусство и культура", en: "Arts and culture"}
-  - {ru: "Медиа и издательство", en: "Media and publishing"}
-  - {ru: "Дизайн и фотография", en: "Design and photography"}
-  - {ru: "Сельское хозяйство", en: "Agriculture"}
-  - {ru: "Энергетика", en: "Energy"}
-  - {ru: "Благотворительность", en: "Charity"}
-  - {ru: "Наука и исследования", en: "Science and research"}
-  - {ru: "Дети и семья", en: "Children and family"}
-  - {ru: "Животные", en: "Animals"}
-  - {ru: "Государственные услуги", en: "Public services"}
-  - {ru: "Другое", en: "Other"}

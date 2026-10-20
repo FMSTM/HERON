@@ -30,6 +30,7 @@ from heron.setup.answers import (
     CONTACT_TYPES,
     PURPOSES,
     Answers,
+    classifier,
     fields_of,
     merge,
     ordered,
@@ -133,6 +134,7 @@ def state(root: Path, in_container: bool) -> dict[str, Any]:
         "purposes": list(PURPOSES),
         "git_remote": git_remote(root),
         "countries": countries(),
+        "classifier": classifier(),
         "themes": themes,
         "site_theme": str((data.get("site") or {}).get("theme") or ""),
         "notes": notes_lang(data),
@@ -262,7 +264,9 @@ def apply(
                 parent.rmdir()
                 parent = parent.parent
 
-    if answers.publish.way != "none" or (root / ".git").exists():
+    if answers.publish.helpers.get("gitignore", True) and (
+        answers.publish.way != "none" or (root / ".git").exists()
+    ):
         ignore = root / ".gitignore"
         current = ignore.read_text(encoding="utf-8") if ignore.is_file() else ""
         updated = files_module.gitignore(current)

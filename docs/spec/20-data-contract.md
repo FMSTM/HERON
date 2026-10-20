@@ -64,7 +64,7 @@
 
 Результат сборки — `dist/`: `heron build` без `--out` кладёт его внутрь папки сайта (он в `.gitignore`), `scripts/site.sh` — в `out/<сайт>-<окружение>` в репозитории движка, не трогая папку сайта вовсе. Кэш нарезок — `.heron-cache/` рядом с результатом.
 
-**Dockerfile, compose и `.env` в папке сайта запрещены, сборочной логики в ней нет.** Вся обвязка живёт в движке (`scripts/site.sh`, `Dockerfile.site` — он же `heron recipe`, `site-image.yml`, `env/.env.<сайт>.<окружение>`), секреты сервисов — у сервисов (раздел 8). Исключение одно: `heron setup` кладёт `scripts/build.sh`, `scripts/publish.sh` и workflow — однострочные вызовы образа HERON под выбранный способ публикации, с отметкой «heron setup» (`21` §10).
+**Dockerfile, compose и `.env` в папке сайта запрещены, сборочной логики в ней нет.** Вся обвязка живёт в движке (`scripts/site.sh`, `Dockerfile.site` — он же `heron recipe`, `site-image.yml`, `env/.env.<сайт>.<окружение>`), секреты сервисов — у сервисов (раздел 8). Исключение одно: `heron setup` по желанию кладёт `.heron/scripts/build.sh`, `.heron/scripts/publish.sh` и workflow — однострочные вызовы образа HERON под выбранный способ публикации, с отметкой «heron setup» (`21` §10).
 
 Кода движка здесь нет. `heron/` в папке сайта — ошибка, а не структура.
 

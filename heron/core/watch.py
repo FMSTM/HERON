@@ -20,6 +20,19 @@ import click
 from heron.core import build as pipeline
 from heron.core import report as report_module
 from heron.core.errors import HeronError
+from heron.messages import say
+
+
+class _Server(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
+class _Server6(_Server):
+    import socket as _socket
+
+    address_family = _socket.AF_INET6
+
 
 # plugins — код локальных плагинов сайта: правка плагина меняет сборку так же,
 # как правка темы.
@@ -81,7 +94,7 @@ def preview_dist(root: Path) -> Path:
     return Path(tempfile.gettempdir()) / f"heron-serve-{root.name}-{key}" / "dist"
 
 
-def once(root: Path, drafts: bool, dist: Path | None = None) -> None:
+def once(root: Path, drafts: bool, dist: Path | None = None, lang: str = "en") -> None:
     try:
         result = pipeline.run(root, dist=dist, drafts=drafts)
     except HeronError as error:
@@ -90,9 +103,34 @@ def once(root: Path, drafts: bool, dist: Path | None = None) -> None:
     if result.collector.errors:
         click.secho(report_module.summary(result.collector), fg="red")
         return
-    click.secho(f"собрано: {len(result.written)} файлов", fg="green")
+    click.secho(say(lang, "serve_built", count=len(result.written)), fg="green")
     if result.collector.warnings:
-        click.secho(f"предупреждений: {len(result.collector.warnings)}", fg="yellow")
+        click.secho(say(lang, "serve_warnings", count=len(result.collector.warnings)), fg="yellow")
+
+
+# Внутри контейнера 127.0.0.1 — это сам контейнер: проброшенный порт
+# (`docker run -p 8000:8000`) приходит на его внешний интерфейс, и сервер,
+# слушающий только петлю, снаружи не открывается. Поэтому в образе
+# умолчание — все интерфейсы, а на машине человека — только своя:
+# просмотр черновиков не должен быть виден всей сети кафе.
+LOOPBACK = "127.0.0.1"
+EVERYWHERE = "0.0.0.0"
+
+
+def default_host(in_container: bool) -> str:
+    """Где слушать, если `--host` не задан."""
+    return EVERYWHERE if in_container else LOOPBACK
+
+
+def shown_url(host: str, port: int) -> str:
+    """Адрес, который человеку открыть в браузере.
+
+    `0.0.0.0` — не адрес, по нему браузер не ходит: показываем localhost.
+    """
+    visible = "localhost" if host in (EVERYWHERE, "::", "") else host
+    if ":" in visible and not visible.startswith("["):
+        visible = f"[{visible}]"
+    return f"http://{visible}:{port}/"
 
 
 def not_found(dist: Path, path: str) -> Path | None:
@@ -122,12 +160,19 @@ def _send_404(handler: http.server.SimpleHTTPRequestHandler, dist: Path) -> bool
     return True
 
 
-def serve(root: Path, port: int = 8000, drafts: bool = True) -> None:
+def serve(
+    root: Path,
+    port: int = 8000,
+    drafts: bool = True,
+    host: str = LOOPBACK,
+    lang: str = "en",
+    in_container: bool = False,
+) -> None:
     """Собрать, поднять сервер и пересобирать при изменениях."""
     root = Path(root).resolve()
     dist = preview_dist(root)
-    once(root, drafts, dist)
-    click.secho(f"собрано в {dist}", fg="cyan")
+    once(root, drafts, dist, lang)
+    click.secho(say(lang, "serve_dist", dist=dist), fg="cyan")
 
     handler = type(
         "Handler",
@@ -146,10 +191,21 @@ def serve(root: Path, port: int = 8000, drafts: bool = True) -> None:
         },
     )
 
-    socketserver.TCPServer.allow_reuse_address = True
-    server = socketserver.TCPServer(("127.0.0.1", port), handler)
+    server_class = _Server6 if ":" in host else _Server
+    try:
+        server = server_class((host, port), handler)
+    except OSError as error:
+        raise HeronError(
+            code="E031",
+            message=say(lang, "serve_busy", host=host, port=port, problem=error.strerror or error),
+            hint=say(lang, "serve_busy_hint", port=port, next=port + 1),
+        ) from error
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    click.secho(f"открыто: http://127.0.0.1:{port}/  (Ctrl+C — выход)", fg="green")
+    click.secho(say(lang, "serve_open", url=shown_url(host, port)), fg="green")
+    if in_container:
+        click.echo(say(lang, "serve_container", port=port))
+    elif host not in (LOOPBACK, "localhost", "::1"):
+        click.secho(say(lang, "serve_lan", port=port), fg="yellow")
 
     last = snapshot(root)
     try:
@@ -159,10 +215,12 @@ def serve(root: Path, port: int = 8000, drafts: bool = True) -> None:
             diff = changed(last, current)
             if diff:
                 last = current
-                shown = ", ".join(diff[:3]) + (f" и ещё {len(diff) - 3}" if len(diff) > 3 else "")
-                click.echo(f"изменения ({shown}) — пересобираю")
-                once(root, drafts, dist)
+                shown = ", ".join(diff[:3]) + (
+                    say(lang, "serve_more", count=len(diff) - 3) if len(diff) > 3 else ""
+                )
+                click.echo(say(lang, "serve_changed", files=shown))
+                once(root, drafts, dist, lang)
     except KeyboardInterrupt:
-        click.echo("\nостановлено")
+        click.echo("\n" + say(lang, "serve_stopped"))
     finally:
         server.shutdown()

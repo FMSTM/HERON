@@ -172,6 +172,31 @@ def make(allow_raw_html: bool = False) -> MarkdownIt:
 _HTML_FINDER = MarkdownIt("commonmark", {"html": True}).enable(["table", "strikethrough"])
 
 
+CODE_SPAN = re.compile(r"(?<!`)(?P<fence>`+)(?!`)(?P<code>.+?)(?<!`)(?P=fence)(?!`)")
+
+
+def without_code(text: str) -> str:
+    """Тот же текст, где код — блоки и `инлайн` — заменён пробелами.
+
+    Код в странице — пример, а не содержимое: `![фото](/media/x.jpg)` в
+    таблице «как писать» не просит движок искать файл. Всё, что читает
+    сырой markdown регулярками (пути к медиа, заметки), смотрит в текст
+    через эту функцию. Длина строк и их число сохраняются — номера строк
+    в отчёте остаются верными.
+
+    Блоки находит тот же разборщик commonmark, что рендерит страницу:
+    огороженные и с отступом, в том числе внутри списков и цитат.
+    """
+    lines = text.split("\n")
+    for token in _HTML_FINDER.parse(text):
+        if token.type in ("fence", "code_block") and token.map:
+            start, end = token.map
+            for index in range(start, min(end, len(lines))):
+                lines[index] = " " * len(lines[index])
+    out = "\n".join(lines)
+    return CODE_SPAN.sub(lambda match: " " * len(match.group(0)), out)
+
+
 def raw_html(body: str) -> list[tuple[int, str]]:
     """Сырой HTML вне кода: (строка от начала тела, фрагмент)."""
     lines = body.splitlines()

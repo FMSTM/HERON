@@ -16,6 +16,6 @@ Steps:
 1. `$H check .` — the report without a build; fix errors, sort warnings into content debt or fixes.
 2. `$H serve .` — preview on localhost:8000 with a rebuild on every save.
 3. `$H build . --env prod --strict` — the final build into `dist/`.
-4. Publishing: `$H setup . --dump`, set `publish` (github, dockerhub, static), apply with `--answers`; then `scripts/publish.sh`, or `git push` for the git way.
+4. Publishing: `$H setup . --dump`, set `publish` (github, dockerhub, static), apply with `--answers`; then `.heron/scripts/publish.sh`, or `git push` for the git way.
 
 Report: what was done, content debt, questions, warnings left on purpose and why.

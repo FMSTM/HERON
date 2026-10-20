@@ -587,7 +587,11 @@ def _start_site(
     asking = can_ask() and not yes
     if asking and notes is None and not os.environ.get("HERON_NOTES"):
         click.echo(
-            click.style("Notes and messages language / Язык пояснений и сообщений", bold=True)
+            click.style(
+                "Language you prefer to work in: hints, messages, comments in files\n"
+                "На каком языке вам удобнее работать: подсказки, сообщения, комментарии в файлах",
+                bold=True,
+            )
         )
         lang = click.prompt("  ›", type=click.Choice(["en", "ru"]), default="en", prompt_suffix=" ")
 

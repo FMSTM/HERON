@@ -63,12 +63,61 @@ def site(tmp_path: Path) -> Path:
 
 
 def test_vocab_fields_inherit_from_parents():
-    fields = fields_of("Dentist")
-    assert fields[:2] == ["name", "field_of_work"]  # сфера деятельности — рядом с «кто вы»
-    assert "about" in fields and "country" in fields
-    assert "opening_hours" in fields  # от LocalBusiness
-    assert "street" in fields  # от Organization
-    assert "job_title" not in fields  # это у Person
+    fields = fields_of("LocalBusiness")
+    assert fields[:2] == ["name", "legal_name"]
+    assert "opening_hours" in fields  # своё у местного бизнеса
+    assert "street" in fields  # от организации
+    assert "job_title" not in fields  # это у человека
+    assert "job_title" in fields_of("Person")
+
+
+def test_classifier_drives_type_and_labels(site: Path):
+    answers = load_answers(ANSWERS)
+    answers.about.specialization = "health-03"  # стоматология
+    apply(site, answers)
+    data = yaml.safe_load((site / "site.yaml").read_text(encoding="utf-8"))
+    entity = data["schema"]["entity"]
+    assert entity["@type"] == "Dentist"
+    assert entity["knowsAbout"] == "{{ organization.field_of_work }}"
+    assert data["organization"]["field_of_work_de"] == "Healthcare"  # нет немецкой — английская
+    again = load_answers(current_answers(site))
+    assert (again.about.direction, again.about.specialization) == ("health", "health-03")
+
+
+def test_person_gets_occupation():
+    from heron.setup.answers import merge
+
+    answers = Answers.model_validate(
+        {
+            "site": {"name": "S", "domain": "s.example.com", "languages": ["ru", "en"]},
+            "about": {"type": "Person", "specialization": "legal-02"},
+        }
+    )
+    data = merge({"site": {"theme": "main"}}, answers, ">=0.1")
+    assert data["organization"]["specialization"] == "Адвокат"
+    assert data["schema"]["entity"]["hasOccupation"]["name"] == "{{ organization.specialization }}"
+
+
+def test_specialization_must_match_direction():
+    with pytest.raises(ValueError, match="not in"):
+        Answers.model_validate({"about": {"direction": "legal", "specialization": "health-03"}})
+
+
+def test_suffix_always_has_a_separator():
+    from heron.setup.answers import clean_suffix
+
+    assert clean_suffix("yth") == " — yth"
+    assert clean_suffix("| Studio") == " | Studio"
+    assert clean_suffix(" — Studio") == " — Studio"
+    assert clean_suffix("  ") == ""
+
+
+def test_helpers_can_be_switched_off(site: Path):
+    answers = load_answers(ANSWERS)
+    answers.publish.helpers = {"build": False, "publish": False, "gitignore": False}
+    apply(site, answers)
+    assert not (site / ".heron").exists()
+    assert (site / ".github/workflows/image.yml").is_file()  # автосборка — отдельно
 
 
 def test_apply_writes_valid_config_and_keeps_foreign_blocks(site: Path):
@@ -133,7 +182,7 @@ def test_git_way_writes_workflow_and_scripts(site: Path):
     assert "FMSTM/HERON/.github/workflows/site-image.yml@beta" in workflow
     assert "engine: beta" in workflow
     for name in ("build.sh", "publish.sh"):
-        path = site / "scripts" / name
+        path = site / ".heron" / "scripts" / name
         assert path.stat().st_mode & stat.S_IXUSR
     assert "dist/" in (site / ".gitignore").read_text(encoding="utf-8")
 
@@ -148,15 +197,15 @@ def test_changing_the_way_removes_only_own_files(site: Path):
     result = apply(site, answers)
     assert ".github/workflows/image.yml" in result.removed
     assert mine.is_file()
-    assert "rsync" in (site / "scripts/publish.sh").read_text(encoding="utf-8")
+    assert "rsync" in (site / ".heron/scripts/publish.sh").read_text(encoding="utf-8")
 
 
 def test_foreign_script_is_not_overwritten(site: Path):
-    (site / "scripts").mkdir()
-    (site / "scripts" / "build.sh").write_text("#!/bin/sh\necho mine\n", encoding="utf-8")
+    (site / ".heron" / "scripts").mkdir(parents=True)
+    (site / ".heron/scripts/build.sh").write_text("#!/bin/sh\necho mine\n", encoding="utf-8")
     result = apply(site, load_answers(ANSWERS))
-    assert "scripts/build.sh" in result.kept
-    assert "mine" in (site / "scripts/build.sh").read_text(encoding="utf-8")
+    assert ".heron/scripts/build.sh" in result.kept
+    assert "mine" in (site / ".heron/scripts/build.sh").read_text(encoding="utf-8")
 
 
 def test_contacts_go_to_channels_and_markup(site: Path):
@@ -203,7 +252,7 @@ def test_github_without_auto_writes_no_workflow(site: Path):
     answers.publish.auto = False
     apply(site, answers)
     assert not (site / ".github/workflows/image.yml").exists()
-    assert "git push" in (site / "scripts/publish.sh").read_text(encoding="utf-8")
+    assert "git push" in (site / ".heron/scripts/publish.sh").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize(
@@ -276,9 +325,8 @@ def test_countries_and_directions_in_state(site: Path):
     austria = next(row for row in seen["countries"] if row[0] == "AT")
     assert austria[1] == "Австрия" and austria[3] == "+43"
     assert len(seen["countries"]) > 240
-    assert {"ru": "Реклама и маркетинг", "en": "Advertising and marketing"} in seen["vocab"][
-        "directions"
-    ]
+    assert any(d["id"] == "marketing" for d in seen["classifier"])
+    assert sum(len(d["items"]) for d in seen["classifier"]) > 150
 
 
 def test_country_is_a_code(site: Path):

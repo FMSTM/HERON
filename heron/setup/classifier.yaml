@@ -1,0 +1,1479 @@
+# Классификатор сфер деятельности для анкеты `heron setup`.
+#
+# Это общий справочник, а не данные какого-то сайта: сферы и специализации,
+# по которым описывают себя люди и организации, с типами schema.org там, где
+# у schema.org есть точный тип. Организация с типом специализации получает его
+# в разметке (стоматология → Dentist); человек — подпись профессии
+# (`person`) и сферу как knowsAbout.
+#
+# Подписи — на русском и английском; другие языки берут английскую.
+# Добавить сферу или специализацию — дописать строку, код анкеты не меняется.
+# Номера `id` не переиспользуются: по ним анкета узнаёт записанный ответ.
+
+directions:
+- id: health
+  ru: Медицина и здоровье
+  en: Healthcare
+  items:
+  - id: health-01
+    ru: Клиника
+    en: Clinic
+    person:
+      ru: Врач
+      en: Doctor
+    type: MedicalClinic
+  - id: health-02
+    ru: Частная практика врача
+    en: Doctor's practice
+    person:
+      ru: Врач
+      en: Doctor
+    type: Physician
+  - id: health-03
+    ru: Стоматология
+    en: Dental clinic
+    person:
+      ru: Стоматолог
+      en: Dentist
+    type: Dentist
+  - id: health-04
+    ru: Больница
+    en: Hospital
+    person:
+      ru: Врач больницы
+      en: Hospital doctor
+    type: Hospital
+  - id: health-05
+    ru: Аптека
+    en: Pharmacy
+    person:
+      ru: Фармацевт
+      en: Pharmacist
+    type: Pharmacy
+  - id: health-06
+    ru: Лаборатория и диагностика
+    en: Lab and diagnostics
+    person:
+      ru: Лаборант
+      en: Lab specialist
+    type: DiagnosticLab
+  - id: health-07
+    ru: Физиотерапия и реабилитация
+    en: Physiotherapy and rehabilitation
+    person:
+      ru: Физиотерапевт
+      en: Physiotherapist
+    type: Physiotherapy
+  - id: health-08
+    ru: Оптика
+    en: Optician
+    person:
+      ru: Оптометрист
+      en: Optometrist
+    type: Optician
+  - id: health-09
+    ru: Психология и психотерапия
+    en: Psychology and psychotherapy
+    person:
+      ru: Психолог
+      en: Psychologist
+    type: MedicalBusiness
+  - id: health-10
+    ru: Массаж
+    en: Massage
+    person:
+      ru: Массажист
+      en: Massage therapist
+    type: MedicalBusiness
+  - id: health-11
+    ru: Медицинские товары
+    en: Medical supplies
+    person:
+      ru: Специалист по медтоварам
+      en: Medical supplies specialist
+    type: MedicalBusiness
+  - id: health-12
+    ru: Уход за пожилыми
+    en: Elderly care
+    person:
+      ru: Сиделка
+      en: Caregiver
+    type: MedicalBusiness
+- id: beauty
+  ru: Красота и уход
+  en: Beauty and care
+  items:
+  - id: beauty-01
+    ru: Салон красоты
+    en: Beauty salon
+    person:
+      ru: Мастер красоты
+      en: Beauty specialist
+    type: BeautySalon
+  - id: beauty-02
+    ru: Парикмахерская
+    en: Hair salon
+    person:
+      ru: Парикмахер
+      en: Hairdresser
+    type: HairSalon
+  - id: beauty-03
+    ru: Ногтевой сервис
+    en: Nail salon
+    person:
+      ru: Мастер маникюра
+      en: Nail technician
+    type: NailSalon
+  - id: beauty-04
+    ru: Косметология
+    en: Cosmetology
+    person:
+      ru: Косметолог
+      en: Cosmetologist
+    type: BeautySalon
+  - id: beauty-05
+    ru: СПА
+    en: Spa
+    person:
+      ru: Специалист СПА
+      en: Spa therapist
+    type: DaySpa
+  - id: beauty-06
+    ru: Барбершоп
+    en: Barbershop
+    person:
+      ru: Барбер
+      en: Barber
+    type: HairSalon
+  - id: beauty-07
+    ru: Тату и пирсинг
+    en: Tattoo and piercing
+    person:
+      ru: Тату-мастер
+      en: Tattoo artist
+    type: TattooParlor
+  - id: beauty-08
+    ru: Визаж
+    en: Make-up
+    person:
+      ru: Визажист
+      en: Make-up artist
+    type: HealthAndBeautyBusiness
+- id: marketing
+  ru: Реклама и маркетинг
+  en: Advertising and marketing
+  items:
+  - id: marketing-01
+    ru: Рекламное агентство
+    en: Advertising agency
+    person:
+      ru: Специалист по рекламе
+      en: Advertising specialist
+    type: ProfessionalService
+  - id: marketing-02
+    ru: Digital-агентство
+    en: Digital agency
+    person:
+      ru: Digital-маркетолог
+      en: Digital marketer
+    type: ProfessionalService
+  - id: marketing-03
+    ru: SEO и продвижение сайтов
+    en: SEO
+    person:
+      ru: SEO-специалист
+      en: SEO specialist
+    type: ProfessionalService
+  - id: marketing-04
+    ru: SMM и соцсети
+    en: Social media marketing
+    person:
+      ru: SMM-специалист
+      en: Social media manager
+    type: ProfessionalService
+  - id: marketing-05
+    ru: Брендинг
+    en: Branding
+    person:
+      ru: Бренд-менеджер
+      en: Brand strategist
+    type: ProfessionalService
+  - id: marketing-06
+    ru: PR и коммуникации
+    en: PR and communications
+    person:
+      ru: PR-специалист
+      en: PR specialist
+    type: ProfessionalService
+  - id: marketing-07
+    ru: Наружная реклама
+    en: Outdoor advertising
+    person:
+      ru: Специалист по наружной рекламе
+      en: Outdoor advertising specialist
+    type: ProfessionalService
+  - id: marketing-08
+    ru: Контент и копирайтинг
+    en: Content and copywriting
+    person:
+      ru: Копирайтер
+      en: Copywriter
+    type: ProfessionalService
+  - id: marketing-09
+    ru: Маркетинговые исследования
+    en: Market research
+    person:
+      ru: Маркетолог-аналитик
+      en: Market researcher
+    type: ProfessionalService
+- id: it
+  ru: IT и разработка
+  en: IT and software
+  items:
+  - id: it-01
+    ru: Разработка программ
+    en: Software development
+    person:
+      ru: Программист
+      en: Software developer
+    type: ProfessionalService
+  - id: it-02
+    ru: Разработка сайтов
+    en: Web development
+    person:
+      ru: Веб-разработчик
+      en: Web developer
+    type: ProfessionalService
+  - id: it-03
+    ru: Мобильные приложения
+    en: Mobile apps
+    person:
+      ru: Мобильный разработчик
+      en: Mobile developer
+    type: ProfessionalService
+  - id: it-04
+    ru: IT-поддержка и обслуживание
+    en: IT support
+    person:
+      ru: Системный администратор
+      en: System administrator
+    type: ProfessionalService
+  - id: it-05
+    ru: Хостинг и облака
+    en: Hosting and cloud
+    person:
+      ru: DevOps-инженер
+      en: DevOps engineer
+    type: ProfessionalService
+  - id: it-06
+    ru: Кибербезопасность
+    en: Cybersecurity
+    person:
+      ru: Специалист по безопасности
+      en: Security specialist
+    type: ProfessionalService
+  - id: it-07
+    ru: Данные и ИИ
+    en: Data and AI
+    person:
+      ru: Специалист по данным
+      en: Data scientist
+    type: ProfessionalService
+  - id: it-08
+    ru: Ремонт техники
+    en: Electronics repair
+    person:
+      ru: Мастер по ремонту техники
+      en: Repair technician
+    type: ElectronicsStore
+  - id: it-09
+    ru: Игры
+    en: Games
+    person:
+      ru: Разработчик игр
+      en: Game developer
+    type: ProfessionalService
+- id: manufacturing
+  ru: Производство
+  en: Manufacturing
+  items:
+  - id: manufacturing-01
+    ru: Пищевое производство
+    en: Food production
+    person:
+      ru: Технолог пищевого производства
+      en: Food technologist
+  - id: manufacturing-02
+    ru: Мебель
+    en: Furniture
+    person:
+      ru: Мебельщик
+      en: Furniture maker
+  - id: manufacturing-03
+    ru: Металлообработка
+    en: Metalworking
+    person:
+      ru: Металлист
+      en: Metalworker
+  - id: manufacturing-04
+    ru: Текстиль и одежда
+    en: Textiles and clothing
+    person:
+      ru: Швея
+      en: Tailor
+  - id: manufacturing-05
+    ru: Электроника
+    en: Electronics
+    person:
+      ru: Инженер-электроник
+      en: Electronics engineer
+  - id: manufacturing-06
+    ru: Строительные материалы
+    en: Building materials
+    person:
+      ru: Технолог
+      en: Process engineer
+  - id: manufacturing-07
+    ru: Пластик и упаковка
+    en: Plastics and packaging
+    person:
+      ru: Технолог
+      en: Process engineer
+  - id: manufacturing-08
+    ru: Химия и косметика
+    en: Chemicals and cosmetics
+    person:
+      ru: Химик-технолог
+      en: Chemical engineer
+  - id: manufacturing-09
+    ru: Машиностроение
+    en: Machinery
+    person:
+      ru: Инженер-механик
+      en: Mechanical engineer
+  - id: manufacturing-10
+    ru: Печать и полиграфия
+    en: Printing
+    person:
+      ru: Печатник
+      en: Printer
+  - id: manufacturing-11
+    ru: Ремесло
+    en: Crafts
+    person:
+      ru: Мастер
+      en: Craftsman
+- id: construction
+  ru: Строительство и ремонт
+  en: Construction and renovation
+  items:
+  - id: construction-01
+    ru: Строительная компания
+    en: Construction company
+    person:
+      ru: Строитель
+      en: Builder
+    type: GeneralContractor
+  - id: construction-02
+    ru: Ремонт квартир и домов
+    en: Home renovation
+    person:
+      ru: Мастер по ремонту
+      en: Renovation specialist
+    type: HomeAndConstructionBusiness
+  - id: construction-03
+    ru: Электромонтаж
+    en: Electrical work
+    person:
+      ru: Электрик
+      en: Electrician
+    type: Electrician
+  - id: construction-04
+    ru: Сантехника
+    en: Plumbing
+    person:
+      ru: Сантехник
+      en: Plumber
+    type: Plumber
+  - id: construction-05
+    ru: Кровля
+    en: Roofing
+    person:
+      ru: Кровельщик
+      en: Roofer
+    type: RoofingContractor
+  - id: construction-06
+    ru: Отопление и кондиционирование
+    en: Heating and air conditioning
+    person:
+      ru: Монтажник отопления
+      en: HVAC technician
+    type: HVACBusiness
+  - id: construction-07
+    ru: Покраска и отделка
+    en: Painting and finishing
+    person:
+      ru: Маляр
+      en: Painter
+    type: HousePainter
+  - id: construction-08
+    ru: Замки и двери
+    en: Locks and doors
+    person:
+      ru: Слесарь
+      en: Locksmith
+    type: Locksmith
+  - id: construction-09
+    ru: Переезды
+    en: Moving
+    person:
+      ru: Грузчик
+      en: Mover
+    type: MovingCompany
+  - id: construction-10
+    ru: Ландшафт и сад
+    en: Landscaping
+    person:
+      ru: Ландшафтный дизайнер
+      en: Landscaper
+    type: HomeAndConstructionBusiness
+  - id: construction-11
+    ru: Уборка
+    en: Cleaning
+    person:
+      ru: Специалист по уборке
+      en: Cleaner
+    type: HomeAndConstructionBusiness
+  - id: construction-12
+    ru: Архитектура и проектирование
+    en: Architecture and design
+    person:
+      ru: Архитектор
+      en: Architect
+    type: ProfessionalService
+- id: realestate
+  ru: Недвижимость
+  en: Real estate
+  items:
+  - id: realestate-01
+    ru: Агентство недвижимости
+    en: Real estate agency
+    person:
+      ru: Риелтор
+      en: Real estate agent
+    type: RealEstateAgent
+  - id: realestate-02
+    ru: Девелопмент
+    en: Property development
+    person:
+      ru: Девелопер
+      en: Property developer
+    type: RealEstateAgent
+  - id: realestate-03
+    ru: Управление недвижимостью
+    en: Property management
+    person:
+      ru: Управляющий недвижимостью
+      en: Property manager
+    type: RealEstateAgent
+  - id: realestate-04
+    ru: Аренда жилья
+    en: Rentals
+    person:
+      ru: Арендодатель
+      en: Landlord
+    type: RealEstateAgent
+  - id: realestate-05
+    ru: Оценка недвижимости
+    en: Property valuation
+    person:
+      ru: Оценщик
+      en: Appraiser
+    type: ProfessionalService
+- id: legal
+  ru: Юридические услуги
+  en: Legal services
+  items:
+  - id: legal-01
+    ru: Юридическая фирма
+    en: Law firm
+    person:
+      ru: Юрист
+      en: Lawyer
+    type: LegalService
+  - id: legal-02
+    ru: Адвокат
+    en: Attorney
+    person:
+      ru: Адвокат
+      en: Attorney
+    type: Attorney
+  - id: legal-03
+    ru: Нотариус
+    en: Notary
+    person:
+      ru: Нотариус
+      en: Notary
+    type: Notary
+  - id: legal-04
+    ru: Патенты и товарные знаки
+    en: Patents and trademarks
+    person:
+      ru: Патентный поверенный
+      en: Patent attorney
+    type: LegalService
+  - id: legal-05
+    ru: Медиация
+    en: Mediation
+    person:
+      ru: Медиатор
+      en: Mediator
+    type: LegalService
+  - id: legal-06
+    ru: Миграционные вопросы
+    en: Immigration
+    person:
+      ru: Миграционный консультант
+      en: Immigration consultant
+    type: LegalService
+- id: finance
+  ru: Финансы и бухгалтерия
+  en: Finance and accounting
+  items:
+  - id: finance-01
+    ru: Бухгалтерия
+    en: Accounting
+    person:
+      ru: Бухгалтер
+      en: Accountant
+    type: AccountingService
+  - id: finance-02
+    ru: Налоговое консультирование
+    en: Tax advice
+    person:
+      ru: Налоговый консультант
+      en: Tax adviser
+    type: AccountingService
+  - id: finance-03
+    ru: Банк
+    en: Bank
+    person:
+      ru: Банкир
+      en: Banker
+    type: BankOrCreditUnion
+  - id: finance-04
+    ru: Страхование
+    en: Insurance
+    person:
+      ru: Страховой агент
+      en: Insurance agent
+    type: InsuranceAgency
+  - id: finance-05
+    ru: Финансовое консультирование
+    en: Financial advice
+    person:
+      ru: Финансовый консультант
+      en: Financial adviser
+    type: FinancialService
+  - id: finance-06
+    ru: Инвестиции
+    en: Investment
+    person:
+      ru: Инвестиционный консультант
+      en: Investment adviser
+    type: FinancialService
+  - id: finance-07
+    ru: Кредиты и лизинг
+    en: Loans and leasing
+    person:
+      ru: Кредитный специалист
+      en: Loan officer
+    type: FinancialService
+- id: consulting
+  ru: Консалтинг
+  en: Consulting
+  items:
+  - id: consulting-01
+    ru: Управленческий консалтинг
+    en: Management consulting
+    person:
+      ru: Консультант
+      en: Consultant
+    type: ProfessionalService
+  - id: consulting-02
+    ru: Кадры и подбор персонала
+    en: HR and recruitment
+    person:
+      ru: Рекрутер
+      en: Recruiter
+    type: EmploymentAgency
+  - id: consulting-03
+    ru: Бизнес-коучинг
+    en: Business coaching
+    person:
+      ru: Бизнес-коуч
+      en: Business coach
+    type: ProfessionalService
+  - id: consulting-04
+    ru: IT-консалтинг
+    en: IT consulting
+    person:
+      ru: IT-консультант
+      en: IT consultant
+    type: ProfessionalService
+  - id: consulting-05
+    ru: Переводы
+    en: Translation
+    person:
+      ru: Переводчик
+      en: Translator
+    type: ProfessionalService
+  - id: consulting-06
+    ru: Организация мероприятий
+    en: Event management
+    person:
+      ru: Организатор мероприятий
+      en: Event planner
+    type: ProfessionalService
+- id: education
+  ru: Образование
+  en: Education
+  items:
+  - id: education-01
+    ru: Школа
+    en: School
+    person:
+      ru: Учитель
+      en: Teacher
+    type: School
+  - id: education-02
+    ru: Детский сад
+    en: Kindergarten
+    person:
+      ru: Воспитатель
+      en: Kindergarten teacher
+    type: Preschool
+  - id: education-03
+    ru: Университет и колледж
+    en: University and college
+    person:
+      ru: Преподаватель
+      en: Lecturer
+    type: CollegeOrUniversity
+  - id: education-04
+    ru: Курсы и обучение
+    en: Courses and training
+    person:
+      ru: Тренер
+      en: Trainer
+    type: EducationalOrganization
+  - id: education-05
+    ru: Языковая школа
+    en: Language school
+    person:
+      ru: Преподаватель языка
+      en: Language teacher
+    type: EducationalOrganization
+  - id: education-06
+    ru: Репетиторство
+    en: Tutoring
+    person:
+      ru: Репетитор
+      en: Tutor
+    type: EducationalOrganization
+  - id: education-07
+    ru: Музыкальная школа
+    en: Music school
+    person:
+      ru: Преподаватель музыки
+      en: Music teacher
+    type: MusicSchool
+  - id: education-08
+    ru: Автошкола
+    en: Driving school
+    person:
+      ru: Инструктор по вождению
+      en: Driving instructor
+    type: EducationalOrganization
+  - id: education-09
+    ru: Онлайн-обучение
+    en: Online learning
+    person:
+      ru: Автор курсов
+      en: Course creator
+    type: EducationalOrganization
+- id: retail
+  ru: Торговля
+  en: Retail and trade
+  items:
+  - id: retail-01
+    ru: Интернет-магазин
+    en: Online store
+    person:
+      ru: Продавец
+      en: Seller
+    type: OnlineStore
+  - id: retail-02
+    ru: Одежда и обувь
+    en: Clothing and shoes
+    person:
+      ru: Продавец одежды
+      en: Clothing seller
+    type: ClothingStore
+  - id: retail-03
+    ru: Продукты
+    en: Grocery
+    person:
+      ru: Продавец
+      en: Seller
+    type: GroceryStore
+  - id: retail-04
+    ru: Электроника
+    en: Electronics
+    person:
+      ru: Продавец электроники
+      en: Electronics seller
+    type: ElectronicsStore
+  - id: retail-05
+    ru: Мебель
+    en: Furniture
+    person:
+      ru: Продавец мебели
+      en: Furniture seller
+    type: FurnitureStore
+  - id: retail-06
+    ru: Книги
+    en: Books
+    person:
+      ru: Книготорговец
+      en: Bookseller
+    type: BookStore
+  - id: retail-07
+    ru: Цветы
+    en: Flowers
+    person:
+      ru: Флорист
+      en: Florist
+    type: Florist
+  - id: retail-08
+    ru: Ювелирные изделия
+    en: Jewellery
+    person:
+      ru: Ювелир
+      en: Jeweller
+    type: JewelryStore
+  - id: retail-09
+    ru: Спорттовары
+    en: Sporting goods
+    person:
+      ru: Продавец
+      en: Seller
+    type: SportingGoodsStore
+  - id: retail-10
+    ru: Хозтовары и инструменты
+    en: Hardware and tools
+    person:
+      ru: Продавец
+      en: Seller
+    type: HardwareStore
+  - id: retail-11
+    ru: Игрушки
+    en: Toys
+    person:
+      ru: Продавец
+      en: Seller
+    type: ToyStore
+  - id: retail-12
+    ru: Оптовая торговля
+    en: Wholesale
+    person:
+      ru: Менеджер по продажам
+      en: Sales manager
+    type: WholesaleStore
+  - id: retail-13
+    ru: Маркетплейс и товары на заказ
+    en: Marketplace and custom goods
+    person:
+      ru: Предприниматель
+      en: Entrepreneur
+    type: Store
+- id: food
+  ru: Еда и рестораны
+  en: Food and restaurants
+  items:
+  - id: food-01
+    ru: Ресторан
+    en: Restaurant
+    person:
+      ru: Шеф-повар
+      en: Chef
+    type: Restaurant
+  - id: food-02
+    ru: Кафе и кофейня
+    en: Cafe and coffee shop
+    person:
+      ru: Бариста
+      en: Barista
+    type: CafeOrCoffeeShop
+  - id: food-03
+    ru: Бар
+    en: Bar
+    person:
+      ru: Бармен
+      en: Bartender
+    type: BarOrPub
+  - id: food-04
+    ru: Пекарня и кондитерская
+    en: Bakery and patisserie
+    person:
+      ru: Пекарь
+      en: Baker
+    type: Bakery
+  - id: food-05
+    ru: Быстрое питание
+    en: Fast food
+    person:
+      ru: Повар
+      en: Cook
+    type: FastFoodRestaurant
+  - id: food-06
+    ru: Доставка еды
+    en: Food delivery
+    person:
+      ru: Повар
+      en: Cook
+    type: FoodEstablishment
+  - id: food-07
+    ru: Кейтеринг
+    en: Catering
+    person:
+      ru: Кейтеринг-менеджер
+      en: Caterer
+    type: FoodEstablishment
+  - id: food-08
+    ru: Винодельня
+    en: Winery
+    person:
+      ru: Винодел
+      en: Winemaker
+    type: Winery
+  - id: food-09
+    ru: Пивоварня
+    en: Brewery
+    person:
+      ru: Пивовар
+      en: Brewer
+    type: Brewery
+- id: hospitality
+  ru: Гостиницы и туризм
+  en: Hospitality and travel
+  items:
+  - id: hospitality-01
+    ru: Гостиница
+    en: Hotel
+    person:
+      ru: Гостиничный менеджер
+      en: Hotel manager
+    type: Hotel
+  - id: hospitality-02
+    ru: Хостел
+    en: Hostel
+    person:
+      ru: Администратор
+      en: Receptionist
+    type: Hostel
+  - id: hospitality-03
+    ru: Гостевой дом
+    en: Guest house
+    person:
+      ru: Хозяин гостевого дома
+      en: Host
+    type: BedAndBreakfast
+  - id: hospitality-04
+    ru: Апартаменты
+    en: Apartments
+    person:
+      ru: Хозяин
+      en: Host
+    type: LodgingBusiness
+  - id: hospitality-05
+    ru: Кемпинг
+    en: Campground
+    person:
+      ru: Администратор
+      en: Manager
+    type: Campground
+  - id: hospitality-06
+    ru: Турагентство
+    en: Travel agency
+    person:
+      ru: Турагент
+      en: Travel agent
+    type: TravelAgency
+  - id: hospitality-07
+    ru: Экскурсии и гиды
+    en: Tours and guides
+    person:
+      ru: Гид
+      en: Tour guide
+    type: TravelAgency
+- id: transport
+  ru: Транспорт и логистика
+  en: Transport and logistics
+  items:
+  - id: transport-01
+    ru: Грузоперевозки
+    en: Freight
+    person:
+      ru: Водитель
+      en: Driver
+  - id: transport-02
+    ru: Такси
+    en: Taxi
+    person:
+      ru: Водитель такси
+      en: Taxi driver
+    type: TaxiService
+  - id: transport-03
+    ru: Курьерская доставка
+    en: Courier delivery
+    person:
+      ru: Курьер
+      en: Courier
+  - id: transport-04
+    ru: Переезды
+    en: Moving
+    person:
+      ru: Грузчик
+      en: Mover
+    type: MovingCompany
+  - id: transport-05
+    ru: Аренда автомобилей
+    en: Car rental
+    person:
+      ru: Менеджер проката
+      en: Rental agent
+    type: AutoRental
+  - id: transport-06
+    ru: Склады и логистика
+    en: Warehousing and logistics
+    person:
+      ru: Логист
+      en: Logistics specialist
+- id: auto
+  ru: Автомобили
+  en: Automotive
+  items:
+  - id: auto-01
+    ru: Автосервис
+    en: Car repair
+    person:
+      ru: Автомеханик
+      en: Car mechanic
+    type: AutoRepair
+  - id: auto-02
+    ru: Автосалон
+    en: Car dealer
+    person:
+      ru: Менеджер автосалона
+      en: Car sales manager
+    type: AutoDealer
+  - id: auto-03
+    ru: Автомойка
+    en: Car wash
+    person:
+      ru: Мойщик
+      en: Car washer
+    type: AutoWash
+  - id: auto-04
+    ru: Шиномонтаж
+    en: Tyre service
+    person:
+      ru: Шиномонтажник
+      en: Tyre fitter
+    type: TireShop
+  - id: auto-05
+    ru: Автозапчасти
+    en: Car parts
+    person:
+      ru: Продавец запчастей
+      en: Parts seller
+    type: AutoPartsStore
+  - id: auto-06
+    ru: Заправка
+    en: Gas station
+    person:
+      ru: Оператор заправки
+      en: Attendant
+    type: GasStation
+  - id: auto-07
+    ru: Кузовной ремонт
+    en: Body repair
+    person:
+      ru: Кузовщик
+      en: Body repairer
+    type: AutoBodyShop
+- id: sports
+  ru: Спорт и фитнес
+  en: Sports and fitness
+  items:
+  - id: sports-01
+    ru: Фитнес-клуб
+    en: Gym
+    person:
+      ru: Фитнес-тренер
+      en: Fitness trainer
+    type: ExerciseGym
+  - id: sports-02
+    ru: Спортивный клуб
+    en: Sports club
+    person:
+      ru: Тренер
+      en: Coach
+    type: SportsClub
+  - id: sports-03
+    ru: Йога и пилатес
+    en: Yoga and pilates
+    person:
+      ru: Инструктор йоги
+      en: Yoga instructor
+    type: SportsActivityLocation
+  - id: sports-04
+    ru: Бассейн
+    en: Swimming pool
+    person:
+      ru: Тренер по плаванию
+      en: Swimming coach
+    type: PublicSwimmingPool
+  - id: sports-05
+    ru: Единоборства
+    en: Martial arts
+    person:
+      ru: Тренер по единоборствам
+      en: Martial arts coach
+    type: SportsActivityLocation
+  - id: sports-06
+    ru: Танцы
+    en: Dance
+    person:
+      ru: Хореограф
+      en: Dance teacher
+    type: SportsActivityLocation
+  - id: sports-07
+    ru: Боулинг
+    en: Bowling
+    person:
+      ru: Администратор
+      en: Manager
+    type: BowlingAlley
+  - id: sports-08
+    ru: Гольф
+    en: Golf
+    person:
+      ru: Тренер по гольфу
+      en: Golf coach
+    type: GolfCourse
+  - id: sports-09
+    ru: Персональные тренировки
+    en: Personal training
+    person:
+      ru: Персональный тренер
+      en: Personal trainer
+    type: SportsActivityLocation
+- id: arts
+  ru: Искусство и культура
+  en: Arts and culture
+  items:
+  - id: arts-01
+    ru: Музей
+    en: Museum
+    person:
+      ru: Музейный работник
+      en: Museum curator
+    type: Museum
+  - id: arts-02
+    ru: Галерея
+    en: Art gallery
+    person:
+      ru: Галерист
+      en: Gallerist
+    type: ArtGallery
+  - id: arts-03
+    ru: Театр
+    en: Theatre
+    person:
+      ru: Актёр
+      en: Actor
+    type: PerformingArtsTheater
+  - id: arts-04
+    ru: Кинотеатр
+    en: Cinema
+    person:
+      ru: Киномеханик
+      en: Projectionist
+    type: MovieTheater
+  - id: arts-05
+    ru: Концертная площадка
+    en: Concert venue
+    person:
+      ru: Музыкант
+      en: Musician
+    type: MusicVenue
+  - id: arts-06
+    ru: Художник
+    en: Artist
+    person:
+      ru: Художник
+      en: Artist
+  - id: arts-07
+    ru: Музыка
+    en: Music
+    person:
+      ru: Музыкант
+      en: Musician
+  - id: arts-08
+    ru: Писатель
+    en: Writer
+    person:
+      ru: Писатель
+      en: Writer
+- id: media
+  ru: Медиа и издательство
+  en: Media and publishing
+  items:
+  - id: media-01
+    ru: Издательство
+    en: Publisher
+    person:
+      ru: Редактор
+      en: Editor
+  - id: media-02
+    ru: СМИ и новости
+    en: News media
+    person:
+      ru: Журналист
+      en: Journalist
+    type: NewsMediaOrganization
+  - id: media-03
+    ru: Блог
+    en: Blog
+    person:
+      ru: Блогер
+      en: Blogger
+  - id: media-04
+    ru: Подкаст
+    en: Podcast
+    person:
+      ru: Ведущий подкаста
+      en: Podcaster
+  - id: media-05
+    ru: Радио
+    en: Radio
+    person:
+      ru: Радиоведущий
+      en: Radio host
+    type: RadioStation
+  - id: media-06
+    ru: Телевидение
+    en: Television
+    person:
+      ru: Телеведущий
+      en: TV presenter
+    type: TelevisionStation
+- id: design
+  ru: Дизайн и фотография
+  en: Design and photography
+  items:
+  - id: design-01
+    ru: Дизайн-студия
+    en: Design studio
+    person:
+      ru: Дизайнер
+      en: Designer
+    type: ProfessionalService
+  - id: design-02
+    ru: Графический дизайн
+    en: Graphic design
+    person:
+      ru: Графический дизайнер
+      en: Graphic designer
+    type: ProfessionalService
+  - id: design-03
+    ru: Дизайн интерьера
+    en: Interior design
+    person:
+      ru: Дизайнер интерьера
+      en: Interior designer
+    type: ProfessionalService
+  - id: design-04
+    ru: Фотостудия
+    en: Photo studio
+    person:
+      ru: Фотограф
+      en: Photographer
+    type: ProfessionalService
+  - id: design-05
+    ru: Видеопроизводство
+    en: Video production
+    person:
+      ru: Видеограф
+      en: Videographer
+    type: ProfessionalService
+  - id: design-06
+    ru: Мода
+    en: Fashion
+    person:
+      ru: Модельер
+      en: Fashion designer
+- id: agriculture
+  ru: Сельское хозяйство
+  en: Agriculture
+  items:
+  - id: agriculture-01
+    ru: Ферма
+    en: Farm
+    person:
+      ru: Фермер
+      en: Farmer
+  - id: agriculture-02
+    ru: Растениеводство
+    en: Crop farming
+    person:
+      ru: Агроном
+      en: Agronomist
+  - id: agriculture-03
+    ru: Животноводство
+    en: Livestock
+    person:
+      ru: Животновод
+      en: Livestock farmer
+  - id: agriculture-04
+    ru: Пчеловодство
+    en: Beekeeping
+    person:
+      ru: Пчеловод
+      en: Beekeeper
+  - id: agriculture-05
+    ru: Садовый центр
+    en: Garden centre
+    person:
+      ru: Садовник
+      en: Gardener
+    type: GardenStore
+  - id: agriculture-06
+    ru: Сельхозтехника
+    en: Farm machinery
+    person:
+      ru: Механик
+      en: Mechanic
+- id: energy
+  ru: Энергетика
+  en: Energy
+  items:
+  - id: energy-01
+    ru: Солнечная энергия
+    en: Solar energy
+    person:
+      ru: Монтажник солнечных панелей
+      en: Solar installer
+  - id: energy-02
+    ru: Электроснабжение
+    en: Power supply
+    person:
+      ru: Энергетик
+      en: Power engineer
+  - id: energy-03
+    ru: Энергоаудит
+    en: Energy audit
+    person:
+      ru: Энергоаудитор
+      en: Energy auditor
+    type: ProfessionalService
+  - id: energy-04
+    ru: Топливо
+    en: Fuel
+    person:
+      ru: Специалист по топливу
+      en: Fuel specialist
+- id: charity
+  ru: Благотворительность
+  en: Charity
+  items:
+  - id: charity-01
+    ru: Благотворительный фонд
+    en: Charitable foundation
+    person:
+      ru: Сотрудник фонда
+      en: Foundation worker
+  - id: charity-02
+    ru: Приют для животных
+    en: Animal shelter
+    person:
+      ru: Волонтёр приюта
+      en: Shelter volunteer
+    type: AnimalShelter
+  - id: charity-03
+    ru: Волонтёрство
+    en: Volunteering
+    person:
+      ru: Волонтёр
+      en: Volunteer
+  - id: charity-04
+    ru: Помощь людям
+    en: Social aid
+    person:
+      ru: Социальный работник
+      en: Social worker
+  - id: charity-05
+    ru: Экология
+    en: Environment
+    person:
+      ru: Эколог
+      en: Environmentalist
+- id: science
+  ru: Наука и исследования
+  en: Science and research
+  items:
+  - id: science-01
+    ru: Исследовательская организация
+    en: Research organization
+    person:
+      ru: Исследователь
+      en: Researcher
+    type: ResearchOrganization
+  - id: science-02
+    ru: Лаборатория
+    en: Laboratory
+    person:
+      ru: Научный сотрудник
+      en: Scientist
+    type: ResearchOrganization
+  - id: science-03
+    ru: Научный проект
+    en: Research project
+    person:
+      ru: Учёный
+      en: Scientist
+    type: ResearchProject
+- id: family
+  ru: Дети и семья
+  en: Children and family
+  items:
+  - id: family-01
+    ru: Присмотр за детьми
+    en: Childcare
+    person:
+      ru: Няня
+      en: Nanny
+    type: ChildCare
+  - id: family-02
+    ru: Детский центр
+    en: Children's centre
+    person:
+      ru: Педагог
+      en: Educator
+    type: ChildCare
+  - id: family-03
+    ru: Праздники и аниматоры
+    en: Parties and entertainers
+    person:
+      ru: Аниматор
+      en: Entertainer
+    type: EntertainmentBusiness
+  - id: family-04
+    ru: Семейное консультирование
+    en: Family counselling
+    person:
+      ru: Семейный консультант
+      en: Family counsellor
+    type: ProfessionalService
+- id: animals
+  ru: Животные
+  en: Animals
+  items:
+  - id: animals-01
+    ru: Ветеринарная клиника
+    en: Veterinary clinic
+    person:
+      ru: Ветеринар
+      en: Veterinarian
+    type: VeterinaryCare
+  - id: animals-02
+    ru: Груминг
+    en: Pet grooming
+    person:
+      ru: Грумер
+      en: Groomer
+    type: LocalBusiness
+  - id: animals-03
+    ru: Зоомагазин
+    en: Pet store
+    person:
+      ru: Продавец зоотоваров
+      en: Pet store seller
+    type: PetStore
+  - id: animals-04
+    ru: Дрессировка
+    en: Dog training
+    person:
+      ru: Кинолог
+      en: Dog trainer
+  - id: animals-05
+    ru: Гостиница для животных
+    en: Pet hotel
+    person:
+      ru: Зоогостиница
+      en: Pet sitter
+- id: public
+  ru: Государственные услуги
+  en: Public services
+  items:
+  - id: public-01
+    ru: Государственное учреждение
+    en: Government office
+    person:
+      ru: Государственный служащий
+      en: Civil servant
+    type: GovernmentOffice
+  - id: public-02
+    ru: Библиотека
+    en: Library
+    person:
+      ru: Библиотекарь
+      en: Librarian
+    type: Library
+  - id: public-03
+    ru: Почта
+    en: Post office
+    person:
+      ru: Почтовый работник
+      en: Postal worker
+    type: PostOffice
+  - id: public-04
+    ru: Местное самоуправление
+    en: Local government
+    person:
+      ru: Сотрудник администрации
+      en: Municipal officer
+    type: GovernmentOrganization
+- id: religion
+  ru: Религия
+  en: Religion
+  items:
+  - id: religion-01
+    ru: Религиозная община
+    en: Religious community
+    person:
+      ru: Священнослужитель
+      en: Clergy
+    type: PlaceOfWorship
+- id: other
+  ru: Другое
+  en: Other
+  items:
+  - id: other-01
+    ru: Другое
+    en: Other
+    person:
+      ru: Другое
+      en: Other

@@ -1,8 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>{{ page.h1 }}</h1>
-{{ mod.prose('intro') }}
-{% for section in page.sections.values() %}
-{{ mod.prose(section.id) }}
-{% endfor %}
+<header class="hero">
+  <h1>{{ page.h1 }}</h1>
+  {% if page.intro %}
+    {% if page.intro.lead %}<p class="lead">{{ page.intro.lead|safe }}</p>{% endif %}
+    {% if page.intro.promise %}<p class="promise">{{ page.intro.promise|safe }}</p>{% endif %}
+    {% if not page.intro.lead and not page.intro.promise %}<div class="lead">{{ page.intro.html|safe }}</div>{% endif %}
+  {% endif %}
+</header>
+{% include "partials/sections.html" %}
+{{ mod.children() }}
 {% endblock %}

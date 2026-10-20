@@ -1,17 +1,17 @@
 name: {theme}
-version: "0.1"
+version: "0.2"
 title: {theme_title}
 
 # What the theme expects from site.yaml. The engine checks these paths are filled in
 requires: []
 
-modules: [prose, facts, list, steps, faq, cards, breadcrumbs]
+modules: [prose, list, checklist, steps, table, facts, faq, timeline, callout, gallery, tabs, breadcrumbs, children]
 
 # Page type → sections it uses. Template: templates/<type>.html.
 # The expected form may follow a colon: "how:steps"
 types:
   home:
-    uses: [intro, about]
+    uses: [intro, "*"]
   page:
     uses: [intro, "*"]
   "404":

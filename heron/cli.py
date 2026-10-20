@@ -529,6 +529,7 @@ def _start_site(
     yes: bool,
     present: list[str] | None = None,
     done_key: str = "new_done",
+    demo: bool = False,
 ) -> None:
     """Завести сайт: опрос в терминале или флаги, затем скелет и «Что дальше».
 
@@ -575,6 +576,7 @@ def _start_site(
         notes=lang,
         domain=domain.lower() if domain else None,
         default_lang=default,
+        demo=demo,
     )
     click.secho("\n" + say(lang, done_key, path=_shown(path)), fg="green", bold=True)
     _report_plan(plan, verbose)
@@ -614,6 +616,12 @@ FINISH_FAILED = 3
 @NOTES_OPTION
 @VERBOSE_OPTION
 @site_options
+@click.option(
+    "--demo/--no-demo",
+    default=True,
+    show_default=True,
+    help="Демо-страница «Формы секций» на каждом языке: все формы, которые рисует тема.",
+)
 @click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
 def new(
     path: Path,
@@ -623,6 +631,7 @@ def new(
     domain: str | None,
     langs: str | None,
     yes: bool,
+    demo: bool,
 ) -> None:
     """Создать сайт с нуля: в новой папке или в текущей (`.`).
 
@@ -658,7 +667,7 @@ def new(
             _err(_missing_hint(path, lang), None)
             sys.exit(1)
 
-    _start_site(path, notes, verbose, site_name, domain, langs, yes)
+    _start_site(path, notes, verbose, site_name, domain, langs, yes, demo=demo)
 
 
 @main.command()
@@ -821,6 +830,215 @@ def serve(path: Path, port: int, host: str | None, drafts: bool) -> None:
         )
     except HeronError as error:
         _fail(error, lang)
+
+
+@main.command()
+@click.option(
+    "--answers",
+    "answers_file",
+    default=None,
+    metavar="ФАЙЛ",
+    help="Ответы анкеты из YAML/JSON без браузера (агент, CI). «-» — из stdin.",
+)
+@click.option("--dump", is_flag=True, help="Напечатать записанные ответы в YAML и выйти.")
+@click.option("--port", default=8000, show_default=True, type=click.IntRange(1, 65535))
+@click.option("--host", default=None, help="Где слушать: как у heron serve.")
+@NOTES_OPTION
+@click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
+def setup(
+    path: Path,
+    answers_file: str | None,
+    dump: bool,
+    port: int,
+    host: str | None,
+    notes: str | None,
+) -> None:
+    """Конфигуратор: анкета, которая пишет site.yaml, workflow и скрипты.
+
+    Без флагов открывает анкету в браузере (адрес — на экране). С --answers
+    применяет ответы из файла — те же поля и та же проверка.
+    """
+    from heron import setup as configurator
+
+    lang = _lang(notes, path)
+    _need_dir(path, lang)
+    if dump:
+        click.echo(configurator.current_answers(path), nl=False)
+        return
+    inside = in_container()
+    if answers_file is not None:
+        text = sys.stdin.read() if answers_file == "-" else Path(answers_file).read_text("utf-8")
+        try:
+            answers = configurator.load_answers(text)
+            result = configurator.apply(path, answers, in_container=inside, lang=notes)
+        except HeronError as error:
+            _fail(error, lang)
+        except ValueError as error:
+            from heron.setup.server import _plain
+
+            _err(say(lang, "setup_bad", problem=_plain(error)))
+            sys.exit(2)
+        _setup_report(result, lang, path)
+        return
+
+    from heron.core.watch import default_host, shown_url
+    from heron.setup.server import run
+
+    where = host or default_host(inside)
+
+    def ready() -> None:
+        click.secho(say(lang, "setup_open", url=shown_url(where, port)), fg="green", bold=True)
+        if inside:
+            click.echo(say(lang, "serve_container", port=port))
+
+    try:
+        run(path, where, port, inside, on_ready=ready)
+    except HeronError as error:
+        _fail(error, lang)
+    click.echo(say(lang, "serve_stopped"))
+
+
+def _setup_report(result, lang: str, path: Path) -> None:
+    click.secho(say(lang, "setup_done"), fg="green", bold=True)
+    for key, items in (
+        ("setup_written", result.written),
+        ("setup_created", result.created),
+        ("setup_removed", result.removed),
+        ("setup_kept", result.kept),
+        ("setup_keys", result.keys_saved),
+    ):
+        if items:
+            shown = ", ".join(items[:8]) + (" …" if len(items) > 8 else "")
+            click.echo("  " + say(lang, key, files=shown))
+    if result.backup:
+        click.echo("  " + say(lang, "setup_backup", file=result.backup))
+    if "keys_not_saved" in result.warnings:
+        click.secho("  " + say(lang, "setup_keys_container"), fg="yellow")
+    click.echo(say(lang, "setup_next", path=_shown(path)))
+
+
+@main.command()
+@click.option(
+    "--setup", "of_setup", is_flag=True, help="Схема ответов конфигуратора вместо site.yaml."
+)
+def schema(of_setup: bool) -> None:
+    """JSON Schema site.yaml: для редактора, агента и формы конфигуратора."""
+    import json
+
+    if of_setup:
+        from heron.setup.answers import Answers
+
+        data = Answers.model_json_schema()
+    else:
+        from heron.contracts.site import SiteConfig
+
+        data = SiteConfig.model_json_schema()
+        data["$id"] = "https://github.com/FMSTM/HERON/site.yaml.schema.json"
+    data["$schema"] = "https://json-schema.org/draft/2020-12/schema"
+    click.echo(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+@main.command()
+def recipe() -> None:
+    """Рецепт образа nginx для собранного сайта (Dockerfile) этой версии HERON.
+
+    `heron recipe > /tmp/Dockerfile && docker build -f /tmp/Dockerfile dist`
+    — образ сайта без клона HERON и без Dockerfile в папке сайта.
+    """
+    from heron.docs import recipe_text
+
+    click.echo(recipe_text(), nl=False)
+
+
+@main.group()
+def theme() -> None:
+    """Темы: поставить по имени, ссылке или архиву, показать каталог, упаковать свою."""
+
+
+@theme.command("get")
+@click.argument("source")
+@click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
+@click.option("--demo/--no-demo", default=True, show_default=True, help="Демо-страницы темы.")
+def theme_get(source: str, path: Path, demo: bool) -> None:
+    """Поставить тему: starter, имя из каталога, https-ссылка или файл архива.
+
+    Прежняя тема уезжает в .heron-cache/setup/, страницы сайта не
+    перезаписываются: демо кладётся только туда, где страницы нет.
+    """
+    from heron import themes
+    from heron.scaffold import _declared
+
+    lang = _lang(None, path)
+    _need_dir(path, lang)
+    if source.startswith("https://"):
+        kind, value = "url", source
+    elif source.startswith("http://"):
+        _err(say(lang, "theme_https"))
+        sys.exit(2)
+    elif (path / source).is_file() or Path(source).is_file():
+        kind, value = (
+            "file",
+            str(Path(source).resolve() if Path(source).is_file() else path / source),
+        )
+    else:
+        kind, value = "name", source
+    declared = _declared(path / "site.yaml") or {}
+    try:
+        installed = themes.install(
+            path, kind, value, demo=demo, languages=declared.get("languages") or ["en"]
+        )
+    except HeronError as error:
+        _fail(error, lang)
+    if (path / "site.yaml").is_file():
+        _set_theme_name(path / "site.yaml", installed.name)
+    click.secho(say(lang, "theme_done", name=installed.name), fg="green", bold=True)
+    if installed.backup:
+        click.echo("  " + say(lang, "setup_backup", file=installed.backup))
+    pages = [x for x in installed.created if x.startswith("content/")]
+    if pages:
+        click.echo("  " + say(lang, "theme_demo", count=len(pages)))
+    click.echo(say(lang, "setup_next", path=_shown(path)))
+
+
+def _set_theme_name(site_yaml: Path, name: str) -> None:
+    """Поменять `site.theme` одной строкой, не трогая остального файла."""
+    text = site_yaml.read_text(encoding="utf-8")
+    new, count = re.subn(
+        r"(?m)^(\s+theme:\s*)([^\s#]+)(.*)$",
+        lambda m: f"{m.group(1)}{name}{m.group(3)}",
+        text,
+        count=1,
+    )
+    if count:
+        site_yaml.write_text(new, encoding="utf-8")
+
+
+@theme.command("list")
+def theme_list() -> None:
+    """Каталог тем HERON."""
+    from heron import themes
+
+    for item in themes.catalog():
+        title = item.get("title") or item["name"]
+        tail = f" — {item['description']}" if item.get("description") else ""
+        click.echo(f"{item['name']:<16} {title}{tail}")
+
+
+@theme.command("pack")
+@click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
+@click.option("--out", "out", default=None, type=click.Path(path_type=Path))
+@click.option("--demo/--no-demo", default=True, show_default=True, help="Контент сайта как демо.")
+def theme_pack(path: Path, out: Path | None, demo: bool) -> None:
+    """Упаковать тему сайта (и контент как демо) в архив для heron theme get."""
+    from heron import themes
+
+    lang = _lang(None, path)
+    target = out or (path / "dist" / "theme.tar.gz")
+    try:
+        made = themes.pack(path, target, with_demo=demo)
+    except HeronError as error:
+        _fail(error, lang)
+    click.echo(str(made))
 
 
 @main.command()

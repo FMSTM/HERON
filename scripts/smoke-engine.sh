@@ -38,12 +38,12 @@ engine -v "$WORK/site":/work -w /work "$IMAGE" \
 engine -v "$WORK/site":/site:ro -v "$WORK/out":/out -w /site "$IMAGE" \
   build . --env prod --strict --out /out/dist
 
-for file in index.html ru/index.html forms/index.html ru/forms/index.html 404.html sitemap.xml robots.txt .heron-nginx.conf; do
+for file in index.html ru/index.html blocks/index.html ru/blocks/index.html 404.html sitemap.xml robots.txt .heron-nginx.conf; do
   [ -s "$WORK/out/dist/$file" ] || { echo "в сборке нет $file" >&2; exit 1; }
 done
 grep -q 'Disallow: /$' "$WORK/out/dist/robots.txt" && { echo "прод закрыт от индексации" >&2; exit 1; }
 # все тринадцать форм секций стартовая тема рисует на демо-странице
-forms="$(grep -o 'class="block [a-z -]*"' "$WORK/out/dist/forms/index.html" | sort -u | wc -l)"
+forms="$(grep -o 'class="block [a-z -]*"' "$WORK/out/dist/blocks/index.html" | sort -u | wc -l)"
 [ "$forms" -ge 13 ] || { echo "демо-страница рисует $forms форм из 13" >&2; exit 1; }
 
 # пересборка того же даёт те же байты

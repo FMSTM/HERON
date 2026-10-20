@@ -39,7 +39,7 @@ def test_starter_theme_with_demo_on_every_language(site: Path):
     result = install(site, "starter", languages=["en", "de"])
     assert result.name == "starter"
     assert (site / "theme" / "modules" / "tabs.html").is_file()
-    assert (site / "content" / "de" / "forms.md").is_file()
+    assert (site / "content" / "de" / "blocks.md").is_file()
     # своя страница не тронута, прежняя тема — в резервной копии
     assert (site / "content" / "en" / "index.md").read_text(encoding="utf-8") == "mine"
     assert result.backup.startswith(".heron-cache/setup/theme.")

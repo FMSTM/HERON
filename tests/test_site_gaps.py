@@ -86,3 +86,21 @@ def test_unused_modules_silent_on_dynamic_calls(tmp_path: Path):
     (tmp_path / "modules" / "faq.html").write_text("x", encoding="utf-8")
     (tmp_path / "base.html").write_text("{{ mod[section.kind](section.id) }}", encoding="utf-8")
     assert unused_modules(tmp_path) == []
+
+
+def test_check_json(tmp_path: Path):
+    import json
+
+    from click.testing import CliRunner
+
+    from heron.cli import main
+    from heron.scaffold import create
+
+    create(tmp_path / "s", name="S", languages=["en"], demo=True)
+    out = CliRunner().invoke(main, ["check", str(tmp_path / "s"), "--json"])
+    data = json.loads(out.output)
+    assert out.exit_code == 0 and data["ok"] is True and data["pages"] == 3
+    (tmp_path / "s" / "site.yaml").write_text("site: {}\n", encoding="utf-8")
+    bad = CliRunner().invoke(main, ["check", str(tmp_path / "s"), "--json"])
+    assert bad.exit_code == 1
+    assert json.loads(bad.output)["errors"][0]["code"] == "E011"

@@ -57,27 +57,58 @@ STRINGS = {
     ),
 }
 
-# Демо стартовой темы: страница «Формы секций» на каждом языке сайта и две
-# картинки для галереи. Показывает все формы, которые знает движок, — и
-# служит инструкцией: файл и страница рядом. Нет перевода — английский.
-DEMO = HERE / "demo"
-DEMO_PAGE = "forms"
-DEMO_TITLES = {
-    "ru": (
-        "Формы секций — как писать страницы",
-        "Формы секций",
-        "Все формы секций HERON на одной странице: список, шаги, таблица, факты, "
-        "вопросы, вкладки и другие.",
-        "Формы",
+# Рыбный контент белой темы: тема без своего контента — это пустая витрина.
+# Главная, «Формы» (все формы секций, которые рисует тема), «Темы»,
+# «Документация» — в каждом языке сайта: страницы стоят в меню, и без них
+# меню второго языка вело бы в никуда (строгая сборка падает). Тексты пока
+# на русском во всех языках: перевод — после вычитки.
+FISH = HERE / "demo" / "ru"
+FISH_MEDIA = HERE / "demo" / "media"
+FISH_PAGES = (
+    # файл, порядок в меню, (title, h1, description, пункт меню)
+    (
+        "index",
+        0,
+        (
+            "{name} — сайт на HERON",
+            "{name}",
+            "Рыбный сайт белой темы HERON: как устроены страницы и что править.",
+            "Главная",
+        ),
     ),
-    "en": (
-        "Section forms — how to write pages",
-        "Section forms",
-        "Every section form of HERON on one page: list, steps, table, facts, "
-        "questions, tabs and more.",
-        "Forms",
+    (
+        "forms",
+        10,
+        (
+            "Формы блоков — что рисует тема",
+            "Формы блоков",
+            "Все формы блоков HERON на одной странице: список, шаги, таблица, факты, "
+            "вопросы, вкладки и другие.",
+            "Формы",
+        ),
     ),
-}
+    (
+        "themes",
+        20,
+        (
+            "Темы — как сменить внешний вид",
+            "Темы",
+            "Как сменить тему сайта на HERON и что приезжает вместе с ней.",
+            "Темы",
+        ),
+    ),
+    (
+        "docs",
+        30,
+        (
+            "Документация — где читать про HERON",
+            "Документация",
+            "Где читать документацию HERON и главные команды.",
+            "Документация",
+        ),
+    ),
+)
+FISH_NAV = ["/", "forms", "themes", "docs"]
 
 # Язык комментариев и пояснений, которые кладёт скелет: site.yaml,
 # theme.yaml, SEO-блок страниц, записки heron-readme.md.
@@ -267,28 +298,25 @@ def seo_block(
     )
 
 
-def _demo(root: Path, lang: str, plan: Plan, force: bool, notes: str) -> None:
-    """Страница «Формы секций» на языке `lang` и картинки к ней."""
-    source = DEMO / lang / f"{DEMO_PAGE}.md"
-    texts = DEMO_TITLES.get(lang)
-    if not source.is_file() or texts is None:
-        source = DEMO / "en" / f"{DEMO_PAGE}.md"
-        texts = DEMO_TITLES["en"]
-    title, h1, description, nav = texts
-    head = seo_block(title, h1, description, order=10, notes=notes, nav_title=nav)
-    body = source.read_text(encoding="utf-8")
-    _put(root, f"content/{lang}/{DEMO_PAGE}.md", head + "\n" + body, plan, force)
-    for image in sorted((DEMO / "media").glob("*")):
+def _fish(root: Path, lang: str, name: str, plan: Plan, force: bool, notes: str) -> None:
+    """Рыбный контент белой темы в язык `lang` и картинки к нему."""
+    for page, order, texts in FISH_PAGES:
+        title, h1, description, nav = (part.format(name=name) for part in texts)
+        head = seo_block(title, h1, description, order=order, notes=notes, nav_title=nav)
+        body = (FISH / f"{page}.md").read_text(encoding="utf-8")
+        _put(root, f"content/{lang}/{page}.md", head + "\n" + body, plan, force)
+    for image in sorted(FISH_MEDIA.glob("*")):
         rel = f"media/demo/{image.name}"
         if rel not in plan.created:
             _put(root, rel, image.read_text(encoding="utf-8"), plan, force)
 
 
 def starter_theme(stage: Path, languages: list[str], notes: str = "en") -> None:
-    """Стартовая тема в папку `stage`: theme/ и demo/ — как архив темы.
+    """Белая тема в папку `stage`: theme/ и demo/ — как архив любой темы.
 
     Тот же источник, что у `heron new`: тема, которую получает новый сайт,
-    и тема, которую ставит `heron theme get starter`, — одна и та же.
+    и тема, которую ставит `heron theme get starter`, — одна и та же, вместе
+    с рыбным контентом в основном языке.
     """
     plan = Plan(notes=notes)
     fields = {"theme": "starter", "theme_title": '"HERON starter"'}
@@ -298,15 +326,24 @@ def starter_theme(stage: Path, languages: list[str], notes: str = "en") -> None:
             _copy(stage, source, f"theme/{source.relative_to(TEMPLATES).as_posix()}", plan, True)
     for lang in languages:
         _put(stage, f"theme/i18n/{lang}.yaml", STRINGS.get(lang, STRINGS["en"]), plan, True)
-    demo = stage / "demo"
     for lang in languages:
-        _demo(demo, lang, plan, True, notes)
+        _fish(stage / "demo", lang, "HERON", plan, True, notes)
 
 
-def _starter(root: Path, lang: str, name: str, plan: Plan, force: bool, notes: str) -> None:
+def _starter(
+    root: Path,
+    lang: str,
+    name: str,
+    plan: Plan,
+    force: bool,
+    notes: str,
+    pages: tuple[str, ...] = ("home", "404"),
+) -> None:
     """Главная и страница 404 языка: сайт собирается сразу после создания."""
     texts = STARTER.get(lang, STARTER["en"])
     for page, rel in (("home", "index.md"), ("404", "404.md")):
+        if page not in pages:
+            continue
         title, h1, description, body = (part.format(name=name) for part in texts[page])
         order = 0 if page == "home" else 999
         nav = NAV_HOME.get(lang, NAV_HOME["en"]) if page == "home" else None
@@ -369,7 +406,7 @@ def create(
     notes: str = "en",
     domain: str | None = None,
     default_lang: str | None = None,
-    demo: bool = False,
+    fish: bool = False,
 ) -> Plan:
     """Разложить скелет сайта в папку.
 
@@ -377,7 +414,9 @@ def create(
     `ru` или `en`. Языки самого сайта — отдельно, в `languages`.
     `default_lang` — основной язык; не задан — первый из `languages`.
     `domain` не задан — заглушка `<имя>.example`.
-    `demo` — страница «Формы секций» на каждом языке и пункт меню к ней.
+    `fish` — рыбный контент белой темы в каждом языке (главная, «Формы»,
+    «Темы», «Документация») и меню к нему. `init` его не кладёт: там у сайта
+    свой контент.
     """
     if notes not in NOTE_LANGS:
         raise ValueError(message("en", "bad_notes", value=notes))
@@ -407,16 +446,19 @@ def create(
     }
 
     site_yaml = _text(notes, "site.yaml").format(**fields)
-    if demo:
-        site_yaml = site_yaml.replace('  main: ["/"]', f'  main: ["/", {DEMO_PAGE}]', 1)
+    if fish:
+        menu = ", ".join(json.dumps(item) if item == "/" else item for item in FISH_NAV)
+        site_yaml = site_yaml.replace('  main: ["/"]', f"  main: [{menu}]", 1)
     _put(root, "site.yaml", site_yaml, plan, force)
     _put(root, ".gitignore", GITIGNORE, plan, force)
     _note(root, "root", "", notes, plan, force, name=name, slug=slugify(name) or name)
 
     for lang in languages:
-        _starter(root, lang, name, plan, force, notes)
-        if demo:
-            _demo(root, lang, plan, force, notes)
+        if fish:
+            _fish(root, lang, name, plan, force, notes)
+            _starter(root, lang, name, plan, force, notes, pages=("404",))
+        else:
+            _starter(root, lang, name, plan, force, notes)
 
     for folder in ("data", "media", "static", "plugins"):
         path = root / folder
@@ -474,10 +516,11 @@ def adopt(root: Path, force: bool = False, notes: str | None = None) -> Plan:
     languages = declared["languages"] if declared else present
     theme = declared["theme"] if declared else None
 
-    # Сайт заведён с демо-страницей — новый язык получает её тоже: она стоит
-    # в меню, и без неё меню нового языка ссылалось бы в никуда.
+    # Рыба белой темы стоит в меню. Новый язык получает её, если она ещё
+    # есть в основном языке, — иначе его меню вело бы в никуда. Сайт, где
+    # рыбу уже заменили своими страницами, ничего лишнего не получает.
     first = (languages or present or [None])[0]
-    demo = bool(first) and (content / first / f"{DEMO_PAGE}.md").is_file()
+    fish = bool(first) and (content / first / "forms.md").is_file()
     made = create(
         root,
         name=root.resolve().name,
@@ -485,7 +528,7 @@ def adopt(root: Path, force: bool = False, notes: str | None = None) -> Plan:
         theme=theme,
         force=force,
         notes=notes,
-        demo=demo,
+        fish=fish,
     )
     plan.created = made.created
     plan.skipped = made.skipped

@@ -465,7 +465,7 @@ TEXT["ru"].update(
         "setup_next": "Дальше: `heron serve {path}` — посмотреть сайт.",
         "setup_bad": "ответы не прошли проверку: {problem}",
         "theme_done": "Тема {name} поставлена.",
-        "theme_demo": "демо-страниц добавлено: {count} (ваши страницы не тронуты)",
+        "theme_demo": "страниц-примеров темы добавлено: {count} (ваши страницы не тронуты)",
         "theme_https": "тему по ссылке берём только по https",
     }
 )
@@ -486,7 +486,7 @@ TEXT["en"].update(
         "setup_next": "Next: `heron serve {path}` — look at the site.",
         "setup_bad": "the answers did not pass the check: {problem}",
         "theme_done": "Theme {name} is in place.",
-        "theme_demo": "demo pages added: {count} (your pages untouched)",
+        "theme_demo": "theme example pages added: {count} (your pages untouched)",
         "theme_https": "a theme by link is taken over https only",
     }
 )

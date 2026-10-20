@@ -48,7 +48,7 @@ publish:
 @pytest.fixture
 def site(tmp_path: Path) -> Path:
     root = tmp_path / "site"
-    create(root, name="Example", languages=["en"], demo=True)
+    create(root, name="Example", languages=["en"], fish=True)
     data = yaml.safe_load((root / "site.yaml").read_text(encoding="utf-8"))
     data["gone"] = ["/old/"]
     data["custom_block"] = {"keep": True}

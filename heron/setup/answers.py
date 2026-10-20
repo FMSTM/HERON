@@ -115,7 +115,6 @@ class ThemeAnswers(Model):
     # later — решу потом (ставится стартовая).
     source: Literal["keep", "starter", "name", "url", "file", "later"] = "keep"
     value: str = ""
-    demo: bool = True
 
 
 class AboutAnswers(Model):

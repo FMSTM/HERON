@@ -5,8 +5,8 @@
 | способ    | файлы                                                             |
 |-----------|-------------------------------------------------------------------|
 | всегда    | `scripts/build.sh` — итоговая сборка одной командой                |
-| git       | `.github/workflows/image.yml`, `scripts/publish.sh`, `.gitignore`  |
-| Docker Hub| `scripts/publish.sh`, `scripts/keys.sh`                            |
+| GitHub    | `scripts/publish.sh`, `.gitignore`; с автосборкой — `.github/workflows/image.yml` |
+| Docker Hub| `scripts/publish.sh`                                               |
 | статика   | `scripts/publish.sh` (на сервер) или `.github/workflows/pages.yml`  |
 
 Длинная часть сборки живёт в HERON: workflow сайта зовёт общий
@@ -14,8 +14,8 @@
 берёт у самого движка (`heron recipe`). В папке сайта нет ни Dockerfile, ни
 копий логики — обновил HERON, и сборка сайта обновилась вместе с ним.
 
-Ключей в этих файлах нет: скрипты читают их из файла настроек HERON на
-компьютере (`heron.setup.keys`), workflow — из секретов репозитория.
+Ключей в этих файлах нет: Docker Hub берёт вход из `docker login` на
+компьютере, workflow — короткоживущий токен, который GitHub выдаёт сборке.
 """
 
 from __future__ import annotations
@@ -62,13 +62,8 @@ T = {
         "publish_pages": "# Публикация: отправить изменения в git — GitHub Pages соберёт сам.",
         "written": "# Записал heron setup: перезапуск конфигуратора перепишет файл.",
         "dirty": "есть несохранённые изменения: сначала git add и git commit",
-        "no_key": "нет ключа {name}: запустите scripts/keys.sh",
-        "keys_head": (
-            "# Ключи доступа сайта — вне папки сайта, в настройках HERON на этом компьютере.\n"
-            "# Спрашивает без эха, пустой ответ — оставить как есть. Записал heron setup.\n"
-        ),
-        "keys_ask": "{label} (Enter — не менять): ",
-        "keys_done": "сохранено в {path}",
+        "hub_login": "вход в Docker Hub — один раз на компьютере: docker login",
+        "publish_push": "# Публикация: отправить изменения в git. Автосборки на GitHub нет.",
     },
     "en": {
         "image_head": (
@@ -93,14 +88,8 @@ T = {
         "publish_pages": "# Publish: send the changes to git, GitHub Pages builds by itself.",
         "written": "# Written by heron setup: running the configurator again rewrites it.",
         "dirty": "there are unsaved changes: git add and git commit first",
-        "no_key": "no {name} key: run scripts/keys.sh",
-        "keys_head": (
-            "# Access keys of the site, outside the site folder, in the HERON settings on\n"
-            "# this computer. Asks without echo; an empty answer keeps the value.\n"
-            "# Written by heron setup.\n"
-        ),
-        "keys_ask": "{label} (Enter keeps it): ",
-        "keys_done": "saved to {path}",
+        "hub_login": "Docker Hub sign-in, once per computer: docker login",
+        "publish_push": "# Publish: send the changes to git. No automatic build on GitHub.",
     },
 }
 
@@ -139,13 +128,6 @@ def build_sh(answers: Answers, lang: str) -> Generated:
     return Generated("scripts/build.sh", text, executable=True)
 
 
-def _keys_loader(ident: str) -> str:
-    return (
-        f'keys="${{HERON_CONFIG_DIR:-$HOME/.config/heron}}/sites/{ident}.env"\n'
-        '[ -f "$keys" ] && set -a && . "$keys" && set +a\n'
-    )
-
-
 def publish_sh(answers: Answers, lang: str, ident: str) -> Generated | None:
     t = T[lang]
     p = answers.publish
@@ -153,8 +135,10 @@ def publish_sh(answers: Answers, lang: str, ident: str) -> Generated | None:
         return None
     head = "#!/usr/bin/env bash\n" + t["written"] + "\n"
     body = "set -euo pipefail\n" + 'cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"\n'
-    if p.way == "git" or (p.way == "static" and p.static_target == "pages"):
-        note = t["publish_git"] if p.way == "git" else t["publish_pages"]
+    if p.way == "github" or (p.way == "static" and p.static_target == "pages"):
+        note = t["publish_git"] if p.way == "github" and p.auto else t["publish_pages"]
+        if p.way == "github" and not p.auto:
+            note = t["publish_push"]
         body += (
             f'if [ -n "$(git status --porcelain)" ]; then echo "{t["dirty"]}" >&2; exit 1; fi\n'
             f"git push origin {p.branch or 'main'}\n"
@@ -163,19 +147,14 @@ def publish_sh(answers: Answers, lang: str, ident: str) -> Generated | None:
     if p.way == "dockerhub":
         image = f"{p.dockerhub_user}/{p.image}"
         body += (
-            _keys_loader(ident)
-            + ': "${HERON_DOCKERHUB_TOKEN:?'
-            + t["no_key"].format(name="Docker Hub")
-            + '}"\n'
-            + f'env="${{1:-{p.env}}}"\n'
+            f'env="${{1:-{p.env}}}"\n'
             + './scripts/build.sh "$env"\n'
             + 'recipe="$(mktemp)"\n'
             + "trap 'rm -f \"$recipe\"' EXIT\n"
             + _engine_run(p.engine)
             + ' recipe > "$recipe"\n'
             + f'docker build -f "$recipe" -t "{image}:$env" dist\n'
-            + 'printf %s "$HERON_DOCKERHUB_TOKEN" | '
-            + f"docker login -u {p.dockerhub_user} --password-stdin\n"
+            + f"# {t['hub_login']}\n"
             + f'docker push "{image}:$env"\n'
         )
         return Generated("scripts/publish.sh", head + t["publish_hub"] + "\n" + body, True)
@@ -186,39 +165,6 @@ def publish_sh(answers: Answers, lang: str, ident: str) -> Generated | None:
         f'rsync -az --delete --exclude .heron-nginx.conf dist/ "{target}"\n'
     )
     return Generated("scripts/publish.sh", head + t["publish_static"] + "\n" + body, True)
-
-
-def keys_sh(answers: Answers, lang: str, ident: str) -> Generated | None:
-    """Записать ключи на компьютере, если конфигуратор в контейнере их не видит."""
-    wanted: list[tuple[str, str]] = []
-    if answers.publish.way == "dockerhub":
-        wanted.append(("HERON_DOCKERHUB_TOKEN", "Docker Hub token"))
-    wanted.append(("HERON_DB_URL", "Database module: address"))
-    wanted.append(("HERON_DB_KEY", "Database module: private key"))
-    t = T[lang]
-    lines = [
-        "#!/usr/bin/env bash",
-        t["keys_head"].rstrip("\n"),
-        "set -euo pipefail",
-        f'file="${{HERON_CONFIG_DIR:-$HOME/.config/heron}}/sites/{ident}.env"',
-        'mkdir -p "$(dirname "$file")" && chmod 700 "$(dirname "$file")"',
-        'touch "$file" && chmod 600 "$file"',
-        "set_key() {",
-        '  local name="$1" value="$2" tmp',
-        '  tmp="$(mktemp "$file.XXXXXX")"',
-        '  grep -v "^$name=" "$file" > "$tmp" || true',
-        '  printf "%s=%s\\n" "$name" "$value" >> "$tmp"',
-        '  chmod 600 "$tmp" && mv "$tmp" "$file"',
-        "}",
-    ]
-    for env, label in wanted:
-        ask = t["keys_ask"].format(label=label)
-        lines += [
-            f'read -r -s -p "{ask}" value; echo',
-            f'[ -n "$value" ] && set_key {env} "$value"',
-        ]
-    lines.append(f'echo "{t["keys_done"].format(path="$file")}"')
-    return Generated("scripts/keys.sh", "\n".join(lines) + "\n", executable=True)
 
 
 def image_yml(answers: Answers, lang: str) -> Generated:
@@ -295,21 +241,17 @@ def gitignore(current: str) -> str | None:
     return current + tail + "\n".join(missing) + "\n"
 
 
-def plan(answers: Answers, lang: str, ident: str, keys_here: bool) -> list[Generated]:
+def plan(answers: Answers, lang: str, ident: str = "") -> list[Generated]:
     """Что записать для этих ответов."""
     out = [build_sh(answers, lang)]
     p = answers.publish
-    if p.way == "git":
+    if p.way == "github" and p.auto:
         out.append(image_yml(answers, lang))
     if p.way == "static" and p.static_target == "pages":
         out.append(pages_yml(answers, lang))
     publish = publish_sh(answers, lang, ident)
     if publish:
         out.append(publish)
-    if not keys_here:
-        keys = keys_sh(answers, lang, ident)
-        if keys:
-            out.append(keys)
     return out
 
 

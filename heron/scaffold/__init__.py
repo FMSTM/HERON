@@ -46,14 +46,23 @@ STRINGS = {
     "uk": (
         "powered_by: Працює на\nread_more: Читати далі\nskip: До змісту\n"
         "menu: Меню\nbreadcrumbs: Ви тут\n"
+        "contact_main: Основний\ncontact_sales: Продажі\n"
+        "contact_marketing: Маркетинг\ncontact_support: Підтримка\n"
+        "contact_booking: Запис\ncontact_press: Преса\n"
     ),
     "ru": (
         "powered_by: Работает на\nread_more: Читать дальше\nskip: К содержимому\n"
         "menu: Меню\nbreadcrumbs: Вы здесь\n"
+        "contact_main: Основной\ncontact_sales: Продажи\n"
+        "contact_marketing: Маркетинг\ncontact_support: Поддержка\n"
+        "contact_booking: Запись\ncontact_press: Пресса\n"
     ),
     "en": (
         "powered_by: Powered by\nread_more: Read more\nskip: Skip to content\n"
         "menu: Menu\nbreadcrumbs: You are here\n"
+        "contact_main: Main\ncontact_sales: Sales\n"
+        "contact_marketing: Marketing\ncontact_support: Support\n"
+        "contact_booking: Booking\ncontact_press: Press\n"
     ),
 }
 

@@ -5,6 +5,10 @@
 # к частному; у частного типа все поля общего плюс свои. Нет нужного типа —
 # берут ближайший общий: разметка остаётся верной, только менее подробной.
 #
+# `group: address` — поля юридического адреса: анкета показывает их одним
+# блоком в порядке страна, индекс, регион, город, улица, дом. Телефоны, почта
+# и профили — не поля, а конструктор каналов связи (`about.contacts`).
+#
 # Каждое поле знает, куда его ответ ложится в site.yaml (`to`), и как оно
 # называется в разметке (`prop`). Разметку движок строит сам из site.yaml
 # блоком `schema.entity` с подстановками — значения не дублируются.
@@ -16,7 +20,8 @@ fields:
   name:
     to: organization.name
     prop: name
-    label: {en: "Name", ru: "Название"}
+    label: {en: "Name of the organization", ru: "Название организации"}
+    label_person: {en: "Full name", ru: "Имя и фамилия"}
     hint: {en: "As people and search engines should call you.", ru: "Как вас называют люди и поисковики."}
   legal_name:
     to: organization.legal_name
@@ -42,44 +47,43 @@ fields:
     kind: media
     label: {en: "Photo", ru: "Фото"}
     hint: {en: "A file in media/: the place, the team or you.", ru: "Файл в media/: место, команда или вы."}
-  telephone:
-    to: contact.phone
-    prop: telephone
-    kind: tel
-    label: {en: "Phone", ru: "Телефон"}
-    hint: {en: "International format: +00 000 000 00 00.", ru: "В международном формате: +00 000 000 00 00."}
-  email:
-    to: contact.email
-    prop: email
-    kind: email
-    label: {en: "Email", ru: "Почта"}
-    hint: {en: "Shown on the site and in the markup.", ru: "Видна на сайте и в разметке."}
   street:
     to: contact.street
     prop: address.streetAddress
     localized: true
-    label: {en: "Street and number", ru: "Улица и дом"}
+    group: address
+    label: {en: "Street", ru: "Улица"}
     hint: {en: "", ru: ""}
+  house:
+    to: contact.house
+    prop: address.house
+    group: address
+    label: {en: "House number", ru: "Дом"}
+    hint: {en: "With building or office, if any: 12/3, office 5.", ru: "С корпусом или офисом, если есть: 12/3, офис 5."}
   postal_code:
     to: contact.postal_code
     prop: address.postalCode
+    group: address
     label: {en: "Postal code", ru: "Индекс"}
     hint: {en: "", ru: ""}
   city:
     to: contact.city
     prop: address.addressLocality
+    group: address
     localized: true
     label: {en: "City", ru: "Город"}
     hint: {en: "", ru: ""}
   region:
     to: contact.region
     prop: address.addressRegion
+    group: address
     localized: true
     label: {en: "Region", ru: "Регион"}
     hint: {en: "State, province or land, if it matters.", ru: "Область или земля, если это важно."}
   country:
     to: contact.country
     prop: address.addressCountry
+    group: address
     label: {en: "Country", ru: "Страна"}
     hint: {en: "Two-letter code: AT, DE, US.", ru: "Код из двух букв: AT, DE, US."}
   latitude:
@@ -112,12 +116,12 @@ fields:
     kind: date
     label: {en: "Founded", ru: "Год основания"}
     hint: {en: "A year or a date: 2013 or 2013-05-01.", ru: "Год или дата: 2013 или 2013-05-01."}
-  same_as:
-    to: organization.same_as
-    prop: sameAs
-    kind: lines
-    label: {en: "Profiles elsewhere", ru: "Профили в других местах"}
-    hint: {en: "One address per line: social networks, maps, catalogues.", ru: "По адресу на строку: соцсети, карты, каталоги."}
+  field_of_work:
+    to: organization.field_of_work
+    prop: knowsAbout
+    kind: direction
+    label: {en: "Field of work", ru: "Сфера деятельности"}
+    hint: {en: "From the list of fields; the nearest broader one if yours is not there.", ru: "Из списка направлений; нет своего — ближайшее общее."}
   job_title:
     to: organization.job_title
     prop: jobTitle
@@ -144,12 +148,12 @@ fields:
     hint: {en: "Goes into the markup only if prices are allowed in the Search group.", ru: "Попадает в разметку, только если цены разрешены в группе «Поиск»."}
 
 # Поля, общие для всех типов, идут первыми; у частного типа добавляются свои.
-common: [name, about, telephone, email, same_as]
+common: [name, about]
 
 types:
   Organization:
     label: {en: "Organization", ru: "Организация"}
-    fields: [legal_name, logo, founding_date, street, postal_code, city, region, country]
+    fields: [legal_name, logo, founding_date, country, postal_code, region, city, street, house]
   Corporation:
     parent: Organization
     label: {en: "Company", ru: "Компания"}
@@ -222,4 +226,4 @@ types:
     label: {en: "Childcare", ru: "Присмотр за детьми"}
   Person:
     label: {en: "Person", ru: "Человек"}
-    fields: [image, job_title, knows_about, works_for, city, country]
+    fields: [image, field_of_work, job_title, works_for, country, city]

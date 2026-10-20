@@ -113,7 +113,6 @@ def run(root: Path, host: str, port: int, in_container: bool, on_ready=None) -> 
                     root,
                     answers,
                     in_container=in_container,
-                    clear_keys=set(data.get("clear_keys") or []),
                     upload=upload,
                 )
             except HeronError as error:
@@ -130,7 +129,6 @@ def run(root: Path, host: str, port: int, in_container: bool, on_ready=None) -> 
                     "removed": result.removed,
                     "kept": result.kept,
                     "created": result.created,
-                    "keys_saved": result.keys_saved,
                     "theme": result.theme,
                     "backup": result.backup,
                     "warnings": result.warnings,

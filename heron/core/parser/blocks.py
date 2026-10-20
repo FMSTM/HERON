@@ -207,6 +207,11 @@ def _table(md: MarkdownIt, tokens: list[Token], env: dict) -> dict[str, Any] | N
     head: list[str] = []
     rows: list[list[str]] = []
     current: list[str] | None = None
+    # Те же ячейки разметкой: `код`, ссылки и выделения. Прежние поля
+    # остаются текстом как были — темы, которые их выводят, не меняются.
+    head_html: list[str] = []
+    rows_html: list[list[str]] = []
+    current_html: list[str] = []
     in_head = False
 
     for index, token in enumerate(tokens):
@@ -216,18 +221,22 @@ def _table(md: MarkdownIt, tokens: list[Token], env: dict) -> dict[str, Any] | N
             in_head = False
         elif token.type == "tr_open":
             current = []
+            current_html = []
         elif token.type == "tr_close":
             if current is not None:
                 if in_head:
-                    head = current
+                    head, head_html = current, current_html
                 else:
                     rows.append(current)
+                    rows_html.append(current_html)
             current = None
         elif token.type in ("th_open", "td_open") and current is not None:
             following = tokens[index + 1] if index + 1 < len(tokens) else None
-            current.append(following.content.strip() if following else "")
+            text = following.content.strip() if following else ""
+            current.append(text)
+            current_html.append(md.renderInline(text, env) if text else "")
 
-    return {"head": head, "rows": rows}
+    return {"head": head, "rows": rows, "head_html": head_html, "rows_html": rows_html}
 
 
 def _steps(md: MarkdownIt, tokens: list[Token], env: dict) -> list[dict[str, Any]] | None:

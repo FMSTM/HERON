@@ -2,9 +2,9 @@
   {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
   <div class="scroll">
   <table>
-    <thead><tr>{% for cell in items.head %}<th scope="col">{{ cell|safe }}</th>{% endfor %}</tr></thead>
+    <thead><tr>{% for cell in items.head_html %}<th scope="col">{{ cell|safe }}</th>{% endfor %}</tr></thead>
     <tbody>
-    {% for row in items.rows %}<tr>{% for cell in row %}<td>{{ cell|safe }}</td>{% endfor %}</tr>{% endfor %}
+    {% for row in items.rows_html %}<tr>{% for cell in row %}<td>{{ cell|safe }}</td>{% endfor %}</tr>{% endfor %}
     </tbody>
   </table>
   </div>

@@ -96,7 +96,7 @@ th { background: var(--wash); font-weight: 600; }
 .callout blockquote { margin: 0; padding: 1rem 1.25rem; border-left: 4px solid var(--accent); background: var(--wash); border-radius: 0 var(--radius) var(--radius) 0; }
 .callout blockquote p { margin: 0; }
 
-.gallery ul { list-style: none; padding: 0; margin: 0; display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); }
+.gallery ul { list-style: none; padding: 0; margin: 0; display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); }
 .gallery img { border-radius: var(--radius); width: 100%; }
 
 .tabset { display: flex; flex-wrap: wrap; }

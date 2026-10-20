@@ -96,10 +96,10 @@ def test_check_json(tmp_path: Path):
     from heron.cli import main
     from heron.scaffold import create
 
-    create(tmp_path / "s", name="S", languages=["en"], demo=True)
+    create(tmp_path / "s", name="S", languages=["en"], fish=True)
     out = CliRunner().invoke(main, ["check", str(tmp_path / "s"), "--json"])
     data = json.loads(out.output)
-    assert out.exit_code == 0 and data["ok"] is True and data["pages"] == 3
+    assert out.exit_code == 0 and data["ok"] is True and data["pages"] == 5
     (tmp_path / "s" / "site.yaml").write_text("site: {}\n", encoding="utf-8")
     bad = CliRunner().invoke(main, ["check", str(tmp_path / "s"), "--json"])
     assert bad.exit_code == 1

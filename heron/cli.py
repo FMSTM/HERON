@@ -576,7 +576,7 @@ def _start_site(
     yes: bool,
     present: list[str] | None = None,
     done_key: str = "new_done",
-    demo: bool = False,
+    fish: bool = False,
 ) -> None:
     """Завести сайт: опрос в терминале или флаги, затем скелет и «Что дальше».
 
@@ -623,7 +623,7 @@ def _start_site(
         notes=lang,
         domain=domain.lower() if domain else None,
         default_lang=default,
-        demo=demo,
+        fish=fish,
     )
     click.secho("\n" + say(lang, done_key, path=_shown(path)), fg="green", bold=True)
     _report_plan(plan, verbose)
@@ -663,12 +663,6 @@ FINISH_FAILED = 3
 @NOTES_OPTION
 @VERBOSE_OPTION
 @site_options
-@click.option(
-    "--demo/--no-demo",
-    default=True,
-    show_default=True,
-    help="Демо-страница «Формы секций» на каждом языке: все формы, которые рисует тема.",
-)
 @click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
 def new(
     path: Path,
@@ -678,7 +672,6 @@ def new(
     domain: str | None,
     langs: str | None,
     yes: bool,
-    demo: bool,
 ) -> None:
     """Создать сайт с нуля: в новой папке или в текущей (`.`).
 
@@ -714,7 +707,7 @@ def new(
             _err(_missing_hint(path, lang), None)
             sys.exit(1)
 
-    _start_site(path, notes, verbose, site_name, domain, langs, yes, demo=demo)
+    _start_site(path, notes, verbose, site_name, domain, langs, yes, fish=True)
 
 
 @main.command()
@@ -1011,12 +1004,11 @@ def theme() -> None:
 @theme.command("get")
 @click.argument("source")
 @click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
-@click.option("--demo/--no-demo", default=True, show_default=True, help="Демо-страницы темы.")
-def theme_get(source: str, path: Path, demo: bool) -> None:
+def theme_get(source: str, path: Path) -> None:
     """Поставить тему: starter, имя из каталога, https-ссылка или файл архива.
 
-    Прежняя тема уезжает в .heron-cache/setup/, страницы сайта не
-    перезаписываются: демо кладётся только туда, где страницы нет.
+    Прежняя тема уезжает в .heron-cache/setup/. Рыбный контент темы
+    кладётся только туда, где страницы нет: страницы сайта не перезаписываются.
     """
     from heron import themes
     from heron.scaffold import _declared
@@ -1037,9 +1029,7 @@ def theme_get(source: str, path: Path, demo: bool) -> None:
         kind, value = "name", source
     declared = _declared(path / "site.yaml") or {}
     try:
-        installed = themes.install(
-            path, kind, value, demo=demo, languages=declared.get("languages") or ["en"]
-        )
+        installed = themes.install(path, kind, value, languages=declared.get("languages") or ["en"])
     except HeronError as error:
         _fail(error, lang)
     if (path / "site.yaml").is_file():
@@ -1080,15 +1070,14 @@ def theme_list() -> None:
 @theme.command("pack")
 @click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
 @click.option("--out", "out", default=None, type=click.Path(path_type=Path))
-@click.option("--demo/--no-demo", default=True, show_default=True, help="Контент сайта как демо.")
-def theme_pack(path: Path, out: Path | None, demo: bool) -> None:
-    """Упаковать тему сайта (и контент как демо) в архив для heron theme get."""
+def theme_pack(path: Path, out: Path | None) -> None:
+    """Упаковать тему сайта вместе с его контентом (рыбой темы) в архив для heron theme get."""
     from heron import themes
 
     lang = _lang(None, path)
     target = out or (path / "dist" / "theme.tar.gz")
     try:
-        made = themes.pack(path, target, with_demo=demo)
+        made = themes.pack(path, target)
     except HeronError as error:
         _fail(error, lang)
     click.echo(str(made))

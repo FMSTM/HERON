@@ -4,7 +4,7 @@
 
     heron-theme.yaml      имя, название, версия, совместимые версии HERON
     theme/                тема: theme.yaml, шаблоны, модули, стили
-    demo/                 необязательно: content/, media/, data/ для показа
+    demo/                 рыбный контент темы: content/<язык>/, media/, data/
 
 Откуда берётся:
 
@@ -240,7 +240,7 @@ def _starter(stage: Path, languages: list[str]) -> None:
     starter_theme(stage, languages)
 
 
-def _place(root: Path, stage: Path, demo: bool, result: Installed) -> None:
+def _place(root: Path, stage: Path, result: Installed) -> None:
     theme = root / "theme"
     if theme.exists():
         backup = root / ".heron-cache" / "setup" / f"theme.{time.strftime('%Y%m%d-%H%M%S')}"
@@ -249,8 +249,6 @@ def _place(root: Path, stage: Path, demo: bool, result: Installed) -> None:
         result.backup = backup.relative_to(root).as_posix()
     shutil.copytree(stage / "theme", theme)
     result.created.append("theme/")
-    if not demo:
-        return
     source = stage / "demo"
     if not source.is_dir():
         return
@@ -271,16 +269,22 @@ def _place(root: Path, stage: Path, demo: bool, result: Installed) -> None:
 
 
 def _demo_languages(stage: Path, languages: list[str]) -> None:
-    """Демо на языках сайта: нет языка в архиве — берём первый язык демо."""
+    """Рыба темы — в каждый язык сайта.
+
+    Страницы рыбы стоят в меню темы, и язык без них давал бы меню в никуда.
+    Нет рыбы на языке сайта — берётся рыба основного языка, иначе первая.
+    Языки рыбы, которых у сайта нет, не кладутся.
+    """
     content = stage / "demo" / "content"
     if not content.is_dir():
         return
-    present = [p.name for p in content.iterdir() if p.is_dir()]
+    present = sorted(p.name for p in content.iterdir() if p.is_dir())
     if not present:
         return
+    base = languages[0] if languages[0] in present else present[0]
     for lang in languages:
         if lang not in present:
-            shutil.copytree(content / present[0], content / lang)
+            shutil.copytree(content / base, content / lang)
     for lang in present:
         if lang not in languages:
             shutil.rmtree(content / lang)
@@ -290,7 +294,6 @@ def install(
     root: Path,
     source: str,
     value: str = "",
-    demo: bool = True,
     languages: list[str] | None = None,
     upload: Path | None = None,
 ) -> Installed:
@@ -334,12 +337,12 @@ def install(
         _demo_languages(stage, languages)
         name = _check_theme(stage / "theme", manifest)
         result = Installed(name=name)
-        _place(root, stage, demo, result)
+        _place(root, stage, result)
         return result
 
 
-def pack(root: Path, out: Path, with_demo: bool = True) -> Path:
-    """Упаковать тему сайта (и его контент как демо) в архив темы."""
+def pack(root: Path, out: Path) -> Path:
+    """Упаковать тему сайта и его контент (рыбу темы) в архив темы."""
     root = Path(root)
     theme = root / "theme"
     name = _check_theme(theme, {})
@@ -359,10 +362,9 @@ def pack(root: Path, out: Path, with_demo: bool = True) -> Path:
         for path in sorted(theme.rglob("*")):
             if path.is_file():
                 archive.add(path, arcname=f"theme/{path.relative_to(theme).as_posix()}")
-        if with_demo:
-            for folder in DEMO_FOLDERS:
-                base = root / folder
-                for path in sorted(base.rglob("*")) if base.is_dir() else []:
-                    if path.is_file() and path.name not in ("heron-readme.md", ".gitkeep"):
-                        archive.add(path, arcname=f"demo/{path.relative_to(root).as_posix()}")
+        for folder in DEMO_FOLDERS:
+            base = root / folder
+            for path in sorted(base.rglob("*")) if base.is_dir() else []:
+                if path.is_file() and path.name not in ("heron-readme.md", ".gitkeep"):
+                    archive.add(path, arcname=f"demo/{path.relative_to(root).as_posix()}")
     return out

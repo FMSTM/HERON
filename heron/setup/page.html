@@ -139,7 +139,7 @@ const T = {
     keys_where: "Saved to", keys_cannot: "The configurator runs inside Docker and does not see the HERON settings on your computer, so it does not take keys here. After saving, run on your computer:",
     keys_mount: "Or start the configurator with the settings folder mounted, and the fields appear here:",
     th_keep: "Keep the current theme", th_starter: "Starter", th_starter_s: "white, every form, built in", th_name: "From the HERON catalog", th_url: "By link", th_file: "My archive", th_later: "Later", th_later_s: "starter until then",
-    th_url_h: "https address of a .zip or .tar.gz; #sha256=<hash> at the end is checked.", th_file_h: ".zip or .tar.gz with theme/ inside.", th_demo: "Add the theme's demo pages where the site has none (your pages are never overwritten)",
+    th_url_h: "https address of a .zip or .tar.gz; #sha256=<hash> at the end is checked.", th_file_h: ".zip or .tar.gz with theme/ inside.",
     th_none: "The catalog is not reachable now: the starter theme is always here.",
     saved: "Saved", nothing: "Nothing changed.", written: "Written", removed: "Removed", kept: "Kept, not ours", created: "Created", keys_saved: "Keys saved", backup: "Previous version", next: "Next: heron serve . — look at the site.",
     error: "Not saved", writes_t: "What this way writes",
@@ -185,7 +185,7 @@ const T = {
     keys_where: "Хранятся в", keys_cannot: "Конфигуратор работает внутри Docker и не видит настроек HERON на вашем компьютере, поэтому ключи здесь не принимает. После сохранения выполните на компьютере:",
     keys_mount: "Или запустите конфигуратор с папкой настроек — и поля появятся здесь:",
     th_keep: "Оставить текущую тему", th_starter: "Стартовая", th_starter_s: "белая, все формы, встроена", th_name: "Из каталога HERON", th_url: "По ссылке", th_file: "Свой архив", th_later: "Потом", th_later_s: "пока стартовая",
-    th_url_h: "https-адрес .zip или .tar.gz; #sha256=<хеш> в конце сверяется.", th_file_h: ".zip или .tar.gz с папкой theme/ внутри.", th_demo: "Добавить демо-страницы темы там, где у сайта их нет (ваши страницы не перезаписываются)",
+    th_url_h: "https-адрес .zip или .tar.gz; #sha256=<хеш> в конце сверяется.", th_file_h: ".zip или .tar.gz с папкой theme/ внутри.",
     th_none: "Каталог сейчас недоступен: стартовая тема есть всегда.",
     saved: "Сохранено", nothing: "Ничего не изменилось.", written: "Записано", removed: "Убрано", kept: "Оставлено, файл не наш", created: "Создано", keys_saved: "Ключи сохранены", backup: "Прежняя версия", next: "Дальше: heron serve . — посмотреть сайт.",
     error: "Не сохранено", writes_t: "Что запишет этот способ",
@@ -442,11 +442,6 @@ function gTheme() {
       const j = await r.json(); UPLOAD = j.upload || ""; th.value = f.name;
     });
     grid.append(h("div", { class: "field wide" }, file, hint(t("th_file_h"))));
-  }
-  if (["starter", "name", "url", "file"].includes(th.source)) {
-    const demo = h("input", { type: "checkbox" }); demo.checked = th.demo !== false;
-    demo.addEventListener("change", () => (th.demo = demo.checked));
-    grid.append(h("label", { class: "check field wide" }, demo, t("th_demo")));
   }
   body.push(grid);
   return group("theme", "7", t("g_theme"), t("g_theme_about"), false, ...body);

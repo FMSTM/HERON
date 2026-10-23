@@ -562,11 +562,11 @@ heron recipe                                 Dockerfile образа nginx дл�
 
 | Способ | Файлы |
 |---|---|
-| помощник | `.heron/scripts/build.sh` — итоговая сборка образом HERON |
+| помощник | `.heron/scripts/build.sh` — итоговая сборка образом HERON по той же политике, что `scripts/site.sh` и `site-image.yml`: без сети, корень образа только на чтение, без capabilities, не от рута; папка сайта — только на чтение, на запись — только `dist/`, `.heron-cache/` и `.dist.heron-lock` |
 | помощник | `.heron/scripts/publish.sh` — публикация выбранным способом (`git push`, образ в Docker Hub, `rsync`); `.gitignore` |
 | GitHub | с `auto` — `.github/workflows/image.yml` (зовёт `site-image.yml` той же ветки HERON; путь задаёт GitHub) |
 | Docker Hub | скрипт публикации: сборка, `heron recipe` → образ nginx, `docker push` (вход — `docker login` на компьютере) |
-| статика | скрипт публикации (`rsync` на сервер) или `.github/workflows/pages.yml` (GitHub Pages) |
+| статика | скрипт публикации (`rsync` на сервер) или `.github/workflows/pages.yml` (GitHub Pages; сборка — та же политика запуска) |
 
 Сборочной логики в папке сайта по-прежнему нет: скрипты и workflow — короткие вызовы образа HERON; Dockerfile и `.env` в папку сайта не кладутся. Скрипты лежат в скрытой папке `.heron/` (внутри — `scripts/`, место и для другого служебного): движок её не читает, в `dist/` она не попадает. Прежние `scripts/*.sh` с отметкой анкеты убираются при следующем сохранении.
 

@@ -926,7 +926,7 @@ def setup(
         text = sys.stdin.read() if answers_file == "-" else Path(answers_file).read_text("utf-8")
         try:
             answers = configurator.load_answers(text)
-            result = configurator.apply(path, answers, in_container=inside, lang=notes)
+            result = configurator.apply(path, answers, lang=notes)
         except HeronError as error:
             _fail(error, lang)
         except ValueError as error:
@@ -949,7 +949,7 @@ def setup(
             click.echo(say(lang, "serve_container", port=port))
 
     try:
-        run(path, where, port, inside, on_ready=ready)
+        run(path, where, port, on_ready=ready)
     except HeronError as error:
         _fail(error, lang)
     click.echo(say(lang, "serve_stopped"))

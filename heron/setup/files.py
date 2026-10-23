@@ -112,11 +112,30 @@ def engine_image(engine: str) -> str:
     return f"{IMAGE}:{engine}"
 
 
-def _engine_run(engine: str) -> str:
-    return (
-        'docker run --rm -v "$PWD":/site -w /site --user "$(id -u):$(id -g)" '
-        f'"${{HERON_IMAGE:-{engine_image(engine)}}}"'
-    )
+# Как запускается движок — одна политика на все сценарии: scripts/site.sh,
+# site-image.yml и файлы, которые пишет анкета. Без сети, корень образа
+# только на чтение, без capabilities, не от рута. Сравнение с двумя другими
+# местами — tests/test_docker_policy.py.
+POLICY = (
+    "--network=none --read-only --tmpfs /tmp --cap-drop=ALL "
+    '--security-opt=no-new-privileges --user "$(id -u):$(id -g)"'
+)
+# Папка сайта — только на чтение. Писать сборке можно ровно туда, куда она
+# пишет: dist/ (вместе со своей временной папкой), кэш нарезок рядом и
+# файл блокировки сборки. Точки монтирования создаются заранее: иначе их
+# создаст docker — от root.
+PREPARE = "mkdir -p dist .heron-cache\n[ -e .dist.heron-lock ] || : > .dist.heron-lock\n"
+MOUNTS = (
+    '-v "$PWD":/site:ro -v "$PWD/dist":/site/dist -v "$PWD/.heron-cache":/site/.heron-cache '
+    '-v "$PWD/.dist.heron-lock":/site/.dist.heron-lock -w /site'
+)
+
+
+def _engine(engine: str, mounts: str = "", indent: str = "") -> str:
+    """`docker run` движка по общей политике — строками через `\\`."""
+    image = f'"${{HERON_IMAGE:-{engine_image(engine)}}}"' if not indent else engine_image(engine)
+    parts = ["docker run --rm", POLICY, *([mounts] if mounts else []), image]
+    return f" \\\n{indent}  ".join(parts)
 
 
 def build_sh(answers: Answers, lang: str) -> Generated:
@@ -130,13 +149,14 @@ def build_sh(answers: Answers, lang: str) -> Generated:
         + 'env="${1:-prod}"\n'
         + 'strict=""\n'
         + '[ "$env" = prod ] && strict="--strict"\n'
-        + _engine_run(engine)
+        + PREPARE
+        + _engine(engine, MOUNTS)
         + ' build . --env "$env" $strict\n'
     )
     return Generated(BUILD, text, executable=True)
 
 
-def publish_sh(answers: Answers, lang: str, ident: str) -> Generated | None:
+def publish_sh(answers: Answers, lang: str) -> Generated | None:
     t = T[lang]
     p = answers.publish
     if p.way == "none":
@@ -159,7 +179,7 @@ def publish_sh(answers: Answers, lang: str, ident: str) -> Generated | None:
             + './.heron/scripts/build.sh "$env"\n'
             + 'recipe="$(mktemp)"\n'
             + "trap 'rm -f \"$recipe\"' EXIT\n"
-            + _engine_run(p.engine)
+            + _engine(p.engine)
             + ' recipe > "$recipe"\n'
             + f'docker build -f "$recipe" -t "{image}:$env" dist\n'
             + f"# {t['hub_login']}\n"
@@ -205,7 +225,6 @@ def pages_yml(answers: Answers, lang: str) -> Generated:
     t = T[lang]
     p = answers.publish
     branch = p.branch or "main"
-    image = engine_image(p.engine)
     text = (
         t["pages_head"].format(branch=branch)
         + "name: pages\n"
@@ -228,9 +247,10 @@ def pages_yml(answers: Answers, lang: str) -> Generated:
         + "          fetch-depth: 0\n"
         + "      - name: build\n"
         + "        run: |\n"
-        + '          docker run --rm --network=none -v "$PWD":/site -w /site \\\n'
-        + '            --user "$(id -u):$(id -g)" '
-        + f"{image} build . --env {p.env}"
+        + "".join(f"          {line}\n" for line in PREPARE.splitlines())
+        + "          "
+        + _engine(p.engine, MOUNTS, indent="          ")
+        + f" build . --env {p.env}"
         + (" --strict" if p.env == "prod" else "")
         + "\n"
         + "      - uses: actions/upload-pages-artifact@v4\n"
@@ -251,7 +271,7 @@ def gitignore(current: str) -> str | None:
     return current + tail + "\n".join(missing) + "\n"
 
 
-def plan(answers: Answers, lang: str, ident: str = "") -> list[Generated]:
+def plan(answers: Answers, lang: str) -> list[Generated]:
     """Что записать для этих ответов."""
     p = answers.publish
     out: list[Generated] = []
@@ -264,7 +284,7 @@ def plan(answers: Answers, lang: str, ident: str = "") -> list[Generated]:
     if p.way == "static" and p.static_target == "pages":
         out.append(pages_yml(answers, lang))
     if wants_publish:
-        publish = publish_sh(answers, lang, ident)
+        publish = publish_sh(answers, lang)
         if publish:
             out.append(publish)
     return out

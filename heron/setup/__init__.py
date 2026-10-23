@@ -115,7 +115,7 @@ def notes_lang(data: dict[str, Any], flag: str | None = None) -> str:
     return value if value in ("ru", "en") else "en"
 
 
-def state(root: Path, in_container: bool) -> dict[str, Any]:
+def state(root: Path) -> dict[str, Any]:
     """Всё, что нужно странице анкеты: ответы, справочник, темы, репозиторий."""
     from heron import __version__, build_info
 
@@ -209,7 +209,6 @@ def backup(root: Path, name: str, data: bytes) -> Path:
 def apply(
     root: Path,
     answers: Answers,
-    in_container: bool = False,
     lang: str | None = None,
     upload: Path | None = None,
 ) -> Result:

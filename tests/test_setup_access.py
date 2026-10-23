@@ -59,7 +59,7 @@ def _start(root: Path, host: str):
         ready.set()
 
     thread = threading.Thread(
-        target=server.run, args=(root, host, port, False), kwargs={"on_ready": on_ready}
+        target=server.run, args=(root, host, port), kwargs={"on_ready": on_ready}
     )
     thread.daemon = True
     thread.start()

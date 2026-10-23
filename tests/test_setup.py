@@ -321,7 +321,7 @@ def test_recipe_command():
 def test_countries_and_directions_in_state(site: Path):
     from heron.setup import state
 
-    seen = state(site, in_container=False)
+    seen = state(site)
     austria = next(row for row in seen["countries"] if row[0] == "AT")
     assert austria[1] == "Австрия" and austria[3] == "+43"
     assert len(seen["countries"]) > 240

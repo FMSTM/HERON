@@ -41,7 +41,7 @@ class _Server(socketserver.ThreadingTCPServer):
     daemon_threads = True
 
 
-def run(root: Path, host: str, port: int, in_container: bool, on_ready=None) -> None:
+def run(root: Path, host: str, port: int, on_ready=None) -> None:
     """Поднять анкету. `on_ready(token)` вызывается, когда порт открыт."""
     from heron import setup
 
@@ -92,7 +92,7 @@ def run(root: Path, host: str, port: int, in_container: bool, on_ready=None) -> 
             elif not self._allowed():
                 self._json(403, {"error": "open the address printed in the terminal"})
             elif self.path == "/api/state":
-                self._json(200, setup.state(root, in_container))
+                self._json(200, setup.state(root))
             else:
                 self._json(404, {"error": "not found"})
 
@@ -123,12 +123,7 @@ def run(root: Path, host: str, port: int, in_container: bool, on_ready=None) -> 
                 data = json.loads(body.decode("utf-8") or "{}")
                 answers = setup.Answers.model_validate(data.get("answers") or {})
                 upload = uploads.get(str(data.get("upload") or ""))
-                result = setup.apply(
-                    root,
-                    answers,
-                    in_container=in_container,
-                    upload=upload,
-                )
+                result = setup.apply(root, answers, upload=upload)
             except HeronError as error:
                 self._json(400, {"ok": False, "error": error.message, "hint": error.hint or ""})
                 return
@@ -146,7 +141,7 @@ def run(root: Path, host: str, port: int, in_container: bool, on_ready=None) -> 
                     "theme": result.theme,
                     "backup": result.backup,
                     "warnings": result.warnings,
-                    "state": setup.state(root, in_container),
+                    "state": setup.state(root),
                 },
             )
 

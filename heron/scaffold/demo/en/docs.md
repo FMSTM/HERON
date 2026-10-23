@@ -16,7 +16,7 @@ docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD":/site -w /site --user $(id 
    heron new my-site
    ```
 
-2. **Set it up.** A questionnaire in the browser at `localhost:8000`: name, domains, who the site is about, publishing, theme. Run it from the site folder:
+2. **Set it up.** A questionnaire in the browser — open the address it prints, with the key after `#`: name, domains, who the site is about, publishing, theme. Run it from the site folder:
 
    ```bash
    cd my-site && heron setup .

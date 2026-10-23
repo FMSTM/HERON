@@ -15,17 +15,19 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import html
 import json
 import os
 import re
 import shutil
 import stat
+import urllib.parse
 import uuid
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 from heron.contracts.theme import ImagesSpec
 from heron.core import notes, paths
@@ -88,7 +90,9 @@ KEEP = {".jpg", ".jpeg", ".png", ".webp"}
 # Записывается всё через временный файл и `os.replace`: две сборки, режущие
 # одно и то же одновременно, пишут одинаковые байты и не видят полуфайлов.
 SLICES = "renditions"
-CACHE_VERSION = 4
+# 5 — EXIF-ориентация учитывается до геометрии: записи v4 повёрнутых
+# фотографий нарезаны боком и в сборку больше не идут.
+CACHE_VERSION = 5
 # Прежние форматы: индекс по путям сайта и нарезки по именам сайта. Именно
 # они смешивали сайты в общем .heron-cache — убираются при первой сборке.
 LEGACY_CACHE = ("media.json", "media")
@@ -564,8 +568,18 @@ class Shape:
 
 
 def _load(source: Path) -> Image.Image:
+    """Мастер так, как его видит человек.
+
+    Камера и телефон пишут кадр как сняли, а поворот — тегом EXIF
+    Orientation. Браузер и просмотрщик поворачивают по тегу; нарезка без
+    поворота выходит боком, а кадрирование режет не ту сторону. Поворот —
+    до определения размеров, кадрирования и кодирования; сам тег в нарезку
+    не идёт.
+    """
     with Image.open(source) as opened:
-        return _opaque(opened.convert("RGBA" if opened.mode in ("RGBA", "LA", "P") else "RGB"))
+        upright = ImageOps.exif_transpose(opened)
+        mode = "RGBA" if upright.mode in ("RGBA", "LA", "P") else "RGB"
+        return _opaque(upright.convert(mode))
 
 
 def shape_of(source: Path) -> Shape:
@@ -952,13 +966,21 @@ _USED = re.compile(rf"""(?<=[/"'\s(,=])((?:{_IN})/[^\s"'<>()\\,]+)""")
 
 
 def used_in(texts) -> set[str]:
-    """Пути к ресурсам, на которые ссылается собранный сайт."""
+    """Пути к ресурсам, на которые ссылается собранный сайт.
+
+    В HTML путь записан с экранированием (`a&amp;b.png`, `%20`), а план
+    знает имя файла (`a&b.png`): без раскодирования такой файл «не нужен»
+    сборке, и страница ссылается на нарезку, которой в dist нет. Варианты
+    только добавляются — лишний путь просто не найдёт пары в плане.
+    """
     found: set[str] = set()
     for text in texts:
         for match in _USED.finditer(text):
             path = match.group(1)
-            found.add(path)
-            found.add(path.rstrip(".;:!?"))
+            for variant in (path, html.unescape(path)):
+                for candidate in (variant, urllib.parse.unquote(variant)):
+                    found.add(candidate)
+                    found.add(candidate.rstrip(".;:!?"))
     return found
 
 

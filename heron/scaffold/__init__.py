@@ -50,6 +50,11 @@ STRINGS = {
         "contact_main: Основний\ncontact_sales: Продажі\n"
         "contact_marketing: Маркетинг\ncontact_support: Підтримка\n"
         "contact_booking: Запис\ncontact_press: Преса\n"
+        "consent_title: Згода на аналітику\n"
+        "consent_text: Сайт використовує лічильники відвідуваності. "
+        "Вони вмикаються лише з вашої згоди.\n"
+        "consent_accept: Прийняти\nconsent_decline: Відмовитися\n"
+        "consent_settings: Налаштування лічильників\n"
     ),
     "ru": (
         "powered_by: Работает на\nread_more: Читать дальше\nskip: К содержимому\n"
@@ -57,6 +62,11 @@ STRINGS = {
         "contact_main: Основной\ncontact_sales: Продажи\n"
         "contact_marketing: Маркетинг\ncontact_support: Поддержка\n"
         "contact_booking: Запись\ncontact_press: Пресса\n"
+        "consent_title: Согласие на аналитику\n"
+        "consent_text: Сайт использует счётчики посещаемости. "
+        "Они включаются только с вашего согласия.\n"
+        "consent_accept: Принять\nconsent_decline: Отказаться\n"
+        "consent_settings: Настройки счётчиков\n"
     ),
     "en": (
         "powered_by: Powered by\nread_more: Read more\nskip: Skip to content\n"
@@ -64,6 +74,11 @@ STRINGS = {
         "contact_main: Main\ncontact_sales: Sales\n"
         "contact_marketing: Marketing\ncontact_support: Support\n"
         "contact_booking: Booking\ncontact_press: Press\n"
+        "consent_title: Analytics consent\n"
+        "consent_text: This site uses visitor counters. "
+        "They are switched on only with your consent.\n"
+        "consent_accept: Accept\nconsent_decline: Decline\n"
+        "consent_settings: Counter settings\n"
     ),
 }
 

@@ -317,7 +317,24 @@ def run(
         result.report = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
         # Проверяется то, что действительно ляжет в сборку: конфиг, подменённый
         # статикой через build.overrides, — его байты, а не сгенерированный.
-        result.report.nginx_test = nginx.check(outputs.text_of(nginx.NAME), collector)
+        # Конфиг, который нельзя прочитать или который пуст, — ошибка до записи:
+        # nginx -t иначе пропускался, и непроверенный файл уходил в dist.
+        try:
+            conf = outputs.text_of(nginx.NAME)
+        except HeronError as error:
+            collector.errors.append(error)
+            conf = None
+        else:
+            if conf is not None and not conf.strip():
+                collector.error(
+                    "E034",
+                    f"{nginx.NAME} пуст",
+                    path=nginx.NAME,
+                    hint="пустой конфиг — сайт без 301, 410 и 404; уберите подмену "
+                    "из build.overrides или верните содержимое",
+                )
+                conf = None
+        result.report.nginx_test = nginx.check(conf, collector)
         _schema(site, config, theme, collector, result.report)
         if result.failed:
             return result

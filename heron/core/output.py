@@ -138,16 +138,32 @@ class Outputs:
             )
 
     def text_of(self, rel: str) -> str | None:
-        """Итоговое содержимое файла сборки текстом — кто бы его ни заявил."""
+        """Итоговое содержимое файла сборки текстом — кто бы его ни заявил.
+
+        Файла в сборке нет — None. Файл есть, но не читается или не UTF-8 —
+        E034: иначе проверка, которой нужен текст (nginx -t), молча
+        пропускалась бы, а сам файл уезжал в сборку.
+        """
         entry = self.entries.get(rel)
         if entry is None:
             return None
         if entry.text is not None:
             return entry.text
-        try:
-            return entry.source.read_text(encoding="utf-8") if entry.source else None
-        except (OSError, UnicodeDecodeError):
+        if entry.source is None:
             return None
+        try:
+            return entry.source.read_text(encoding="utf-8")
+        except UnicodeDecodeError as error:
+            reason = f"не UTF-8 (байт {error.start})"
+        except OSError as error:
+            reason = f"не читается: {error.strerror or type(error).__name__}"
+        raise HeronError(
+            code="E034",
+            message=f"{rel} из {entry.owner}: {reason}",
+            path=str(entry.source),
+            hint="сохраните файл в UTF-8 и дайте его прочитать — сборка без проверки "
+            "этого файла не выходит",
+        )
 
     def texts(self) -> list[str]:
         return [e.text for e in self.entries.values() if e.text is not None]

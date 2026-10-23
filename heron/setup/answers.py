@@ -500,7 +500,9 @@ def read(data: dict[str, Any]) -> Answers:
     out: dict[str, Any] = {
         "site": {
             "name": str(site.get("name") or ""),
-            "domain": str(site.get("domain") or ""),
+            # рабочий домен — тот, с которым собирается прод: site.domains.prod
+            # сильнее site.domain (build.for_env)
+            "domain": str(domains.get("prod") or site.get("domain") or ""),
             "preview_domain": str(domains.get("dev") or ""),
             "languages": languages,
             "default_lang": default,
@@ -773,8 +775,17 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
     a = answers.site
     if a.name:
         site["name"] = a.name
-    site["domain"] = a.domain or site.get("domain") or "example.com"
     domains = dict(site.get("domains") or {})
+    # Рабочий домен — тот, что реально у прода: site.domains.prod, если он
+    # задан, иначе site.domain. Поменяли его в анкете — меняются оба, иначе
+    # прод собирался бы со старым. Не меняли — файл остаётся как был.
+    effective = domains.get("prod") or site.get("domain")
+    if a.domain and a.domain != effective:
+        site["domain"] = a.domain
+        if "prod" in domains:
+            domains["prod"] = a.domain
+    else:
+        site["domain"] = site.get("domain") or a.domain or "example.com"
     if a.preview_domain:
         domains["dev"] = a.preview_domain
     else:
@@ -868,8 +879,15 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
         if not out["organization"]:
             out.pop("organization")
 
-    entity = _entity(answers)
     schema = out.get("schema") if isinstance(out.get("schema"), dict) else {}
+    # Узел разметки сливается в три стороны. База — то, что анкета сама
+    # записала бы для прежнего конфига; если ответ не менялся, ключ берётся
+    # из site.yaml как есть. Так переживают сохранение поля, которых анкета
+    # не знает (geo, openingHours, medicalSpecialty, founder…), точный
+    # @type и чужой @id — и меняется только то, что человек поменял в анкете.
+    previous = schema.get("entity") if isinstance(schema.get("entity"), dict) else {}
+    base = _entity(read(data)) if previous else None
+    entity = _three_way(previous, base or {}, _entity(answers) or {})
     if entity:
         schema["entity"] = entity
     else:
@@ -906,11 +924,22 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
             analytics[key] = None
 
     p = answers.publish
+    off = sorted(k for k, v in p.helpers.items() if not v)
     if p.way == "none":
-        out.pop("publish", None)
+        # «Пока не знаю» — но решения о помощниках и движок для скрипта
+        # сборки уже приняты: без них повторное открытие анкеты вернуло бы
+        # умолчания и переписало помощники.
+        block = {"way": "none"}
+        if p.engine != "prod":
+            block["engine"] = p.engine
+        if off:
+            block["helpers"] = {k: False for k in off}
+        if len(block) > 1:
+            out["publish"] = block
+        else:
+            out.pop("publish", None)
     else:
         block: dict[str, Any] = {"way": p.way, "env": p.env, "engine": p.engine}
-        off = sorted(k for k, v in p.helpers.items() if not v)
         if off:
             block["helpers"] = {k: False for k in off}
         if p.way == "github":
@@ -921,6 +950,8 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
             block.update(dockerhub_user=p.dockerhub_user, image=p.image)
         else:
             block["static_target"] = p.static_target
+            if p.static_target == "pages":
+                block["branch"] = p.branch or "main"  # из неё собирает pages.yml
             if p.static_target == "server":
                 block.update(server=p.server, path=p.path or "/var/www/" + site["domain"])
         out["publish"] = block
@@ -931,6 +962,32 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
 
 
 LANG_TAIL = re.compile(r"^(?P<key>.+?)_(?P<lang>[a-z]{2}(?:-[a-z]{2})?)$")
+
+
+_MISSING = object()
+
+
+def _three_way(theirs: Any, base: Any, ours: Any) -> Any:
+    """Слить узел: `theirs` — в site.yaml, `base` — что дала бы анкета для
+    него, `ours` — что она даёт для новых ответов.
+
+    Ответ не менялся (`ours == base`) — остаётся записанное в файле, будь то
+    поле руками или поле анкеты. Менялся — берётся новое; пропал из ответов —
+    ключ убирается. Словари сливаются по ключам.
+    """
+    if isinstance(theirs, dict) and isinstance(ours, dict):
+        base = base if isinstance(base, dict) else {}
+        out: dict[str, Any] = {}
+        for key in [*theirs, *[k for k in ours if k not in theirs]]:
+            value = _three_way(
+                theirs.get(key, _MISSING), base.get(key, _MISSING), ours.get(key, _MISSING)
+            )
+            if value is not _MISSING:
+                out[key] = value
+        return out
+    if ours == base:
+        return theirs
+    return ours
 
 
 def _tidy(block: dict[str, Any]) -> dict[str, Any]:

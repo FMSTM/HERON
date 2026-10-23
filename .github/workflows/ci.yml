@@ -44,7 +44,7 @@ jobs:
         # в первый же день — и расходились.
         run: bash scripts/check.sh
 
-  # Браузерный тест XSS: Chromium ставится только здесь и только на время
+  # Браузерные тесты (XSS, согласие на счётчики): Chromium ставится только здесь и только на время
   # задания (`uv run --with`), в зависимости движка он не попадает.
   # HERON_REQUIRE_BROWSER=1 — без браузера тест падает, а не пропускается.
   browser:
@@ -69,10 +69,10 @@ jobs:
         # `install --with-deps`: «does not support chromium on ubuntu26.04».
         run: uv run --with playwright==1.63.0 playwright install --with-deps chromium
 
-      - name: JSON-LD и заголовки в браузере
+      - name: JSON-LD, заголовки и согласие на счётчики в браузере
         env:
           HERON_REQUIRE_BROWSER: "1"
-        run: uv run --with playwright==1.63.0 pytest tests/test_html_safety.py -k browser -rs
+        run: uv run --with playwright==1.63.0 pytest tests -k browser -rs
 
   image:
     name: образ движка

@@ -1,18 +1,75 @@
-{% if site.analytics.gtm %}
-<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});
-var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;
-j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','{{ site.analytics.gtm }}');</script>
+{# Счётчики — только после согласия посетителя.
+
+   До выбора на странице нет ни одного скрипта счётчика и ни одного запроса к
+   ним: только плашка. «Принять» — счётчики подключаются сразу и на
+   следующих страницах; «Отказаться» — не подключаются, плашка больше не
+   показывается. Выбор хранится в localStorage этого браузера
+   (heron-consent: yes | no), передумать — кнопка в подвале.
+   Номера счётчиков — из site.yaml (analytics.*), в код страницы они
+   попадают через tojson: это данные, а не разметка. #}
+{% set counters = {} %}
+{% if site.analytics.gtm %}{% set counters = dict(counters, gtm=site.analytics.gtm) %}{% endif %}
+{% if site.analytics.ga4 %}{% set counters = dict(counters, ga4=site.analytics.ga4) %}{% endif %}
+{% if site.analytics.metrika %}{% set counters = dict(counters, metrika=site.analytics.metrika|string) %}{% endif %}
+{% if counters %}
+<div class="consent" data-consent hidden role="dialog" aria-live="polite" aria-label="{{ t.consent_title }}">
+  <p>{{ t.consent_text }}</p>
+  <div class="consent-actions">
+    <button type="button" data-consent-accept>{{ t.consent_accept }}</button>
+    <button type="button" class="quiet" data-consent-decline>{{ t.consent_decline }}</button>
+  </div>
+</div>
+<script>
+  (function () {
+    var COUNTERS = {{ counters|tojson }};
+    var KEY = "heron-consent";
+    var box = document.querySelector("[data-consent]");
+    function read() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+    function write(value) { try { localStorage.setItem(KEY, value); } catch (e) {} }
+    function script(src) {
+      var s = document.createElement("script");
+      s.async = true; s.src = src;
+      document.head.appendChild(s);
+    }
+    var loaded = false;
+    function load() {
+      if (loaded) return;
+      loaded = true;
+{% if 'gtm' in counters %}
+      if (COUNTERS.gtm) {
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
+        script("https://www.googletagmanager.com/gtm.js?id=" + encodeURIComponent(COUNTERS.gtm));
+      }
+{% endif %}{% if 'ga4' in counters %}
+      if (COUNTERS.ga4) {
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = function () { window.dataLayer.push(arguments); };
+        window.gtag("js", new Date());
+        window.gtag("config", COUNTERS.ga4);
+        script("https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(COUNTERS.ga4));
+      }
+{% endif %}{% if 'metrika' in counters %}
+      if (COUNTERS.metrika) {
+        window.ym = window.ym || function () { (window.ym.a = window.ym.a || []).push(arguments); };
+        window.ym.l = 1 * new Date();
+        window.ym(Number(COUNTERS.metrika), "init", { clickmap: true, trackLinks: true, accurateTrackBounce: true });
+        script("https://mc.yandex.ru/metrika/tag.js");
+      }
 {% endif %}
-{% if site.analytics.ga4 %}
-<script async src="https://www.googletagmanager.com/gtag/js?id={{ site.analytics.ga4 }}"></script>
-<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}
-gtag('js',new Date());gtag('config','{{ site.analytics.ga4 }}');</script>
-{% endif %}
-{% if site.analytics.metrika %}
-<script>(function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};m[i].l=1*new Date();
-for(var j=0;j<document.scripts.length;j++){if(document.scripts[j].src===r){return;}}
-k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
-(window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");
-ym({{ site.analytics.metrika }},"init",{clickmap:true,trackLinks:true,accurateTrackBounce:true});</script>
+    }
+    function show() { if (box) box.hidden = false; }
+    function hide() { if (box) box.hidden = true; }
+    var choice = read();
+    if (choice === "yes") load();
+    else if (choice !== "no") show();
+    document.addEventListener("click", function (event) {
+      var target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest("[data-consent-accept]")) { write("yes"); hide(); load(); }
+      else if (target.closest("[data-consent-decline]")) { write("no"); hide(); }
+      else if (target.closest("[data-consent-open]")) { show(); }
+    });
+  })();
+</script>
 {% endif %}

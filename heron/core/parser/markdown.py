@@ -172,7 +172,39 @@ def make(allow_raw_html: bool = False) -> MarkdownIt:
 _HTML_FINDER = MarkdownIt("commonmark", {"html": True}).enable(["table", "strikethrough"])
 
 
-CODE_SPAN = re.compile(r"(?<!`)(?P<fence>`+)(?!`)(?P<code>.+?)(?<!`)(?P=fence)(?!`)")
+BACKTICKS = re.compile(r"`+")
+
+
+def _blank_spans(text: str) -> str:
+    """Код-спаны по правилу CommonMark — серия обратных кавычек до серии той же
+    длины, в том числе через перенос строки, — заменены пробелами.
+
+    Перенос строки остаётся переносом: число и длина строк не меняются.
+    Серия без пары — просто символы, как и у commonmark.
+    """
+    out = list(text)
+    pos = 0
+    while True:
+        opening = BACKTICKS.search(text, pos)
+        if opening is None:
+            break
+        if opening.start() > 0 and text[opening.start() - 1] == "\\":
+            pos = opening.end()  # экранированная кавычка спана не открывает
+            continue
+        size = len(opening.group(0))
+        closing = None
+        for candidate in BACKTICKS.finditer(text, opening.end()):
+            if len(candidate.group(0)) == size:
+                closing = candidate
+                break
+        if closing is None:
+            pos = opening.end()
+            continue
+        for index in range(opening.start(), closing.end()):
+            if out[index] != "\n":
+                out[index] = " "
+        pos = closing.end()
+    return "".join(out)
 
 
 def without_code(text: str) -> str:
@@ -185,16 +217,26 @@ def without_code(text: str) -> str:
     в отчёте остаются верными.
 
     Блоки находит тот же разборщик commonmark, что рендерит страницу:
-    огороженные и с отступом, в том числе внутри списков и цитат.
+    огороженные и с отступом, в том числе внутри списков и цитат. Инлайн-код
+    ищется внутри каждого блока текста, который разборщик отдал строкам
+    (абзац, заголовок, ячейка): спан переходит через перенос строки, как и
+    при рендеринге, но не через границу блока.
     """
     lines = text.split("\n")
+    blocks: list[tuple[int, int]] = []
     for token in _HTML_FINDER.parse(text):
-        if token.type in ("fence", "code_block") and token.map:
-            start, end = token.map
+        if not token.map:
+            continue
+        start, end = token.map
+        if token.type in ("fence", "code_block"):
             for index in range(start, min(end, len(lines))):
                 lines[index] = " " * len(lines[index])
-    out = "\n".join(lines)
-    return CODE_SPAN.sub(lambda match: " " * len(match.group(0)), out)
+        elif token.type == "inline" and "`" in token.content:
+            blocks.append((start, min(end, len(lines))))
+    for start, end in blocks:
+        chunk = _blank_spans("\n".join(lines[start:end]))
+        lines[start:end] = chunk.split("\n")
+    return "\n".join(lines)
 
 
 def raw_html(body: str) -> list[tuple[int, str]]:

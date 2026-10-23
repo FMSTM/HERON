@@ -163,3 +163,20 @@ th { background: var(--wash); font-weight: 600; }
 }
 .powered a { display: inline-flex; align-items: center; gap: .45rem; text-decoration: none; }
 .powered .mark { width: 14px; height: 22px; }
+
+/* согласие на счётчики: плашка внизу экрана, до выбора счётчиков нет */
+.consent[hidden] { display: none; }
+.consent {
+  position: fixed; inset: auto 1rem 1rem 1rem; z-index: 20; max-width: 40rem; margin-inline: auto;
+  background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 8px 30px rgb(0 0 0 / .18); padding: 1rem 1.1rem;
+}
+.consent p { margin: 0 0 .75rem; }
+.consent-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.consent button, .consent-open button {
+  font: inherit; border-radius: 8px; padding: .45rem 1rem; cursor: pointer;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
+}
+.consent button.quiet, .consent-open button.quiet { background: transparent; color: var(--ink); border-color: var(--line); }
+.consent-open { margin: .5rem 0 0; }
+.consent-open button { font-size: .9rem; padding: .25rem .7rem; }

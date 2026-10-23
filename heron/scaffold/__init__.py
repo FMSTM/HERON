@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from heron import __version__
+from heron.core import paths
 from heron.core.notes import NOTE
 
 HERE = Path(__file__).parent
@@ -382,11 +383,14 @@ def _version_spec() -> str:
 
 
 def _put(root: Path, rel: str, text: str, plan: Plan, force: bool) -> None:
-    path = root / rel
+    # Ссылка наружу на файле или на папке по пути к нему — E024 до записи:
+    # init и setup дописывают чужие папки сайта, а не только новые.
+    path = paths.in_site(root, rel)
     if path.exists() and not force:
         plan.skipped.append(rel)
         return
     path.parent.mkdir(parents=True, exist_ok=True)
+    paths.in_site(root, rel)  # папки созданы — проверить ещё раз
     path.write_text(text, encoding="utf-8")
     plan.created.append(rel)
 
@@ -486,8 +490,8 @@ def create(
             _starter(root, lang, name, plan, force, notes)
 
     for folder in ("data", "media", "static", "plugins"):
-        path = root / folder
-        if not path.exists():
+        path = paths.in_site(root, folder)
+        if not path.exists() and not path.is_symlink():
             path.mkdir(parents=True, exist_ok=True)
             (path / ".gitkeep").write_text("", encoding="utf-8")
             plan.created.append(f"{folder}/")

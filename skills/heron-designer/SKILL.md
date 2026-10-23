@@ -6,7 +6,7 @@ description: Make or change the theme of a HERON site - Jinja2 templates per pag
 # HERON designer
 
 Read first: `$H docs agents` (role «Designer»), `$H docs theme`, `$H docs engine` (§6–7 what a template sees, §10 `heron theme`).
-`H="docker run --rm -i -p 8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"`
+`H="docker run --rm -i -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"`
 
 **You may write:** `theme/` only.
 **You do not touch:** `content/`, `data/`, `site.yaml`, `scripts/`, `.github/`.

@@ -5,7 +5,7 @@ The main HERON commands and where to read more. The documentation lives in the e
 Every command below starts with `heron`, a short name for running the HERON image in Docker. How to set it up is in «Get started» of the documentation. Without the short name, write the full command instead of `heron`, for example:
 
 ```bash
-docker run --rm -it -p 8000:8000 -v "$PWD":/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod serve .
+docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD":/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod serve .
 ```
 
 ## The main commands {#commands}

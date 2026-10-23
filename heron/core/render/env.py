@@ -14,12 +14,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, TemplateNotFound
+from jinja2.sandbox import ImmutableSandboxedEnvironment
 from markupsafe import Markup, escape
+from pydantic import BaseModel
 
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
@@ -170,14 +172,44 @@ class ThemeLoader(FileSystemLoader):
         return source, filename, uptodate
 
 
+class ThemeSandbox(ImmutableSandboxedEnvironment):
+    """Песочница для шаблонов темы.
+
+    Тема — чужой код: её ставят из каталога, по ссылке или архивом. Обычный
+    Environment исполнял бы из шаблона любой Python
+    (`lipsum.__globals__.os.popen(...)`). Песочница Jinja закрывает служебные
+    атрибуты и изменение списков и словарей; сверх неё закрыто то, что она
+    пропускает, а из контекста страницы достижимо:
+
+    - методы самого pydantic BaseModel у `site` и `theme` (`parse_file`
+      читает произвольный файл, `model_construct` и подобные шаблону не
+      нужны) — поля и собственные методы схем остаются;
+    - любые атрибуты путей (`Path.write_text`, `read_text`);
+    - методы `env`, которые строят окружение заново (`stamped` вызывает git
+      в переданной папке).
+
+    Фильтры и глобальные функции плагинов сайта — код самого сайта, ему
+    доверяют так же, как `plugins/`.
+    """
+
+    def is_safe_attribute(self, obj: Any, attr: str, value: Any) -> bool:
+        if isinstance(obj, PurePath):
+            return False
+        if isinstance(obj, (BaseModel, type)) and hasattr(BaseModel, attr):
+            return False
+        if isinstance(obj, BuildEnv) and attr in ("stamped", "named", "resolve"):
+            return False
+        return super().is_safe_attribute(obj, attr, value)
+
+
 def make(theme_dir: Path, config: SiteConfig, hooks=None) -> Environment:
-    """Собрать окружение Jinja2 для темы.
+    """Собрать окружение Jinja2 для темы — в песочнице (`ThemeSandbox`).
 
     Фильтры и глобальные переменные плагинов (`hooks.filter`,
     `hooks.add_global`) добавляются последними, но встроенные не
     перекрывают: имя, которое уже есть, плагину не отдаётся.
     """
-    env = Environment(
+    env = ThemeSandbox(
         loader=ThemeLoader(theme_dir),
         autoescape=True,
         undefined=StrictUndefined,

@@ -8,7 +8,7 @@ description: Build or move a website on HERON, the markdown static site engine. 
 HERON builds a static site from a folder: `site.yaml`, `content/<lang>/*.md`, `media/`, `data/`, `theme/`. You never edit the engine; everything a site can do is in its documentation, shipped inside the image of the same version.
 
 ```bash
-H="docker run --rm -i -p 8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"
+H="docker run --rm -i -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"
 $H docs                      # table of contents
 $H docs architect            # one topic in full
 $H docs --search "E015"      # search

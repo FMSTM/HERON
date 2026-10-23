@@ -19,6 +19,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import uuid
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
@@ -746,6 +747,8 @@ def _shape(entry: Path, source: Path) -> Shape:
     """Размеры мастера из записи кэша, а нет — из самой картинки."""
     record = entry / "shape.json"
     try:
+        if record.is_symlink():
+            raise ValueError("shape.json — ссылка")  # пересчитать и заменить
         data = json.loads(record.read_text(encoding="utf-8"))
         return Shape(int(data["width"]), int(data["height"]), bool(data["alpha"]))
     except (OSError, ValueError, KeyError, TypeError):
@@ -759,6 +762,33 @@ def _shape(entry: Path, source: Path) -> Shape:
     )
     os.replace(temp, record)
     return shape
+
+
+def _reusable(path: Path) -> bool:
+    """Готовая нарезка в записи кэша — обычный файл, его можно брать.
+
+    Тип смотрится по самому пути (`lstat`), без перехода по ссылкам: кэш
+    могли подменить — восстановить из чужого архива, положить в репозиторий
+    сайта, — и ссылка на внешний файл иначе приносила бы его содержимое в
+    dist. Ссылка или другой не-файл на месте нарезки убирается (сама
+    запись, не её цель) и нарезка кодируется заново. Каталог на этом месте
+    молча не удаляется: E024.
+    """
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        return False
+    if stat.S_ISREG(info.st_mode):
+        return True
+    if stat.S_ISDIR(info.st_mode):
+        raise HeronError(
+            code=paths.CODE,
+            message=f"на месте нарезки в кэше — папка: {path}",
+            path=str(path),
+            hint="удалите папку .heron-cache — она пересоздастся при сборке",
+        )
+    path.unlink()
+    return False
 
 
 def _touch(entry: Path) -> None:
@@ -966,7 +996,7 @@ def finish(
     jobs: dict[str, list[tuple[str, str, int, Path]]] = {}
     for rel in sorted(wanted):
         kept = manifest.cached[rel]
-        if kept.is_file():
+        if _reusable(kept):
             continue
         src, ratio, fmt, width = manifest.planned[rel]
         jobs.setdefault(src, []).append((ratio, fmt, width, kept))

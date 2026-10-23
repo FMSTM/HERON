@@ -33,6 +33,14 @@ ENVS = ("dev", "prod")
 REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 DOCKER_NAME_RE = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
 # Движок для сборки сайта: канал (prod, beta), версия или канал с digest.
+# Ветка git: подмножество правил git check-ref-format, в котором нет ни
+# символов оболочки, ни YAML. Она уходит в git push и в workflow.
+BRANCH_RE = re.compile(r"^[A-Za-z0-9_](?:[A-Za-z0-9_.+-]|/(?!/))*$")
+# Папка на сервере: абсолютный путь из букв, цифр и . _ - + ~ @. Путь
+# разбирает ещё и оболочка на сервере (rsync передаёт его ssh), поэтому
+# кавычек и подстановок в нём не бывает вовсе.
+SERVER_PATH_RE = re.compile(r"^/[A-Za-z0-9._+~@/-]*$")
+SERVER_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.@-]*$")
 ENGINE_RE = re.compile(r"^(?:prod|beta|dev|\d+\.\d+\.\d+)(?:@sha256:[0-9a-f]{64})?$")
 ENTITY_ID = "#entity"
 
@@ -395,11 +403,30 @@ class PublishAnswers(Model):
             raise ValueError("Docker Hub needs your user name and the image name")
         if self.way == "static" and self.static_target == "server" and not self.server:
             raise ValueError("static files to a server need the server address")
-        if self.server and not re.match(r"^[A-Za-z0-9_.@-]+$", self.server):
+        if self.server and not SERVER_RE.match(self.server):
             raise ValueError(f"server {self.server!r}: user@host or host")
-        if self.path and (".." in self.path.split("/") or not self.path.startswith("/")):
-            raise ValueError("the folder on the server is an absolute path without ..")
+        if self.path and (".." in self.path.split("/") or not SERVER_PATH_RE.match(self.path)):
+            raise ValueError(
+                "the folder on the server is an absolute path without .. — "
+                "letters, digits and . _ - + ~ @"
+            )
         return self
+
+    @field_validator("branch")
+    @classmethod
+    def _branch(cls, value: str) -> str:
+        value = (value or "main").strip()
+        bad = (
+            not BRANCH_RE.match(value)
+            or ".." in value
+            or value.endswith((".", "/", ".lock"))
+            or "/." in value
+        )
+        if bad:
+            raise ValueError(
+                f"branch {value!r}: letters, digits and . _ - + /, like main or release/v1"
+            )
+        return value
 
 
 class Answers(Model):

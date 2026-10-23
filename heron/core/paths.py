@@ -13,6 +13,11 @@
     удалять   — только то, чем сборщик владеет: файлы своего манифеста
                 в папке сборки и записи кэша
 
+Команды, которые меняют саму папку сайта (`new`, `init`, `setup`,
+`theme get`), пишут, резервируют и удаляют по тому же правилу
+(`in_site`): итоговый путь — внутри папки сайта, ссылка наружу на файле или
+на любой папке по пути к нему — E024 до записи.
+
 Папки сборки, кэша и исходников не пересекаются: сборка, которая пишет в
 папку контента, однажды сотрёт контент, а кэш внутри сборки уезжает в сеть.
 
@@ -113,6 +118,41 @@ def target(root: Path, rel: str) -> Path:
             message=f"результат {clean} ведёт за пределы папки сборки через ссылку",
             path=str(out),
             hint="уберите символические ссылки из папки сборки",
+        )
+    return out
+
+
+def in_site(root: Path, rel: str | Path) -> Path:
+    """Файл папки сайта, который команда пишет, резервирует или удаляет — или E024.
+
+    `site.yaml`, `content/`, `.heron/`, `.heron-cache/setup/`, тема — всё
+    это может оказаться ссылкой наружу: папку сайта клонируют, распаковывают
+    и копируют чужие люди. Запись через такую ссылку меняла бы чужой файл,
+    удаление — удаляла бы его. Проверяется сам файл, если он есть, и
+    ближайшая существующая папка по пути к нему: после разрешения всех
+    ссылок они обязаны лежать в папке сайта. Ссылка внутри сайта на другое
+    место того же сайта допустима; ссылка выше корня (вся папка сайта —
+    ссылкой) — тоже.
+    """
+    clean = normalize(str(rel)) if not isinstance(rel, Path) else None
+    out = root / clean if clean is not None else rel
+    if clean is not None and (not clean or clean == "." or escapes(clean)):
+        raise HeronError(
+            code=CODE,
+            message=f"путь {rel!r} выходит за пределы папки сайта",
+            path=str(root),
+        )
+    parent = out.parent
+    while not (parent.exists() or parent.is_symlink()) and parent != root:
+        parent = parent.parent
+    if not inside(root, parent) or ((out.exists() or out.is_symlink()) and not inside(root, out)):
+        shown = out.relative_to(root).as_posix() if out.is_relative_to(root) else str(out)
+        raise HeronError(
+            code=CODE,
+            message=f"{shown} ведёт за пределы папки сайта через символическую ссылку",
+            path=str(out),
+            hint="замените ссылку настоящим файлом или папкой — "
+            "движок не пишет и не удаляет файлы вне папки сайта",
         )
     return out
 

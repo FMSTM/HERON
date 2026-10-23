@@ -87,7 +87,7 @@ site:
 Обычный случай — один сайт и стабильный образ `:prod`. Нужен только докер.
 
 ```bash
-H="docker run --rm -it -p 8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"
+H="docker run --rm -it -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"
 
 $H new мой-сайт        # спросит язык работы, название, домен, языки — и разложит папку
 $H setup мой-сайт      # анкета на localhost:8000: домены, schema.org, публикация, тема
@@ -102,7 +102,7 @@ $H build мой-сайт      # → мой-сайт/dist/
 Посмотреть результат:
 
 ```bash
-docker run --rm -p 8080:8080 -v "$PWD/мой-сайт/dist:/usr/share/nginx/html:ro" \
+docker run --rm -p 127.0.0.1:8080:8080 -v "$PWD/мой-сайт/dist:/usr/share/nginx/html:ro" \
   nginxinc/nginx-unprivileged:1.30.6-alpine
 ```
 

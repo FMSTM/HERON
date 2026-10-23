@@ -149,7 +149,9 @@ table.envs code { word-break: break-all; }
 
 <script>
 "use strict";
-const TOKEN = "__HERON_TOKEN__";
+// Ключ доступа приходит в адресе после «#»: движок печатает его в терминале.
+// В саму страницу он не вшит, а на сервер браузер эту часть адреса не шлёт.
+const TOKEN = decodeURIComponent(location.hash.slice(1));
 const DOCS = "https://github.com/FMSTM/HERON/blob/beta/docs/guide/06-deploy.md";
 // Адрес Telegram-бота поддержки. Пусто — бот не подключён, кнопка показывает подсказку.
 const BOT_URL = "";
@@ -741,7 +743,14 @@ $("#bot").addEventListener("click", () => {
   if (!pop.hidden) setTimeout(() => (pop.hidden = true), 4000);
 });
 document.addEventListener("keydown", (e) => { if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); save(); } });
-fetch("/api/state").then((r) => r.json()).then((s) => { load(s); L = s.notes === "en" ? "en" : "ru"; render(); });
+fetch("/api/state", { headers: { "X-Heron-Token": TOKEN } }).then((r) => {
+  if (r.status === 403) throw new Error("token");
+  return r.json();
+}).then((s) => { load(s); L = s.notes === "en" ? "en" : "ru"; render(); }).catch(() => {
+  document.querySelector("main").innerHTML =
+    '<p class="lead">Откройте адрес анкеты целиком так, как он напечатан в терминале, вместе с частью после «#».</p>' +
+    '<p class="lead">Open the questionnaire address exactly as printed in the terminal, including the part after “#”.</p>';
+});
 </script>
 </body>
 </html>

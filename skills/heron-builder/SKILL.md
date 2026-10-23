@@ -6,7 +6,7 @@ description: Build, check and publish a HERON site - heron check, serve, build w
 # HERON builder
 
 Read first: `$H docs agents` (role «Builder»), `$H docs first-site`, `$H docs deploy`, error codes in `$H docs engine` §11.
-`H="docker run --rm -i -p 8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"`
+`H="docker run --rm -i -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"`
 
 **You may write:** anything the other roles may, when you lead them; plus `heron setup` answers for publishing.
 **You do not touch:** the engine. Add no Dockerfile, compose, `.env` or tokens to the site: Docker Hub uses `docker login`, GitHub builds with its own short-lived token.

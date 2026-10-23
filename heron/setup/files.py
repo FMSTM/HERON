@@ -25,6 +25,8 @@
 
 from __future__ import annotations
 
+import json
+import shlex
 from dataclasses import dataclass
 
 from heron.setup.answers import Answers
@@ -147,11 +149,11 @@ def publish_sh(answers: Answers, lang: str, ident: str) -> Generated | None:
             note = t["publish_push"]
         body += (
             f'if [ -n "$(git status --porcelain)" ]; then echo "{t["dirty"]}" >&2; exit 1; fi\n'
-            f"git push origin {p.branch or 'main'}\n"
+            f"git push origin {shlex.quote(p.branch or 'main')}\n"
         )
         return Generated(PUBLISH, head + note + "\n" + body, executable=True)
     if p.way == "dockerhub":
-        image = f"{p.dockerhub_user}/{p.image}"
+        image = f"{p.dockerhub_user}/{p.image}"  # проверено DOCKER_NAME_RE
         body += (
             f'env="${{1:-{p.env}}}"\n'
             + './.heron/scripts/build.sh "$env"\n'
@@ -164,11 +166,13 @@ def publish_sh(answers: Answers, lang: str, ident: str) -> Generated | None:
             + f'docker push "{image}:$env"\n'
         )
         return Generated(PUBLISH, head + t["publish_hub"] + "\n" + body, True)
+    # Сервер и путь проверены в ответах (без символов оболочки); кавычки
+    # здесь — вторая линия: значение уходит в rsync одним аргументом.
     target = f"{p.server}:{(p.path or '/var/www').rstrip('/')}/"
     body += (
         f'env="${{1:-{p.env}}}"\n'
         './.heron/scripts/build.sh "$env"\n'
-        f'rsync -az --delete --exclude .heron-nginx.conf dist/ "{target}"\n'
+        f"rsync -az --delete --exclude .heron-nginx.conf dist/ {shlex.quote(target)}\n"
     )
     return Generated(PUBLISH, head + t["publish_static"] + "\n" + body, True)
 
@@ -182,7 +186,7 @@ def image_yml(answers: Answers, lang: str) -> Generated:
         + "name: image\n"
         + "on:\n"
         + "  push:\n"
-        + f"    branches: [{branch}]\n"
+        + f"    branches: [{json.dumps(branch)}]\n"
         + "  workflow_dispatch:\n\n"
         + "jobs:\n"
         + "  image:\n"
@@ -207,7 +211,7 @@ def pages_yml(answers: Answers, lang: str) -> Generated:
         + "name: pages\n"
         + "on:\n"
         + "  push:\n"
-        + f"    branches: [{branch}]\n"
+        + f"    branches: [{json.dumps(branch)}]\n"
         + "  workflow_dispatch:\n\n"
         + "permissions:\n"
         + "  contents: read\n"

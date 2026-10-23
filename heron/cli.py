@@ -942,8 +942,9 @@ def setup(
 
     where = host or default_host(inside)
 
-    def ready() -> None:
-        click.secho(say(lang, "setup_open", url=shown_url(where, port)), fg="green", bold=True)
+    def ready(token: str) -> None:
+        url = f"{shown_url(where, port)}#{token}"
+        click.secho(say(lang, "setup_open", url=url), fg="green", bold=True)
         if inside:
             click.echo(say(lang, "serve_container", port=port))
 
@@ -1027,15 +1028,21 @@ def theme_get(source: str, path: Path) -> None:
     elif source.startswith("http://"):
         _err(say(lang, "theme_https"))
         sys.exit(2)
-    elif (path / source).is_file() or Path(source).is_file():
-        kind, value = (
-            "file",
-            str(Path(source).resolve() if Path(source).is_file() else path / source),
-        )
+    elif Path(source).is_file():
+        # как набрано в терминале: от текущей папки (или абсолютный путь)
+        kind, value = "file", str(Path(source).resolve())
+    elif (path / source).is_file():
+        # иначе — от папки сайта; путь отдаётся абсолютным, чтобы install
+        # не прибавил папку сайта второй раз
+        kind, value = "file", str((path / source).resolve())
     else:
         kind, value = "name", source
     declared = _declared(path / "site.yaml") or {}
     try:
+        from heron.core import paths
+
+        if (path / "site.yaml").exists() or (path / "site.yaml").is_symlink():
+            paths.in_site(path, "site.yaml")  # E024 до установки, а не после
         installed = themes.install(path, kind, value, languages=declared.get("languages") or ["en"])
     except HeronError as error:
         _fail(error, lang)
@@ -1060,7 +1067,9 @@ def _set_theme_name(site_yaml: Path, name: str) -> None:
         count=1,
     )
     if count:
-        site_yaml.write_text(new, encoding="utf-8")
+        from heron.core import paths
+
+        paths.in_site(site_yaml.parent, "site.yaml").write_text(new, encoding="utf-8")
 
 
 @theme.command("list")

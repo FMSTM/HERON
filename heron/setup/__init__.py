@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -25,6 +26,7 @@ from typing import Any
 
 import yaml
 
+from heron.core import paths
 from heron.setup import files as files_module
 from heron.setup.answers import (
     CONTACT_TYPES,
@@ -180,6 +182,30 @@ def _check(data: dict[str, Any], path: Path) -> None:
     build(SiteConfig, data, path)
 
 
+def backup(root: Path, name: str, data: bytes) -> Path:
+    """Резервная копия в `.heron-cache/setup/<name>.<время>` — всегда новым файлом.
+
+    Имя по секундам совпадает у двух сохранений в одну секунду. Файл
+    создаётся исключительно (O_EXCL): занято — берётся следующий номер,
+    существующая копия не перезаписывается никогда.
+    """
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    folder = paths.in_site(root, BACKUPS)
+    for number in range(1, 1000):
+        rel = f"{BACKUPS}/{name}.{stamp}" + (f"-{number}" if number > 1 else "")
+        path = paths.in_site(root, rel)
+        folder.mkdir(parents=True, exist_ok=True)
+        paths.in_site(root, rel)  # папки созданы — проверить ещё раз
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
+        except FileExistsError:
+            continue
+        with os.fdopen(fd, "wb") as out:
+            out.write(data)
+        return path
+    raise OSError(f"too many backups of {name} in one second")
+
+
 def apply(
     root: Path,
     answers: Answers,
@@ -198,6 +224,24 @@ def apply(
     if answers.theme.source in ("starter", "name", "url", "file", "later") and not old:
         new["site"]["theme"] = new["site"].get("theme") or "main"
     _check(new, root / SITE_YAML)
+
+    # Всё, что анкета запишет, зарезервирует или удалит, — внутри папки сайта.
+    # Проверяется до первой записи: ссылка наружу (site.yaml, content/,
+    # .heron/, .heron-cache/, тема, .gitignore) — E024, и не меняется ничего.
+    generated = files_module.plan(answers, lang)
+    wanted = {item.rel for item in generated}
+    ignore = None
+    if answers.publish.helpers.get("gitignore", True) and (
+        answers.publish.way != "none" or (root / ".git").exists()
+    ):
+        ignore = root / ".gitignore"
+    checked = [SITE_YAML, BACKUPS, "content", "theme", *wanted, *files_module.OWNED]
+    if ignore is not None:
+        checked.append(".gitignore")
+    for lang_name in new["site"]["languages"]:
+        checked.append(f"content/{lang_name}")
+    for rel in checked:
+        paths.in_site(root, rel)
 
     # тема — до записи site.yaml: не скачалась или не прошла проверку —
     # конфиг остаётся прежним, а не ссылается на тему, которой нет
@@ -221,10 +265,8 @@ def apply(
     if path.is_file():
         current = path.read_text(encoding="utf-8")
         if current != text:
-            backup = root / BACKUPS / f"site.yaml.{time.strftime('%Y%m%d-%H%M%S')}"
-            backup.parent.mkdir(parents=True, exist_ok=True)
-            backup.write_text(current, encoding="utf-8")
-            result.backup = backup.relative_to(root).as_posix()
+            saved = backup(root, SITE_YAML, current.encode("utf-8"))
+            result.backup = saved.relative_to(root).as_posix()
     if not path.is_file() or path.read_text(encoding="utf-8") != text:
         path.write_text(text, encoding="utf-8")
         result.written.append(SITE_YAML)
@@ -236,8 +278,6 @@ def apply(
     result.created.extend(made.created)
 
     # файлы публикации
-    generated = files_module.plan(answers, lang)
-    wanted = {item.rel for item in generated}
     for item in generated:
         target = root / item.rel
         if target.is_file():
@@ -261,13 +301,11 @@ def apply(
             result.removed.append(rel)
             parent = target.parent
             while parent != root and parent.is_dir() and not any(parent.iterdir()):
+                paths.in_site(root, parent)
                 parent.rmdir()
                 parent = parent.parent
 
-    if answers.publish.helpers.get("gitignore", True) and (
-        answers.publish.way != "none" or (root / ".git").exists()
-    ):
-        ignore = root / ".gitignore"
+    if ignore is not None:
         current = ignore.read_text(encoding="utf-8") if ignore.is_file() else ""
         updated = files_module.gitignore(current)
         if updated is not None:

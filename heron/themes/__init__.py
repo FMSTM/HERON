@@ -43,6 +43,7 @@ from typing import Any
 
 import yaml
 
+from heron.core import paths
 from heron.core.errors import HeronError
 
 CATALOG_ENV = "HERON_THEMES_URL"
@@ -240,32 +241,64 @@ def _starter(stage: Path, languages: list[str]) -> None:
     starter_theme(stage, languages)
 
 
+def _backup_dir(root: Path) -> Path:
+    """Свободное имя `.heron-cache/setup/theme.<время>[-N]` — занятое исключительно.
+
+    Две установки в одну секунду иначе получили бы одно имя, и вторая
+    копия легла бы поверх первой. Папка создаётся `mkdir` без exist_ok: кто
+    создал, тот и владеет именем.
+    """
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    folder = paths.in_site(root, ".heron-cache/setup")
+    folder.mkdir(parents=True, exist_ok=True)
+    for number in range(1, 1000):
+        rel = f".heron-cache/setup/theme.{stamp}" + (f"-{number}" if number > 1 else "")
+        candidate = paths.in_site(root, rel)
+        try:
+            candidate.mkdir()
+        except FileExistsError:
+            continue
+        return candidate
+    raise _fail("too many theme backups in one second")
+
+
 def _place(root: Path, stage: Path, result: Installed) -> None:
-    theme = root / "theme"
-    if theme.exists():
-        backup = root / ".heron-cache" / "setup" / f"theme.{time.strftime('%Y%m%d-%H%M%S')}"
-        backup.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(theme), str(backup))
+    # Куда тема и демо лягут — внутри папки сайта, до первой записи: ссылка
+    # theme/, content/ или .heron-cache/ наружу — E024, ничего не меняется.
+    theme = paths.in_site(root, "theme")
+    paths.in_site(root, ".heron-cache/setup")
+    source = stage / "demo"
+    demo: list[tuple[Path, Path, str]] = []
+    if source.is_dir():
+        for folder in DEMO_FOLDERS:
+            base = source / folder
+            if not base.is_dir():
+                continue
+            for path in sorted(base.rglob("*")):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(source).as_posix()
+                demo.append((path, paths.in_site(root, rel), rel))
+
+    if theme.exists() or theme.is_symlink():
+        backup = _backup_dir(root)
+        if theme.is_symlink():
+            backup.rmdir()  # ссылка уезжает сама, а не то, на что она ведёт
+        try:
+            os.rename(theme, backup)
+        except OSError:  # другой том: переносом, имя уже занято нами
+            backup.rmdir()
+            shutil.move(str(theme), str(backup))
         result.backup = backup.relative_to(root).as_posix()
     shutil.copytree(stage / "theme", theme)
     result.created.append("theme/")
-    source = stage / "demo"
-    if not source.is_dir():
-        return
-    for folder in DEMO_FOLDERS:
-        base = source / folder
-        if not base.is_dir():
+    for path, target, rel in demo:
+        if target.exists() or target.is_symlink():
             continue
-        for path in sorted(base.rglob("*")):
-            if not path.is_file():
-                continue
-            rel = path.relative_to(source)
-            target = root / rel
-            if target.exists():
-                continue
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(path, target)
-            result.created.append(rel.as_posix())
+        target.parent.mkdir(parents=True, exist_ok=True)
+        paths.in_site(root, rel)  # папки созданы — проверить ещё раз
+        shutil.copy2(path, target)
+        result.created.append(rel)
 
 
 def _demo_languages(stage: Path, languages: list[str]) -> None:

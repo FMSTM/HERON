@@ -201,6 +201,16 @@ def _prepare(staging: Path, entry: Entry) -> Path:
         temp.chmod(0o644)
         return temp
     assert entry.source is not None
+    if entry.link and entry.source.is_symlink():
+        # Связываются только готовые нарезки кэша, и media.finish уже
+        # проверил, что это обычные файлы. Ссылка здесь — подмена между
+        # проверкой и записью: её цель в dist не попадает.
+        raise HeronError(
+            code=paths.CODE,
+            message=f"файл кэша стал ссылкой: {entry.source}",
+            path=str(entry.source),
+            hint="удалите папку .heron-cache — она пересоздастся при сборке",
+        )
     if entry.link:
         try:
             os.link(entry.source, temp)

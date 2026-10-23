@@ -5,7 +5,7 @@
 Все команды ниже начинаются с `heron` — это короткое имя для запуска образа HERON в Docker. Как его завести — в разделе «С чего начать» документации. Без короткого имени вместо `heron` пишут полную команду, например:
 
 ```bash
-docker run --rm -it -p 8000:8000 -v "$PWD":/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod serve .
+docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD":/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod serve .
 ```
 
 ## Главные команды {#commands}

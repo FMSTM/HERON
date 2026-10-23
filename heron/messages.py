@@ -405,7 +405,8 @@ TEXT["ru"].update(
         "serve_open": "открыто: {url}  (Ctrl+C — выход)",
         "serve_container": (
             "HERON работает в контейнере: откройте адрес на своём компьютере. "
-            "Порт {port} должен быть проброшен в docker run: -p {port}:{port}"
+            "Порт {port} должен быть проброшен в docker run только на эту машину: "
+            "-p 127.0.0.1:{port}:{port}"
         ),
         "serve_lan": (
             "просмотр открыт для всей сети: любой в ней увидит черновики "
@@ -429,7 +430,8 @@ TEXT["en"].update(
         "serve_open": "open: {url}  (Ctrl+C to stop)",
         "serve_container": (
             "HERON runs in a container: open the address on your computer. "
-            "Port {port} must be published in docker run: -p {port}:{port}"
+            "Port {port} must be published in docker run to this machine only: "
+            "-p 127.0.0.1:{port}:{port}"
         ),
         "serve_lan": (
             "the preview is open to the whole network: anyone on it sees the drafts "
@@ -450,7 +452,9 @@ TEXT["en"].update(
 # --- setup и темы ----------------------------------------------------------------
 TEXT["ru"].update(
     {
-        "setup_open": "Анкета открыта: {url}  — заполните и нажмите «Сохранить». Ctrl+C — выход.",
+        "setup_open": (
+            "Анкета открыта: {url}  — откройте адрес целиком, с ключом после «#». Ctrl+C — выход."
+        ),
         "setup_done": "Настройки записаны.",
         "setup_written": "записано: {files}",
         "setup_created": "создано: {files}",
@@ -471,7 +475,10 @@ TEXT["ru"].update(
 )
 TEXT["en"].update(
     {
-        "setup_open": "The questionnaire is open: {url}  — fill it in, press Save. Ctrl+C to stop.",
+        "setup_open": (
+            "The questionnaire is open: {url}  — open the whole address, "
+            "with the key after “#”. Ctrl+C to stop."
+        ),
         "setup_done": "Settings written.",
         "setup_written": "written: {files}",
         "setup_created": "created: {files}",

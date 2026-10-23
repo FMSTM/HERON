@@ -12,6 +12,7 @@ from pathlib import Path
 
 from jinja2 import Environment, TemplateNotFound, TemplateSyntaxError
 from jinja2 import UndefinedError as JinjaUndefined
+from jinja2.exceptions import SecurityError
 
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
@@ -89,6 +90,17 @@ def render_page(
             message=f"ошибка в шаблоне {exc.name or name}, строка {exc.lineno}: {exc.message}",
             path=page.source,
             hint="проверьте разметку Jinja в этой строке шаблона темы",
+        ) from exc
+    except SecurityError as exc:
+        # Тема — недоверенный код, шаблоны собираются в песочнице. Сюда
+        # приходит попытка достать служебные атрибуты, вызвать небезопасное
+        # или изменить данные сайта из шаблона.
+        raise HeronError(
+            code="E033",
+            message=f"шаблон {name} обращается к закрытому: {exc}",
+            path=page.source,
+            hint="шаблону доступны поля и вызовы из docs/spec/21-engine.md §7; "
+            "служебные атрибуты Python и изменение данных сайта закрыты",
         ) from exc
     except JinjaUndefined as exc:
         raise HeronError(

@@ -94,9 +94,15 @@ def preview_dist(root: Path) -> Path:
     return Path(tempfile.gettempdir()) / f"heron-serve-{root.name}-{key}" / "dist"
 
 
-def once(root: Path, drafts: bool, dist: Path | None = None, lang: str = "en") -> None:
+def once(
+    root: Path,
+    drafts: bool,
+    dist: Path | None = None,
+    lang: str = "en",
+    workers: int | None = None,
+) -> None:
     try:
-        result = pipeline.run(root, dist=dist, drafts=drafts)
+        result = pipeline.run(root, dist=dist, drafts=drafts, workers=workers)
     except HeronError as error:
         click.secho(str(error), fg="red")
         return
@@ -167,11 +173,12 @@ def serve(
     host: str = LOOPBACK,
     lang: str = "en",
     in_container: bool = False,
+    workers: int | None = None,
 ) -> None:
     """Собрать, поднять сервер и пересобирать при изменениях."""
     root = Path(root).resolve()
     dist = preview_dist(root)
-    once(root, drafts, dist, lang)
+    once(root, drafts, dist, lang, workers)
     click.secho(say(lang, "serve_dist", dist=dist), fg="cyan")
 
     handler = type(
@@ -219,7 +226,7 @@ def serve(
                     say(lang, "serve_more", count=len(diff) - 3) if len(diff) > 3 else ""
                 )
                 click.echo(say(lang, "serve_changed", files=shown))
-                once(root, drafts, dist, lang)
+                once(root, drafts, dist, lang, workers)
     except KeyboardInterrupt:
         click.echo("\n" + say(lang, "serve_stopped"))
     finally:

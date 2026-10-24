@@ -143,6 +143,10 @@ TEXT: dict[str, dict[str, str]] = {
         "step_templates": "шаблоны",
         "step_generators": "карта сайта, robots и ленты",
         "step_slices": "нарезка картинок",
+        "pool_fallback": (
+            "пул процессов недоступен ({problem}): картинки режутся последовательно, "
+            "результат тот же. Чтобы не видеть это, задайте --workers 1 или HERON_WORKERS=1"
+        ),
         "step_write": "запись",
         "done": "готово",
         "done_config": "тема {theme}, языков {langs}",
@@ -306,6 +310,10 @@ TEXT: dict[str, dict[str, str]] = {
         "step_templates": "templates",
         "step_generators": "sitemap, robots and feeds",
         "step_slices": "image renditions",
+        "pool_fallback": (
+            "the process pool is unavailable ({problem}): images are cut one by one, "
+            "the result is the same. To skip this, pass --workers 1 or set HERON_WORKERS=1"
+        ),
         "step_write": "writing",
         "done": "done",
         "done_config": "theme {theme}, languages: {langs}",

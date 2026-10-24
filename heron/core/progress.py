@@ -27,6 +27,9 @@ class Progress(Protocol):
     def tick(self, current: int, total: int, detail: str = "") -> None:
         """Продвижение внутри длинного этапа."""
 
+    def note(self, key: str, **fields: object) -> None:
+        """Замечание по ходу дела (не ошибка): ключ сообщения и его поля."""
+
 
 class Silent:
     """Ничего не говорит. Для тестов и для вызова из кода."""
@@ -36,3 +39,5 @@ class Silent:
     def done(self, detail: str = "", **fields: object) -> None: ...
 
     def tick(self, current: int, total: int, detail: str = "") -> None: ...
+
+    def note(self, key: str, **fields: object) -> None: ...

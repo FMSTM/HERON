@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -134,6 +135,28 @@ def prepare(site_root: Path, collector: Collector) -> tuple[SiteConfig, ThemeCon
     return config, theme, found.path, hooks
 
 
+WORKERS_ENV = "HERON_WORKERS"
+
+
+def env_workers() -> int | None:
+    """Число процессов из `HERON_WORKERS`: пусто — не задано, иначе 0–64 или ошибка."""
+    raw = os.environ.get(WORKERS_ENV, "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        value = -1
+    if not 0 <= value <= 64:
+        raise HeronError(
+            code="E011",
+            message=f"{WORKERS_ENV}={raw!r}: нужно целое число от 0 до 64",
+            path=WORKERS_ENV,
+            hint="0 — по числу ядер, 1 — без пула процессов; пустое значение — как в site.yaml",
+        )
+    return value
+
+
 def run(
     site_root: Path,
     dist: Path | None = None,
@@ -142,8 +165,12 @@ def run(
     strict: bool = False,
     env: BuildEnv | None = None,
     progress: Progress | None = None,
+    workers: int | None = None,
 ) -> Result:
     """Собрать сайт целиком.
+
+    Процессов на нарезку: аргумент `workers` (флаг `--workers`), затем
+    переменная `HERON_WORKERS`, затем `build.workers` из `site.yaml`.
 
     Кэш нарезанных картинок кладётся рядом с результатом, а не рядом с
     контентом: папка сайта монтируется только на чтение, и пачкать её
@@ -152,6 +179,8 @@ def run(
     collector = Collector()
     env = env or BuildEnv()
     say = progress or Silent()
+    if workers is None:
+        workers = env_workers()
     site_root = site_root.resolve()
     env = env.stamped(site_root)
     dist = (dist or site_root / DIST).resolve()
@@ -293,7 +322,7 @@ def run(
                 site_root,
                 theme.images,
                 used=media.used_in(texts),
-                workers=config.build.workers,
+                workers=config.build.workers if workers is None else workers,
                 progress=say,
             )
             for item in placed:

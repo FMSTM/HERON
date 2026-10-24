@@ -14,6 +14,7 @@ docs/spec/21-engine.md, раздел 8.
 from __future__ import annotations
 
 import contextlib
+import errno
 import hashlib
 import html
 import json
@@ -24,6 +25,7 @@ import stat
 import urllib.parse
 import uuid
 from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -671,6 +673,70 @@ def slice_master(
 _FORMATS = {"jpg": "JPEG", "jpeg": "JPEG", "png": "PNG", "webp": "WEBP", "avif": "AVIF"}
 
 
+# Ошибки операционной системы, которыми пул процессов отказывает при создании
+# (песочница macOS, контейнер без /dev/shm, CI): нет прав или семафоров.
+_POOL_ERRNOS = {errno.EPERM, errno.ENOSYS, errno.EACCES}
+
+
+class _PoolFailed(Exception):
+    """Пул процессов не работает. Не ошибка нарезки: докодируем последовательно."""
+
+
+def _pool_failure(error: BaseException, *, creating: bool) -> _PoolFailed:
+    """Сбой пула — или та же ошибка, если это не он.
+
+    `OSError` с чужим errno (диск, права на файл) и любая ошибка воркера
+    не сбой пула и не глотаются: нарезку они валят, как раньше.
+    """
+    pool_down = isinstance(error, BrokenProcessPool) or (
+        creating
+        and (
+            isinstance(error, NotImplementedError)
+            or (isinstance(error, OSError) and error.errno in _POOL_ERRNOS)
+        )
+    )
+    if not pool_down:
+        raise error
+    failure = _PoolFailed(str(error) or type(error).__name__)
+    failure.__cause__ = error
+    return failure
+
+
+def _parallel(
+    jobs: list[tuple[str, Path, list[tuple[str, str, int, Path]]]],
+    spec: ImagesSpec,
+    count: int,
+    progress,
+    done: set[str],
+) -> None:
+    """Раскидать мастера по процессам. `done` пополняется мастерами, чей результат получен.
+
+    Сбой самого пула (создание, `submit`, `BrokenProcessPool` из `result()`)
+    поднимается как `_PoolFailed`; всё прочее, включая ошибки воркера, —
+    как есть.
+    """
+    total = len(jobs)
+    try:
+        pool = ProcessPoolExecutor(max_workers=count)
+    except (BrokenProcessPool, OSError, NotImplementedError) as error:
+        raise _pool_failure(error, creating=True) from error
+    with pool:
+        try:
+            futures = [
+                pool.submit(slice_master, src, source, spec, wanted) for src, source, wanted in jobs
+            ]
+        except (BrokenProcessPool, OSError) as error:
+            raise _pool_failure(error, creating=True) from error
+        for index, ((src, _, _), future) in enumerate(zip(jobs, futures, strict=True), 1):
+            try:
+                future.result()
+            except BrokenProcessPool as error:
+                raise _pool_failure(error, creating=False) from error
+            done.add(src)
+            if progress is not None:
+                progress.tick(index, total, src)
+
+
 def _encode(
     jobs: list[tuple[str, Path, list[tuple[str, str, int, Path]]]],
     spec: ImagesSpec,
@@ -685,26 +751,32 @@ def _encode(
 
     Прогресс тикает в порядке исходного списка, а не готовности: иначе лог
     перестаёт читаться, а смотрят в него как раз тогда, когда сборка долгая.
+
+    Пул, который не создаётся или умер, не валит сборку: остаток кодируется
+    последовательно, готовые нарезки (`_reusable`) не трогаются.
     """
     if not jobs:
         return
     total = len(jobs)
     count = workers if workers > 0 else (os.cpu_count() or 1)
-    if count == 1 or total == 1:
-        for index, (src, source, wanted) in enumerate(jobs, 1):
+    if count > 1 and total > 1:
+        done: set[str] = set()
+        try:
+            _parallel(jobs, spec, count, progress, done)
+            return
+        except _PoolFailed as failure:
             if progress is not None:
-                progress.tick(index, total, src)
-            slice_master(src, source, spec, wanted)
-        return
-
-    with ProcessPoolExecutor(max_workers=count) as pool:
-        futures = [
-            pool.submit(slice_master, src, source, spec, wanted) for src, source, wanted in jobs
-        ]
-        for index, ((src, _, _), future) in enumerate(zip(jobs, futures, strict=True), 1):
-            future.result()
-            if progress is not None:
-                progress.tick(index, total, src)
+                progress.note("pool_fallback", problem=str(failure))
+            finished = done
+    else:
+        finished = set()
+    for index, (src, source, wanted) in enumerate(jobs, 1):
+        if src in finished:
+            continue
+        if progress is not None:
+            progress.tick(index, total, src)
+        rest = [item for item in wanted if not _reusable(item[3])]
+        slice_master(src, source, spec, rest)
 
 
 def store(cache_dir: Path) -> Path:

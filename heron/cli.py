@@ -133,6 +133,13 @@ class _Terminal:
         else:
             self._say(f"✓ {head} {self._elapsed()}  {text}")
 
+    def note(self, key: str, **fields: object) -> None:
+        """Замечание по ходу сборки: отдельной строкой, не мешая полоске."""
+        text = self._text(key, **fields)
+        if self._interactive:
+            click.echo("\r\x1b[K", nl=False, err=True)
+        click.secho(f"! {text}", fg="yellow", err=True)
+
     def tick(self, current: int, total: int, detail: str = "") -> None:
         """Продвижение внутри этапа: счётчик, полоска и что сейчас в работе."""
         if not self._interactive:
@@ -803,8 +810,21 @@ def check(path: Path, strict: bool, drafts: bool, as_json: bool) -> None:
     metavar="ИМЯ",
     help="Окружение сборки: prod открывает индексацию и счётчики, всё прочее — нет.",
 )
+@click.option(
+    "--workers",
+    type=click.IntRange(0, 64),
+    default=None,
+    help="Процессов на нарезку; 0 — по ядрам, 1 — без пула. Сильнее HERON_WORKERS и build.workers.",
+)
 @click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
-def build(path: Path, strict: bool, drafts: bool, out: Path | None, env_name: str | None) -> None:
+def build(
+    path: Path,
+    strict: bool,
+    drafts: bool,
+    out: Path | None,
+    env_name: str | None,
+    workers: int | None,
+) -> None:
     """Собрать сайт в dist/ или в указанную папку."""
     lang = _lang(None, path)
     _need_site(path, lang)
@@ -816,7 +836,13 @@ def build(path: Path, strict: bool, drafts: bool, out: Path | None, env_name: st
     )
     try:
         result = pipeline.run(
-            path, dist=out, drafts=drafts, strict=strict, env=env, progress=_Terminal(lang)
+            path,
+            dist=out,
+            drafts=drafts,
+            strict=strict,
+            env=env,
+            progress=_Terminal(lang),
+            workers=workers,
         )
     except HeronError as error:
         _fail(error, lang)
@@ -860,8 +886,14 @@ def build(path: Path, strict: bool, drafts: bool, out: Path | None, env_name: st
     "чтобы проброшенный порт открывался снаружи контейнера.",
 )
 @click.option("--drafts/--no-drafts", default=True, show_default=True)
+@click.option(
+    "--workers",
+    type=click.IntRange(0, 64),
+    default=None,
+    help="Процессов на нарезку; 0 — по ядрам, 1 — без пула. Сильнее HERON_WORKERS и build.workers.",
+)
 @click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
-def serve(path: Path, port: int, host: str | None, drafts: bool) -> None:
+def serve(path: Path, port: int, host: str | None, drafts: bool, workers: int | None) -> None:
     """Локальный просмотр с пересборкой при изменениях."""
     from heron.core.watch import default_host
     from heron.core.watch import serve as run_server
@@ -877,6 +909,7 @@ def serve(path: Path, port: int, host: str | None, drafts: bool) -> None:
             host=host or default_host(inside),
             lang=lang,
             in_container=inside,
+            workers=workers,
         )
     except HeronError as error:
         _fail(error, lang)

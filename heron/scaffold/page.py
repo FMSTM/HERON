@@ -12,6 +12,7 @@ from pathlib import Path
 
 from heron.contracts.site import load_site
 from heron.contracts.theme import load_theme
+from heron.core import paths
 from heron.core.errors import HeronError
 from heron.core.resolver import theme as find_theme
 from heron.scaffold import seo_block
@@ -47,7 +48,23 @@ def write_page(
         )
 
     lang = lang or config.site.default_lang
-    target = root / "content" / lang / folder / f"{slug}.md"
+    if lang not in config.site.languages:
+        raise HeronError(
+            code="E005",
+            message=f"языка {lang!r} нет в site.languages",
+            hint=", ".join(config.site.languages),
+        )
+    clean = paths.normalize(folder)
+    if clean == ".":
+        clean = ""
+    if paths.escapes(clean) or any(part.startswith(".") for part in clean.split("/") if part):
+        raise HeronError(
+            code=paths.CODE,
+            message=f"папка {folder!r} выходит за пределы content/{lang}/",
+            hint="относительный путь без `..`: guides/intro",
+        )
+    rel = "/".join(part for part in ("content", lang, clean, f"{slug}.md") if part)
+    target = paths.in_site(root, rel)
     if target.exists():
         raise HeronError(code="E004", message="такой файл уже есть", path=str(target))
 

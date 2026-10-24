@@ -19,11 +19,12 @@ def run(*args):
 
 
 def repo_docs() -> set[str]:
-    """Текст документации в репозитории: всё, кроме картинок бренда."""
+    """Текст документации в репозитории: всё, кроме картинок бренда и скрытых файлов (.DS_Store)."""
     found = {"AGENTS.md", "README.md"}
     for path in (ROOT / "docs").rglob("*"):
         rel = path.relative_to(ROOT).as_posix()
-        if path.is_file() and not rel.startswith("docs/brand/"):
+        hidden = any(part.startswith(".") for part in path.relative_to(ROOT).parts)
+        if path.is_file() and not hidden and not rel.startswith("docs/brand/"):
             found.add(rel)
     return found
 

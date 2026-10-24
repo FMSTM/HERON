@@ -169,8 +169,13 @@ def test_name_with_trailing_newline_is_refused(tmp_path):
     assert "недопустимое имя" in exc.value.message
 
 
-def test_name_with_trailing_newline_is_refused_by_schema(tmp_path):
+def test_schema_strips_trailing_newline_and_refuses_inner_one(tmp_path):
+    """Схема режет пробелы по краям (strip), поэтому "abc\\n" там становится "abc"."""
     root = _site(tmp_path, '["abc\\n"]')
+    assert load_site(root / "site.yaml").plugins == ["abc"]
+    second = tmp_path / "second"
+    second.mkdir()
+    root = _site(second, '["a\\nb"]')
     with pytest.raises(HeronError) as exc:
         load_site(root / "site.yaml")
     assert exc.value.code == "E011"

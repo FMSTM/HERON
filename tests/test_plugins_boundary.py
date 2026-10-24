@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import shutil
+
 import pytest
 
 from heron.contracts.site import load_site
@@ -116,3 +118,43 @@ def test_real_plugin_still_loads(tmp_path):
     (real / "__init__.py").write_text("def register(hooks):\n    pass\n", encoding="utf-8")
     found = resolver.plugins(root, ["probe"], Hooks())
     assert [f.name for f in found] == ["probe"]
+
+
+def _linked_plugins_dir(tmp_path):
+    """Сайт, где вся папка plugins/ — ссылка на папку снаружи с плагином-маркером."""
+    outer = tmp_path / "outer"
+    outer.mkdir()
+    folder = outer / "probe"
+    folder.mkdir()
+    marker = tmp_path / "linked-dir.marker"
+    (folder / "__init__.py").write_text(
+        MARKER_CODE.replace("__MARK__", repr(str(marker))), encoding="utf-8"
+    )
+    root = _site(tmp_path, "[probe]")
+    shutil.rmtree(root / "plugins", ignore_errors=True)
+    (root / "plugins").symlink_to(outer, target_is_directory=True)
+    return root, marker
+
+
+def test_symlinked_plugins_dir_is_e024_in_resolver(tmp_path):
+    root, marker = _linked_plugins_dir(tmp_path)
+    with pytest.raises(HeronError) as exc:
+        resolver.plugins(root, ["probe"], Hooks())
+    assert exc.value.code == paths.CODE
+    assert not marker.exists()
+
+
+def test_symlinked_plugins_dir_does_not_run_code_in_build(tmp_path):
+    root, marker = _linked_plugins_dir(tmp_path)
+    with pytest.raises(HeronError) as exc:
+        pipeline.run(root)
+    assert exc.value.code == paths.CODE
+    assert not marker.exists()
+
+
+def test_symlinked_plugins_dir_does_not_run_code_in_check(tmp_path):
+    root, marker = _linked_plugins_dir(tmp_path)
+    with pytest.raises(HeronError) as exc:
+        pipeline.check(root)
+    assert exc.value.code == paths.CODE
+    assert not marker.exists()

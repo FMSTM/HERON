@@ -101,6 +101,18 @@ def plugins(site_root: Path, names: list[str], hooks: Hooks) -> list[Found]:
     found: list[Found] = []
     installed = {entry.name: entry for entry in entry_points(group=PLUGIN_GROUP)}
 
+    plugins_dir = site_root / LOCAL_PLUGINS
+    if plugins_dir.exists() and (
+        plugins_dir.is_symlink() or not paths.inside(site_root, plugins_dir)
+    ):
+        # Сама папка plugins/ ведёт наружу: до исполнения кода плагина.
+        raise HeronError(
+            code=paths.CODE,
+            message=f"папка {LOCAL_PLUGINS}/ ведёт за пределы сайта через ссылку",
+            path=str(plugins_dir),
+            hint=f"сделайте {LOCAL_PLUGINS}/ настоящей папкой внутри сайта вместо ссылки",
+        )
+
     for name in names:
         if not paths.NAME_RE.match(name):
             raise HeronError(
@@ -109,7 +121,6 @@ def plugins(site_root: Path, names: list[str], hooks: Hooks) -> list[Found]:
                 path="site.yaml",
                 hint="имя плагина — латиница, цифры, _ и -, не с дефиса",
             )
-        plugins_dir = site_root / LOCAL_PLUGINS
         local = plugins_dir / name
         if local.is_symlink() or (local.is_dir() and not paths.inside(plugins_dir, local)):
             raise _escape(name, local)

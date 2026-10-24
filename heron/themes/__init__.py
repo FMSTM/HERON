@@ -37,6 +37,7 @@ import tempfile
 import time
 import urllib.request
 import zipfile
+import zlib
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -164,28 +165,41 @@ def _members(blob: bytes) -> list[tuple[str, bytes]]:
             raise _fail("the archive is too large or has too many files")
         files.append((path.as_posix(), read()))
 
-    if blob[:4] == b"PK\x03\x04":
-        with zipfile.ZipFile(io.BytesIO(blob)) as archive:
-            for info in archive.infolist():
-                if info.is_dir():
-                    continue
-                mode = (info.external_attr >> 16) & 0o170000
-                if mode and mode != 0o100000:
-                    raise _fail(f"archive entry {info.filename!r} is a link or a device")
-                take(info.filename, info.file_size, lambda i=info: archive.read(i))
-        return files
     try:
-        archive = tarfile.open(fileobj=io.BytesIO(blob), mode="r:*")  # noqa: SIM115
-    except tarfile.TarError as error:
-        raise _fail("not a theme archive: zip or tar.gz expected") from error
-    with archive:
-        for member in archive.getmembers():
-            if member.isdir():
-                continue
-            if not member.isfile():
-                raise _fail(f"archive entry {member.name!r} is a link or a device")
-            handle = archive.extractfile(member)
-            take(member.name, member.size, lambda h=handle: h.read() if h else b"")
+        if blob[:4] == b"PK\x03\x04":
+            with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+                for info in archive.infolist():
+                    if info.is_dir():
+                        continue
+                    mode = (info.external_attr >> 16) & 0o170000
+                    if mode and mode != 0o100000:
+                        raise _fail(f"archive entry {info.filename!r} is a link or a device")
+                    take(info.filename, info.file_size, lambda i=info: archive.read(i))
+            return files
+        try:
+            archive = tarfile.open(fileobj=io.BytesIO(blob), mode="r:*")  # noqa: SIM115
+        except tarfile.TarError as error:
+            raise _fail("not a theme archive: zip or tar.gz expected") from error
+        with archive:
+            for member in archive.getmembers():
+                if member.isdir():
+                    continue
+                if not member.isfile():
+                    raise _fail(f"archive entry {member.name!r} is a link or a device")
+                handle = archive.extractfile(member)
+                take(member.name, member.size, lambda h=handle: h.read() if h else b"")
+    except (
+        zipfile.BadZipFile,
+        tarfile.TarError,
+        EOFError,
+        zlib.error,
+        OSError,
+        ValueError,
+    ) as error:
+        raise _fail(
+            f"the archive is damaged or truncated: {type(error).__name__}",
+            "download or pack it again",
+        ) from error
     return files
 
 

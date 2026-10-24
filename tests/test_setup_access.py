@@ -159,3 +159,28 @@ def test_outside_a_container_other_interfaces_cannot_connect(tmp_path):
             socket.create_connection((ip, port), timeout=2).close()
     finally:
         _stop(port, token, thread)
+
+
+def test_damaged_theme_archive_gets_400_not_a_dropped_connection(tmp_path):
+    root = _site(tmp_path)
+    port, token, thread = _start(root, "127.0.0.1")
+    try:
+        base = f"http://127.0.0.1:{port}"
+        request = urllib.request.Request(
+            base + "/api/upload",
+            data=b"PK\x03\x04" + b"\x00" * 100,
+            headers={"Host": "localhost", "X-Heron-Token": token},
+        )
+        with urllib.request.urlopen(request, timeout=10) as response:
+            upload = json.loads(response.read().decode())["upload"]
+        save = {
+            "answers": {"theme": {"source": "file", "value": ""}},
+            "upload": upload,
+        }
+        status, body = _call(base + "/api/save", data=save, token=token)
+        assert status == 400, body
+        payload = json.loads(body)
+        assert payload["ok"] is False
+        assert "damaged or truncated" in payload["error"]
+    finally:
+        _stop(port, token, thread)

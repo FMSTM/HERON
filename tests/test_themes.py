@@ -96,3 +96,46 @@ def test_cli_theme_get_starter(site: Path):
     done = CliRunner().invoke(main, ["theme", "get", "starter", str(site)])
     assert done.exit_code == 0, done.output
     assert "theme: starter" in (site / "site.yaml").read_text(encoding="utf-8")
+
+
+def _damaged() -> dict[str, bytes]:
+    good = _tar({"theme/theme.yaml": b"name: x\n" + b"y" * 20000})
+    return {
+        "zip header only": b"PK\x03\x04" + b"\x00" * 100,
+        "truncated tar.gz": good[: len(good) // 2],
+        "corrupt gzip body": good[:20] + bytes(b ^ 0xFF for b in good[20:60]) + good[60:],
+    }
+
+
+@pytest.mark.parametrize("kind", ["zip header only", "truncated tar.gz", "corrupt gzip body"])
+def test_damaged_archive_is_e032(kind: str):
+    from heron import themes
+
+    with pytest.raises(HeronError) as exc:
+        themes._members(_damaged()[kind])
+    assert exc.value.code == "E032"
+    if kind != "corrupt gzip body":  # заголовок битый — «не архив темы», тоже E032
+        assert "damaged or truncated" in str(exc.value)
+
+
+def test_install_of_damaged_zip_is_e032_and_theme_stays(site: Path, tmp_path: Path):
+    path = tmp_path / "bad.zip"
+    path.write_bytes(_damaged()["zip header only"])
+    with pytest.raises(HeronError) as exc:
+        install(site, "file", str(path))
+    assert exc.value.code == "E032"
+    assert (site / "theme" / "theme.yaml").is_file()
+
+
+def test_damaged_zip_member_data_is_e032():
+    from heron import themes
+
+    blob = io.BytesIO()
+    with zipfile.ZipFile(blob, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("theme/theme.yaml", "name: x\n" * 5000)
+    raw = bytearray(blob.getvalue())
+    for i in range(40, 80):  # внутри сжатых данных первого файла
+        raw[i] ^= 0xFF
+    with pytest.raises(HeronError) as exc:
+        themes._members(bytes(raw))
+    assert exc.value.code == "E032"

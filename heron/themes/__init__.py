@@ -343,8 +343,14 @@ def install(
     value: str = "",
     languages: list[str] | None = None,
     upload: Path | None = None,
+    *,
+    archive: Path | None = None,
 ) -> Installed:
-    """Поставить тему в `theme/` сайта; прежнюю — в резервную копию."""
+    """Поставить тему в `theme/` сайта; прежнюю — в резервную копию.
+
+    Источник `file`: `upload` (загрузка) и `archive` (доверенный путь из терминала)
+    берутся как есть; `value` без них — только путь внутри сайта (E024 иначе).
+    """
     root = Path(root)
     languages = languages or ["en"]
     with tempfile.TemporaryDirectory(prefix="heron-theme-") as tmp:
@@ -364,7 +370,17 @@ def install(
                 expected = match.group(1) if match else ""
                 blob = _download(SHA_IN_URL.sub("", value))
             elif source == "file":
-                path = upload or (root / value if not Path(value).is_absolute() else Path(value))
+                path = upload or archive
+                if path is None:
+                    if value.strip().startswith(("/", "\\")) or Path(value).is_absolute():
+                        raise HeronError(
+                            code="E024",
+                            message=f"путь {value!r} выходит за пределы {root.name}/",
+                            path="answers.theme.value",
+                            hint="положите архив в папку сайта и укажите путь от неё, "
+                            "либо поставьте тему командой `heron theme get`",
+                        )
+                    path = paths.source(root, value, where="answers.theme.value")
                 if not path.is_file():
                     raise _fail(f"no archive at {value}")
                 if path.stat().st_size > MAX_TOTAL:

@@ -1023,6 +1023,7 @@ def theme_get(source: str, path: Path) -> None:
 
     lang = _lang(None, path)
     _need_dir(path, lang)
+    archive: Path | None = None
     if source.startswith("https://"):
         kind, value = "url", source
     elif source.startswith("http://"):
@@ -1030,11 +1031,11 @@ def theme_get(source: str, path: Path) -> None:
         sys.exit(2)
     elif Path(source).is_file():
         # как набрано в терминале: от текущей папки (или абсолютный путь)
-        kind, value = "file", str(Path(source).resolve())
+        kind, value, archive = "file", "", Path(source).resolve()
     elif (path / source).is_file():
         # иначе — от папки сайта; путь отдаётся абсолютным, чтобы install
         # не прибавил папку сайта второй раз
-        kind, value = "file", str((path / source).resolve())
+        kind, value, archive = "file", "", (path / source).resolve()
     else:
         kind, value = "name", source
     declared = _declared(path / "site.yaml") or {}
@@ -1043,7 +1044,9 @@ def theme_get(source: str, path: Path) -> None:
 
         if (path / "site.yaml").exists() or (path / "site.yaml").is_symlink():
             paths.in_site(path, "site.yaml")  # E024 до установки, а не после
-        installed = themes.install(path, kind, value, languages=declared.get("languages") or ["en"])
+        installed = themes.install(
+            path, kind, value, languages=declared.get("languages") or ["en"], archive=archive
+        )
     except HeronError as error:
         _fail(error, lang)
     if (path / "site.yaml").is_file():

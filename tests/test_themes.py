@@ -49,7 +49,7 @@ def test_pack_and_get_roundtrip(site: Path, tmp_path: Path):
     archive = pack(site, tmp_path / "t.tar.gz")
     other = tmp_path / "other"
     create(other, name="Other", languages=["fr"])
-    result = install(other, "file", str(archive), languages=["fr"])
+    result = install(other, "file", archive=archive, languages=["fr"])
     assert (other / "theme" / "theme.yaml").is_file()
     assert result.name
 
@@ -67,7 +67,7 @@ def test_archive_is_checked(site: Path, tmp_path: Path, entries, problem):
     path = tmp_path / "bad.tgz"
     path.write_bytes(_tar(entries))
     with pytest.raises(HeronError, match=problem):
-        install(site, "file", str(path))
+        install(site, "file", archive=path)
     assert (site / "theme" / "theme.yaml").is_file()  # тема сайта цела
 
 
@@ -80,7 +80,7 @@ def test_zip_with_symlink_is_refused(site: Path, tmp_path: Path):
     path = tmp_path / "link.zip"
     path.write_bytes(blob.getvalue())
     with pytest.raises(HeronError, match="link"):
-        install(site, "file", str(path))
+        install(site, "file", archive=path)
 
 
 def test_checksum_from_link_is_verified(site: Path, monkeypatch):
@@ -122,7 +122,7 @@ def test_install_of_damaged_zip_is_e032_and_theme_stays(site: Path, tmp_path: Pa
     path = tmp_path / "bad.zip"
     path.write_bytes(_damaged()["zip header only"])
     with pytest.raises(HeronError) as exc:
-        install(site, "file", str(path))
+        install(site, "file", archive=path)
     assert exc.value.code == "E032"
     assert (site / "theme" / "theme.yaml").is_file()
 
@@ -139,3 +139,48 @@ def test_damaged_zip_member_data_is_e032():
     with pytest.raises(HeronError) as exc:
         themes._members(bytes(raw))
     assert exc.value.code == "E032"
+
+
+def test_file_value_outside_site_is_refused(site: Path, tmp_path: Path):
+    archive = pack(site, tmp_path / "out" / "t.tar.gz")
+    before = (site / "theme" / "theme.yaml").read_bytes()
+    with pytest.raises(HeronError) as raised:
+        install(site, "file", str(archive))
+    assert raised.value.code == "E024"
+    assert (site / "theme" / "theme.yaml").read_bytes() == before
+    assert not list((site / ".heron-cache").glob("setup/theme.*"))  # резервной копии нет
+
+
+def test_file_value_dotdot_and_symlink_are_refused(site: Path, tmp_path: Path):
+    archive = pack(site, tmp_path / "out" / "t.tar.gz")
+    with pytest.raises(HeronError) as raised:
+        install(site, "file", "../out/t.tar.gz")
+    assert raised.value.code == "E024"
+    (site / "themes").mkdir()
+    (site / "themes" / "link.tar.gz").symlink_to(archive)
+    with pytest.raises(HeronError) as raised:
+        install(site, "file", "themes/link.tar.gz")
+    assert raised.value.code == "E024"
+
+
+def test_file_value_inside_site_installs(site: Path, tmp_path: Path):
+    pack(site, site / "themes" / "t.tar.gz")
+    other = tmp_path / "other"
+    create(other, name="Other", languages=["fr"])
+    (other / "themes").mkdir()
+    (other / "themes" / "t.tar.gz").write_bytes((site / "themes" / "t.tar.gz").read_bytes())
+    assert install(other, "file", "themes/t.tar.gz", languages=["fr"]).name
+
+
+def test_theme_get_accepts_absolute_and_cwd_relative(site: Path, tmp_path: Path, monkeypatch):
+    archive = pack(site, tmp_path / "out" / "t.tar.gz")
+    other = tmp_path / "other"
+    create(other, name="Other", languages=["fr"])
+    runner = CliRunner()
+    result = runner.invoke(main, ["theme", "get", str(archive), str(other)])
+    assert result.exit_code == 0, result.output
+    third = tmp_path / "third"
+    create(third, name="Third", languages=["fr"])
+    monkeypatch.chdir(archive.parent)
+    result = runner.invoke(main, ["theme", "get", "t.tar.gz", str(third)])
+    assert result.exit_code == 0, result.output

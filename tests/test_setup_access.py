@@ -184,3 +184,18 @@ def test_damaged_theme_archive_gets_400_not_a_dropped_connection(tmp_path):
         assert "damaged or truncated" in payload["error"]
     finally:
         _stop(port, token, thread)
+
+
+def test_save_theme_file_path_outside_site_is_400_without_content(tmp_path):
+    root = _site(tmp_path)
+    port, token, thread = _start(root, "127.0.0.1")
+    try:
+        base = f"http://127.0.0.1:{port}"
+        save = {"answers": {"theme": {"source": "file", "value": "/etc/hosts"}}}
+        status, body = _call(base + "/api/save", data=save, token=token)
+        assert status == 400, body
+        payload = json.loads(body)
+        assert payload["ok"] is False
+        assert "localhost" not in payload["error"]  # содержимое /etc/hosts не утекает
+    finally:
+        _stop(port, token, thread)

@@ -37,7 +37,7 @@ from heron.core.errors import HeronError
 CODE = "E024"
 
 # Имя плагина или темы: одно звено пути, без точек и разделителей.
-NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*\Z")  # \Z: `$` пропускал бы "abc\n"
 
 
 def normalize(value: str) -> str:

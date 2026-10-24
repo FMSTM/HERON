@@ -158,3 +158,19 @@ def test_symlinked_plugins_dir_does_not_run_code_in_check(tmp_path):
         pipeline.check(root)
     assert exc.value.code == paths.CODE
     assert not marker.exists()
+
+
+def test_name_with_trailing_newline_is_refused(tmp_path):
+    root = tmp_path / "site"
+    (root / "plugins" / "abc").mkdir(parents=True)
+    with pytest.raises(HeronError) as exc:
+        resolver.plugins(root, ["abc\n"], Hooks())
+    assert exc.value.code == "E014"
+    assert "недопустимое имя" in exc.value.message
+
+
+def test_name_with_trailing_newline_is_refused_by_schema(tmp_path):
+    root = _site(tmp_path, '["abc\\n"]')
+    with pytest.raises(HeronError) as exc:
+        load_site(root / "site.yaml")
+    assert exc.value.code == "E011"

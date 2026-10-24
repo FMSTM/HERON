@@ -385,6 +385,7 @@ TITLES: dict[str, dict[str, str]] = {
         "E030": "a source folder or file cannot be read",
         "E031": "the preview cannot take the address and port",
         "E032": "the theme cannot be installed: archive, catalog or check",
+        "E035": "the cache or lock file cannot be created next to the build folder",
     },
 }
 

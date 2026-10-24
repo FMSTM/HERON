@@ -256,6 +256,25 @@ def _blocker(dist: Path, rel: str, stale: set[str]) -> str | None:
     return None
 
 
+def unwritable(path: Path, error: OSError) -> HeronError:
+    """Нельзя создать папку или файл рядом со сборкой — E035 вместо общего «denied»."""
+    return HeronError(
+        code="E035",
+        message=f"не удалось создать {path}: {error.strerror or error}",
+        path=str(path),
+        hint="папка над --out должна быть доступна для записи: "
+        "там живут .heron-cache и .<dist>.heron-lock",
+    )
+
+
+def make_dir(folder: Path) -> None:
+    """Создать папку (с родителями), а отказ системы показать как E035."""
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        raise unwritable(folder, error) from error
+
+
 def commit(dist: Path, outputs: Outputs) -> Applied:
     """Поставить новую сборку на место старой.
 
@@ -263,13 +282,17 @@ def commit(dist: Path, outputs: Outputs) -> Applied:
     а при строгом режиме нет и предупреждений. Всё, что может не получиться
     по вине содержимого, проверено до первого переименования.
     """
-    dist.mkdir(parents=True, exist_ok=True)
+    make_dir(dist)
     # Две сборки в одну папку одновременно (CI, наблюдатель и ручная) не
     # должны применяться вперемешку: применение — под блокировкой. Файл
     # блокировки лежит рядом с папкой сборки, а не в ней: внутри он уехал бы
     # в сеть.
     lock_path = dist.parent / f".{dist.name}.heron-lock"
-    with lock_path.open("a") as lock:
+    try:
+        lock = lock_path.open("a")
+    except OSError as error:
+        raise unwritable(lock_path, error) from error
+    with lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         return _commit(dist, outputs)
 

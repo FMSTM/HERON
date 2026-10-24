@@ -241,6 +241,7 @@ def run(
     # Кэш нарезок общий для сборок в одну папку: от плана до записи сборка
     # держит разделяемую блокировку, чтобы уборка не удалила нужное ей.
     cache = dist.parent / CACHE
+    output.make_dir(cache / media.SLICES)  # папка над --out недоступна — E035, не «denied»
     with media.using(cache):
         say.step("step_images")
         media.folder(site_root, collector)

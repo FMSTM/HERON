@@ -123,6 +123,10 @@ LOOPBACK = "127.0.0.1"
 EVERYWHERE = "0.0.0.0"
 
 
+def _noop(*_: object) -> None:
+    """Метод обработчика, который ничего не печатает: просмотр не засоряет терминал."""
+
+
 def default_host(in_container: bool) -> str:
     """Где слушать, если `--host` не задан."""
     return EVERYWHERE if in_container else LOOPBACK
@@ -189,7 +193,7 @@ def serve(
             "__init__": lambda self, *a, **kw: http.server.SimpleHTTPRequestHandler.__init__(
                 self, *a, directory=str(dist), **kw
             ),
-            "log_message": lambda self, *a: None,
+            "log_message": _noop,
             "send_error": lambda self, code, message=None, explain=None: (
                 None
                 if code == 404 and _send_404(self, dist)

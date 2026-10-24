@@ -41,7 +41,7 @@ def url_for(lang: str, default_lang: str, parts: list[str]) -> str:
     return f"/{path}/" if path else "/"
 
 
-def _folder_slugs(root: Path, collector: Collector) -> dict[str, str]:
+def _folder_slugs(root: Path) -> dict[str, str]:
     """Сегмент адреса каждой папки: её `slug`, если раздел его объявил.
 
     Собирается заранее, отдельным проходом: дочернюю страницу движок
@@ -168,7 +168,7 @@ def scan(
             continue
 
         folder_types = _folder_types(lang_root, collector)
-        folder_slugs = _folder_slugs(lang_root, collector)
+        folder_slugs = _folder_slugs(lang_root)
 
         for path in sorted(lang_root.rglob("*.md")):
             rel = path.relative_to(content_root).as_posix()

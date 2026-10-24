@@ -191,7 +191,9 @@ def _err(text: str, color: str | None = "red") -> None:
 
 def _fail(error: HeronError, lang: str = "en") -> None:
     """Ошибка движка по форме: что, где, подробно, что сделать."""
-    _err(say(lang, "error_head", code=error.code, title=title(lang, error.code)))
+    # Ошибка переменной окружения — не про site.yaml: заголовок по имени переменной.
+    head = error.path if error.path == pipeline.WORKERS_ENV else title(lang, error.code)
+    _err(say(lang, "error_head", code=error.code, title=head))
     if error.path:
         where = error.path if error.line is None else f"{error.path}:{error.line}"
         _err(say(lang, "error_where", where=where), None)

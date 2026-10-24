@@ -268,3 +268,5 @@ def test_bad_env_value_is_a_heron_error(tmp_path, monkeypatch, value):
     result = CliRunner().invoke(main, ["build", str(root)])
     assert result.exit_code == 1
     assert "HERON_WORKERS" in result.output
+    head = next(line for line in result.output.splitlines() if "E011" in line)
+    assert "site.yaml" not in head

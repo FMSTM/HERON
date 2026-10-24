@@ -59,7 +59,7 @@ FORBIDDEN_PARTS = {"plugins", ".git", "__pycache__"}
 FORBIDDEN_SUFFIXES = {".py", ".pyc", ".sh", ".exe", ".bat", ".cmd", ".ps1", ".so", ".dll"}
 DEMO_FOLDERS = ("content", "media", "data")
 SHA_IN_URL = re.compile(r"#sha256=([0-9a-f]{64})$")
-NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+NAME_RE = paths.NAME_RE
 
 
 @dataclass(slots=True)

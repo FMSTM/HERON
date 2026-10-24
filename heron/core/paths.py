@@ -28,12 +28,16 @@ from __future__ import annotations
 
 import os
 import posixpath
+import re
 from collections.abc import Iterator
 from pathlib import Path
 
 from heron.core.errors import HeronError
 
 CODE = "E024"
+
+# Имя плагина или темы: одно звено пути, без точек и разделителей.
+NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 
 def normalize(value: str) -> str:

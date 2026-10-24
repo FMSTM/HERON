@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator,
 
 from heron.contracts.loader import build, read_yaml
 from heron.core.errors import HeronError
+from heron.core.paths import NAME_RE
 
 LANG_RE = re.compile(r"^[a-z]{2}(-[a-z]{2})?$")
 # Домен: метки из латиницы, цифр и дефиса, не с дефиса и не на дефис, до 63
@@ -29,7 +30,6 @@ LANG_RE = re.compile(r"^[a-z]{2}(-[a-z]{2})?$")
 # и тот же адрес мог пройти в одном месте и упасть в другом.
 LABEL = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
 DOMAIN_RE = re.compile(rf"^{LABEL}(?:\.{LABEL})+$")
-NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 RESERVED = {
     "heron",
@@ -349,6 +349,17 @@ class SiteConfig(BaseModel):
     # адрес с параметром `/?p=*`. Страницы у них нет и не будет — поэтому
     # они живут здесь, а не во фронтматтере.
     gone: list[str] = Field(default_factory=list)
+
+    @field_validator("plugins")
+    @classmethod
+    def _plugins(cls, value: list[str]) -> list[str]:
+        names = [name.strip() for name in value]
+        for name in names:
+            if not NAME_RE.match(name):
+                raise ValueError(f"plugins: недопустимое имя {name!r}: латиница, цифры, _ и -")
+        if len(set(names)) != len(names):
+            raise ValueError("plugins: имя плагина повторяется")
+        return names
 
     @field_validator("gone")
     @classmethod

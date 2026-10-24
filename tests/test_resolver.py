@@ -73,8 +73,17 @@ def test_plugin_that_explodes_is_e014(tmp_path):
 
 def test_unknown_plugin_is_e014(tmp_path):
     with pytest.raises(HeronError) as exc:
-        resolver.plugins(tmp_path, ["нет-такого"], Hooks())
+        resolver.plugins(tmp_path, ["no-such"], Hooks())
     assert exc.value.code == "E014"
+    assert "не установлен" in str(exc.value)
+
+
+@pytest.mark.parametrize("name", ["нет-такого", "../x", "a/b"])
+def test_plugin_name_outside_the_alphabet_is_e014(tmp_path, name):
+    with pytest.raises(HeronError) as exc:
+        resolver.plugins(tmp_path, [name], Hooks())
+    assert exc.value.code == "E014"
+    assert "недопустимое имя" in str(exc.value)
 
 
 def test_empty_list_resolves_to_nothing(tmp_path):

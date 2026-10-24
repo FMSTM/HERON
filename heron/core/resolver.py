@@ -16,6 +16,7 @@ from importlib import import_module
 from importlib.metadata import entry_points
 from pathlib import Path
 
+from heron.core import paths
 from heron.core.errors import HeronError
 from heron.core.hooks import Hooks
 
@@ -60,8 +61,19 @@ def theme(site_root: Path, name: str) -> Found:
     )
 
 
+def _escape(name: str, path: Path) -> HeronError:
+    return HeronError(
+        code=paths.CODE,
+        message=f"плагин {name!r} ведёт за пределы plugins/ через ссылку",
+        path=str(path),
+        hint="положите папку плагина в plugins/ вместо ссылки",
+    )
+
+
 def _load_local(path: Path, name: str, hooks: Hooks) -> bool:
     entry = path / "__init__.py"
+    if entry.is_symlink():
+        raise _escape(name, entry)
     if not entry.is_file():
         return False
     import sys
@@ -90,7 +102,17 @@ def plugins(site_root: Path, names: list[str], hooks: Hooks) -> list[Found]:
     installed = {entry.name: entry for entry in entry_points(group=PLUGIN_GROUP)}
 
     for name in names:
-        local = site_root / LOCAL_PLUGINS / name
+        if not paths.NAME_RE.match(name):
+            raise HeronError(
+                code="E014",
+                message=f"плагин {name!r}: недопустимое имя",
+                path="site.yaml",
+                hint="имя плагина — латиница, цифры, _ и -, не с дефиса",
+            )
+        plugins_dir = site_root / LOCAL_PLUGINS
+        local = plugins_dir / name
+        if local.is_symlink() or (local.is_dir() and not paths.inside(plugins_dir, local)):
+            raise _escape(name, local)
         try:
             if local.is_dir() and _load_local(local, name, hooks):
                 found.append(Found(name=name, path=local, source="локальный"))

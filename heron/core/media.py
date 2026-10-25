@@ -267,8 +267,11 @@ def walk(value, found: set[str], depth: int = 0) -> None:
     if depth > MAX_DEPTH:
         return
     if isinstance(value, str):
-        if not EXTERNAL.match(value) and MEDIA_FIELD.match(value):
-            found.add(paths.normalize(value))
+        # strip как в paths.normalize: `|`-блок YAML даёт хвостовой `\n`,
+        # а MEDIA_FIELD якорится на `\Z` и его не терпит.
+        text = value.strip()
+        if not EXTERNAL.match(text) and MEDIA_FIELD.match(text):
+            found.add(paths.normalize(text))
     elif isinstance(value, dict):
         for item in value.values():
             walk(item, found, depth + 1)

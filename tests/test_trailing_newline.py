@@ -111,3 +111,21 @@ def test_setup_regexes() -> None:
         rx = getattr(a, name)
         assert rx.match(value), name
         assert not rx.match(value + "\n"), name
+
+
+def test_media_walk_strips_value_before_match() -> None:
+    from heron.core import media
+
+    def walked(value: object) -> set[str]:
+        found: set[str] = set()
+        media.walk({"image": value}, found)
+        return found
+
+    expected = walked("media/a.png")
+    assert expected == {"media/a.png"}
+    assert walked("media/a.png\n") == expected
+    assert walked(" media/a.png ") == expected
+    assert walked("./media/a.png\n") == expected
+    assert walked("media/a") == set()
+    assert walked("other/a.png\n") == set()
+    assert walked("https://x.io/media/a.png\n") == set()

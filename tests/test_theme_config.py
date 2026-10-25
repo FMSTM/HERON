@@ -70,3 +70,18 @@ def test_site_form_nobody_draws_is_a_warning(write_yaml):
     warnings = verify(theme, site)
     assert len(warnings) == 1
     assert "callback" in warnings[0].message
+
+
+def test_theme_names_reject_trailing_newline():
+    """`$` пропускал бы «abc\\n»: имена темы, модулей и полей связи — по `\\Z`."""
+    from pydantic import ValidationError
+
+    from heron.contracts.theme import LinkSpec, ThemeConfig
+
+    with pytest.raises(ValidationError):
+        ThemeConfig(name="abc\n")
+    with pytest.raises(ValidationError):
+        ThemeConfig(name="abc", modules=["abc\n"])
+    with pytest.raises(ValidationError):
+        LinkSpec(field="abc\n", on="ok")
+    assert ThemeConfig(name="abc").name == "abc"

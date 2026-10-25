@@ -25,6 +25,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from heron.contracts.loader import build, read_yaml
+from heron.core.paths import NAME_RE
 
 # Все формы секций, которые знает ядро. Тема называет их в `theme.yaml`
 # (`uses: ["how:steps"]`), отчёт сверяет с фактом.
@@ -43,8 +44,6 @@ KINDS = (
     "gallery",
     "tabs",
 )
-
-NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 # Тема вправе назвать ожидаемый формат секции: `recovery:timeline`.
 # Расхождение — не ошибка сборки, а строка в отчёте: одна и та же секция

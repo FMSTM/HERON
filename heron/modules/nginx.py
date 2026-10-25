@@ -32,6 +32,20 @@ server {
     charset utf-8;
     absolute_redirect off;
 
+    # Типы файлов. `types` на уровне server не дополняет http-уровень, а
+    # заменяет его целиком, поэтому стоковый список подключается сам, а
+    # недостающее (markdown, yaml) объявляется рядом: записи в одном блоке
+    # nginx сливает. Без этого .md уезжает как application/octet-stream.
+    include /etc/nginx/mime.types;
+    types {
+        text/markdown    md;
+        application/yaml yaml yml;
+    }
+    # `charset` касается только типов из этого списка. Стоковый перечень
+    # повторён целиком (директива заменяет его, а не дополняет), плюс markdown.
+    charset_types text/html text/xml text/plain text/vnd.wap.wml
+                  application/javascript application/rss+xml text/markdown;
+
     # Сжатие: текст, стили, скрипты, svg, карты и разметка. Картинки и видео
     # уже сжаты, второй раз их жать — только тратить процессор.
     gzip on;
@@ -39,7 +53,7 @@ server {
     gzip_min_length 1024;
     gzip_types text/plain text/css text/xml application/javascript application/json
                application/xml application/rss+xml application/atom+xml
-               application/manifest+json image/svg+xml;
+               application/manifest+json image/svg+xml text/markdown application/yaml;
 
     # Страницы — всегда спрашивать сервер: правка текста должна быть видна
     # сразу. Ответ «не изменилось» (ETag, Last-Modified) почти бесплатен.

@@ -411,9 +411,11 @@ def _kit_lines(plan: Plan, kit_off: bool) -> list[tuple[str, str, str | None]]:
     if kit is None:
         return [("·", say(lang, "kit_off"), None)] if kit_off else []
     lines: list[tuple[str, str, str | None]] = []
+    # манифест переписывается при каждом обновлении — в счёт заменённых он не идёт
+    updated = [rel for rel in kit.updated if rel != "agents/heron-kit.yaml"]
     if kit.mode == "update":
         text = say(
-            lang, "kit_updated", code=kit.lang, updated=len(kit.updated), created=len(kit.created)
+            lang, "kit_updated", code=kit.lang, updated=len(updated), created=len(kit.created)
         )
         lines.append(("+", text, "green"))
     elif kit.created or kit.updated:

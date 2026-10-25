@@ -201,6 +201,8 @@ def test_init_agents_replaces_untouched_older_file(here):
     assert result.exit_code == 0, result.output
     assert (root / "agents" / rel).read_bytes() == fresh
     assert "edited by you" not in result.output
+    # заменён ровно один файл: манифест в счёт не идёт
+    assert "agent instructions updated (en): 1 replaced, 0 added" in result.output
 
 
 def test_init_plain_adds_only_missing_kit_files(here):

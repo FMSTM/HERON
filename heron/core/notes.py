@@ -23,6 +23,11 @@ from pathlib import Path
 
 NOTE = "heron-readme.md"
 
+# Зарезервированные имена корня сайта: комплект инструкций для агентов
+# (20 §1). Сборка, `check` и `serve` их не читают.
+RESERVED_DIRS = ("agents",)
+RESERVED_FILES = ("AGENTS.md", "CLAUDE.md", "GEMINI.md")
+
 # Мусор, который создают файловые менеджеры. В сборке ему делать нечего.
 JUNK = {".ds_store", "thumbs.db", "desktop.ini"}
 
@@ -40,3 +45,18 @@ def is_junk(name: str | Path) -> bool:
 def skip(name: str | Path) -> bool:
     """Файл, которого движок не должен замечать ни в одной папке."""
     return is_note(name) or is_junk(name)
+
+
+def is_reserved_root(site_root: Path, path: Path) -> bool:
+    """Зарезервированное ли это имя корня сайта.
+
+    True только для прямых детей корня с именами из RESERVED_DIRS и
+    RESERVED_FILES (регистр — как в файловой системе). В отличие от NOTE,
+    которая не замечается нигде, правило действует только в корне:
+    `content/<язык>/agents.md` и `static/AGENTS.md` — обычные файлы своих
+    папок (20 §1).
+    """
+    path = Path(path)
+    if path.parent != Path(site_root):
+        return False
+    return path.name in RESERVED_DIRS or path.name in RESERVED_FILES

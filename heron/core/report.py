@@ -17,6 +17,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import unquote
 
+import yaml
+
+import heron
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core import links as links_module
@@ -60,6 +63,69 @@ def unused_modules(theme_dir: Path) -> list[str]:
     return sorted(available - called)
 
 
+@dataclass
+class KitStatus:
+    """Что известно о комплекте для агентов в папке сайта (20 §1)."""
+
+    present: bool = False
+    engine: str | None = None
+    lang: str | None = None
+    current: bool | None = None
+    disabled: bool = False
+
+    def as_json(self) -> dict:
+        """Поле `kit` из `check --json` (21 §10)."""
+        return {
+            "present": self.present,
+            "engine": self.engine,
+            "lang": self.lang,
+            "current": self.current,
+        }
+
+
+def kit_status(site_root, config) -> KitStatus:
+    """Прочитать манифест комплекта мягко: битый или чужой — не ошибка."""
+    disabled = getattr(config.build, "agents", None) is False
+    if site_root is None:
+        return KitStatus(disabled=disabled)
+    folder = Path(site_root) / "agents"
+    if not folder.is_dir():
+        return KitStatus(disabled=disabled)
+    status = KitStatus(present=True, disabled=disabled)
+    try:
+        data = yaml.safe_load((folder / "heron-kit.yaml").read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, yaml.YAMLError):
+        return status
+    if not isinstance(data, dict):
+        return status
+    engine, lang = data.get("engine"), data.get("lang")
+    if isinstance(engine, (str, int, float)) and not isinstance(engine, bool):
+        status.engine = str(engine)
+        status.current = status.engine == heron.__version__
+    if isinstance(lang, str):
+        status.lang = lang
+    return status
+
+
+# Временные строки сведения о комплекте (21 §12); их заменит шов messages.
+_KIT_TEXT = {
+    "ru": {
+        "found": "`agents/`: инструкции для агентов, движок {engine}, {lang}; в сборку не входит",
+        "unreadable": "`agents/`: инструкции для агентов (манифест не прочитан); не в сборке",
+        "outdated": "комплект от {engine}, движок {now} — обновить: `heron init --agents`",
+        "disabled": "комплект отключён",
+        "missing": "комплекта нет — `heron init`",
+    },
+    "en": {
+        "found": "`agents/`: agent instructions, engine {engine}, {lang}; not part of the build",
+        "unreadable": "`agents/`: agent instructions (manifest unreadable); not part of the build",
+        "outdated": "kit from {engine}, engine {now} — update: `heron init --agents`",
+        "disabled": "agent kit disabled",
+        "missing": "no agent kit — `heron init`",
+    },
+}
+
+
 @dataclass(slots=True)
 class Report:
     """Что движок знает о сайте после обхода."""
@@ -84,6 +150,23 @@ class Report:
     # размеры хэшей карт nginx и кто их задаёт: движок (auto) или хост (off)
     # результат `nginx -t` на собранном конфиге: (прошёл, вывод) или None
     nginx_test: tuple[bool, str] | None = None
+    kit: KitStatus = field(default_factory=KitStatus)
+    # язык пояснений (build.notes): на нём печатается строка о комплекте
+    notes_lang: str = "en"
+
+    def kit_line(self) -> str:
+        """Одна строка-сведение о комплекте для агентов."""
+        text = _KIT_TEXT.get(self.notes_lang, _KIT_TEXT["en"])
+        kit = self.kit
+        if kit.disabled:
+            return text["disabled"]
+        if not kit.present:
+            return text["missing"]
+        if kit.engine is None:
+            return text["unreadable"]
+        if kit.current is False:
+            return text["outdated"].format(engine=kit.engine, now=heron.__version__)
+        return text["found"].format(engine=kit.engine, lang=kit.lang or "?")
 
     def render(self) -> str:
         """Отчёт текстом — то, что печатается после сборки."""
@@ -196,6 +279,9 @@ class Report:
                 "Без пояснительной записки (это не ошибка): " + ", ".join(self.notes_missing)
             )
 
+        lines.append("")
+        lines.append(self.kit_line())
+
         return "\n".join(lines) + "\n"
 
 
@@ -208,6 +294,8 @@ def build(
 ) -> Report:
     """Собрать отчёт по обойдённому сайту."""
     report = Report()
+    report.kit = kit_status(site_root, config)
+    report.notes_lang = config.build.notes
 
     for page in site.pages:
         report.pages_by_lang[page.lang] += 1

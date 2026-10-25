@@ -18,6 +18,7 @@ from pathlib import Path
 import click
 
 from heron.core import build as pipeline
+from heron.core import notes
 from heron.core import report as report_module
 from heron.core.errors import HeronError
 from heron.messages import say
@@ -65,6 +66,9 @@ def snapshot(root: Path) -> Snapshot:
             pass
 
     for entry in sorted(root.iterdir()) if root.is_dir() else []:
+        # комплект для агентов не часть сайта: правка AGENTS.md не будит сборку
+        if notes.is_reserved_root(root, entry):
+            continue
         take(entry, entry.name)
     for folder in WATCHED:
         base = root / folder

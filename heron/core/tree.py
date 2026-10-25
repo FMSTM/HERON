@@ -21,7 +21,7 @@ from heron.core.errors import Collector, HeronError
 from heron.core.models import Page, Site
 from heron.core.parser import blocks, frontmatter, markdown, sections
 
-SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\Z")
 INDEX = "_index.md"
 HOME = "index.md"
 NOT_FOUND = "404.md"

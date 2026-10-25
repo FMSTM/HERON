@@ -78,3 +78,36 @@ def test_site_lang_domain_suffix_regexes() -> None:
     assert not LANG_RE.match("ru\n")
     assert not DOMAIN_RE.match("example.com\n")
     assert not SUFFIX_RE.match("title_ru\n")
+
+
+def test_core_identifier_regexes() -> None:
+    from heron.core.media import MEDIA_FIELD
+    from heron.core.parser.sections import SECTION_ID
+    from heron.core.tree import SLUG as TREE_SLUG
+    from heron.scaffold.page import SLUG as PAGE_SLUG
+
+    for rx in (TREE_SLUG, PAGE_SLUG, SECTION_ID):
+        assert rx.match("my-page")
+        assert not rx.match("my-page\n")
+    assert MEDIA_FIELD.match("media/a.png")
+    assert not MEDIA_FIELD.match("media/a.png\n")
+
+
+def test_setup_regexes() -> None:
+    from heron.setup import answers as a
+
+    good = {
+        "REPO_RE": "you/site",
+        "DOCKER_NAME_RE": "my-img",
+        "BRANCH_RE": "release/v1",
+        "SERVER_PATH_RE": "/var/www",
+        "SERVER_RE": "me@host",
+        "ENGINE_RE": "0.1.0",
+        "PHONE_RE": "+7 (900) 123-45-67",
+        "EMAIL_RE": "a@b.co",
+        "HANDLE_RE": "@name_1",
+    }
+    for name, value in good.items():
+        rx = getattr(a, name)
+        assert rx.match(value), name
+        assert not rx.match(value + "\n"), name

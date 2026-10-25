@@ -38,18 +38,18 @@ HERE = Path(__file__).parent
 
 WAYS = ("github", "dockerhub", "static", "none")
 ENVS = ("dev", "prod")
-REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
-DOCKER_NAME_RE = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
+REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
+DOCKER_NAME_RE = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*\Z")
 # Движок для сборки сайта: канал (prod, beta), версия или канал с digest.
 # Ветка git: подмножество правил git check-ref-format, в котором нет ни
 # символов оболочки, ни YAML. Она уходит в git push и в workflow.
-BRANCH_RE = re.compile(r"^[A-Za-z0-9_](?:[A-Za-z0-9_.+-]|/(?!/))*$")
+BRANCH_RE = re.compile(r"^[A-Za-z0-9_](?:[A-Za-z0-9_.+-]|/(?!/))*\Z")
 # Папка на сервере: абсолютный путь из букв, цифр и . _ - + ~ @. Путь
 # разбирает ещё и оболочка на сервере (rsync передаёт его ssh), поэтому
 # кавычек и подстановок в нём не бывает вовсе.
-SERVER_PATH_RE = re.compile(r"^/[A-Za-z0-9._+~@/-]*$")
-SERVER_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.@-]*$")
-ENGINE_RE = re.compile(r"^(?:prod|beta|dev|\d+\.\d+\.\d+)(?:@sha256:[0-9a-f]{64})?$")
+SERVER_PATH_RE = re.compile(r"^/[A-Za-z0-9._+~@/-]*\Z")
+SERVER_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.@-]*\Z")
+ENGINE_RE = re.compile(r"^(?:prod|beta|dev|\d+\.\d+\.\d+)(?:@sha256:[0-9a-f]{64})?\Z")
 ENTITY_ID = "#entity"
 
 
@@ -190,9 +190,9 @@ PURPOSES = {
     "booking": "reservations",
     "press": "press",
 }
-PHONE_RE = re.compile(r"^\+?[0-9][0-9 ()./-]{4,}$")
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-HANDLE_RE = re.compile(r"^@?[A-Za-z0-9_.]{2,64}$")
+PHONE_RE = re.compile(r"^\+?[0-9][0-9 ()./-]{4,}\Z")
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+\Z")
+HANDLE_RE = re.compile(r"^@?[A-Za-z0-9_.]{2,64}\Z")
 
 
 def contact_url(kind: str, value: str) -> str | None:

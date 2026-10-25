@@ -17,7 +17,7 @@ from heron.core.errors import HeronError
 from heron.core.resolver import theme as find_theme
 from heron.scaffold import seo_block
 
-SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\Z")
 
 
 def write_page(

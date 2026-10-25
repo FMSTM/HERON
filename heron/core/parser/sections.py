@@ -21,7 +21,7 @@ from heron.core.errors import HeronError
 from heron.core.models import Section
 from heron.core.parser import markdown
 
-SECTION_ID = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+SECTION_ID = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\Z")
 
 
 def _inline_text(tokens: list[Token], index: int) -> str:

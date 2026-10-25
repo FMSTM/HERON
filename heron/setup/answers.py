@@ -16,12 +16,20 @@ from __future__ import annotations
 import contextlib
 import copy
 import re
+import unicodedata
 from functools import cache
 from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 from heron.contracts.site import LANG_RE, NAME_RE
 from heron.contracts.site import domain as clean_domain
@@ -364,6 +372,20 @@ class PublishAnswers(Model):
     helpers: dict[str, bool] = Field(
         default_factory=lambda: {"build": True, "publish": True, "gitignore": True}
     )
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _no_control_chars(cls, value: Any, info: ValidationInfo) -> Any:
+        """Одно место для всех строк публикации: служебный символ в значении
+        (перевод строки, возврат каретки, NUL, табуляция) ломает скрипты и
+        workflow. branch и engine обрезаются по краям ниже, их проверяем после обрезки."""
+        if isinstance(value, str):
+            text = value.strip() if info.field_name in ("branch", "engine") else value
+            if any(unicodedata.category(c) == "Cc" for c in text):
+                raise ValueError(
+                    f"{info.field_name}: control characters (newline, NUL, ...) are not allowed"
+                )
+        return value
 
     @field_validator("helpers", mode="before")
     @classmethod

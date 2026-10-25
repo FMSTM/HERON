@@ -59,6 +59,11 @@ THEME_NOTE = (
     "движок это учитывает; редактор с YAML 1.2 читает `on` строкой."
 )
 
+SITE_NOTE = (
+    "Правило, которого схема не выражает: суффикс языка у ключа (`name_ru`, `title_suffix_ru`) "
+    "должен быть из `site.languages`, иначе ошибка `E011`."
+)
+
 _META = ("title", "description", "default", "examples")
 
 
@@ -105,6 +110,8 @@ def site_schema() -> dict[str, Any]:
             }
             for key in keys
         }
+    note = SITE_NOTE
+    data["description"] = f"{data['description']} {note}" if data.get("description") else note
     return _finish(data, "site.schema.json")
 
 

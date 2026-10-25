@@ -84,7 +84,9 @@ def test_site_schema_localized_values() -> None:
     assert validator.is_valid(
         {**base, "seo": {"title_suffix_ru": "x", "og_default_image_en": "a.png"}}
     )
-    assert not validator.is_valid({"site": {**base["site"], "name_RUS": "x"}})
+    assert validator.is_valid(base)
+    assert not validator.is_valid({**base, "site": {**base["site"], "name_RUS": "x"}})
+    assert "E011" in schemas.site_schema()["description"]
     assert not validator.is_valid({**base, "seo": {"nope_ru": "x"}})
     defs = schemas.site_schema()["$defs"]
     assert "i18n" not in defs["SiteBlock"]["properties"]

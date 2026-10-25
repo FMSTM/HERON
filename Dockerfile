@@ -22,9 +22,12 @@ RUN python -m pip install --no-cache-dir --require-hashes --no-deps \
 # Dockerfile.site едет в пакет: `heron recipe` отдаёт рецепт образа сайта этой версии
 COPY pyproject.toml README.md AGENTS.md Dockerfile.site ./
 COPY heron ./heron
-# текст документации для `heron docs`; картинки бренда в образ не идут
-COPY docs/ru ./docs/ru
-COPY docs/translation.yaml ./docs/translation.yaml
+# текст документации для `heron docs` (docs/ru, docs/en, docs/translation.yaml)
+# и навыки — их пакует force-include. Папка docs целиком: docs/en может ещё не
+# быть, а COPY отсутствующего пути роняет сборку; картинки бренда отсекает
+# .dockerignore. Финальный слой получает всё через пакет: /opt/heron/heron/_docs.
+COPY docs ./docs
+COPY skills ./skills
 # Сам движок — без зависимостей (они уже стоят) и без изоляции сборки:
 # бэкенд сборки тоже прибит хешами. --upgrade — чтобы bin/heron лёг рядом
 # с bin/ зависимостей, а не был молча пропущен.

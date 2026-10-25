@@ -48,8 +48,8 @@ packages = ["heron"]
 # рецепт образа сайта: `heron recipe` отдаёт его ровно этой версии
 "Dockerfile.site" = "heron/_recipe/Dockerfile.site"
 "README.md" = "heron/_docs/README.md"
-"docs/ru" = "heron/_docs/ru"
-"docs/translation.yaml" = "heron/_docs/translation.yaml"
+"docs/ru" = "heron/_docs/docs/ru"
+"docs/translation.yaml" = "heron/_docs/docs/translation.yaml"
 
 [tool.ruff]
 line-length = 100

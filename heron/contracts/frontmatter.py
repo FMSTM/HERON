@@ -21,8 +21,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from heron.core.errors import Warning_
 
-SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
-URL_PATH_RE = re.compile(r"^/[^\s?#]*$")
+SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\Z")
+URL_PATH_RE = re.compile(r"^/[^\s?#]*\Z")
 
 TITLE_MAX = 60
 DESCRIPTION_MAX = 155

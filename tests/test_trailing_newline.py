@@ -49,3 +49,13 @@ def test_publish_fields_reject_control_chars(field: str, good: str, bad: str) ->
 def test_branch_and_engine_still_stripped() -> None:
     p = PublishAnswers(branch=" main\n", engine="beta\n")
     assert (p.branch, p.engine) == ("main", "beta")
+
+
+def test_slug_and_redirect_paths_reject_trailing_newline() -> None:
+    from heron.contracts.frontmatter import PageMeta
+
+    base = {"title": "Заголовок под выдачу", "h1": "Заголовок", "description": "Описание"}
+    PageMeta.model_validate({**base, "slug": "my-page", "redirect_from": ["/old/"], "gone": ["/x"]})
+    for extra in ({"slug": "my-page\n"}, {"redirect_from": ["/old\n"]}, {"gone": ["/old/\n"]}):
+        with pytest.raises(ValidationError):
+            PageMeta.model_validate({**base, **extra})

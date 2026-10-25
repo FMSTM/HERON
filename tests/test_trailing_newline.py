@@ -68,3 +68,13 @@ def test_theme_uses_rejects_trailing_newline() -> None:
     for bad in ("abc\n", "tabs:tabs\n"):
         with pytest.raises(ValidationError):
             TypeSpec(uses=[bad])
+
+
+def test_site_lang_domain_suffix_regexes() -> None:
+    from heron.contracts.site import DOMAIN_RE, LANG_RE, SUFFIX_RE
+
+    assert LANG_RE.match("ru") and LANG_RE.match("pt-br")
+    assert DOMAIN_RE.match("example.com") and SUFFIX_RE.match("title_ru")
+    assert not LANG_RE.match("ru\n")
+    assert not DOMAIN_RE.match("example.com\n")
+    assert not SUFFIX_RE.match("title_ru\n")

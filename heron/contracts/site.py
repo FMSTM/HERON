@@ -23,13 +23,13 @@ from heron.contracts.loader import build, read_yaml
 from heron.core.errors import HeronError
 from heron.core.paths import NAME_RE
 
-LANG_RE = re.compile(r"^[a-z]{2}(-[a-z]{2})?$")
+LANG_RE = re.compile(r"^[a-z]{2}(-[a-z]{2})?\Z")
 # Домен: метки из латиницы, цифр и дефиса, не с дефиса и не на дефис, до 63
 # знаков, хотя бы одна точка. Одно правило на всех: опрос `heron new`
 # и валидация site.yaml раньше проверяли домен разными регулярками, и один
 # и тот же адрес мог пройти в одном месте и упасть в другом.
 LABEL = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
-DOMAIN_RE = re.compile(rf"^{LABEL}(?:\.{LABEL})+$")
+DOMAIN_RE = re.compile(rf"^{LABEL}(?:\.{LABEL})+\Z")
 
 RESERVED = {
     "heron",
@@ -51,7 +51,7 @@ RESERVED = {
 # `organization`) переводятся тем же суффиксом, но разбирает их тема и
 # подстановки schema, а не ядро.
 LOCALIZED = {"site": ("name",), "seo": ("title_suffix", "og_default_image")}
-SUFFIX_RE = re.compile(r"^(?P<key>[a-z_]+?)_(?P<lang>[a-z]{2}(?:-[a-z]{2})?)$")
+SUFFIX_RE = re.compile(r"^(?P<key>[a-z_]+?)_(?P<lang>[a-z]{2}(?:-[a-z]{2})?)\Z")
 
 
 def localize(value: Any, lang: str) -> Any:

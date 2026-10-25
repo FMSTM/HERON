@@ -506,3 +506,94 @@ TEXT["en"].update(
         "theme_https": "a theme by link is taken over https only",
     }
 )
+
+
+# --- комплект для агентов, docs, schema (20 §1, 21 §10, §12) -----------------------
+TEXT["ru"].update(
+    {
+        # сводка new/init
+        "kit_created": "инструкции для агентов: agents/, AGENTS.md — {code}, файлов {n}",
+        "kit_updated": (
+            "инструкции для агентов обновлены ({code}): заменено {updated}, добавлено {created}"
+        ),
+        "kit_in_place": "инструкции для агентов уже на месте — обновить: heron init --agents",
+        "kit_off": (
+            "инструкции для агентов не положены (build.agents: false) — "
+            "включить: heron init --agents"
+        ),
+        "kit_skipped_edited": "правлен вами, не тронут: {files}",
+        "kit_orphan": "нет в новом комплекте, оставлен: {files}",
+        "kit_fallback": "без перевода на {want}, положены на {have}: файлов {n}",
+        "kit_about_placeholder": "<о проекте: заполняет архитектор>",
+        "kit_manifest_head": "# Манифест комплекта для агентов. Пишет движок, руками не правят.",
+        # сведение check (21 §12)
+        "kit_found": (
+            "`agents/`: инструкции для агентов, движок {engine}, {code}; в сборку не входит"
+        ),
+        "kit_unreadable": (
+            "`agents/`: инструкции для агентов, манифест не прочитан; в сборку не входит"
+        ),
+        "kit_outdated": "комплект от {kit}, движок {engine} — обновить: `heron init --agents`",
+        "kit_disabled": "комплект отключён",
+        "kit_missing": "комплекта нет — `heron init`",
+        "agents_conflict": "--agents и --no-agents вместе не задаются: выберите одно",
+        # heron docs
+        "docs_fallback": "[{have}: перевода на {want} пока нет]",
+        "docs_stale": "[{want}: перевод отстаёт от {have}]",
+        "docs_start_with": "Начать с {path}",
+        "docs_group_start": "Начало",
+        "docs_group_roles": "Роли агентов",
+        "docs_group_guide": "Гайды по порядку",
+        "docs_group_spec": "Справочник",
+        "docs_group_machine": "Для машин",
+        "docs_exported": "Документация выложена в {target}: файлов {n}",
+        "docs_not_found": "«{query}» в документации не нашлось.",
+        "docs_no_template": "Образца {file!r} нет. Есть: {names}",
+        "docs_no_topic": "Темы {name!r} нет. Оглавление: heron docs",
+        "docs_all_langs": "--all-langs работает только вместе с --export <папка>",
+        # heron schema
+        "schema_exported": "Схемы записаны в {target}: {files}",
+        "schema_one_kind": "Схема одна за раз: выберите один из флагов {flags}",
+    }
+)
+TEXT["en"].update(
+    {
+        "kit_created": "agent instructions: agents/, AGENTS.md — {code}, {n} files",
+        "kit_updated": "agent instructions updated ({code}): {updated} replaced, {created} added",
+        "kit_in_place": "agent instructions already in place — update: heron init --agents",
+        "kit_off": (
+            "agent instructions not placed (build.agents: false) — enable: heron init --agents"
+        ),
+        "kit_skipped_edited": "edited by you, left as is: {files}",
+        "kit_orphan": "not in the new kit, left in place: {files}",
+        "kit_fallback": "no {want} translation yet, placed in {have}: {n} files",
+        "kit_about_placeholder": "<about the project: the architect fills this in>",
+        "kit_manifest_head": "# Agent kit manifest. Written by the engine, not edited by hand.",
+        "kit_found": (
+            "`agents/`: agent instructions, engine {engine}, {code}; not part of the build"
+        ),
+        "kit_unreadable": (
+            "`agents/`: agent instructions, manifest unreadable; not part of the build"
+        ),
+        "kit_outdated": "kit from {kit}, engine {engine} — update: `heron init --agents`",
+        "kit_disabled": "agent kit disabled",
+        "kit_missing": "no agent kit — `heron init`",
+        "agents_conflict": "--agents and --no-agents cannot be used together: pick one",
+        # Пометка фолбэка — буквально как в 21 §10 на обоих языках: её ищут агенты и тесты.
+        "docs_fallback": "[{have}: перевода на {want} пока нет]",
+        "docs_stale": "[{want}: перевод отстаёт от {have}]",
+        "docs_start_with": "Start with {path}",
+        "docs_group_start": "Start",
+        "docs_group_roles": "Agent roles",
+        "docs_group_guide": "Guides in order",
+        "docs_group_spec": "Reference",
+        "docs_group_machine": "For machines",
+        "docs_exported": "Documentation written to {target}: {n} files",
+        "docs_not_found": "“{query}” is not in the documentation.",
+        "docs_no_template": "There is no sample {file!r}. Available: {names}",
+        "docs_no_topic": "There is no topic {name!r}. Contents: heron docs",
+        "docs_all_langs": "--all-langs works only together with --export <folder>",
+        "schema_exported": "Schemas written to {target}: {files}",
+        "schema_one_kind": "One schema at a time: pick one of {flags}",
+    }
+)

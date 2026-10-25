@@ -85,7 +85,8 @@ class KitStatus:
 
 # Манифест комплекта — несколько сотен строк; больше — не манифест.
 KIT_MANIFEST_LIMIT = 64 * 1024
-_ENGINE = re.compile(r"\d+(\.\d+){1,3}([.+-]?[0-9A-Za-z.+-]*)?\Z")
+# re.ASCII: \d без него — любые цифры Юникода («٠.١»), версия движка — только ASCII
+_ENGINE = re.compile(r"\d+(\.\d+){1,3}([.+-]?[0-9A-Za-z.+-]*)?\Z", re.ASCII)
 _LANGS = ("ru", "en")
 
 
@@ -122,25 +123,6 @@ def kit_status(site_root: Path | None, config: SiteConfig) -> KitStatus:
     return status
 
 
-# Временные строки сведения о комплекте (21 §12); их заменит шов messages.
-_KIT_TEXT = {
-    "ru": {
-        "found": "`agents/`: инструкции для агентов, движок {engine}, {lang}; в сборку не входит",
-        "unreadable": "`agents/`: инструкции для агентов (манифест не прочитан); не в сборке",
-        "outdated": "комплект от {engine}, движок {now} — обновить: `heron init --agents`",
-        "disabled": "комплект отключён",
-        "missing": "комплекта нет — `heron init`",
-    },
-    "en": {
-        "found": "`agents/`: agent instructions, engine {engine}, {lang}; not part of the build",
-        "unreadable": "`agents/`: agent instructions (manifest unreadable); not part of the build",
-        "outdated": "kit from {engine}, engine {now} — update: `heron init --agents`",
-        "disabled": "agent kit disabled",
-        "missing": "no agent kit — `heron init`",
-    },
-}
-
-
 @dataclass(slots=True)
 class Report:
     """Что движок знает о сайте после обхода."""
@@ -172,17 +154,19 @@ class Report:
 
     def kit_line(self) -> str:
         """Одна строка-сведение о комплекте для агентов."""
-        text = _KIT_TEXT.get(self.notes_lang, _KIT_TEXT["en"])
+        from heron.messages import say
+
+        lang = self.notes_lang
         kit = self.kit or KitStatus()
         if kit.disabled:
-            return text["disabled"]
+            return say(lang, "kit_disabled")
         if not kit.present:
-            return text["missing"]
+            return say(lang, "kit_missing")
         if kit.engine is None:
-            return text["unreadable"]
+            return say(lang, "kit_unreadable")
         if kit.current is False:
-            return text["outdated"].format(engine=kit.engine, now=heron.__version__)
-        return text["found"].format(engine=kit.engine, lang=kit.lang or "?")
+            return say(lang, "kit_outdated", kit=kit.engine, engine=heron.__version__)
+        return say(lang, "kit_found", engine=kit.engine, code=kit.lang or "?")
 
     def render(self) -> str:
         """Отчёт текстом — то, что печатается после сборки."""

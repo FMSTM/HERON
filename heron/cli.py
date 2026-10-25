@@ -316,8 +316,10 @@ def _check_json(path: Path, strict: bool, drafts: bool) -> None:
             "hint": item.hint,
         }
 
+    kit = None
     try:
         result = pipeline.check(path, drafts=drafts, strict=strict)
+        kit = result.report.kit if result.report is not None else None
         errors = [error(item) for item in result.collector.errors]
         warnings = [
             {"kind": w.kind, "path": w.path, "line": w.line, "message": w.message}
@@ -327,6 +329,11 @@ def _check_json(path: Path, strict: bool, drafts: bool) -> None:
         pages = len(result.site.pages) if getattr(result, "site", None) is not None else None
     except HeronError as item:
         errors, warnings, pages = [error(item)], [], None
+    if kit is None:
+        # до разбора конфига не дошло: о комплекте всё равно есть что сказать
+        from types import SimpleNamespace
+
+        kit = report_module.kit_status(path.resolve(), SimpleNamespace(build=None))
     failed = bool(errors) or (strict and bool(warnings))
     click.echo(
         json.dumps(
@@ -337,6 +344,7 @@ def _check_json(path: Path, strict: bool, drafts: bool) -> None:
                 "pages": pages,
                 "errors": errors,
                 "warnings": warnings,
+                "kit": kit.as_json(),
             },
             ensure_ascii=False,
             indent=2,
@@ -388,27 +396,71 @@ def _group_plan(created: list[str], lang: str) -> list[str]:
     return lines
 
 
-def _report_plan(plan: Plan, verbose: bool = False) -> None:
+KIT_ROOT = ("AGENTS.md", "CLAUDE.md", "GEMINI.md")
+
+
+def _is_kit(rel: str) -> bool:
+    """Файл комплекта для агентов: agents/** или корневой указатель (20 §1)."""
+    name = rel.rstrip("/")
+    return name in KIT_ROOT or name == "agents" or name.startswith("agents/")
+
+
+def _kit_lines(plan: Plan, kit_off: bool) -> list[tuple[str, str, str | None]]:
+    """Комплект одной строкой (и строками о правленых и лишних): (знак, текст, цвет)."""
+    lang, kit = plan.notes, plan.kit
+    if kit is None:
+        return [("·", say(lang, "kit_off"), None)] if kit_off else []
+    lines: list[tuple[str, str, str | None]] = []
+    if kit.mode == "update":
+        text = say(
+            lang, "kit_updated", code=kit.lang, updated=len(kit.updated), created=len(kit.created)
+        )
+        lines.append(("+", text, "green"))
+    elif kit.created or kit.updated:
+        text = say(lang, "kit_created", code=kit.lang, n=len(kit.created) + len(kit.updated))
+        lines.append(("+", text, "green"))
+    else:
+        lines.append(("·", say(lang, "kit_in_place"), None))
+    if kit.fallback:
+        other = "en" if kit.lang == "ru" else "ru"
+        text = say(lang, "kit_fallback", want=kit.lang, have=other, n=len(kit.fallback))
+        lines.append(("·", text, None))
+    if kit.edited:
+        lines.append(("!", say(lang, "kit_skipped_edited", files=", ".join(kit.edited)), "yellow"))
+    if kit.orphans:
+        lines.append(("!", say(lang, "kit_orphan", files=", ".join(kit.orphans)), "yellow"))
+    return lines
+
+
+def _report_plan(plan: Plan, verbose: bool = False, kit_off: bool = False) -> None:
     lang = plan.notes
-    if plan.found:
+    kit = plan.kit
+    own = set(kit.found) if kit is not None else set()
+    found = [line for line in plan.found if line not in own]
+    created = [rel for rel in plan.created if kit is None or not _is_kit(rel)]
+    skipped = [rel for rel in plan.skipped if kit is None or not _is_kit(rel)]
+    kit_lines = _kit_lines(plan, kit_off)
+    if found:
         click.echo(say(lang, "plan_found"))
-        for line in plan.found:
+        for line in found:
             click.echo(f"  · {line}")
-    if plan.created:
+    if created or (kit is not None and (kit.created or kit.updated)):
         click.echo(say(lang, "plan_made"))
         if verbose:
             for name in plan.created:
                 click.secho(f"  + {name}", fg="green")
         else:
-            for line in _group_plan(plan.created, lang):
+            for line in _group_plan(created, lang):
                 click.secho(f"  + {line}", fg="green")
-    else:
+    elif not kit_lines:
         click.echo(say(lang, "plan_nothing"))
-    if plan.skipped:
-        if verbose or len(plan.skipped) <= 5:
-            click.echo(say(lang, "plan_kept", files=", ".join(plan.skipped)))
+    for mark, text, color in kit_lines:
+        click.secho(f"  {mark} {text}", fg=color)
+    if skipped:
+        if verbose or len(skipped) <= 5:
+            click.echo(say(lang, "plan_kept", files=", ".join(skipped)))
         else:
-            click.echo(say(lang, "plan_kept_many", count=len(plan.skipped)))
+            click.echo(say(lang, "plan_kept_many", count=len(skipped)))
 
 
 def _shown(path: Path) -> str:
@@ -586,6 +638,7 @@ def _start_site(
     present: list[str] | None = None,
     done_key: str = "new_done",
     demo: bool = False,
+    agents: str = "true",
 ) -> None:
     """Завести сайт: опрос в терминале или флаги, затем скелет и «Что дальше».
 
@@ -637,9 +690,10 @@ def _start_site(
         domain=domain.lower() if domain else None,
         default_lang=default,
         demo=demo,
+        agents=agents,
     )
     click.secho("\n" + say(lang, done_key, path=_shown(path)), fg="green", bold=True)
-    _report_plan(plan, verbose)
+    _report_plan(plan, verbose, kit_off=agents == "false")
     ordered = [default] + [x for x in languages if x != default]
     _next(path, lang, ordered, domain.lower() if domain else placeholder_domain(guess))
 
@@ -666,6 +720,15 @@ def site_options(func):
     return func
 
 
+NO_AGENTS_OPTION = click.option(
+    "--no-agents",
+    "no_agents",
+    is_flag=True,
+    help="Не класть инструкции для агентов (agents/, AGENTS.md) и запомнить это: "
+    "build.agents: false.",
+)
+
+
 # Код выхода, когда сайт записан, а завершающее действие плагина
 # (on_build_finished) упало: не 0 — CI должен это заметить, и не 1 — сборка
 # удалась, и сообщение «сборка не выполнена» было бы неправдой.
@@ -676,6 +739,7 @@ FINISH_FAILED = 3
 @NOTES_OPTION
 @VERBOSE_OPTION
 @site_options
+@NO_AGENTS_OPTION
 @click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
 def new(
     path: Path,
@@ -685,6 +749,7 @@ def new(
     domain: str | None,
     langs: str | None,
     yes: bool,
+    no_agents: bool,
 ) -> None:
     """Создать сайт с нуля: в новой папке или в текущей (`.`).
 
@@ -693,7 +758,8 @@ def new(
     спрашивает: значения из флагов или по умолчанию.
 
     Папка может быть под git: .git, .gitignore, README и прочее служебное
-    не мешают.
+    не мешают. Кладёт и инструкции для агентов на языке пояснений: agents/,
+    AGENTS.md, CLAUDE.md, GEMINI.md (сборка их не видит); --no-agents — без них.
     """
     if (path / "site.yaml").is_file():
         _existing_site(path, notes)
@@ -720,7 +786,8 @@ def new(
             _err(_missing_hint(path, lang), None)
             sys.exit(1)
 
-    _start_site(path, notes, verbose, site_name, domain, langs, yes, demo=True)
+    agents = "false" if no_agents else "true"
+    _start_site(path, notes, verbose, site_name, domain, langs, yes, demo=True, agents=agents)
 
 
 @main.command()
@@ -728,6 +795,14 @@ def new(
 @NOTES_OPTION
 @VERBOSE_OPTION
 @site_options
+@click.option(
+    "--agents",
+    "with_agents",
+    is_flag=True,
+    help="Только инструкции для агентов: обновить по манифесту agents/heron-kit.yaml — "
+    "нетронутые заменить, правленые оставить и назвать (--force — заменить и их).",
+)
+@NO_AGENTS_OPTION
 @click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
 def init(
     path: Path,
@@ -738,6 +813,8 @@ def init(
     domain: str | None,
     langs: str | None,
     yes: bool,
+    with_agents: bool,
+    no_agents: bool,
 ) -> None:
     """Дополнить папку недостающим по тому, что написано в site.yaml.
 
@@ -745,7 +822,13 @@ def init(
     только заводится: в терминале те же вопросы, что у `new`, языки по
     умолчанию — папки, которые уже лежат в content/. Язык пояснений:
     --notes, иначе HERON_NOTES, иначе build.notes из site.yaml, иначе en.
+
+    Инструкции для агентов (agents/, AGENTS.md): без флагов — только недостающие
+    файлы, если build.agents не false; --agents — обновление по манифесту;
+    --no-agents — не класть и записать build.agents: false (21 §10).
     """
+    if with_agents and no_agents:
+        raise click.UsageError(say(_lang(notes, path), "agents_conflict"))
     _need_dir(path, _lang(notes, path))
     if not (path / "site.yaml").is_file() and not force:
         content = path / "content"
@@ -755,16 +838,32 @@ def init(
             else []
         )
         _start_site(
-            path, notes, verbose, site_name, domain, langs, yes, present, done_key="init_done"
+            path,
+            notes,
+            verbose,
+            site_name,
+            domain,
+            langs,
+            yes,
+            present,
+            done_key="init_done",
+            agents="false" if no_agents else "true",
         )
         return
 
-    plan = adopt(path, force=force, notes=notes)
-    click.secho(say(plan.notes, "init_done", path=_shown(path)), fg="green", bold=True)
-    _report_plan(plan, verbose)
+    if with_agents:
+        plan = adopt(path, force=force, notes=notes, agents_only=True, agents_flag="true")
+    elif no_agents:
+        plan = adopt(path, force=force, notes=notes, agents_flag="false")
+    else:
+        plan = adopt(path, force=force, notes=notes)
     from heron.scaffold import _declared
 
     declared = _declared(path / "site.yaml") or {}
+    click.secho(say(plan.notes, "init_done", path=_shown(path)), fg="green", bold=True)
+    _report_plan(plan, verbose, kit_off=declared.get("agents") == "false")
+    if with_agents:
+        return
     domain = None
     try:
         import yaml
@@ -1006,25 +1105,106 @@ def _setup_report(result, lang: str, path: Path) -> None:
     click.echo(say(lang, "setup_next", path=_shown(path)))
 
 
+SCHEMA_KINDS = {
+    "site": "site.schema.json",
+    "theme": "theme.schema.json",
+    "frontmatter": "frontmatter.schema.json",
+    "setup": "setup.schema.json",
+    "errors": "errors.json",
+}
+
+
+def _write_schemas(target: Path) -> list[str]:
+    """Пять файлов схем в папку `target` — каждый через проверку пути (E024).
+
+    Папку называет человек, и она может быть ссылкой. А вот файл на месте
+    схемы, ведущий ссылкой куда угодно, — ошибка до первой записи: `--export`
+    не пишет туда, куда указывает чужая ссылка.
+    """
+    from heron.contracts.schemas import all_schemas
+    from heron.core import paths
+
+    texts = all_schemas()
+    for name in texts:  # всё — до первой записи
+        destination = paths.in_site(target, name)
+        if destination.is_symlink() or (destination.exists() and not destination.is_file()):
+            raise HeronError(
+                code=paths.CODE,
+                message=f"{name}: на месте файла схемы ссылка или папка",
+                path=str(destination),
+                hint="уберите её или выберите другую папку",
+            )
+    target.mkdir(parents=True, exist_ok=True)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+    for name, text in texts.items():
+        # O_NOFOLLOW: ссылка, подложенная после проверки, — ошибка, а не запись мимо
+        fd = os.open(paths.in_site(target, name), flags, 0o644)
+        with os.fdopen(fd, "wb") as out:
+            out.write(text.encode("utf-8"))
+    return list(texts)
+
+
 @main.command()
+@click.option("--site", "of_site", is_flag=True, help="site.yaml (по умолчанию).")
+@click.option("--theme", "of_theme", is_flag=True, help="theme.yaml.")
+@click.option("--frontmatter", "of_frontmatter", is_flag=True, help="Фронтматтер страницы.")
+@click.option("--setup", "of_setup", is_flag=True, help="Ответы анкеты heron setup.")
+@click.option("--errors", "of_errors", is_flag=True, help="Реестр кодов ошибок.")
 @click.option(
-    "--setup", "of_setup", is_flag=True, help="Схема ответов конфигуратора вместо site.yaml."
+    "--export",
+    "target",
+    default=None,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Записать все пять файлов в папку.",
 )
-def schema(of_setup: bool) -> None:
-    """JSON Schema site.yaml: для редактора, агента и формы конфигуратора."""
-    import json
+def schema(
+    of_site: bool,
+    of_theme: bool,
+    of_frontmatter: bool,
+    of_setup: bool,
+    of_errors: bool,
+    target: Path | None,
+) -> None:
+    """JSON Schema контрактов этой версии: для редактора, агента и CI (21 §10).
 
-    if of_setup:
-        from heron.setup.answers import Answers
+    \b
+    heron schema                  site.yaml
+    heron schema --frontmatter    фронтматтер страницы
+    heron schema --errors         реестр кодов ошибок
+    heron schema --export папка   все пять файлов
+    """
+    from heron.contracts import schemas
 
-        data = Answers.model_json_schema()
-    else:
-        from heron.contracts.site import SiteConfig
-
-        data = SiteConfig.model_json_schema()
-        data["$id"] = "https://github.com/FMSTM/HERON/site.yaml.schema.json"
-    data["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    click.echo(json.dumps(data, ensure_ascii=False, indent=2))
+    lang = _lang(None, Path.cwd())
+    chosen = [
+        kind
+        for kind, flag in (
+            ("site", of_site),
+            ("theme", of_theme),
+            ("frontmatter", of_frontmatter),
+            ("setup", of_setup),
+            ("errors", of_errors),
+        )
+        if flag
+    ]
+    if len(chosen) > 1:
+        flags = ", ".join(f"--{kind}" for kind in SCHEMA_KINDS)
+        raise click.UsageError(say(lang, "schema_one_kind", flags=flags))
+    if target is not None:
+        try:
+            written = _write_schemas(target)
+        except HeronError as error:
+            _fail(error, lang)
+        for name in written:
+            click.echo(str(target / name))
+        click.secho(
+            say(lang, "schema_exported", target=target, files=", ".join(written)),
+            fg="green",
+            err=True,
+        )
+        return
+    kind = chosen[0] if chosen else "site"
+    click.echo(schemas.all_schemas()[SCHEMA_KINDS[kind]], nl=False)
 
 
 @main.command()
@@ -1160,53 +1340,84 @@ def page(page_type: str, slug: str, lang: str | None, folder: str, path: Path) -
 @main.command()
 @click.argument("name", required=False)
 @click.argument("file", required=False)
+@click.option(
+    "--lang",
+    "lang_flag",
+    type=click.Choice(["ru", "en"]),
+    default=None,
+    help="Язык документации. Иначе --notes/HERON_NOTES/build.notes из site.yaml "
+    "текущей папки, иначе en.",
+)
 @click.option("--search", "query", default=None, metavar="ТЕКСТ", help="Найти в документации.")
 @click.option(
     "--export",
     "target",
     default=None,
     type=click.Path(file_okay=False, path_type=Path),
-    help="Выложить всю документацию в папку.",
+    help="Выложить документацию в папку — то же, что сайт получает в agents/.",
 )
-def docs(name: str | None, file: str | None, query: str | None, target: Path | None) -> None:
-    """Документация этой версии движка: оглавление, тема, поиск, выгрузка.
+@click.option(
+    "--all-langs",
+    "all_langs",
+    is_flag=True,
+    help="С --export: оба языка, папки ru/ и en/ (для сайта движка).",
+)
+def docs(
+    name: str | None,
+    file: str | None,
+    lang_flag: str | None,
+    query: str | None,
+    target: Path | None,
+    all_langs: bool,
+) -> None:
+    """Документация этой версии движка: оглавление, тема, поиск, выгрузка (21 §10).
+
+    Нет файла на нужном языке — печатается файл другого языка с пометкой
+    первой строкой.
 
     \b
     heron docs                    оглавление
-    heron docs agents             тема целиком (markdown)
+    heron docs kit                с чего начинать агенту
     heron docs template page.md   образец файла
     heron docs --search E023      поиск по всей документации
     heron docs --export .heron-docs   папкой, со ссылками между файлами
+    heron docs --lang en engine   тема на английском
     """
     from heron import docs as library
 
+    lang = lang_flag or _lang(None, Path.cwd())
+    if all_langs and target is None:
+        raise click.UsageError(say(lang, "docs_all_langs"))
     if query:
-        found = library.search(query)
+        found = library.search(query, lang)
         if not found:
-            _err(f"«{query}» в документации не нашлось.", "yellow")
+            _err(say(lang, "docs_not_found", query=query), "yellow")
             sys.exit(1)
         click.echo("\n".join(found))
         return
     if target is not None:
-        written = library.export(target)
-        click.secho(f"Документация выложена в {target}: файлов {len(written)}", fg="green")
-        click.echo(f"Начать с {target / 'AGENTS.md'}")
+        written = library.export(target, lang, all_langs=all_langs)
+        click.secho(say(lang, "docs_exported", target=target, n=len(written)), fg="green")
+        if all_langs:
+            click.echo(library.start_hint(target / lang, lang))
+        else:
+            click.echo(library.start_hint(target, lang))
         return
     if name is None:
-        click.echo(library.contents(), nl=False)
+        click.echo(library.contents(lang), nl=False)
         return
     if name == "template":
-        names = library.templates()
+        names = library.templates(lang)
         if file not in names:
-            _err(f"Образца {file!r} нет. Есть: {', '.join(names)}")
+            _err(say(lang, "docs_no_template", file=file, names=", ".join(names)))
             sys.exit(1)
-        click.echo(library.read(f"{library.TEMPLATES}/{file}"), nl=False)
+        click.echo(library.read(f"{library.TEMPLATES}/{file}", lang), nl=False)
         return
     item = library.topic(name)
     if item is None:
-        _err(f"Темы {name!r} нет. Оглавление: heron docs")
+        _err(say(lang, "docs_no_topic", name=name))
         sys.exit(1)
-    click.echo(library.read(item.path), nl=False)
+    click.echo(library.read(item.path, lang), nl=False)
 
 
 if __name__ == "__main__":

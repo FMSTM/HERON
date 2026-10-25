@@ -59,3 +59,12 @@ def test_slug_and_redirect_paths_reject_trailing_newline() -> None:
     for extra in ({"slug": "my-page\n"}, {"redirect_from": ["/old\n"]}, {"gone": ["/old/\n"]}):
         with pytest.raises(ValidationError):
             PageMeta.model_validate({**base, **extra})
+
+
+def test_theme_uses_rejects_trailing_newline() -> None:
+    from heron.contracts.theme import TypeSpec
+
+    TypeSpec(uses=["abc", "tabs:tabs"])
+    for bad in ("abc\n", "tabs:tabs\n"):
+        with pytest.raises(ValidationError):
+            TypeSpec(uses=[bad])

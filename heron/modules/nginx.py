@@ -43,7 +43,8 @@ server {
     }
     # `charset` касается только типов из этого списка. Стоковый перечень
     # повторён целиком (директива заменяет его, а не дополняет), плюс markdown.
-    charset_types text/html text/xml text/plain text/vnd.wap.wml
+    # text/html nginx включает сам: упомянутый здесь, он даёт предупреждение.
+    charset_types text/xml text/plain text/vnd.wap.wml
                   application/javascript application/rss+xml text/markdown;
 
     # Сжатие: текст, стили, скрипты, svg, карты и разметка. Картинки и видео
@@ -246,6 +247,34 @@ def generate(config: SiteConfig, plan: Plan | None = None) -> dict[str, str]:
     return {NAME: "".join(parts)}
 
 
+MIME_INCLUDE = "include /etc/nginx/mime.types;"
+MIME_STUB = "types {\n  text/html html htm;\n  text/css css;\n}\n"
+
+
+def _mime_types(binary: str, subprocess) -> str | None:
+    """Где у этого nginx лежит mime.types: рядом с его главным конфигом.
+
+    В образе и на пакетных системах это /etc/nginx; на Homebrew, FreeBSD и у
+    nginx из исходников — свой каталог, его знает `nginx -V` (--conf-path).
+    """
+    from pathlib import Path
+
+    if Path("/etc/nginx/mime.types").is_file():
+        return "/etc/nginx/mime.types"
+    try:
+        info = subprocess.run(
+            [binary, "-V"], capture_output=True, text=True, timeout=15, check=False
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    match = re.search(r"--conf-path=(\S+)", info.stderr + info.stdout)
+    if match:
+        candidate = Path(match.group(1)).parent / "mime.types"
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
 def check(conf: str | None, collector=None) -> tuple[bool, str] | None:
     """Прогнать `nginx -t` на собранном конфиге, если nginx есть под рукой.
 
@@ -264,7 +293,13 @@ def check(conf: str | None, collector=None) -> tuple[bool, str] | None:
         return None
     with tempfile.TemporaryDirectory(prefix="heron-nginx-") as tmp:
         root = Path(tmp)
-        (root / "site.conf").write_text(conf, encoding="utf-8")
+        # Собранный конфиг не меняется: подставляется только его копия для
+        # проверки, чтобы абсолютный путь образа не ронял её на других системах.
+        mime = _mime_types(binary, subprocess)
+        if mime is None:
+            mime = str(root / "mime.types")
+            (root / "mime.types").write_text(MIME_STUB, encoding="utf-8")
+        (root / "site.conf").write_text(conf.replace(MIME_INCLUDE, f"include {mime};"), "utf-8")
         temp = "\n".join(
             f"  {name} {root}/{name};"
             for name in (

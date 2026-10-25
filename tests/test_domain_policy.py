@@ -5,7 +5,7 @@
 области в контракте ядра нет. Границу ядра по именам сайтов проверяет
 scripts/check-boundaries.sh в scripts/check.sh.
 
-Спецификация: docs/spec/20-data-contract.md, раздел 5, «Проверки на сборке».
+Спецификация: docs/ru/spec/20-data-contract.md, раздел 5, «Проверки на сборке».
 """
 
 from __future__ import annotations
@@ -56,8 +56,17 @@ def test_declared_but_empty_address_is_still_e020(tmp_path):
     assert [e.code for e in collector.errors] == ["E020"]
 
 
+# Контракт ядра — по языкам документации (docs/<язык>/spec/, 23 §10); русский — исходник
+# и обязан быть, перевод проверяется, когда он есть. Нет исходника — падение, не пропуск.
+CONTRACT = ROOT / "docs" / "ru" / "spec" / "20-data-contract.md"
+
+
 def test_no_domain_sections_in_core_contract():
-    spec = (ROOT / "docs" / "spec" / "20-data-contract.md").read_text(encoding="utf-8")
-    assert "{#prep}" not in spec and "{#bring}" not in spec
+    translated = ROOT / "docs" / "en" / "spec" / "20-data-contract.md"
+    specs = [CONTRACT] + ([translated] if translated.is_file() else [])
+    for path in specs:
+        spec = path.read_text(encoding="utf-8")
+        assert "## 4. " in spec and "{#" in spec, path  # тот самый документ, а не пустышка
+        assert "{#prep}" not in spec and "{#bring}" not in spec, path
     code = "\n".join(p.read_text(encoding="utf-8") for p in (ROOT / "heron").rglob("*.py"))
     assert '"prep"' not in code and '"bring"' not in code

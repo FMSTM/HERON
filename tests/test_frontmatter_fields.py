@@ -1,6 +1,6 @@
 """Поля фронтматтера, тип одиночной страницы и ключ главной.
 
-Спецификация: docs/spec/20-data-contract.md, раздел 4.2.
+Спецификация: docs/ru/spec/20-data-contract.md, раздел 4.2.
 """
 
 from __future__ import annotations
@@ -15,7 +15,8 @@ from heron.modules import jsonld
 from heron.scaffold import create
 from tests import sites
 
-SPEC = Path(__file__).resolve().parents[1] / "docs" / "spec" / "20-data-contract.md"
+# Исходник контракта — русский (docs/ru/spec/, 23 §10). Нет файла — падение, не пропуск.
+SPEC = Path(__file__).resolve().parents[1] / "docs" / "ru" / "spec" / "20-data-contract.md"
 
 
 def _documented_fields() -> set[str]:
@@ -31,7 +32,9 @@ def _documented_fields() -> set[str]:
 
 def test_every_core_field_is_in_the_table():
     """Таблица 20 §4.2 и модель не расходятся: поле в коде — строка в доках."""
-    assert set(PageMeta.model_fields) <= _documented_fields()
+    documented = _documented_fields()
+    assert {"title", "h1", "description", "slug"} <= documented  # таблица найдена и разобрана
+    assert set(PageMeta.model_fields) <= documented
 
 
 def test_single_page_with_own_type_uses_its_template(tmp_path):

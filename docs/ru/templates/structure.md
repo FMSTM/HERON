@@ -102,4 +102,4 @@ contact:
 
 ## 9. Задачи на движок
 
-Только то, чего нет в `docs/agents/capabilities.md`. Форма — `docs/agents/architect.md`, «Задача на движок». Если задач нет — так и написать.
+Только то, чего нет в `roles/capabilities.md`. Форма — `roles/architect.md`, «Задача на движок». Если задач нет — так и написать.

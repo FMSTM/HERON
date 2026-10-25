@@ -1,16 +1,18 @@
 # Роль: Архитектор
 
-Спроектировать сайт по отчёту о старом сайте или по задаче заказчика. Общие правила и границы ролей — [`AGENTS.md`](../../AGENTS.md).
+Спроектировать сайт по отчёту о старом сайте или по задаче заказчика. Общие правила и границы ролей — [`README.md`](../README.md).
 
 **На входе:** отчёт о том, как был устроен и как работал старый сайт (страницы, разделы, адреса, что приносило обращения, что болело), и/или сам старый сайт: выгрузка, sitemap, Search Console.
 **На выходе — четыре вещи:**
 
-1. документ «структура сайта» по форме [`templates/structure.md`](templates/structure.md);
-2. черновик `site.yaml` (по [`templates/site.yaml`](templates/site.yaml)) и раздел `types`/`links` для `theme.yaml` (по [`templates/theme.yaml`](templates/theme.yaml));
+1. документ «структура сайта» по форме [`templates/structure.md`](../templates/structure.md);
+2. черновик `site.yaml` (по [`templates/site.yaml`](../templates/site.yaml)) и раздел `types`/`links` для `theme.yaml` (по [`templates/theme.yaml`](../templates/theme.yaml));
 3. таблица переноса: старый адрес → ключ → адрес на каждом языке → тип → 301 или 410;
 4. вопросы заказчику — всё, что нельзя решить без него.
 
 Этого достаточно, чтобы дизайнер ([`designer.md`](designer.md)), контент ([`content.md`](content.md)) и сборщик ([`builder.md`](builder.md)) сделали сайт без новых вопросов.
+
+**Куда сдавать.** Структура — `agents/work/structure.md`, вопросы — `agents/work/questions.md` (форма [`templates/questions.md`](../templates/questions.md)), отчёт — `agents/work/report.md` (форма [`templates/report.md`](../templates/report.md)). Решения о языках, домене, теме и 410 для адресов, которых нет в источнике, — твои предложения с рекомендацией, но подтверждает их человек: записывай в вопросы, а не в `site.yaml` молча.
 
 ## Главное правило
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import filecmp
+import os
 import shutil
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,7 +14,8 @@ import yaml
 import heron
 from heron.core import build as pipeline
 from heron.core import notes, watch
-from heron.core.report import KitStatus, kit_status
+from heron.core import report as report_module
+from heron.core.report import KitStatus, Report, kit_status
 from heron.scaffold import create
 from tests.sites import config
 
@@ -185,3 +187,126 @@ def test_check_text_has_kit_line(tmp_path, lang):
     add_kit(root)
     text = pipeline.check(root).report.render()
     assert "agents/" in text and heron.__version__ in text
+
+
+# --- доработка по ревью -------------------------------------------------------
+
+
+def test_build_does_not_read_manifest(pair, monkeypatch):
+    _, with_kit = pair
+
+    def boom(*_a, **_k):
+        raise AssertionError("сборка не должна читать комплект")
+
+    monkeypatch.setattr(report_module, "kit_status", boom)
+    result = pipeline.run(with_kit, strict=True)
+    assert not result.failed
+    assert result.report.kit is None
+    assert "agents/" not in result.report.render()
+    assert "комплект" not in result.report.render()
+
+
+def test_build_output_same_with_and_without_kit(pair):
+    plain, with_kit = pair
+    a = pipeline.run(plain, strict=True).report.render()
+    b = pipeline.run(with_kit, strict=True).report.render()
+    assert a == b
+
+
+def test_build_ignores_symlinks_for_all_names(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "heron-kit.yaml").write_text('engine: "0.0.9"\nlang: ru\n', encoding="utf-8")
+    (outside / "f.md").write_text("x\n", encoding="utf-8")
+    plain = make_site(tmp_path / "plain")
+    linked = tmp_path / "linked"
+    shutil.copytree(plain, linked)
+    (linked / "agents").symlink_to(outside)
+    (linked / "AGENTS.md").symlink_to(outside / "f.md")
+    (linked / "CLAUDE.md").symlink_to(tmp_path / "nowhere")
+    (linked / "GEMINI.md").symlink_to(tmp_path / "nowhere2")
+    a = pipeline.run(plain, strict=True)
+    b = pipeline.run(linked, strict=True)
+    assert not a.failed and not b.failed, [str(e) for e in b.collector.errors]
+    assert same_tree(plain / "dist", linked / "dist")
+    assert "0.0.9" not in b.report.render()
+    snap = watch.snapshot(linked)
+    assert not set(snap) & set(RESERVED) and not any(k.startswith("agents") for k in snap)
+
+
+def test_check_with_dangling_agents_link(tmp_path):
+    root = make_site(tmp_path / "s")
+    (root / "agents").symlink_to(tmp_path / "nowhere")
+    assert kit_status(root, config()) == KitStatus()
+    assert "no agent kit" in pipeline.check(root).report.render()
+
+
+def test_kit_status_deeply_nested_yaml(tmp_path):
+    add_kit(tmp_path, "[" * 10000 + "]" * 10000)
+    status = kit_status(tmp_path, config())
+    assert status.present is True and status.engine is None
+
+
+def test_kit_status_oversized_manifest(tmp_path):
+    add_kit(tmp_path, 'engine: "0.1.0"\nlang: ru\n# ' + "x" * 70000 + "\n")
+    status = kit_status(tmp_path, config())
+    assert status.present is True and status.engine is None
+
+
+def test_kit_status_manifest_is_directory(tmp_path):
+    add_kit(tmp_path)
+    (tmp_path / "agents/heron-kit.yaml").unlink()
+    (tmp_path / "agents/heron-kit.yaml").mkdir()
+    status = kit_status(tmp_path, config())
+    assert status.present is True and status.engine is None
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="нет mkfifo")
+def test_kit_status_manifest_is_fifo(tmp_path):
+    add_kit(tmp_path)
+    (tmp_path / "agents/heron-kit.yaml").unlink()
+    os.mkfifo(tmp_path / "agents/heron-kit.yaml")
+    status = kit_status(tmp_path, config())  # не должно зависнуть
+    assert status.present is True and status.engine is None
+
+
+@pytest.mark.parametrize(
+    "engine",
+    ['"0.1\\nINJECTED"', '"\\e[31m0.1.0"', '"x" * 1', '"' + "9" * 40 + '"', "true", "[1]"],
+)
+def test_kit_status_rejects_bad_engine(tmp_path, engine):
+    engine = '"x"' if engine == '"x" * 1' else engine
+    add_kit(tmp_path, f"engine: {engine}\nlang: ru\n")
+    status = kit_status(tmp_path, config())
+    assert status.present is True and status.engine is None and status.current is None
+
+
+@pytest.mark.parametrize("lang", ['"fr"', '"ru\\nx"', "5", "[ru]"])
+def test_kit_status_rejects_bad_lang(tmp_path, lang):
+    add_kit(tmp_path, f'engine: "{heron.__version__}"\nlang: {lang}\n')
+    status = kit_status(tmp_path, config())
+    assert status.engine == heron.__version__ and status.lang is None
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_kit_lines_through_render(lang):
+    texts = {}
+    cases = {
+        "found": KitStatus(True, heron.__version__, "ru", True),
+        "outdated": KitStatus(True, "0.0.1", "ru", False),
+        "unreadable": KitStatus(True),
+        "disabled": KitStatus(False, disabled=True),
+        "missing": KitStatus(False),
+    }
+    for name, kit in cases.items():
+        report = Report(kit=kit, notes_lang=lang)
+        out = report.render()
+        line = out.rstrip("\n").splitlines()[-1]
+        assert line == report.kit_line() and "\n" not in line
+        texts[name] = line
+    assert len(set(texts.values())) == 5
+    assert "0.0.1" in texts["outdated"] and heron.__version__ in texts["outdated"]
+    assert "--agents" in texts["outdated"]
+    assert "agents/" in texts["found"] and "agents/" in texts["unreadable"]
+    assert Report().render() == Report(kit=None).render()
+    assert texts["found"] not in Report().render()

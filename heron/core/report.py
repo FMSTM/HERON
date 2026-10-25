@@ -73,7 +73,7 @@ class KitStatus:
     current: bool | None = None
     disabled: bool = False
 
-    def as_json(self) -> dict:
+    def as_json(self) -> dict[str, object]:
         """Поле `kit` из `check --json` (21 §10)."""
         return {
             "present": self.present,
@@ -83,8 +83,17 @@ class KitStatus:
         }
 
 
-def kit_status(site_root, config) -> KitStatus:
-    """Прочитать манифест комплекта мягко: битый или чужой — не ошибка."""
+# Манифест комплекта — несколько сотен строк; больше — не манифест.
+KIT_MANIFEST_LIMIT = 64 * 1024
+_ENGINE = re.compile(r"\d+(\.\d+){1,3}([.+-]?[0-9A-Za-z.+-]*)?\Z")
+_LANGS = ("ru", "en")
+
+
+def kit_status(site_root: Path | None, config: SiteConfig) -> KitStatus:
+    """Прочитать манифест комплекта мягко: любой сбой — одна строка-сведение.
+
+    Вызывается только из `check`: сборка и просмотр манифест не читают.
+    """
     disabled = getattr(config.build, "agents", None) is False
     if site_root is None:
         return KitStatus(disabled=disabled)
@@ -92,17 +101,23 @@ def kit_status(site_root, config) -> KitStatus:
     if not folder.is_dir():
         return KitStatus(disabled=disabled)
     status = KitStatus(present=True, disabled=disabled)
+    manifest = folder / "heron-kit.yaml"
     try:
-        data = yaml.safe_load((folder / "heron-kit.yaml").read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, yaml.YAMLError):
+        # is_file до открытия: FIFO и каталог не читаем (чтение FIFO зависает)
+        if not manifest.is_file() or manifest.stat().st_size > KIT_MANIFEST_LIMIT:
+            return status
+        data = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 — битый манифест не ошибка (21 §4), в т. ч. RecursionError
         return status
     if not isinstance(data, dict):
         return status
     engine, lang = data.get("engine"), data.get("lang")
     if isinstance(engine, (str, int, float)) and not isinstance(engine, bool):
-        status.engine = str(engine)
-        status.current = status.engine == heron.__version__
-    if isinstance(lang, str):
+        text = str(engine)
+        if len(text) <= 32 and _ENGINE.match(text):
+            status.engine = text
+            status.current = text == heron.__version__
+    if isinstance(lang, str) and lang in _LANGS:
         status.lang = lang
     return status
 
@@ -150,14 +165,15 @@ class Report:
     # размеры хэшей карт nginx и кто их задаёт: движок (auto) или хост (off)
     # результат `nginx -t` на собранном конфиге: (прошёл, вывод) или None
     nginx_test: tuple[bool, str] | None = None
-    kit: KitStatus = field(default_factory=KitStatus)
+    # None — сведение о комплекте не собиралось (build/serve); считает только check
+    kit: KitStatus | None = None
     # язык пояснений (build.notes): на нём печатается строка о комплекте
     notes_lang: str = "en"
 
     def kit_line(self) -> str:
         """Одна строка-сведение о комплекте для агентов."""
         text = _KIT_TEXT.get(self.notes_lang, _KIT_TEXT["en"])
-        kit = self.kit
+        kit = self.kit or KitStatus()
         if kit.disabled:
             return text["disabled"]
         if not kit.present:
@@ -279,8 +295,9 @@ class Report:
                 "Без пояснительной записки (это не ошибка): " + ", ".join(self.notes_missing)
             )
 
-        lines.append("")
-        lines.append(self.kit_line())
+        if self.kit is not None:
+            lines.append("")
+            lines.append(self.kit_line())
 
         return "\n".join(lines) + "\n"
 
@@ -294,7 +311,6 @@ def build(
 ) -> Report:
     """Собрать отчёт по обойдённому сайту."""
     report = Report()
-    report.kit = kit_status(site_root, config)
     report.notes_lang = config.build.notes
 
     for page in site.pages:

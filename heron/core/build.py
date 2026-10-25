@@ -512,6 +512,7 @@ def check(site_root: Path, drafts: bool = False, strict: bool = False) -> Result
     redirects.generate(site, collector, config)
 
     built = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
+    built.kit = report.kit_status(site_root, config)
     _schema(site, config, theme, collector, built)
     return Result(
         config=config,

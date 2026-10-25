@@ -419,6 +419,8 @@ def test_help_names_no_specific_agent(here, args):
     result = run(*args)
     assert result.exit_code == 0
     assert not AGENT_NAMES.search(result.output), AGENT_NAMES.search(result.output)
+    # и имён их файлов-указателей: справка говорит «агент», не называя инструмент
+    assert "CLAUDE.md" not in result.output and "GEMINI.md" not in result.output
 
 
 def test_docs_help_mentions_spec_and_options(here):

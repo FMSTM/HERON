@@ -28,6 +28,7 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.6",
     "pre-commit>=3.7",
+    "jsonschema>=4.23",
 ]
 
 [tool.uv]
@@ -47,10 +48,8 @@ packages = ["heron"]
 # рецепт образа сайта: `heron recipe` отдаёт его ровно этой версии
 "Dockerfile.site" = "heron/_recipe/Dockerfile.site"
 "README.md" = "heron/_docs/README.md"
-"docs/architecture.md" = "heron/_docs/docs/architecture.md"
-"docs/agents" = "heron/_docs/docs/agents"
-"docs/guide" = "heron/_docs/docs/guide"
-"docs/spec" = "heron/_docs/docs/spec"
+"docs/ru" = "heron/_docs/ru"
+"docs/translation.yaml" = "heron/_docs/translation.yaml"
 
 [tool.ruff]
 line-length = 100

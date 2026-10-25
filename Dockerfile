@@ -1,5 +1,5 @@
 # HERON — образ движка. Единственный артефакт поставки.
-# Требования к нему — docs/spec/23-distribution.md, раздел 9:
+# Требования к нему — docs/ru/spec/23-distribution.md, раздел 9:
 #   не от рута, работает с произвольным uid, без сборочных инструментов в финальном слое,
 #   базовый образ прибит по digest, ENTRYPOINT — сам движок.
 
@@ -23,10 +23,8 @@ RUN python -m pip install --no-cache-dir --require-hashes --no-deps \
 COPY pyproject.toml README.md AGENTS.md Dockerfile.site ./
 COPY heron ./heron
 # текст документации для `heron docs`; картинки бренда в образ не идут
-COPY docs/architecture.md ./docs/architecture.md
-COPY docs/agents ./docs/agents
-COPY docs/guide ./docs/guide
-COPY docs/spec ./docs/spec
+COPY docs/ru ./docs/ru
+COPY docs/translation.yaml ./docs/translation.yaml
 # Сам движок — без зависимостей (они уже стоят) и без изоляции сборки:
 # бэкенд сборки тоже прибит хешами. --upgrade — чтобы bin/heron лёг рядом
 # с bin/ зависимостей, а не был молча пропущен.

@@ -37,6 +37,8 @@ analytics:
 build:
   notes: en
   # ↑ language of comments and hints written by heron init and heron page: ru or en. Override: --notes or HERON_NOTES
+  agents: {agents}
+  # ↑ instruction kit for AI agents in agents/: true — full, kit — without guides and specs, false — do not place it
   fail_on_warning: false
   allow_raw_html: false
 

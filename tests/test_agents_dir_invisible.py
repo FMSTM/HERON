@@ -23,8 +23,9 @@ RESERVED = ("AGENTS.md", "CLAUDE.md", "GEMINI.md")
 
 
 def make_site(root: Path) -> Path:
+    """Сайт без комплекта: create() кладёт его сам (S2.T5), здесь он нужен отдельно."""
     root.mkdir(parents=True)
-    create(root, name="demo", languages=["en", "ru"])
+    create(root, name="demo", languages=["en", "ru"], place_kit=False)
     return root
 
 

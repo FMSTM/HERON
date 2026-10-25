@@ -239,6 +239,10 @@ class BuildBlock(Strict):
     # `heron page`: SEO-блок страниц, записки, site.yaml, theme.yaml.
     # На сборку не влияет.
     notes: Literal["ru", "en"] = "en"
+    # Комплект инструкций для агентов в agents/ (20 §1): true — полный, kit —
+    # без гайдов и спецификаций, false — не класть и не возвращать при init/setup.
+    # Пишут его флаги --no-agents/--agents; на сборку не влияет.
+    agents: bool | Literal["kit"] = True
     fail_on_warning: bool = False
     allow_raw_html: bool = False
     # Подпись движка в каждой странице: <meta name="generator" content="HERON">
@@ -259,6 +263,18 @@ class BuildBlock(Strict):
     # static/ (например robots.txt). Без этого списка совпадение имени — E026:
     # молчаливая подмена файла, который движок собрал сам, замечается в сети.
     overrides: list[str] = Field(default_factory=list)
+
+    @field_validator("agents", mode="before")
+    @classmethod
+    def _agents(cls, v: Any) -> Any:
+        # YAML даёт true/false булевыми; строкой их пишут из шаблонов и анкет.
+        # Всё прочее («yes», 1) — ошибка: значений ровно три.
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, str) and v.strip().lower() in ("true", "false", "kit"):
+            text = v.strip().lower()
+            return {"true": True, "false": False}.get(text, text)
+        raise ValueError(f"build.agents: {v!r} — ожидается true, kit или false")
 
 
 class NginxBlock(Strict):

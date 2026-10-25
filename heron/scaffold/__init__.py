@@ -19,6 +19,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from heron import __version__
 from heron.core import paths
@@ -176,6 +177,12 @@ SERVICE = (
     "README.md",
     "LICENSE",
     "LICENSE.md",
+    # комплект для агентов (20 §1): его кладут new и init, а репозиторий сайта
+    # нередко заводят с ним раньше сайта — `new .` такой папке не отказывает
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+    "agents",
 )
 
 
@@ -217,6 +224,8 @@ class Plan:
     skipped: list[str] = field(default_factory=list)
     found: list[str] = field(default_factory=list)
     notes: str = "en"
+    # что сделано с комплектом для агентов (scaffold.agents.KitPlan); None — не трогали
+    kit: Any = None
 
 
 def slugify(name: str) -> str:
@@ -451,6 +460,9 @@ def create(
     domain: str | None = None,
     default_lang: str | None = None,
     demo: bool = False,
+    agents: str | bool = "true",
+    *,
+    place_kit: bool = True,
 ) -> Plan:
     """Разложить скелет сайта в папку.
 
@@ -461,9 +473,14 @@ def create(
     `demo` — демонстрационные страницы белой темы в каждом языке (главная, «Блоки»,
     «Темы», «Документация») и меню к нему. `init` его не кладёт: там у сайта
     свой контент.
+    `agents` — комплект для агентов (20 §1): `true` — полный, `kit` — без гайдов
+    и спецификаций, `false` — не класть; значение ложится в `build.agents`.
+    `place_kit=False` — только записать значение, комплект кладёт вызывающий
+    (`adopt` с `init --agents` обновляет его по манифесту).
     """
     if notes not in NOTE_LANGS:
         raise ValueError(message("en", "bad_notes", value=notes))
+    agents = agents_level(agents)
     plan = Plan(notes=notes)
     languages = list(languages or ["en"])
     if default_lang:
@@ -487,6 +504,7 @@ def create(
         "default_lang": default_lang,
         "languages": ", ".join(languages),
         "spec": _version_spec(),
+        "agents": agents,
     }
 
     site_yaml = _text(notes, "site.yaml").format(**fields)
@@ -521,10 +539,122 @@ def create(
     for lang in languages:
         _put(root, f"theme/i18n/{lang}.yaml", STRINGS.get(lang, STRINGS["en"]), plan, force)
 
+    if agents != "false" and place_kit:
+        declared = {
+            "name": name,
+            "domain": domain,
+            "languages": languages,
+            "default_lang": default_lang,
+        }
+        _merge_kit(plan, _place_kit(root, notes, declared, "create", force, agents))
+
     return plan
 
 
-def adopt(root: Path, force: bool = False, notes: str | None = None) -> Plan:
+AGENTS_LEVELS = ("true", "kit", "false")
+
+
+def agents_level(value: object) -> str:
+    """Значение `build.agents` строкой: true, kit или false (20 §5)."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    text = str(value).strip().lower()
+    if text not in AGENTS_LEVELS:
+        raise ValueError(f"build.agents {value!r}: expected true, kit or false")
+    return text
+
+
+def _place_kit(
+    root: Path, notes: str, declared: dict | None, mode: str, force: bool, level: str
+) -> Any:
+    from heron.scaffold import agents as kit
+
+    fields = kit.fields(root, declared, notes)
+    return kit.place(root, notes, fields, mode=mode, force=force, level=level)  # type: ignore[arg-type]
+
+
+def _merge_kit(plan: Plan, made: Any) -> None:
+    """Комплект — в общую сводку: положенное и заменённое — в created."""
+    plan.created.extend(made.created)
+    plan.created.extend(made.updated)
+    plan.skipped.extend(made.skipped)
+    plan.found.extend(made.found)
+    plan.kit = made
+
+
+def set_build_agents(root: Path, value: str) -> bool:
+    """Записать `build.agents: <value>` в site.yaml точечно, не переформатируя файл.
+
+    Строка `agents:` в блоке `build` есть — заменяется значение (комментарий
+    в конце строки остаётся); нет — строка добавляется после `notes` (и его
+    комментария), иначе сразу после `build:`; нет блока — он дописывается
+    в конец. Нет site.yaml — ничего не пишется (False).
+    """
+    import yaml
+
+    value = agents_level(value)
+    path = paths.in_site(root, "site.yaml")
+    if not path.is_file():
+        return False
+    text = path.read_text(encoding="utf-8")
+    lines = text.split("\n")
+    head = next((i for i, line in enumerate(lines) if re.match(r"build:\s*(#.*)?$", line)), None)
+    if head is None:
+        flow = next((i for i, line in enumerate(lines) if re.match(r"build:\s*\{", line)), None)
+        if flow is not None:
+            lines[flow] = re.sub(r"\{\s*", f"{{agents: {value}, ", lines[flow], count=1)
+        else:
+            tail = "" if text.endswith("\n") or not text else "\n"
+            lines = (text + tail + f"\nbuild:\n  agents: {value}\n").split("\n")
+    else:
+        end = head + 1
+        while end < len(lines) and (not lines[end].strip() or lines[end][:1] in (" ", "\t")):
+            end += 1
+        block = range(head + 1, end)
+        found = next((i for i in block if re.match(r"\s+agents:", lines[i])), None)
+        if found is not None:
+            lines[found] = re.sub(
+                r"^(\s+agents:)\s*([^#\s][^#]*?)?(\s*#.*)?$",
+                lambda m: f"{m.group(1)} {value}{m.group(3) or ''}",
+                lines[found],
+            )
+        else:
+            notes_at = next((i for i in block if re.match(r"\s+notes:", lines[i])), None)
+            indent = "  "
+            at = head + 1
+            if notes_at is not None:
+                indent = lines[notes_at][: len(lines[notes_at]) - len(lines[notes_at].lstrip())]
+                at = notes_at + 1
+                while at < end and lines[at].strip().startswith("#"):
+                    at += 1
+            lines.insert(at, f"{indent}agents: {value}")
+    updated = "\n".join(lines)
+    try:
+        data = yaml.safe_load(updated) or {}
+        written: str | None = agents_level((data.get("build") or {}).get("agents"))
+    except Exception:  # noqa: BLE001 — правка не удалась: файл не трогаем
+        written = None
+    if written != value:
+        from heron.core.errors import HeronError
+
+        raise HeronError(
+            code="E011",
+            message=f"не удалось записать build.agents: {value} в site.yaml",
+            path=str(path),
+            hint=f"впишите в блок build строку `agents: {value}` вручную",
+        )
+    if updated != text:
+        paths.in_site(root, "site.yaml").write_text(updated, encoding="utf-8")
+    return True
+
+
+def adopt(
+    root: Path,
+    force: bool = False,
+    notes: str | None = None,
+    agents_only: bool = False,
+    agents_flag: str | None = None,
+) -> Plan:
     """Дополнить папку тем, чего в ней нет, по написанному в `site.yaml`.
 
     Языки и тему берём из конфига, а не из того, какие папки уже лежат:
@@ -532,10 +662,20 @@ def adopt(root: Path, force: bool = False, notes: str | None = None) -> Plan:
     язык в `site.yaml`, выполнил `init` — папка под него появилась.
 
     Ничего не перезаписывает без `--force`: чужой файл важнее нашего образца.
+
+    Комплект для агентов (20 §1): без флагов кладётся только недостающее, если
+    `build.agents` не `false`. `agents_flag="false"` (`init --no-agents`)
+    записывает `build.agents: false` и комплект не трогает; `"true"`/`"kit"`
+    (`init --agents`) записывает значение и обновляет комплект по манифесту.
+    `agents_only` — только комплект, остальной скелет не трогается.
     """
     plan = Plan()
     notes = resolve_notes(notes, root / "site.yaml")
     declared = _declared(root / "site.yaml")
+    flag = agents_level(agents_flag) if agents_flag is not None else None
+    if flag is not None:
+        set_build_agents(root, flag)
+    level = flag or (declared or {}).get("agents") or "true"
     if declared:
         plan.found.append(
             message(
@@ -560,22 +700,30 @@ def adopt(root: Path, force: bool = False, notes: str | None = None) -> Plan:
     languages = declared["languages"] if declared else present
     theme = declared["theme"] if declared else None
 
-    # Демонстрационные страницы стоят в меню. Новый язык получает их, если они ещё
-    # есть в основном языке, — иначе его меню вело бы в никуда. Сайт, где
-    # их уже заменили своими страницами, ничего лишнего не получает.
-    first = (languages or present or [None])[0]
-    demo = bool(first) and (content / first / "blocks.md").is_file()
-    made = create(
-        root,
-        name=root.resolve().name,
-        languages=languages or None,
-        theme=theme,
-        force=force,
-        notes=notes,
-        demo=demo,
-    )
-    plan.created = made.created
-    plan.skipped = made.skipped
+    if not agents_only:
+        # Демонстрационные страницы стоят в меню. Новый язык получает их, если они ещё
+        # есть в основном языке, — иначе его меню вело бы в никуда. Сайт, где
+        # их уже заменили своими страницами, ничего лишнего не получает.
+        first = (languages or present or [None])[0]
+        demo = bool(first) and (content / first / "blocks.md").is_file()
+        made = create(
+            root,
+            name=root.resolve().name,
+            languages=languages or None,
+            theme=theme,
+            force=force,
+            notes=notes,
+            demo=demo,
+            agents=level,
+            place_kit=False,
+        )
+        plan.created = made.created
+        plan.skipped = made.skipped
+    if level != "false":
+        # init --agents — по манифесту; без флага — только недостающее
+        manifest = root / "agents" / "heron-kit.yaml"
+        mode = "update" if flag is not None and manifest.is_file() else "create"
+        _merge_kit(plan, _place_kit(root, notes, None, mode, force, level))
     plan.notes = notes
     return plan
 
@@ -602,5 +750,25 @@ def _declared(site_yaml: Path) -> dict | None:
         return None
     if not languages:
         return None
-    notes = str((data.get("build") or {}).get("notes") or "") or None
-    return {"languages": languages, "theme": block.get("theme"), "notes": notes}
+    build_block = data.get("build") or {}
+    notes = str(build_block.get("notes") or "") or None
+    return {
+        "languages": languages,
+        "theme": block.get("theme"),
+        "notes": notes,
+        "agents": _declared_agents(build_block),
+    }
+
+
+def _declared_agents(build_block: object) -> str | None:
+    """`build.agents` мягко: нет ключа — None (по умолчанию комплект кладётся).
+
+    Непонятное значение — `false`: класть то, о чём не просили явно, хуже, чем
+    не положить; ошибку E011 покажет сборка.
+    """
+    if not isinstance(build_block, dict) or build_block.get("agents") is None:
+        return None
+    try:
+        return agents_level(build_block["agents"])
+    except ValueError:
+        return "false"

@@ -37,6 +37,8 @@ analytics:
 build:
   notes: ru
   # ↑ язык комментариев и пояснений, которые кладут heron init и heron page: ru или en. Перебивается --notes или HERON_NOTES
+  agents: {agents}
+  # ↑ комплект инструкций для AI-агентов в agents/: true — полный, kit — без гайдов и спецификаций, false — не класть
   fail_on_warning: false
   allow_raw_html: false
 

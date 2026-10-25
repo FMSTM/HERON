@@ -352,3 +352,243 @@ def test_symlink_outside_is_e024_and_nothing_written_outside(tmp_path):
 def test_bad_mode_is_rejected(tmp_path):
     with pytest.raises(ValueError):
         agents.place(tmp_path, "ru", {}, mode="replace")  # type: ignore[arg-type]
+
+
+# --- create()/adopt(): build.agents (S2.T5) ---------------------------------------
+
+
+def _agents_value(root: Path):
+    return yaml.safe_load((root / "site.yaml").read_text(encoding="utf-8"))["build"]["agents"]
+
+
+def test_create_places_the_kit_by_default(tmp_path):
+    from heron.scaffold import create
+
+    root = tmp_path / "site"
+    plan = create(root, name="Demo", languages=["en", "ru"], notes="ru")
+    assert (root / "agents/heron-kit.yaml").is_file()
+    assert (root / "AGENTS.md").read_text(encoding="utf-8").startswith("# Demo — для агентов")
+    assert "**Языки сайта:** en, ru, основной — en; домен — demo.example." in (
+        root / "AGENTS.md"
+    ).read_text(encoding="utf-8")
+    assert _agents_value(root) is True
+    assert plan.kit is not None and plan.kit.mode == "create"
+    assert "agents/README.md" in plan.created and "AGENTS.md" in plan.created
+    assert load_manifest(root)["lang"] == "ru"
+
+
+def test_create_with_level_kit_and_false(tmp_path):
+    from heron.scaffold import create
+
+    short = tmp_path / "short"
+    create(short, name="Demo", agents="kit")
+    assert _agents_value(short) == "kit"
+    assert not (short / "agents/guide").exists() and (short / "agents/roles").is_dir()
+
+    off = tmp_path / "off"
+    plan = create(off, name="Demo", agents="false")
+    assert _agents_value(off) is False
+    assert not (off / "agents").exists()
+    assert not any((off / name).exists() for name in agents.ROOT_FILES)
+    assert plan.kit is None
+    with pytest.raises(ValueError):
+        create(tmp_path / "bad", name="Demo", agents="yes")
+
+
+def test_adopt_keeps_the_kit_off(tmp_path):
+    from heron.scaffold import adopt, create
+
+    root = tmp_path / "site"
+    create(root, name="Demo", agents="false")
+    (root / "content/en/index.md").unlink()
+    plan = adopt(root)
+    assert "content/en/index.md" in plan.created  # остальное скелет достроил
+    assert not (root / "agents").exists() and not (root / "AGENTS.md").exists()
+    assert plan.kit is None and _agents_value(root) is False
+
+
+def test_adopt_agents_flag_true_turns_it_back_on(tmp_path):
+    from heron.scaffold import adopt, create
+
+    root = tmp_path / "site"
+    create(root, name="Demo", agents="false")
+    before = (root / "site.yaml").read_text(encoding="utf-8")
+    plan = adopt(root, agents_flag="true")
+    after = (root / "site.yaml").read_text(encoding="utf-8")
+    assert _agents_value(root) is True
+    # правка точечная: изменилась ровно строка agents
+    diff = [(a, b) for a, b in zip(before.splitlines(), after.splitlines(), strict=True) if a != b]
+    assert diff == [("  agents: false", "  agents: true")]
+    assert (root / "agents/heron-kit.yaml").is_file() and (root / "AGENTS.md").is_file()
+    assert plan.kit is not None and "agents/README.md" in plan.created
+
+
+def test_adopt_agents_flag_false_writes_and_leaves_the_kit(tmp_path):
+    from heron.scaffold import adopt, create
+
+    root = tmp_path / "site"
+    create(root, name="Demo")
+    readme = (root / "agents/README.md").read_bytes()
+    plan = adopt(root, agents_flag="false")
+    assert _agents_value(root) is False
+    assert (root / "agents/README.md").read_bytes() == readme  # ничего не удалено
+    assert plan.kit is None
+
+
+def test_adopt_agents_only_updates_kit_and_nothing_else(tmp_path):
+    from heron.scaffold import adopt, create
+
+    root = tmp_path / "site"
+    create(root, name="Demo", notes="ru")
+    (root / "content/en/404.md").unlink()
+    (root / "theme/base.html").write_text("mine\n", encoding="utf-8")
+    _age(root, "roles/designer.md", b"# old\n")
+    (root / "agents/roles/content.md").write_text("# edited\n", encoding="utf-8")
+    plan = adopt(root, agents_only=True, agents_flag="true")
+    assert not (root / "content/en/404.md").exists()
+    assert (root / "theme/base.html").read_text(encoding="utf-8") == "mine\n"
+    assert plan.kit.mode == "update"
+    assert plan.kit.edited == ["agents/roles/content.md"]
+    assert "agents/roles/designer.md" in plan.kit.updated
+    assert all(p.startswith("agents/") or p in agents.ROOT_FILES for p in plan.created)
+    assert any("agents/roles/content.md" in line for line in plan.found)
+
+
+def test_adopt_without_flags_adds_only_missing_kit_files(tmp_path):
+    from heron.scaffold import adopt, create
+
+    root = tmp_path / "site"
+    create(root, name="Demo")
+    (root / "agents/roles/content.md").write_text("# edited\n", encoding="utf-8")
+    _age(root, "roles/designer.md", b"# old\n")
+    (root / "agents/roles/builder.md").unlink()
+    plan = adopt(root)
+    assert (root / "agents/roles/builder.md").is_file()
+    assert (root / "agents/roles/designer.md").read_bytes() == b"# old\n"
+    assert (root / "agents/roles/content.md").read_text(encoding="utf-8") == "# edited\n"
+    assert plan.kit.mode == "create" and "agents/roles/builder.md" in plan.created
+
+
+def test_adopt_kit_level_from_site_yaml(tmp_path):
+    from heron.scaffold import adopt, create
+
+    root = tmp_path / "site"
+    create(root, name="Demo", agents="kit")
+    plan = adopt(root)
+    assert plan.kit.level == "kit" and not (root / "agents/spec").exists()
+
+
+def test_setup_on_disabled_site_does_not_bring_the_kit_back(tmp_path):
+    from heron.scaffold import create
+    from heron.setup import apply
+    from heron.setup.answers import Answers
+
+    root = tmp_path / "site"
+    create(root, name="Demo", agents="false")
+    answers = Answers.model_validate(
+        {"site": {"name": "Demo", "domain": "demo.example", "languages": ["en", "ru"]}}
+    )
+    result = apply(root, answers)
+    assert "content/ru/index.md" in result.created
+    assert not (root / "agents").exists() and not (root / "AGENTS.md").exists()
+    assert _agents_value(root) is False
+
+
+def test_new_in_folder_with_agents_md_keeps_it(tmp_path):
+    from heron.scaffold import SERVICE, create, foreign_files
+
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / "AGENTS.md").write_text("# the repository's own\n", encoding="utf-8")
+    (root / "agents").mkdir()
+    assert {"AGENTS.md", "CLAUDE.md", "GEMINI.md", "agents"} <= set(SERVICE)
+    assert foreign_files(root) == []
+    plan = create(root, name="Demo")
+    assert (root / "AGENTS.md").read_text(encoding="utf-8") == "# the repository's own\n"
+    assert "AGENTS.md" in plan.skipped
+    assert (root / "agents/README.md").is_file()
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(True, True), (False, False), ("kit", "kit"), ("true", True), ("false", False)],
+)
+def test_site_config_accepts_agents_values(value, expected):
+    from heron.contracts.site import SiteConfig
+
+    data = {"heron": ">=0.1", "site": {"domain": "a.example", "theme": "main"}}
+    data["build"] = {"agents": value}
+    assert SiteConfig.model_validate(data).build.agents == expected
+    assert SiteConfig.model_validate({**data, "build": {}}).build.agents is True
+
+
+@pytest.mark.parametrize("value", ["yes", "no", 1, "full", None])
+def test_site_config_rejects_other_agents_values(tmp_path, value):
+    from heron.contracts.site import load_site
+
+    path = tmp_path / "site.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "heron": ">=0.1",
+                "site": {"domain": "a.example", "theme": "main"},
+                "build": {"agents": value},
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(HeronError) as caught:
+        load_site(path)
+    assert caught.value.code == "E011"
+    assert "true, kit или false" in caught.value.message
+
+
+@pytest.mark.parametrize(
+    ("text", "expected_line"),
+    [
+        ("heron: '>=0.1'\nbuild:\n  notes: ru\n  workers: 2\n", "  agents: false"),
+        ("heron: '>=0.1'\nbuild:\n  agents: true  # keep me\n", "  agents: false  # keep me"),
+        ("heron: '>=0.1'\nsite:\n  theme: main\n", "  agents: false"),
+        ("heron: '>=0.1'\nbuild: {notes: ru}\n", "build: {agents: false, notes: ru}"),
+    ],
+)
+def test_set_build_agents_edits_one_line(tmp_path, text, expected_line):
+    from heron.scaffold import set_build_agents
+
+    (tmp_path / "site.yaml").write_text(text, encoding="utf-8")
+    assert set_build_agents(tmp_path, "false") is True
+    after = (tmp_path / "site.yaml").read_text(encoding="utf-8")
+    assert expected_line in after.splitlines()
+    assert yaml.safe_load(after)["build"]["agents"] is False
+    # прочее не тронуто
+    for line in text.splitlines():
+        if "agents" not in line and "build: {" not in line:
+            assert line in after.splitlines()
+    assert set_build_agents(tmp_path / "nowhere", "true") is False
+
+
+def test_site_created_with_kit_builds_the_same_dist(tmp_path, monkeypatch):
+    import filecmp
+
+    from heron.core import build as pipeline
+    from heron.scaffold import create
+
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "1761386400")
+    with_kit, plain = tmp_path / "a" / "site", tmp_path / "b" / "site"
+    create(with_kit, name="Demo", languages=["en", "ru"], notes="ru", demo=True)
+    create(plain, name="Demo", languages=["en", "ru"], notes="ru", demo=True, place_kit=False)
+    assert (with_kit / "agents").is_dir() and not (plain / "agents").exists()
+    a = pipeline.run(with_kit, strict=True)
+    b = pipeline.run(plain, strict=True)
+    assert not a.failed and not b.failed, [str(e) for e in a.collector.errors]
+
+    def tree(root: Path) -> dict[str, bytes]:
+        return {
+            p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()
+        }
+
+    left, right = tree(with_kit / "dist"), tree(plain / "dist")
+    assert left.keys() == right.keys()
+    assert [k for k in left if left[k] != right[k]] == []
+    assert not any(k.startswith("agents") or k in agents.ROOT_FILES for k in left)
+    assert filecmp.cmp(with_kit / "site.yaml", plain / "site.yaml", shallow=False)

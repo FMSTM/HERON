@@ -375,7 +375,7 @@ def install(
                     if value.strip().startswith(("/", "\\")) or Path(value).is_absolute():
                         raise HeronError(
                             code="E024",
-                            message=f"путь {value!r} выходит за пределы {root.name}/",
+                            message=f"путь {value!r} выходит за пределы папки сайта",
                             path="answers.theme.value",
                             hint="положите архив в папку сайта и укажите путь от неё, "
                             "либо поставьте тему командой `heron theme get`",

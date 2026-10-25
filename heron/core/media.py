@@ -14,7 +14,6 @@ docs/spec/21-engine.md, раздел 8.
 from __future__ import annotations
 
 import contextlib
-import errno
 import hashlib
 import html
 import json
@@ -676,11 +675,6 @@ def slice_master(
 _FORMATS = {"jpg": "JPEG", "jpeg": "JPEG", "png": "PNG", "webp": "WEBP", "avif": "AVIF"}
 
 
-# Ошибки операционной системы, которыми пул процессов отказывает при создании
-# (песочница macOS, контейнер без /dev/shm, CI): нет прав или семафоров.
-_POOL_ERRNOS = {errno.EPERM, errno.ENOSYS, errno.EACCES}
-
-
 class _PoolFailed(Exception):
     """Пул процессов не работает. Не ошибка нарезки: докодируем последовательно."""
 
@@ -688,15 +682,13 @@ class _PoolFailed(Exception):
 def _pool_failure(error: BaseException, *, creating: bool) -> _PoolFailed:
     """Сбой пула — или та же ошибка, если это не он.
 
-    `OSError` с чужим errno (диск, права на файл) и любая ошибка воркера
-    не сбой пула и не глотаются: нарезку они валят, как раньше.
+    При создании пула и `submit` сбоем считается любой `OSError` (EACCES,
+    ENOSPC, EROFS, ENOENT, EIO...): если причина — настоящая ошибка диска,
+    её снова поднимет последовательная нарезка. Из `result()` — только
+    `BrokenProcessPool`; любая ошибка воркера пробрасывается как есть.
     """
     pool_down = isinstance(error, BrokenProcessPool) or (
-        creating
-        and (
-            isinstance(error, NotImplementedError)
-            or (isinstance(error, OSError) and error.errno in _POOL_ERRNOS)
-        )
+        creating and isinstance(error, (NotImplementedError, OSError))
     )
     if not pool_down:
         raise error

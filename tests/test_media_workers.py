@@ -200,15 +200,54 @@ def test_worker_oserror_and_valueerror_are_not_pool_failures(tmp_path, monkeypat
     assert len(calls) == len(MASTERS)
 
 
-def test_pool_creation_error_with_foreign_errno_is_not_a_pool_failure(tmp_path, monkeypatch):
+@pytest.mark.parametrize("code", [errno.ENOSPC, errno.EROFS, errno.ENOENT, errno.EIO])
+def test_pool_creation_oserror_of_any_errno_falls_back(tmp_path, monkeypatch, calls, code):
     site, collector = prepared(tmp_path)
+    reference = run(tmp_path, site, collector, workers=1)
+    reset(tmp_path)
+    calls.clear()
+
+    def broken(max_workers=None):
+        raise OSError(code, "pool refused")
+
+    monkeypatch.setattr(media, "ProcessPoolExecutor", broken)
+    progress = Notes()
+    assert run(tmp_path, site, collector, workers=4, progress=progress) == reference
+    assert len(calls) == len(MASTERS)
+    assert progress.notes == ["pool_fallback"]
+
+
+def test_submit_oserror_falls_back(tmp_path, monkeypatch, calls):
+    site, collector = prepared(tmp_path)
+    reference = run(tmp_path, site, collector, workers=1)
+    reset(tmp_path)
+    calls.clear()
+
+    class NoSpace(Pool):
+        def submit(self, fn, *args):
+            raise OSError(errno.ENOSPC, "No space left on device")
+
+    monkeypatch.setattr(media, "ProcessPoolExecutor", NoSpace)
+    progress = Notes()
+    assert run(tmp_path, site, collector, workers=4, progress=progress) == reference
+    assert len(calls) == len(MASTERS)
+    assert progress.notes == ["pool_fallback"]
+
+
+def test_fallback_warning_carries_the_errno_text(tmp_path, monkeypatch):
+    site, collector = prepared(tmp_path)
+    problems: list[str] = []
+
+    class Spy(Notes):
+        def note(self, key: str, **fields: object) -> None:
+            problems.append(str(fields.get("problem")))
 
     def broken(max_workers=None):
         raise OSError(errno.ENOSPC, "No space left on device")
 
     monkeypatch.setattr(media, "ProcessPoolExecutor", broken)
-    with pytest.raises(OSError):
-        run(tmp_path, site, collector, workers=4)
+    run(tmp_path, site, collector, workers=4, progress=Spy())
+    assert len(problems) == 1 and "28" in problems[0]
 
 
 def test_workers_one_and_four_give_identical_dist(tmp_path):

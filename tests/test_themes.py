@@ -151,6 +151,14 @@ def test_file_value_outside_site_is_refused(site: Path, tmp_path: Path):
     assert not list((site / ".heron-cache").glob("setup/theme.*"))  # резервной копии нет
 
 
+def test_file_value_outside_site_message_names_the_site_folder(site: Path, monkeypatch):
+    monkeypatch.chdir(site)  # корень «.» не даёт имени: раньше в сообщении был «/»
+    with pytest.raises(HeronError) as raised:
+        install(Path("."), "file", "/etc/hosts")
+    assert "папки сайта" in raised.value.message
+    assert "пределы /" not in raised.value.message
+
+
 def test_file_value_dotdot_and_symlink_are_refused(site: Path, tmp_path: Path):
     archive = pack(site, tmp_path / "out" / "t.tar.gz")
     with pytest.raises(HeronError) as raised:

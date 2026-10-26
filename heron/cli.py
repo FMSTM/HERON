@@ -17,6 +17,8 @@ import re
 import sys
 import threading
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import click
@@ -29,8 +31,10 @@ from heron.core import report as report_module
 from heron.core.environment import BuildEnv
 from heron.core.errors import HeronError
 from heron.core.notes import NOTE
-from heron.messages import say, title
+from heron.messages import CLICK_RU, RECIPE_EN, say, title
 from heron.scaffold import (
+    ENV_NOTES,
+    NOTE_LANGS,
     SERVICE,
     Plan,
     adopt,
@@ -41,6 +45,193 @@ from heron.scaffold import (
 )
 
 DIST = "dist"
+
+
+# --- язык справки и служебных строк click ---------------------------------------
+
+
+class _Ui:
+    """Язык этого запуска для справки и рамки ошибок click.
+
+    Справку `--help` click печатает прямо во время разбора аргументов, раньше
+    любой команды, поэтому язык выбирается до разбора (`_help_lang`): флаг
+    `--notes` из сырых аргументов, затем HERON_NOTES, затем build.notes из
+    site.yaml текущей папки, иначе en. Команда, узнавшая язык своего сайта
+    (`_lang`), уточняет его: ошибки click после этого — на том же языке.
+    """
+
+    lang = "en"
+
+
+_UI = _Ui()
+HELP_PREFIX = "help_"
+
+
+def _click_text(message: str) -> str:
+    """gettext для click: для ru — перевод из messages.CLICK_RU, иначе как есть."""
+    if _UI.lang == "ru":
+        return CLICK_RU.get(message, message)
+    return message
+
+
+def _click_plural(singular: str, plural: str, count: int) -> str:
+    return _click_text(singular if count == 1 else plural)
+
+
+def _install_click_catalog() -> None:
+    """Строки click (Usage, Options, Error: …) — через наш каталог.
+
+    click берёт их через gettext, импортированный в каждый модуль как `_` и
+    `ngettext`; каталога .mo для своего домена у click нет. Подмена — только
+    имён в модулях click, и для en она прозрачна: строка возвращается как есть.
+    """
+    import click.core
+    import click.decorators
+    import click.exceptions
+    import click.formatting
+    import click.parser
+    import click.termui
+    import click.types
+    import click.utils
+
+    for module in (
+        click.core,
+        click.decorators,
+        click.exceptions,
+        click.formatting,
+        click.parser,
+        click.termui,
+        click.types,
+        click.utils,
+    ):
+        if hasattr(module, "_"):
+            module._ = _click_text  # type: ignore[attr-defined]
+        if hasattr(module, "ngettext"):
+            module.ngettext = _click_plural  # type: ignore[attr-defined]
+
+
+_install_click_catalog()
+
+
+def _notes_in(args: list[str]) -> str | None:
+    """`--notes X` или `--notes=X` в сырых аргументах; последний годный побеждает."""
+    found: str | None = None
+    items = iter(args)
+    for arg in items:
+        if arg == "--":
+            break
+        value = None
+        if arg == "--notes":
+            value = next(items, None)
+        elif arg.startswith("--notes="):
+            value = arg.partition("=")[2]
+        if value is not None and value.lower() in NOTE_LANGS:
+            found = value.lower()
+    return found
+
+
+def _help_lang(args: list[str]) -> str:
+    """Язык справки до разбора аргументов: --notes, HERON_NOTES, ./site.yaml, en."""
+    try:
+        return resolve_notes(_notes_in(args), Path("site.yaml"))
+    except (ValueError, OSError):
+        return "en"
+
+
+class _Localized:
+    """Атрибут, в котором лежит ключ messages.py (help_*), а читается текст.
+
+    Текст берётся в момент чтения на языке этого запуска: справка одного и
+    того же объекта команды выходит то по-русски, то по-английски. Значение
+    не ключ (None, обычная строка) отдаётся как есть.
+    """
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        self.slot = f"_heron_{name}"
+
+    def __get__(self, obj: object, owner: type | None = None):
+        if obj is None:
+            return self
+        raw = obj.__dict__.get(self.slot)
+        if isinstance(raw, str) and raw.startswith(HELP_PREFIX):
+            return say(_UI.lang, raw)
+        return raw
+
+    def __set__(self, obj: object, value: object) -> None:
+        obj.__dict__[self.slot] = value
+
+
+class HeronOption(click.Option):
+    """Параметр, у которого подпись и имя значения — ключи справки."""
+
+    help = _Localized()
+    metavar = _Localized()
+
+
+class HeronArgument(click.Argument):
+    help = _Localized()
+    metavar = _Localized()
+
+    def make_metavar(self, ctx: click.Context) -> str:
+        # click отдаёт заданное имя как есть, а необязательный аргумент в строке
+        # использования — в скобках: heron build [ПАРАМЕТРЫ] [ПУТЬ]
+        text = super().make_metavar(ctx)
+        if self.metavar is not None and not self.required and not text.startswith("["):
+            return f"[{text}]"
+        return text
+
+
+class _LocalizedCommand:
+    """Справка команды на языке пояснений: тексты — ключи help_* из messages.py."""
+
+    help = _Localized()
+    short_help = _Localized()
+    options_metavar = _Localized()
+
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs.setdefault("options_metavar", "help_mv_options")
+        super().__init__(*args, **kwargs)
+
+    def get_help_option(self, ctx: click.Context):
+        # click создаёт --help один раз и с подписью на языке первого показа;
+        # подпись ставится заново при каждом обращении
+        option = super().get_help_option(ctx)  # type: ignore[misc]
+        if option is not None:
+            option.help = say(_UI.lang, "help_opt_help")
+        return option
+
+    def main(self, args=None, *rest, **extra):
+        raw = list(sys.argv[1:] if args is None else args)
+        previous = _UI.lang
+        _UI.lang = _help_lang(raw)
+        try:
+            return super().main(args, *rest, **extra)  # type: ignore[misc]
+        finally:
+            _UI.lang = previous
+
+
+class HeronCommand(_LocalizedCommand, click.Command):
+    pass
+
+
+def _option(*decls: str, **attrs):
+    attrs.setdefault("cls", HeronOption)
+    return click.option(*decls, **attrs)
+
+
+def _argument(*decls: str, **attrs):
+    attrs.setdefault("cls", HeronArgument)
+    return click.argument(*decls, **attrs)
+
+
+def _path_argument(func):
+    """Необязательный путь к папке сайта, по умолчанию текущая."""
+    return _argument(
+        "path",
+        type=click.Path(file_okay=False, path_type=Path),
+        default=".",
+        metavar="help_mv_path",
+    )(func)
 
 
 class _Terminal:
@@ -164,12 +355,46 @@ CONTAINER_ENV = "HERON_IN_CONTAINER"
 # --- язык и окружение ---------------------------------------------------------
 
 
+def _ctx_notes() -> str | None:
+    """`--notes` этой команды или объемлющей группы (`heron --notes ru build`)."""
+    ctx = click.get_current_context(silent=True)
+    while ctx is not None:
+        value = (ctx.params or {}).get("notes")
+        if value:
+            return str(value)
+        ctx = ctx.parent
+    return None
+
+
 def _lang(flag: str | None = None, root: Path | None = None) -> str:
-    """Язык сообщений: тот же, что язык пояснений сайта. Не разобрался — en."""
+    """Язык сообщений: тот же, что язык пояснений сайта. Не разобрался — en.
+
+    Найденный язык становится и языком рамки ошибок click в этом запуске.
+    """
+    site_yaml = root / "site.yaml" if root is not None else None
     try:
-        return resolve_notes(flag, root / "site.yaml" if root is not None else None)
+        lang = resolve_notes(flag or _ctx_notes(), site_yaml)
     except ValueError:
-        return "en"
+        lang = "en"
+    _UI.lang = lang
+    return lang
+
+
+@contextmanager
+def _notes_env(notes: str | None) -> Iterator[None]:
+    """HERON_NOTES = --notes на время вызова того, кто читает язык из окружения."""
+    if not notes:
+        yield
+        return
+    saved = os.environ.get(ENV_NOTES)
+    os.environ[ENV_NOTES] = notes
+    try:
+        yield
+    finally:
+        if saved is None:
+            os.environ.pop(ENV_NOTES, None)
+        else:
+            os.environ[ENV_NOTES] = saved
 
 
 def in_container() -> bool:
@@ -227,13 +452,22 @@ def _need_site(path: Path, lang: str) -> None:
         sys.exit(1)
 
 
-class HeronGroup(click.Group):
+class HeronGroup(_LocalizedCommand, click.Group):
     """Группа команд, которая не выпускает наружу трейсбек.
 
     Ошибки движка печатаются по форме; непредвиденные — коротко, с советом
     повторить с `--debug`. Сам `--debug` (или HERON_DEBUG=1) отдаёт трейсбек
-    целиком — для того, кто чинит движок.
+    целиком — для того, кто чинит движок. Язык рамки — язык этого запуска:
+    `--notes`, HERON_NOTES, build.notes сайта, с которым работает команда.
     """
+
+    command_class = HeronCommand
+    group_class = type
+    subcommand_metavar = _Localized()
+
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs.setdefault("subcommand_metavar", "help_mv_command")
+        super().__init__(*args, **kwargs)
 
     def invoke(self, ctx: click.Context):
         try:
@@ -245,11 +479,11 @@ class HeronGroup(click.Group):
         except HeronError as error:
             if _debug(ctx):
                 raise
-            _fail(error, _lang())
+            _fail(error, _UI.lang)
         except PermissionError as error:
             if _debug(ctx):
                 raise
-            lang = _lang()
+            lang = _UI.lang
             _err(say(lang, "denied", path=error.filename or error))
             _err(say(lang, "denied_hint"), None)
             if error.filename and in_container():
@@ -258,7 +492,7 @@ class HeronGroup(click.Group):
         except Exception as error:  # noqa: BLE001 — последний рубеж перед человеком
             if _debug(ctx):
                 raise
-            lang = _lang()
+            lang = _UI.lang
             _err(say(lang, "crash_head", kind=type(error).__name__))
             _err(say(lang, "crash_text", text=error), None)
             if isinstance(error, FileNotFoundError) and error.filename:
@@ -510,33 +744,41 @@ def _next(path: Path, lang: str, languages: list[str], domain: str | None) -> No
 # --- команды ------------------------------------------------------------------
 
 
-@click.group(cls=HeronGroup, context_settings={"help_option_names": ["-h", "--help"]})
-@click.version_option(
-    __version__,
-    "-V",
-    "--version",
-    prog_name="heron",
-    message="%(prog)s, version " + build_info.label(),
-)
-@click.option(
-    "--debug",
-    is_flag=True,
-    help="Показать трейсбек непредвиденной ошибки. То же — HERON_DEBUG=1.",
-)
-def main(debug: bool) -> None:
-    """HERON — файловый движок сайтов."""
+def _show_version(ctx: click.Context, _param: click.Parameter, value: bool) -> None:
+    # Строка одна на оба языка: её разбирают скрипты и CI («heron, version 0.1.0 …»).
+    if not value or ctx.resilient_parsing:
+        return
+    click.echo(f"heron, version {build_info.label()}", color=ctx.color)
+    ctx.exit()
 
 
-NOTES_OPTION = click.option(
+NOTES_OPTION = _option(
     "--notes",
     type=click.Choice(["ru", "en"]),
     default=None,
-    help="Язык комментариев в файлах сайта и сообщений на экране: ru или en. "
-    "Иначе HERON_NOTES, иначе build.notes из site.yaml, иначе en.",
+    help="help_opt_notes",
 )
-VERBOSE_OPTION = click.option(
-    "-v", "--verbose", is_flag=True, help="Перечислить каждый созданный файл."
+VERBOSE_OPTION = _option("-v", "--verbose", is_flag=True, help="help_opt_verbose")
+
+
+@click.group(
+    cls=HeronGroup,
+    help="help_main",
+    context_settings={"help_option_names": ["-h", "--help"]},
 )
+@_option(
+    "-V",
+    "--version",
+    is_flag=True,
+    expose_value=False,
+    is_eager=True,
+    callback=_show_version,
+    help="help_opt_version",
+)
+@_option("--debug", is_flag=True, help="help_opt_debug")
+@NOTES_OPTION
+def main(debug: bool, notes: str | None) -> None:
+    """Корень команд: --debug и --notes действуют на любую подкоманду."""
 
 
 def _ask(lang: str, key: str, default: str, check) -> str:
@@ -673,6 +915,7 @@ def _start_site(
             )
         )
         lang = click.prompt("  ›", type=click.Choice(["en", "ru"]), default="en", prompt_suffix=" ")
+        _UI.lang = lang  # ответы да/нет и ошибки ввода дальше — на выбранном языке
 
     guess = site_name or site_name_guess(path)
     languages = _parse_langs(langs) if langs else (present or ["en"])
@@ -719,18 +962,10 @@ def _start_site(
 
 
 SITE_OPTIONS = [
-    click.option("--name", "site_name", default=None, help="Название сайта."),
-    click.option("--domain", default=None, help="Домен без схемы: example.com."),
-    click.option(
-        "--lang",
-        "langs",
-        default=None,
-        metavar="КОДЫ",
-        help="Языки через запятую, первый — основной: en или en,ru.",
-    ),
-    click.option(
-        "-y", "--yes", is_flag=True, help="Не задавать вопросов: флаги и значения по умолчанию."
-    ),
+    _option("--name", "site_name", default=None, metavar="help_mv_name", help="help_opt_name"),
+    _option("--domain", default=None, metavar="help_mv_domain", help="help_opt_domain"),
+    _option("--lang", "langs", default=None, metavar="help_mv_codes", help="help_opt_langs"),
+    _option("-y", "--yes", is_flag=True, help="help_opt_yes"),
 ]
 
 
@@ -740,12 +975,23 @@ def site_options(func):
     return func
 
 
-NO_AGENTS_OPTION = click.option(
-    "--no-agents",
-    "no_agents",
-    is_flag=True,
-    help="Не класть инструкции для агентов (agents/, AGENTS.md) и запомнить это: "
-    "build.agents: false.",
+NO_AGENTS_OPTION = _option("--no-agents", "no_agents", is_flag=True, help="help_opt_no_agents")
+STRICT_OPTION = _option("--strict", is_flag=True, help="help_opt_strict")
+DRAFTS_OPTION = _option("--drafts", is_flag=True, help="help_opt_drafts")
+WORKERS_OPTION = _option(
+    "--workers",
+    type=click.IntRange(0, 64),
+    default=None,
+    metavar="help_mv_n",
+    help="help_opt_workers",
+)
+PORT_OPTION = _option(
+    "--port",
+    default=8000,
+    show_default=True,
+    type=click.IntRange(1, 65535),
+    metavar="help_mv_port",
+    help="help_opt_port",
 )
 
 
@@ -755,12 +1001,12 @@ NO_AGENTS_OPTION = click.option(
 FINISH_FAILED = 3
 
 
-@main.command()
+@main.command(help="help_new")
 @NOTES_OPTION
 @VERBOSE_OPTION
 @site_options
 @NO_AGENTS_OPTION
-@click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
+@_path_argument
 def new(
     path: Path,
     notes: str | None,
@@ -771,16 +1017,8 @@ def new(
     yes: bool,
     no_agents: bool,
 ) -> None:
-    """Создать сайт с нуля: в новой папке или в текущей (`.`).
-
-    В терминале задаёт вопросы: язык пояснений, название, домен, языки
-    сайта, основной язык. Без терминала (агент, CI, docker без -it) не
-    спрашивает: значения из флагов или по умолчанию.
-
-    Папка может быть под git: .git, .gitignore, README и прочее служебное
-    не мешают. Кладёт и инструкции для агентов на языке пояснений: agents/
-    и корневые указатели на них (сборка их не видит); --no-agents — без них.
-    """
+    """Создать сайт с нуля. Справка для человека — help_new в heron/messages.py."""
+    notes = notes or _ctx_notes()
     if (path / "site.yaml").is_file():
         _existing_site(path, notes)
 
@@ -810,20 +1048,14 @@ def new(
     _start_site(path, notes, verbose, site_name, domain, langs, yes, demo=True, agents=agents)
 
 
-@main.command()
-@click.option("--force", is_flag=True, help="Перезаписывать существующие файлы.")
+@main.command(help="help_init")
+@_option("--force", is_flag=True, help="help_opt_force")
 @NOTES_OPTION
 @VERBOSE_OPTION
 @site_options
-@click.option(
-    "--agents",
-    "with_agents",
-    is_flag=True,
-    help="Только инструкции для агентов: обновить по манифесту agents/heron-kit.yaml — "
-    "нетронутые заменить, правленые оставить и назвать (--force — заменить и их).",
-)
+@_option("--agents", "with_agents", is_flag=True, help="help_opt_agents")
 @NO_AGENTS_OPTION
-@click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
+@_path_argument
 def init(
     path: Path,
     force: bool,
@@ -836,17 +1068,8 @@ def init(
     with_agents: bool,
     no_agents: bool,
 ) -> None:
-    """Дополнить папку недостающим по тому, что написано в site.yaml.
-
-    Ничего не перезаписывает без --force. Нет site.yaml — значит, сайт
-    только заводится: в терминале те же вопросы, что у `new`, языки по
-    умолчанию — папки, которые уже лежат в content/. Язык пояснений:
-    --notes, иначе HERON_NOTES, иначе build.notes из site.yaml, иначе en.
-
-    Инструкции для агентов (agents/, AGENTS.md): без флагов — только недостающие
-    файлы, если build.agents не false; --agents — обновление по манифесту;
-    --no-agents — не класть и записать build.agents: false (21 §10).
-    """
+    """Дополнить папку по site.yaml. Справка — help_init в heron/messages.py."""
+    notes = notes or _ctx_notes()
     if with_agents and no_agents:
         raise click.UsageError(say(_lang(notes, path), "agents_conflict"))
     _need_dir(path, _lang(notes, path))
@@ -900,16 +1123,15 @@ def init(
     _next(path, plan.notes, declared.get("languages") or ["en"], domain)
 
 
-@main.command()
-@click.option("--strict", is_flag=True, help="Считать предупреждения ошибками.")
-@click.option("--drafts", is_flag=True, help="Включить страницы с published: false.")
-@click.option(
-    "--json", "as_json", is_flag=True, help="Ошибки и предупреждения в JSON — для агента и CI."
-)
-@click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
-def check(path: Path, strict: bool, drafts: bool, as_json: bool) -> None:
+@main.command(help="help_check")
+@STRICT_OPTION
+@DRAFTS_OPTION
+@_option("--json", "as_json", is_flag=True, help="help_opt_json")
+@NOTES_OPTION
+@_path_argument
+def check(path: Path, strict: bool, drafts: bool, as_json: bool, notes: str | None) -> None:
     """Проверить контент и конфиг, ничего не собирая."""
-    lang = _lang(None, path)
+    lang = _lang(notes, path)
     _need_site(path, lang)
     if as_json:
         _check_json(path, strict, drafts)
@@ -925,24 +1147,20 @@ def check(path: Path, strict: bool, drafts: bool, as_json: bool) -> None:
     click.secho(say(lang, "check_done", path=_shown(path)), fg="green")
 
 
-@main.command()
-@click.option("--strict", is_flag=True, help="Считать предупреждения ошибками.")
-@click.option("--drafts", is_flag=True, help="Включить страницы с published: false.")
-@click.option("--out", default=None, type=click.Path(path_type=Path), help="Куда собирать.")
-@click.option(
-    "--env",
-    "env_name",
+@main.command(help="help_build")
+@STRICT_OPTION
+@DRAFTS_OPTION
+@_option(
+    "--out",
     default=None,
-    metavar="ИМЯ",
-    help="Окружение сборки: prod открывает индексацию и счётчики, всё прочее — нет.",
+    type=click.Path(path_type=Path),
+    metavar="help_mv_folder",
+    help="help_opt_out",
 )
-@click.option(
-    "--workers",
-    type=click.IntRange(0, 64),
-    default=None,
-    help="Процессов на нарезку; 0 — по ядрам, 1 — без пула. Сильнее HERON_WORKERS и build.workers.",
-)
-@click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
+@_option("--env", "env_name", default=None, metavar="help_mv_env", help="help_opt_env")
+@WORKERS_OPTION
+@NOTES_OPTION
+@_path_argument
 def build(
     path: Path,
     strict: bool,
@@ -950,9 +1168,10 @@ def build(
     out: Path | None,
     env_name: str | None,
     workers: int | None,
+    notes: str | None,
 ) -> None:
     """Собрать сайт в dist/ или в указанную папку."""
-    lang = _lang(None, path)
+    lang = _lang(notes, path)
     _need_site(path, lang)
     env = BuildEnv.resolve(env_name)
     click.secho(
@@ -1003,28 +1222,26 @@ def build(
     click.echo(say(lang, "build_next", path=_shown(path)))
 
 
-@main.command()
-@click.option("--port", default=8000, show_default=True, type=click.IntRange(1, 65535))
-@click.option(
-    "--host",
-    default=None,
-    help="Где слушать. По умолчанию 127.0.0.1, а в образе HERON — 0.0.0.0, "
-    "чтобы проброшенный порт открывался снаружи контейнера.",
-)
-@click.option("--drafts/--no-drafts", default=True, show_default=True)
-@click.option(
-    "--workers",
-    type=click.IntRange(0, 64),
-    default=None,
-    help="Процессов на нарезку; 0 — по ядрам, 1 — без пула. Сильнее HERON_WORKERS и build.workers.",
-)
-@click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
-def serve(path: Path, port: int, host: str | None, drafts: bool, workers: int | None) -> None:
+@main.command(help="help_serve")
+@PORT_OPTION
+@_option("--host", default=None, metavar="help_mv_host", help="help_opt_host")
+@_option("--drafts/--no-drafts", default=True, help="help_opt_serve_drafts")
+@WORKERS_OPTION
+@NOTES_OPTION
+@_path_argument
+def serve(
+    path: Path,
+    port: int,
+    host: str | None,
+    drafts: bool,
+    workers: int | None,
+    notes: str | None,
+) -> None:
     """Локальный просмотр с пересборкой при изменениях."""
     from heron.core.watch import default_host
     from heron.core.watch import serve as run_server
 
-    lang = _lang(None, path)
+    lang = _lang(notes, path)
     _need_site(path, lang)
     inside = in_container()
     try:
@@ -1041,19 +1258,19 @@ def serve(path: Path, port: int, host: str | None, drafts: bool, workers: int | 
         _fail(error, lang)
 
 
-@main.command()
-@click.option(
+@main.command(help="help_setup")
+@_option(
     "--answers",
     "answers_file",
     default=None,
-    metavar="ФАЙЛ",
-    help="Ответы анкеты из YAML/JSON без браузера (агент, CI). «-» — из stdin.",
+    metavar="help_mv_file",
+    help="help_opt_answers",
 )
-@click.option("--dump", is_flag=True, help="Напечатать записанные ответы в YAML и выйти.")
-@click.option("--port", default=8000, show_default=True, type=click.IntRange(1, 65535))
-@click.option("--host", default=None, help="Где слушать: как у heron serve.")
+@_option("--dump", is_flag=True, help="help_opt_dump")
+@PORT_OPTION
+@_option("--host", default=None, metavar="help_mv_host", help="help_opt_setup_host")
 @NOTES_OPTION
-@click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
+@_path_argument
 def setup(
     path: Path,
     answers_file: str | None,
@@ -1062,13 +1279,10 @@ def setup(
     host: str | None,
     notes: str | None,
 ) -> None:
-    """Конфигуратор: анкета, которая пишет site.yaml, workflow и скрипты.
-
-    Без флагов открывает анкету в браузере (адрес — на экране). С --answers
-    применяет ответы из файла — те же поля и та же проверка.
-    """
+    """Конфигуратор-анкета. Справка — help_setup в heron/messages.py."""
     from heron import setup as configurator
 
+    notes = notes or _ctx_notes()
     lang = _lang(notes, path)
     _need_dir(path, lang)
     if not (path / "site.yaml").is_file():
@@ -1153,19 +1367,21 @@ def _write_schemas(target: Path) -> list[str]:
     return write_files(target, [(name, text.encode("utf-8")) for name, text in texts.items()])
 
 
-@main.command()
-@click.option("--site", "of_site", is_flag=True, help="site.yaml (по умолчанию).")
-@click.option("--theme", "of_theme", is_flag=True, help="theme.yaml.")
-@click.option("--frontmatter", "of_frontmatter", is_flag=True, help="Фронтматтер страницы.")
-@click.option("--setup", "of_setup", is_flag=True, help="Ответы анкеты heron setup.")
-@click.option("--errors", "of_errors", is_flag=True, help="Реестр кодов ошибок.")
-@click.option(
+@main.command(help="help_schema")
+@_option("--site", "of_site", is_flag=True, help="help_opt_schema_site")
+@_option("--theme", "of_theme", is_flag=True, help="help_opt_schema_theme")
+@_option("--frontmatter", "of_frontmatter", is_flag=True, help="help_opt_schema_frontmatter")
+@_option("--setup", "of_setup", is_flag=True, help="help_opt_schema_setup")
+@_option("--errors", "of_errors", is_flag=True, help="help_opt_schema_errors")
+@_option(
     "--export",
     "target",
     default=None,
     type=click.Path(file_okay=False, path_type=Path),
-    help="Записать все пять файлов в папку.",
+    metavar="help_mv_folder",
+    help="help_opt_schema_export",
 )
+@NOTES_OPTION
 def schema(
     of_site: bool,
     of_theme: bool,
@@ -1173,18 +1389,12 @@ def schema(
     of_setup: bool,
     of_errors: bool,
     target: Path | None,
+    notes: str | None,
 ) -> None:
-    """JSON Schema контрактов этой версии: для редактора, агента и CI (21 §10).
-
-    \b
-    heron schema                  site.yaml
-    heron schema --frontmatter    фронтматтер страницы
-    heron schema --errors         реестр кодов ошибок
-    heron schema --export папка   все пять файлов
-    """
+    """JSON Schema контрактов этой версии: для редактора, агента и CI (21 §10)."""
     from heron.contracts import schemas
 
-    lang = _lang(None, Path.cwd())
+    lang = _lang(notes, Path.cwd())
     chosen = [
         kind
         for kind, flag in (
@@ -1216,36 +1426,40 @@ def schema(
     click.echo(schemas.all_schemas()[SCHEMA_KINDS[kind]], nl=False)
 
 
-@main.command()
-def recipe() -> None:
-    """Рецепт образа nginx для собранного сайта (Dockerfile) этой версии HERON.
+@main.command(help="help_recipe")
+@NOTES_OPTION
+def recipe(notes: str | None) -> None:
+    """Рецепт образа nginx: комментарии на языке пояснений текущей папки (F16)."""
+    click.echo(recipe_for(_lang(notes, Path.cwd())), nl=False)
 
-    `heron recipe > /tmp/Dockerfile && docker build -f /tmp/Dockerfile dist`
-    — образ сайта без клона HERON и без Dockerfile в папке сайта.
-    """
+
+def recipe_for(lang: str) -> str:
+    """Dockerfile.site этой версии; для en — с английскими комментариями (RECIPE_EN)."""
     from heron.docs import recipe_text
 
-    click.echo(recipe_text(), nl=False)
+    text = recipe_text()
+    if lang == "en":
+        for ru, en in RECIPE_EN:
+            text = text.replace(ru, en)
+    return text
 
 
-@main.group()
-def theme() -> None:
-    """Темы: поставить по имени, ссылке или архиву, показать каталог, упаковать свою."""
+@main.group(help="help_theme")
+@NOTES_OPTION
+def theme(notes: str | None) -> None:
+    """Темы: поставить, показать каталог, упаковать."""
 
 
-@theme.command("get")
-@click.argument("source")
-@click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
-def theme_get(source: str, path: Path) -> None:
-    """Поставить тему: starter, имя из каталога, https-ссылка или файл архива.
-
-    Прежняя тема уезжает в .heron-cache/setup/. Демонстрационные страницы темы
-    кладётся только туда, где страницы нет: страницы сайта не перезаписываются.
-    """
+@theme.command("get", help="help_theme_get")
+@_argument("source", metavar="help_mv_source")
+@_path_argument
+@NOTES_OPTION
+def theme_get(source: str, path: Path, notes: str | None) -> None:
+    """Поставить тему по имени, ссылке или архиву."""
     from heron import themes
     from heron.scaffold import _declared
 
-    lang = _lang(None, path)
+    lang = _lang(notes, path)
     _need_dir(path, lang)
     archive: Path | None = None
     if source.startswith("https://"):
@@ -1299,25 +1513,35 @@ def _set_theme_name(site_yaml: Path, name: str) -> None:
         paths.in_site(site_yaml.parent, "site.yaml").write_text(new, encoding="utf-8")
 
 
-@theme.command("list")
-def theme_list() -> None:
+@theme.command("list", help="help_theme_list")
+@NOTES_OPTION
+def theme_list(notes: str | None) -> None:
     """Каталог тем HERON."""
     from heron import themes
 
+    _lang(notes, Path.cwd())  # язык рамки ошибок click в этом запуске
     for item in themes.catalog():
         title = item.get("title") or item["name"]
         tail = f" — {item['description']}" if item.get("description") else ""
         click.echo(f"{item['name']:<16} {title}{tail}")
 
 
-@theme.command("pack")
-@click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
-@click.option("--out", "out", default=None, type=click.Path(path_type=Path))
-def theme_pack(path: Path, out: Path | None) -> None:
-    """Упаковать тему сайта вместе с его контентом — демо-страницами для heron theme get."""
+@theme.command("pack", help="help_theme_pack")
+@_path_argument
+@_option(
+    "--out",
+    "out",
+    default=None,
+    type=click.Path(path_type=Path),
+    metavar="help_mv_file",
+    help="help_opt_pack_out",
+)
+@NOTES_OPTION
+def theme_pack(path: Path, out: Path | None, notes: str | None) -> None:
+    """Упаковать тему сайта вместе с его контентом."""
     from heron import themes
 
-    lang = _lang(None, path)
+    lang = _lang(notes, path)
     target = out or (path / "dist" / "theme.tar.gz")
     try:
         made = themes.pack(path, target)
@@ -1326,51 +1550,53 @@ def theme_pack(path: Path, out: Path | None) -> None:
     click.echo(str(made))
 
 
-@main.command()
-@click.argument("page_type")
-@click.argument("slug")
-@click.option("--lang", default=None, help="Язык. По умолчанию основной язык сайта.")
-@click.option("--folder", default="", help="Папка внутри языкового дерева.")
-@click.argument("path", type=click.Path(file_okay=False, path_type=Path), default=".")
-def page(page_type: str, slug: str, lang: str | None, folder: str, path: Path) -> None:
+@main.command(help="help_page")
+@_argument("page_type", metavar="help_mv_type")
+@_argument("slug", metavar="help_mv_slug")
+@_option("--lang", default=None, metavar="help_mv_code", help="help_opt_page_lang")
+@_option("--folder", default="", metavar="help_mv_folder", help="help_opt_folder")
+@NOTES_OPTION
+@_path_argument
+def page(
+    page_type: str, slug: str, lang: str | None, folder: str, path: Path, notes: str | None
+) -> None:
     """Заготовка страницы со всеми секциями своего типа."""
     from heron.scaffold.page import write_page
 
-    language = _lang(None, path)
+    language = _lang(notes, path)
     _need_site(path, language)
     try:
-        created = write_page(path, page_type=page_type, slug=slug, lang=lang, folder=folder)
+        # Комментарии заготовки write_page берёт из HERON_NOTES или build.notes:
+        # --notes этого запуска передаётся ей тем же путём, на время записи.
+        with _notes_env(notes or _ctx_notes()):
+            created = write_page(path, page_type=page_type, slug=slug, lang=lang, folder=folder)
     except HeronError as error:
         _fail(error, language)
     click.secho(say(language, "page_done", path=created), fg="green")
     click.echo(say(language, "page_next", root=_shown(path)))
 
 
-@main.command()
-@click.argument("name", required=False)
-@click.argument("file", required=False)
-@click.option(
+@main.command(help="help_docs")
+@_argument("name", required=False, metavar="help_mv_topic")
+@_argument("file", required=False, metavar="help_mv_file")
+@_option(
     "--lang",
     "lang_flag",
     type=click.Choice(["ru", "en"]),
     default=None,
-    help="Язык документации. Иначе --notes/HERON_NOTES/build.notes из site.yaml "
-    "текущей папки, иначе en.",
+    help="help_opt_docs_lang",
 )
-@click.option("--search", "query", default=None, metavar="ТЕКСТ", help="Найти в документации.")
-@click.option(
+@_option("--search", "query", default=None, metavar="help_mv_text", help="help_opt_search")
+@_option(
     "--export",
     "target",
     default=None,
     type=click.Path(file_okay=False, path_type=Path),
-    help="Выложить документацию в папку — то же, что сайт получает в agents/.",
+    metavar="help_mv_folder",
+    help="help_opt_docs_export",
 )
-@click.option(
-    "--all-langs",
-    "all_langs",
-    is_flag=True,
-    help="С --export: оба языка, папки ru/ и en/ (для сайта движка).",
-)
+@_option("--all-langs", "all_langs", is_flag=True, help="help_opt_all_langs")
+@NOTES_OPTION
 def docs(
     name: str | None,
     file: str | None,
@@ -1378,23 +1604,13 @@ def docs(
     query: str | None,
     target: Path | None,
     all_langs: bool,
+    notes: str | None,
 ) -> None:
-    """Документация этой версии движка: оглавление, тема, поиск, выгрузка (21 §10).
-
-    Нет файла на нужном языке — печатается файл другого языка с пометкой
-    первой строкой.
-
-    \b
-    heron docs                    оглавление
-    heron docs kit                с чего начинать агенту
-    heron docs template page.md   образец файла
-    heron docs --search E023      поиск по всей документации
-    heron docs --export .heron-docs   папкой, со ссылками между файлами
-    heron docs --lang en engine   тема на английском
-    """
+    """Документация этой версии движка: оглавление, тема, поиск, выгрузка (21 §10)."""
     from heron import docs as library
 
-    lang = lang_flag or _lang(None, Path.cwd())
+    lang = lang_flag or _lang(notes, Path.cwd())
+    _UI.lang = lang  # сообщения docs — на языке документации, рамка click тоже
     if all_langs and target is None:
         raise click.UsageError(say(lang, "docs_all_langs"))
     if query:

@@ -821,3 +821,492 @@ KINDS: dict[str, dict[str, str]] = {
 def kind(lang: str, name: str) -> str:
     """Вид предупреждения на языке сообщений."""
     return KINDS.get(lang, {}).get(name, name)
+
+
+# --- справка команд: --help на языке пояснений (E15.S1.T3, 21 §10) ----------------
+# Ключи help_* читает heron/cli.py при показе справки: язык выбирается до разбора
+# аргументов (--notes, затем HERON_NOTES, затем build.notes из ./site.yaml, иначе en).
+# help_mv_* — подписи значений в строке использования (ПУТЬ / PATH). Фигурных скобок
+# в этих текстах нет: say() пропускает их через str.format.
+TEXT["ru"].update(
+    {
+        "help_main": (
+            "HERON — файловый движок сайтов.\n\n"
+            "Язык справки и сообщений: --notes ru|en, иначе HERON_NOTES, иначе "
+            "build.notes из site.yaml текущей папки, иначе en."
+        ),
+        "help_new": (
+            "Создать сайт с нуля: в новой папке или в текущей (`.`).\n\n"
+            "В терминале задаёт вопросы: язык пояснений, название, домен, языки "
+            "сайта, основной язык. Без терминала (агент, CI, docker без -it) не "
+            "спрашивает: значения из флагов или по умолчанию.\n\n"
+            "Папка может быть под git: .git, .gitignore, README и прочее служебное "
+            "не мешают. Кладёт и инструкции для агентов на языке пояснений: agents/ "
+            "и корневые указатели на них (сборка их не видит); --no-agents — без них."
+        ),
+        "help_init": (
+            "Дополнить папку недостающим по тому, что написано в site.yaml.\n\n"
+            "Ничего не перезаписывает без --force. Нет site.yaml — значит, сайт "
+            "только заводится: в терминале те же вопросы, что у `new`, языки по "
+            "умолчанию — папки, которые уже лежат в content/. Язык пояснений: "
+            "--notes, иначе HERON_NOTES, иначе build.notes из site.yaml, иначе en.\n\n"
+            "Инструкции для агентов (agents/, AGENTS.md): без флагов — только "
+            "недостающие файлы, если build.agents не `false`; --agents — обновление "
+            "по манифесту; --no-agents — не класть и записать `build.agents: false` "
+            "(21 §10)."
+        ),
+        "help_check": "Проверить контент и конфиг, ничего не собирая.",
+        "help_build": "Собрать сайт в dist/ или в указанную папку.",
+        "help_serve": "Локальный просмотр с пересборкой при изменениях.",
+        "help_setup": (
+            "Конфигуратор: анкета, которая пишет site.yaml, сценарий для CI и скрипты.\n\n"
+            "Без флагов открывает анкету в браузере (адрес — на экране). С --answers "
+            "применяет ответы из файла — те же поля и та же проверка."
+        ),
+        "help_schema": (
+            "JSON Schema контрактов этой версии: для редактора, агента и CI (21 §10).\n\n"
+            "\b\n"
+            "heron schema                  site.yaml\n"
+            "heron schema --frontmatter    фронтматтер страницы\n"
+            "heron schema --errors         реестр кодов ошибок\n"
+            "heron schema --export папка   все пять файлов"
+        ),
+        "help_recipe": (
+            "Рецепт образа nginx для собранного сайта (Dockerfile) этой версии HERON; "
+            "комментарии в нём — на языке пояснений.\n\n"
+            "`heron recipe > /tmp/Dockerfile && docker build -f /tmp/Dockerfile dist` "
+            "— образ сайта без клона HERON и без Dockerfile в папке сайта."
+        ),
+        "help_theme": (
+            "Темы: поставить по имени, ссылке или архиву, показать каталог, упаковать свою."
+        ),
+        "help_theme_get": (
+            "Поставить тему: starter, имя из каталога, https-ссылка или файл архива.\n\n"
+            "Прежняя тема уезжает в .heron-cache/setup/. Демонстрационные страницы "
+            "темы ложатся только туда, где страницы нет: страницы сайта не "
+            "перезаписываются."
+        ),
+        "help_theme_list": "Каталог тем HERON.",
+        "help_theme_pack": (
+            "Упаковать тему сайта вместе с его контентом — демо-страницами для heron theme get."
+        ),
+        "help_page": "Заготовка страницы со всеми секциями своего типа.",
+        "help_docs": (
+            "Документация этой версии движка: оглавление, тема, поиск, выгрузка (21 §10).\n\n"
+            "Нет файла на нужном языке — печатается файл другого языка с пометкой "
+            "первой строкой.\n\n"
+            "\b\n"
+            "heron docs                        оглавление\n"
+            "heron docs kit                    с чего начинать агенту\n"
+            "heron docs template page.md       образец файла\n"
+            "heron docs --search E023          поиск по всей документации\n"
+            "heron docs --export .heron-docs   папкой, со ссылками между файлами\n"
+            "heron docs --lang en engine       тема на английском"
+        ),
+        # параметры
+        "help_opt_help": "Показать эту справку и выйти.",
+        "help_opt_version": "Показать версию и выйти.",
+        "help_opt_debug": "Показать трейсбек непредвиденной ошибки. То же — HERON_DEBUG=1.",
+        "help_opt_notes": (
+            "Язык комментариев в файлах сайта, справки и сообщений на экране: ru или en. "
+            "Иначе HERON_NOTES, иначе build.notes из site.yaml, иначе en."
+        ),
+        "help_opt_verbose": "Перечислить каждый созданный файл.",
+        "help_opt_name": "Название сайта.",
+        "help_opt_domain": "Домен без схемы: example.com.",
+        "help_opt_langs": "Языки через запятую, первый — основной: en или en,ru.",
+        "help_opt_yes": "Не задавать вопросов: флаги и значения по умолчанию.",
+        "help_opt_no_agents": (
+            "Не класть инструкции для агентов (agents/, AGENTS.md) и запомнить это: "
+            "`build.agents: false`."
+        ),
+        "help_opt_force": "Перезаписывать существующие файлы.",
+        "help_opt_agents": (
+            "Только инструкции для агентов: обновить по манифесту agents/heron-kit.yaml — "
+            "нетронутые заменить, правленые оставить и назвать (--force — заменить и их)."
+        ),
+        "help_opt_strict": "Считать предупреждения ошибками.",
+        "help_opt_drafts": "Включить страницы с `published: false`.",
+        "help_opt_json": "Ошибки и предупреждения в JSON — для агента и CI.",
+        "help_opt_out": "Куда собирать.",
+        "help_opt_env": (
+            "Окружение сборки: `prod` открывает индексацию и счётчики, всё прочее — нет."
+        ),
+        "help_opt_workers": (
+            "Процессов на нарезку; 0 — по ядрам, 1 — без пула. "
+            "Сильнее HERON_WORKERS и build.workers."
+        ),
+        "help_opt_port": "Порт.",
+        "help_opt_host": (
+            "Где слушать. По умолчанию 127.0.0.1, а в образе HERON — 0.0.0.0, "
+            "чтобы проброшенный порт открывался снаружи контейнера."
+        ),
+        "help_opt_serve_drafts": "Показывать черновики (`published: false`); по умолчанию да.",
+        "help_opt_answers": (
+            "Ответы анкеты из YAML или JSON без браузера (агент, CI). «-» — из stdin."
+        ),
+        "help_opt_dump": "Напечатать записанные ответы в YAML и выйти.",
+        "help_opt_setup_host": "Где слушать: как у heron serve.",
+        "help_opt_schema_site": "site.yaml (по умолчанию).",
+        "help_opt_schema_theme": "theme.yaml.",
+        "help_opt_schema_frontmatter": "Фронтматтер страницы.",
+        "help_opt_schema_setup": "Ответы анкеты heron setup.",
+        "help_opt_schema_errors": "Реестр кодов ошибок.",
+        "help_opt_schema_export": "Записать все пять файлов в папку.",
+        "help_opt_pack_out": "Файл архива; по умолчанию dist/theme.tar.gz.",
+        "help_opt_page_lang": "Язык страницы. По умолчанию основной язык сайта.",
+        "help_opt_folder": "Папка внутри языкового дерева.",
+        "help_opt_docs_lang": (
+            "Язык документации. Иначе --notes, HERON_NOTES, build.notes из site.yaml "
+            "текущей папки, иначе en."
+        ),
+        "help_opt_search": "Найти в документации.",
+        "help_opt_docs_export": (
+            "Выложить документацию в папку — то же, что сайт получает в agents/."
+        ),
+        "help_opt_all_langs": "С --export: оба языка, папки ru/ и en/ (для сайта движка).",
+        # подписи значений
+        "help_mv_options": "[ПАРАМЕТРЫ]",
+        "help_mv_command": "КОМАНДА [АРГУМЕНТЫ]...",
+        "help_mv_path": "ПУТЬ",
+        "help_mv_codes": "КОДЫ",
+        "help_mv_code": "КОД",
+        "help_mv_name": "НАЗВАНИЕ",
+        "help_mv_domain": "ДОМЕН",
+        "help_mv_folder": "ПАПКА",
+        "help_mv_file": "ФАЙЛ",
+        "help_mv_env": "ИМЯ",
+        "help_mv_n": "N",
+        "help_mv_port": "ПОРТ",
+        "help_mv_host": "АДРЕС",
+        "help_mv_source": "ИСТОЧНИК",
+        "help_mv_type": "ТИП",
+        "help_mv_slug": "СЛАГ",
+        "help_mv_text": "ТЕКСТ",
+        "help_mv_topic": "ТЕМА",
+    }
+)
+TEXT["en"].update(
+    {
+        "help_main": (
+            "HERON — a file-based site engine.\n\n"
+            "Language of help and messages: --notes ru|en, else HERON_NOTES, else "
+            "build.notes from site.yaml in the current folder, else en."
+        ),
+        "help_new": (
+            "Create a site from scratch: in a new folder or in the current one (`.`).\n\n"
+            "In a terminal it asks questions: notes language, name, domain, site "
+            "languages, main language. Without a terminal (an agent, CI, docker without "
+            "-it) it asks nothing: values come from flags or defaults.\n\n"
+            "The folder may be under git: .git, .gitignore, README and other service "
+            "files are fine. It also places agent instructions in the notes language: "
+            "agents/ and root pointers to them (the build does not see them); "
+            "--no-agents skips them."
+        ),
+        "help_init": (
+            "Complete the folder with what is missing, by what site.yaml says.\n\n"
+            "Overwrites nothing without --force. No site.yaml means the site is only "
+            "being started: in a terminal the same questions as `new`, the default "
+            "languages are the folders already in content/. Notes language: --notes, "
+            "else HERON_NOTES, else build.notes from site.yaml, else en.\n\n"
+            "Agent instructions (agents/, AGENTS.md): without flags only the missing "
+            "files, unless build.agents is `false`; --agents updates by the manifest; "
+            "--no-agents places nothing and writes `build.agents: false` (21 §10)."
+        ),
+        "help_check": "Check the content and the config without building anything.",
+        "help_build": "Build the site into dist/ or into the given folder.",
+        "help_serve": "Local preview that rebuilds on changes.",
+        "help_setup": (
+            "The configurator: a questionnaire that writes site.yaml, the CI workflow "
+            "and scripts.\n\n"
+            "Without flags it opens the questionnaire in a browser (the address is on "
+            "screen). With --answers it applies answers from a file — the same fields "
+            "and the same check."
+        ),
+        "help_schema": (
+            "JSON Schema of this version's contracts (21 §10): for an editor, an agent "
+            "and CI.\n\n"
+            "\b\n"
+            "heron schema                  site.yaml\n"
+            "heron schema --frontmatter    page front matter\n"
+            "heron schema --errors         error code registry\n"
+            "heron schema --export folder  all five files"
+        ),
+        "help_recipe": (
+            "The nginx image recipe for a built site (Dockerfile) of this HERON version; "
+            "its comments are in the notes language.\n\n"
+            "`heron recipe > /tmp/Dockerfile && docker build -f /tmp/Dockerfile dist` "
+            "— a site image without a HERON clone and without a Dockerfile in the site folder."
+        ),
+        "help_theme": "Themes: install by name, link or archive, show the catalog, pack your own.",
+        "help_theme_get": (
+            "Install a theme: starter, a name from the catalog, an https link or an "
+            "archive file.\n\n"
+            "The previous theme moves to .heron-cache/setup/. The theme's demo pages go "
+            "only where there is no page yet: the site's pages are not overwritten."
+        ),
+        "help_theme_list": "The HERON theme catalog.",
+        "help_theme_pack": (
+            "Pack the site's theme together with its content — demo pages for heron theme get."
+        ),
+        "help_page": "A page draft with every section of its type.",
+        "help_docs": (
+            "Documentation of this engine version (21 §10): contents, topic, search, "
+            "export.\n\n"
+            "No file in the language asked for — the file in the other language is "
+            "printed, with a notice on the first line.\n\n"
+            "\b\n"
+            "heron docs                        contents\n"
+            "heron docs kit                    where an agent starts\n"
+            "heron docs template page.md       a sample file\n"
+            "heron docs --search E023          search all the documentation\n"
+            "heron docs --export .heron-docs   as a folder, with links between files\n"
+            "heron docs --lang en engine       a topic in English"
+        ),
+        "help_opt_help": "Show this message and exit.",
+        "help_opt_version": "Show the version and exit.",
+        "help_opt_debug": "Show the traceback of an unexpected error. Same as HERON_DEBUG=1.",
+        "help_opt_notes": (
+            "Language of comments in site files, of help and of on-screen messages: "
+            "ru or en. Else HERON_NOTES, else build.notes from site.yaml, else en."
+        ),
+        "help_opt_verbose": "List every created file.",
+        "help_opt_name": "Site name.",
+        "help_opt_domain": "Domain without a scheme: example.com.",
+        "help_opt_langs": "Languages, comma-separated, the first is the main one: en or en,ru.",
+        "help_opt_yes": "Ask no questions: flags and defaults.",
+        "help_opt_no_agents": (
+            "Do not place agent instructions (agents/, AGENTS.md) and remember it: "
+            "`build.agents: false`."
+        ),
+        "help_opt_force": "Overwrite existing files.",
+        "help_opt_agents": (
+            "Agent instructions only: update by the manifest agents/heron-kit.yaml — "
+            "replace untouched files, keep and name edited ones (--force replaces them too)."
+        ),
+        "help_opt_strict": "Treat warnings as errors.",
+        "help_opt_drafts": "Include pages with `published: false`.",
+        "help_opt_json": "Errors and warnings as JSON — for an agent and CI.",
+        "help_opt_out": "Where to build.",
+        "help_opt_env": (
+            "Build environment: `prod` opens indexing and counters, anything else does not."
+        ),
+        "help_opt_workers": (
+            "Processes for image renditions; 0 — one per core, 1 — no pool. "
+            "Overrides HERON_WORKERS and build.workers."
+        ),
+        "help_opt_port": "Port.",
+        "help_opt_host": (
+            "Where to listen. 127.0.0.1 by default, and 0.0.0.0 in the HERON image, "
+            "so that the published port opens from outside the container."
+        ),
+        "help_opt_serve_drafts": "Show drafts (`published: false`); on by default.",
+        "help_opt_answers": (
+            "Questionnaire answers from YAML or JSON without a browser (an agent, CI). "
+            "“-” reads stdin."
+        ),
+        "help_opt_dump": "Print the saved answers as YAML and exit.",
+        "help_opt_setup_host": "Where to listen: as for heron serve.",
+        "help_opt_schema_site": "site.yaml (the default).",
+        "help_opt_schema_theme": "theme.yaml.",
+        "help_opt_schema_frontmatter": "Page front matter.",
+        "help_opt_schema_setup": "Answers of the heron setup questionnaire.",
+        "help_opt_schema_errors": "Error code registry.",
+        "help_opt_schema_export": "Write all five files into a folder.",
+        "help_opt_pack_out": "Archive file; dist/theme.tar.gz by default.",
+        "help_opt_page_lang": "Page language. The site's main language by default.",
+        "help_opt_folder": "A folder inside the language tree.",
+        "help_opt_docs_lang": (
+            "Documentation language. Else --notes, HERON_NOTES, build.notes from "
+            "site.yaml in the current folder, else en."
+        ),
+        "help_opt_search": "Search the documentation.",
+        "help_opt_docs_export": (
+            "Write the documentation into a folder — the same that a site gets in agents/."
+        ),
+        "help_opt_all_langs": (
+            "With --export: both languages, folders ru/ and en/ (for the engine's site)."
+        ),
+        "help_mv_options": "[OPTIONS]",
+        "help_mv_command": "COMMAND [ARGS]...",
+        "help_mv_path": "PATH",
+        "help_mv_codes": "CODES",
+        "help_mv_code": "CODE",
+        "help_mv_name": "NAME",
+        "help_mv_domain": "DOMAIN",
+        "help_mv_folder": "FOLDER",
+        "help_mv_file": "FILE",
+        "help_mv_env": "NAME",
+        "help_mv_n": "N",
+        "help_mv_port": "PORT",
+        "help_mv_host": "HOST",
+        "help_mv_source": "SOURCE",
+        "help_mv_type": "TYPE",
+        "help_mv_slug": "SLUG",
+        "help_mv_text": "TEXT",
+        "help_mv_topic": "TOPIC",
+    }
+)
+
+# Служебные строки click для ru: каталог в духе gettext — исходная строка click
+# (msgid) → перевод с теми же полями. heron/cli.py подставляет его вместо
+# gettext в модулях click на время запуска; для en строки click как есть.
+# Строка `heron, version …` не переводится: её разбирают скрипты и CI.
+CLICK_RU: dict[str, str] = {
+    "Usage:": "Использование:",
+    "Options": "Параметры",
+    "Commands": "Команды",
+    "Positional arguments": "Аргументы",
+    "Show this message and exit.": "Показать эту справку и выйти.",
+    "Show the version and exit.": "Показать версию и выйти.",
+    "default: {default}": "по умолчанию: {default}",
+    "required": "обязательно",
+    "env var: {var}": "переменная окружения: {var}",
+    "(dynamic)": "(вычисляется)",
+    "deprecated": "устарело",
+    "Error: {message}": "Ошибка: {message}",
+    "Try '{command} {option}' for help.": "Справка: '{command} {option}'.",
+    "Invalid value for {param_hint}: {message}": "неверное значение {param_hint}: {message}",
+    "Invalid value: {message}": "неверное значение: {message}",
+    "Missing argument": "не хватает аргумента",
+    "Missing option": "не хватает параметра",
+    "Missing parameter": "не хватает значения",
+    "Missing {param_type}": "не хватает значения: {param_type}",
+    "Missing parameter: {param_name}": "не хватает значения: {param_name}",
+    "No such option {name!r}.": "нет такого параметра {name!r}.",
+    "No such command {name!r}.": "нет такой команды {name!r}.",
+    "Did you mean {possibility}?": "Может быть, {possibility}?",
+    "(Did you mean one of: {possibilities}?)": "(может быть, одно из: {possibilities}?)",
+    "Got unexpected extra argument ({args})": "лишний аргумент ({args})",
+    "Got unexpected extra arguments ({args})": "лишние аргументы ({args})",
+    "Missing command.": "не указана команда.",
+    "Aborted!": "Прервано.",
+    "Option {name!r} does not take a value.": "параметр {name!r} не принимает значения.",
+    "Option {name!r} requires an argument.": "параметру {name!r} нужно значение.",
+    "Option {name!r} requires {nargs} arguments.": "параметру {name!r} нужно значений: {nargs}.",
+    "Argument {name!r} takes {nargs} values.": "аргумент {name!r} принимает значений: {nargs}.",
+    "Value must be an iterable.": "нужен список значений.",
+    "Takes {nargs} values but 1 was given.": "нужно значений: {nargs}, передано: 1.",
+    "Takes {nargs} values but {len} were given.": "нужно значений: {nargs}, передано: {len}.",
+    "{value!r} is not {choice}.": "{value!r} — не {choice}.",
+    "{value!r} is not one of {choices}.": "{value!r} — не из списка: {choices}.",
+    "Choose from:\n\t{choices}": "Выберите из:\n\t{choices}",
+    "{value} is not in the range {range}.": "{value} — вне диапазона {range}.",
+    "{value!r} is not a valid {number_type}.": "{value!r} — не число.",
+    "{value!r} is not a valid boolean. Recognized values: {states}": (
+        "{value!r} — не да или нет. Подходят: {states}"
+    ),
+    "{value!r} is not a valid UUID.": "{value!r} — не UUID.",
+    "{value!r} does not match the format {format}.": "{value!r} не подходит под формат {format}.",
+    "{value!r} does not match the formats {formats}.": (
+        "{value!r} не подходит ни под один формат: {formats}."
+    ),
+    "{len_type} values are required, but {len_value} was given.": (
+        "нужно значений: {len_type}, передано: {len_value}."
+    ),
+    "{len_type} values are required, but {len_value} were given.": (
+        "нужно значений: {len_type}, передано: {len_value}."
+    ),
+    "{name} {filename!r} does not exist.": "путь {filename!r} не существует.",
+    "{name} {filename!r} is a file.": "путь {filename!r} — файл, а нужна папка.",
+    "{name} {filename!r} is a directory.": "путь {filename!r} — папка, а нужен файл.",
+    "{name} {filename!r} is not readable.": "путь {filename!r} не читается.",
+    "{name} {filename!r} is not writable.": "путь {filename!r} закрыт для записи.",
+    "{name} {filename!r} is not executable.": "путь {filename!r} не запускается.",
+    "Could not open file {filename!r}: {message}": "не открывается файл {filename!r}: {message}",
+    "unknown error": "неизвестная ошибка",
+    "Error: invalid input": "Ошибка: ответ не понят",
+    "Error: The two entered values do not match.": "Ошибка: два ответа не совпадают.",
+    "Repeat for confirmation": "Повторите для подтверждения",
+    "Press any key to continue...": "Нажмите любую клавишу...",
+    "Do you want to continue?": "Продолжить?",
+    "Confirm the action without prompting.": "Подтвердить без вопроса.",
+}
+
+# heron recipe по-английски (F16, E15.S1.T3): Dockerfile.site пишется по-русски, для en
+# комментарии и сообщение echo заменяются целыми кусками (кусок файла, замена);
+# инструкции Dockerfile не меняются. Поменяли комментарий в Dockerfile.site —
+# поменяйте кусок здесь: tests/test_cli_help_lang.py ищет кириллицу в en-рецепте.
+RECIPE_EN: tuple[tuple[str, str], ...] = (
+    (
+        "# Образ готового сайта: nginx и статика, больше ничего.\n"
+        "#\n"
+        "# Контекст сборки — уже собранная папка out/<сайт>-<окружение>, а не папка\n"
+        "# контента. Так в образ физически не может попасть ни .git, ни исходники\n"
+        "# картинок, ни макеты, и движка в работающем контейнере нет: в сети не\n"
+        "# должно стоять ничего, что умеет читать файлы сайта и запускать плагины.\n"
+        "#\n"
+        "# Собирается через scripts/site.sh <сайт> image <окружение>.\n",
+        "# The image of a built site: nginx and static files, nothing else.\n"
+        "#\n"
+        "# The build context is the already built folder out/<site>-<environment>,\n"
+        "# not the content folder. This way neither .git nor source images nor\n"
+        "# mockups can physically get into the image, and there is no engine in the\n"
+        "# running container: nothing that can read the site files and run plugins\n"
+        "# should face the network.\n"
+        "#\n"
+        "# Built with scripts/site.sh <site> image <environment>.\n",
+    ),
+    (
+        "# nginx 1.30.6 (stable, 2026-10-14; njs 1.0.2) — закрывает все опубликованные\n"
+        "# на дату advisories nginx.org, включая CVE-2026-15176, -93479, -95101,\n"
+        "# -97629, -97205 (исправлены в 1.30.6) и -90439 (1.30.5). Прибит по digest\n"
+        "# индекса образа: тег мог бы уехать под ногами. Обновляется отдельным\n"
+        "# коммитом после сверки https://nginx.org/en/security_advisories.html.\n",
+        "# nginx 1.30.6 (stable, 2026-10-14; njs 1.0.2) closes every nginx.org advisory\n"
+        "# published by that date, including CVE-2026-15176, -93479, -95101, -97629,\n"
+        "# -97205 (fixed in 1.30.6) and -90439 (1.30.5). Pinned by the image index\n"
+        "# digest: a tag could move underfoot. Updated in a separate commit after\n"
+        "# checking https://nginx.org/en/security_advisories.html.\n",
+    ),
+    (
+        "# Конфиг nginx приезжает вместе со статикой: движок собирает его под языки\n"
+        "# этого сайта. Руками написанный список языков разошёлся бы с содержимым\n"
+        "# папки в первый же раз, когда сменят основной язык.\n"
+        "#\n"
+        "# Зачем он вообще: у образа по умолчанию не задан error_page, поэтому на\n"
+        "# несуществующий адрес отдаётся встроенная страница nginx, а нарисованную\n"
+        "# темой 404 не видит никто. Код ответа остаётся 404: заглушка с кодом 200\n"
+        "# попадает в индекс и плодит дубли.\n",
+        "# The nginx config comes together with the static files: the engine builds\n"
+        "# it for this site's languages. A hand-written list of languages would drift\n"
+        "# from the folder the first time the main language changes.\n"
+        "#\n"
+        "# Why it is needed at all: the image has no error_page by default, so a\n"
+        "# missing address gets the built-in nginx page and nobody sees the 404 drawn\n"
+        "# by the theme. The response code stays 404: a stub with code 200 gets into\n"
+        "# the index and breeds duplicates.\n",
+    ),
+    (
+        "# Права приезжают вместе с файлами, а nginx работает не под root: папка,\n"
+        "# закрытая от чужих на машине сборки, внутри образа превращается в 403 на\n"
+        "# весь сайт. Поэтому читаемость выставляем здесь, а не надеемся на умаск\n"
+        "# того, кто собирал.\n"
+        "#\n"
+        "# Владельца конфига меняем не для красоты: стартовый скрипт образа правит\n"
+        "# default.conf на месте (ipv6, резолверы), и от чужого файла он получает\n"
+        "# отказ в правах — контейнер падает сразу после старта.\n",
+        "# Permissions come with the files, and nginx does not run as root: a folder\n"
+        "# closed to others on the build machine turns into a 403 for the whole site\n"
+        "# inside the image. So readability is set here instead of relying on the\n"
+        "# umask of whoever built it.\n"
+        "#\n"
+        "# The config owner is changed for a reason: the image start script edits\n"
+        "# default.conf in place (ipv6, resolvers) and gets a permission error on a\n"
+        "# file it does not own — the container dies right after the start.\n",
+    ),
+    (
+        'echo "нет $conf — пересоберите сайт движком 0.1.0 или новее"',
+        'echo "no $conf — rebuild the site with HERON 0.1.0 or newer"',
+    ),
+    (
+        "# Проверка конфига идёт под тем же пользователем, под которым потом работает\n"
+        "# сервер. Под root она врёт дважды: не видит отказов в правах и оставляет за\n"
+        "# собой /tmp/nginx.pid, в который рабочий процесс потом не может писать —\n"
+        "# контейнер падает на старте с «permission denied».\n",
+        "# The config is checked as the same user the server later runs as. As root\n"
+        "# the check lies twice: it does not see permission errors and leaves\n"
+        "# /tmp/nginx.pid behind, which the worker process then cannot write to —\n"
+        "# the container dies at the start with “permission denied”.\n",
+    ),
+)

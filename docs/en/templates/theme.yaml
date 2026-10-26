@@ -46,5 +46,5 @@ images:
   ratios: ["1:1", "16:9", "4:3"]
   formats: [avif, webp]
   crop: []                     # paths to crop even if they have transparency
-  as_is: []                    # paths to copy without cutting: scans, documents
+  as_is: []                    # paths to copy without renditions: scans, documents
   fallback_width: 800          # fallback PNG/JPEG for <img src> - one width

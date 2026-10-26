@@ -61,18 +61,18 @@ For each type, a list of sections (anchor, form from `20` §4.4, what goes there
 - contacts, company details, hours, social networks - the `contact`, `organization` blocks in `site.yaml` (the theme and the markup take them from there);
 - reviews, trust figures, the team - `data/*.yaml`;
 - the site name and the `title` suffix per language - `site.name_<lang>`, `seo.title_suffix_<lang>`;
-- counters - `analytics`; facts for AI models - `seo.llms_note`;
+- analytics counters - `analytics`; facts for AI models - `seo.llms_note`;
 - schema.org markup - `schema.entity` in `site.yaml`, types per page type - `theme.yaml`. Prices in the markup only if the site publishes them (`seo.allow_prices`).
 
 ### 7. Questions for the client
 
 Everything that cannot be taken from the source goes to the list of questions. None of it is filled in "plausibly":
 
-- facts: phones, address, hours, year of foundation, figures, names, licences and certificates;
+- facts: phones, address, hours, year of foundation, figures, names, licenses and certificates;
 - prices and "from" prices, whether anything is free;
 - which services are current, which are missing;
 - languages at launch; who proofreads the texts if they contain claims the client is responsible for;
-- counters and access: Search Console, analytics, DNS;
+- analytics counters and access: Search Console, analytics, DNS;
 - the fate of sections without an obvious decision (forum, blog, archive).
 
 Every question comes with options and a recommendation, so that the client answers with a choice.

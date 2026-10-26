@@ -14,7 +14,7 @@
 
 ## 1. What exists now
 
-In short: how many pages, which sections, in which language, which addresses, how much traffic, what brings requests, which counters.
+In short: how many pages, which sections, in which language, which addresses, how much traffic, what brings requests, which analytics counters.
 
 ## 2. Content tree
 

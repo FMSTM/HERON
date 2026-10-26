@@ -1,6 +1,6 @@
 # HERON for agents
 
-This is the instruction for an agent that received a link to a site on HERON (or to the engine itself) and a task. You do not need to read the engine code: everything a site may and may not do is written here and in the neighbouring folders. If the documentation and the engine behaviour disagree, that is an engine bug: write it in the report, do not work around it.
+This is the instruction for an agent that received a link to a site on HERON (or to the engine itself) and a task. You do not need to read the engine code: everything a site may and may not do is written here and in the neighboring folders. If the documentation and the engine behavior disagree, that is an engine bug: write it in the report, do not work around it.
 
 This folder is the **kit**: in the engine repository it sits as `docs/<lang>/`, in every site as `agents/`, in the image as `heron docs`. The files are the same, and so are the links between them.
 
@@ -34,7 +34,7 @@ Before you propose an engine change, read [`roles/capabilities.md`](roles/capabi
 ## Common rules
 
 1. **Facts are not invented.** Phones, addresses, prices, deadlines, names, figures - only from the client's source. No fact - the field stays empty, the question goes to `work/questions.md`. The engine does not draw an empty block; an invented one it does draw.
-2. **`site.yaml` is the single source of truth** about the site: languages, theme, domain, menus, counters, 410.
+2. **`site.yaml` is the single source of truth** about the site: languages, theme, domain, menus, analytics counters, 410.
 3. **The site folder is content only.** No Dockerfile, no compose, no `.env`, no tokens. Building and packaging are done by engine commands.
 4. **The page key is the file path, the address is `slug`.** File names are the same in all languages; links and menus are written with keys.
 5. **Structure matters more than markup.** The order of sections in a file does not matter; the section form is set by its markup.

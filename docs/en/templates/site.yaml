@@ -46,13 +46,13 @@ analytics:                     # production build only; the starter theme render
   # metrika:                   # the core accepts it, the starter theme does not render it
 
 build:
-  notes: en                    # language of hints and of the agents/ kit: ru or en. Without the key - en,
-                               # and `heron init --agents` moves the kit to English
+  notes: en                    # language of hints and of the agents/ kit: ru or en. Without the key - en (the default),
+                               # and `heron init --agents` then lays the kit out in English
   agents: true                 # agent kit: true - full, kit - without guide/ and spec/, false - none
   fail_on_warning: false       # true - same as --strict
   allow_raw_html: false        # raw HTML in markdown
   updated_from: git            # manual | git | file - where the update date comes from
-  workers: 0                   # processes for cutting images; 0 - one per core
+  workers: 0                   # processes for image renditions; 0 - one per core
 
 plugins: []
 

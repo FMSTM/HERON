@@ -12,7 +12,7 @@ Terms of the HERON documentation and their English equivalents. The source is `d
 - **Explicit anchors.** A heading that other files link to (`file.md#anchor`) carries an explicit anchor `{#…}`, the same in both languages; a link to an auto-generated Russian anchor stays as in the source until its target is translated.
 - **Placeholders in inline code** are translated: `<язык>` → `<lang>`, `<канал>` → `<channel>`, `<тема>` → `<topic>`, `<сайт>` → `<site>`, `<папка>` → `<folder>`, `<тип>` → `<type>`, `<ключ>` → `<key>`, `<имя>` → `<name>`, `<текст>` → `<text>`, `<якорь>` → `<anchor>`, `<модуль>` → `<module>`, `<файл>` → `<file>`.
 - **Neutrality.** Tool names appear only where the Russian text has them (the "Who reads which file" list of the kit `README.md`, the root pointers in `spec/20-data-contract.md` §1). Company names appear nowhere.
-- **Typography and tone.** Short sentences, "you" for instructions to the agent, no marketing. A plain hyphen is preferred to a long dash.
+- **Typography and tone.** Short sentences, "you" for instructions to the agent, no marketing. A plain hyphen is preferred to a long dash. American spelling throughout (behavior, catalog, license, organization), as in the engine messages.
 
 ## Terms
 
@@ -40,7 +40,7 @@ Terms of the HERON documentation and their English equivalents. The source is `d
 | секция (`## Заголовок {#якорь}`) | section | `README.md` |
 | форма секции (`kind`) | section form | `README.md` |
 | якорь | anchor | `README.md` |
-| вступление | intro | `templates/structure.md` |
+| вступление | intro | `README.md` |
 | тип страницы | page type | `README.md` |
 | тема (оформление) | theme | `README.md` |
 | тема (`heron docs <тема>`) | topic | `README.md` |
@@ -78,6 +78,7 @@ Terms of the HERON documentation and their English equivalents. The source is `d
 | тест паритета | parity test | `architecture.md` |
 | резолв | resolve | `architecture.md` |
 | генераторы | generators | `architecture.md` |
+| служебное (группа 7 SEO-блока) | service (as in the engine SEO block; not the `service` page type) | `templates/page.md` |
 | сведение (в отчёте `check`) | info line | `spec/21-engine.md` |
 | раздел (папка с `_index.md`) | section (a folder with `_index.md`) | `roles/architect.md` |
 | раздел (документа) | section | `README.md` |
@@ -88,7 +89,7 @@ Terms of the HERON documentation and their English equivalents. The source is `d
 | разметка (schema.org) | markup | `templates/site.yaml` |
 | разметка (markdown секции) | markup | `roles/content.md` |
 | сквозной узел (`schema.entity`) | site-wide node | `templates/site.yaml` |
-| счётчики | analytics counters | `templates/site.yaml` |
+| счётчики | analytics counters | `README.md` |
 | нейросети | AI models | `templates/site.yaml` |
 | строки интерфейса | interface strings | `roles/designer.md` |
 | стартовая тема, заготовка темы | starter theme | `roles/designer.md` |

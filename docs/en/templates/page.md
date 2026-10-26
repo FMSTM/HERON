@@ -42,7 +42,7 @@ order: 10
 # type: service              # type, if the section does not set it (children_type in _index.md)
 
 # ================= 7. SERVICE =================
-# date: 2026-03-14           # publication date, YYYY-MM-DD
+# date: 2026-03-14           # publication date, YYYY-MM-DD; group 7 is service data, not the service page type
 # updated: 2026-09-02        # last edit date; without it - build.updated_from from site.yaml
 published: true
 # ↑ false - the page is not built

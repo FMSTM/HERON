@@ -67,9 +67,9 @@ Recorded in [`spec/23-distribution.md`](spec/23-distribution.md):
                        |    |     |
                      mail   CRM  Telegram
 
-   docs/<lang>/ ──▶ heron new/init ──▶ <site>/agents/        (copy, manifest with hashes)
+   docs/<lang>/ ──▶ heron new/init    ──▶ <site>/agents/        (copy, manifest with hashes)
                 ──▶ package and image ──▶ heron docs --lang
-                ──▶ engine site CI   ──▶ sitebuilder.heron.software/agents/<lang>/, /schema/
+                ──▶ engine site CI    ──▶ sitebuilder.heron.software/agents/<lang>/, /schema/
 ```
 
 The site does not depend on `heron-relay`: if the service is down, the static files are still served; only form submission is lost.

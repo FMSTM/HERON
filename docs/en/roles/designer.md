@@ -79,7 +79,7 @@ Everything that belongs to the theme and not to the page ("Read more", "Question
 - it holds no content texts and no site details: texts are in sections, phone and address are in `site.contact.*`;
 - it does not load content with a script: text and numbers must be in the HTML;
 - it does not show the build stamp in production: `{% if not env.is_prod %}{{ env.stamp }}{% endif %}`;
-- it renders counters only with `env.analytics` and only after the visitor's consent - like `partials/analytics.html` of the white starter theme: not a single counter script before the choice.
+- it renders analytics counters only with `env.analytics` and only after the visitor's consent - like `partials/analytics.html` of the white starter theme: not a single analytics counter script before the choice.
 
 ## Checklist
 

@@ -95,7 +95,7 @@ References: `20` = `docs/spec/20-data-contract.md`, `21` = `docs/spec/21-engine.
 | 301 from old addresses, Cyrillic and `%D0%…` | `redirect_from` in the page | `20` §2 |
 | 410 for archives, service paths, doorway pages | `gone` in `site.yaml`: exact ones, `/wp/*`, `/?p=*` | `20` §5 |
 | A 404 page in each language | `content/<lang>/404.md` | `20` §2 |
-| Counters only in production | `analytics` in `site.yaml`; dev does not render them | `20` §5 |
+| Analytics counters only in production | `analytics` in `site.yaml`; dev does not render them | `20` §5 |
 | Keep dev out of the index | the default; production - `build --env prod` | `21` §10 |
 | An nginx image with the site, a smoke check | `scripts/site.sh <site> image\|smoke\|push` | `23` §5 |
 

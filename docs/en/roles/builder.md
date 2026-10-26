@@ -56,7 +56,7 @@ Then complete the folders for the languages:
 $H init my-site           # content/<lang>/index.md and 404.md, theme/i18n/<lang>.yaml
 ```
 
-What not to do: do not write an "approximate" domain, phone or counters - empty is better than invented. Do not put a Dockerfile, compose or `.env` into the folder.
+What not to do: do not write an "approximate" domain, phone or analytics counters - empty is better than invented. Do not put a Dockerfile, compose or `.env` into the folder.
 
 ## 3. Theme
 
@@ -121,7 +121,7 @@ In detail - the guide [06 · Build and deploy](../guide/06-deploy.md).
 
 ## 8. Report
 
-`agents/work/report.md` in the form of [`templates/report.md`](../templates/report.md): what was done; which pages were created; which sections are not filled (the debt summary); which facts are not confirmed (questions - `agents/work/questions.md`); which warnings were left and why; mismatches between the documentation and the engine behaviour, if any; check commands and their exit codes.
+`agents/work/report.md` in the form of [`templates/report.md`](../templates/report.md): what was done; which pages were created; which sections are not filled (the debt summary); which facts are not confirmed (questions - `agents/work/questions.md`); which warnings were left and why; mismatches between the documentation and the engine behavior, if any; check commands and their exit codes.
 
 **Publication boundary.** Deploy (section 7) is done by the human's commands: you do not run `publish.sh`, `docker push`, `site.sh push`, `git push` or merge. Your result is a branch with the changes, green `check --strict --json` and `build --env prod --strict`, the report and the questions. You do not write code in `plugins/` without an explicit task from the human: a plugin runs during the build.
 

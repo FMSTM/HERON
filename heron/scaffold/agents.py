@@ -2,7 +2,9 @@
 
 Агенту дают ссылку на репозиторий сайта — и инструкции должны лежать там же,
 на языке сайта, той версии движка, что сайт создала. Комплект — копия
-`docs/<язык>/` движка (байт в байт, с фолбэком по файлу), схемы контрактов
+`docs/<язык>/` движка (байт в байт, с фолбэком по файлу; адреса ветки и
+образа — по каналу, ссылки сокращённого комплекта на guide/ и spec/ —
+абсолютные: `deliver`), схемы контрактов
 `schemas/`, папка результатов `work/` и манифест `agents/heron-kit.yaml`
 с sha256 каждого файла. Рядом в корне — `AGENTS.md` (шапка о сайте и текст
 `agents/README.md`), `CLAUDE.md` и `GEMINI.md` из одной строки `@AGENTS.md`.
@@ -57,6 +59,12 @@ _LINK = re.compile(r"\]\((?!https?://|mailto:|#|/|agents/)")
 # Цель ссылки markdown: `](цель)` или `](цель#якорь)`.
 _TARGET = re.compile(r"\]\(([^)\s#]*)(#[^)\s]*)?\)")
 GITHUB = "https://github.com/FMSTM/HERON/blob"
+IMAGE = "ghcr.io/fmstm/heron"
+# Адреса канала в тексте docs/<язык>/: ссылка на ветку prod и образ prod в готовой
+# команде (`H="docker run … heron:prod"`). Тег в таблице тегов (`heron:prod` в
+# обратных кавычках) — описание каналов, а не адрес: он не меняется.
+_PROD_BLOB = re.compile(re.escape(f"{GITHUB}/prod/"))
+_PROD_IMAGE = re.compile(re.escape(f"{IMAGE}:prod") + r"(?=[\"'\s])")
 
 
 def _say(lang: str, key: str, **values: object) -> str:
@@ -140,17 +148,32 @@ def _short_links(rel: str, text: str, lang: str) -> str:
     return _TARGET.sub(swap, text)
 
 
+def _channel_links(text: str) -> str:
+    """Ветка и образ prod в тексте — на канал сборки (`HERON_CHANNEL`, 23 §12)."""
+    name = channel()
+    if name == "prod":
+        return text
+    text = _PROD_BLOB.sub(f"{GITHUB}/{name}/", text)
+    return _PROD_IMAGE.sub(f"{IMAGE}:{name}", text)
+
+
 def deliver(rel: str, data: bytes, lang: str, level: str = "true") -> bytes:
     """Файл `docs/<язык>/<rel>` так, как он ложится в комплект: байты для манифеста.
 
-    Полный комплект — байт в байт; сокращённый (`kit`) — с абсолютными ссылками
-    на отсутствующие в нём guide/ и spec/. Манифест считается по этим байтам,
-    поэтому обновление не принимает преобразование за правку человека.
+    Канал prod, полный комплект — байт в байт. Другой канал (beta) — ссылки на
+    ветку prod и образ prod в готовых командах ведут на ветку и образ канала.
+    Сокращённый комплект (`kit`) — ещё и абсолютные ссылки на отсутствующие в нём
+    guide/ и spec/. Тот же текст выгружает `heron docs --export`. Манифест
+    считается по этим байтам, поэтому обновление не принимает подстановку за
+    правку человека.
     """
-    if _level(level) != "kit" or not rel.endswith(".md"):
+    level = _level(level)
+    if not rel.endswith(".md"):
         return data
     text = data.decode("utf-8")
-    changed = _short_links(rel, text, lang)
+    changed = _channel_links(text)
+    if level == "kit":
+        changed = _short_links(rel, changed, lang)
     return data if changed == text else changed.encode("utf-8")
 
 

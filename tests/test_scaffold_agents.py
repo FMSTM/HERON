@@ -312,6 +312,79 @@ def test_channel_from_environment(tmp_path, monkeypatch):
     )
 
 
+def _for_channel(data: bytes, name: str) -> bytes:
+    """Ожидаемая подстановка: ветка prod и образ prod в готовой команде → канал `name`."""
+    text = data.decode("utf-8").replace(
+        "https://github.com/FMSTM/HERON/blob/prod/", f"https://github.com/FMSTM/HERON/blob/{name}/"
+    )
+    return re.sub(
+        r"ghcr\.io/fmstm/heron:prod(?=[\"'\s])", f"ghcr.io/fmstm/heron:{name}", text
+    ).encode("utf-8")
+
+
+def test_kit_body_follows_the_channel(tmp_path, monkeypatch):
+    """Канал beta: README комплекта и тело AGENTS.md ведут на ветку и образ beta (23 §12)."""
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    root = tmp_path / "site"
+    put(root, "ru")
+    readme = (root / "agents/README.md").read_text(encoding="utf-8")
+    body = (root / "AGENTS.md").read_text(encoding="utf-8")
+    for text in (readme, body):
+        assert "blob/prod" not in text and 'ghcr.io/fmstm/heron:prod"' not in text
+        assert "https://github.com/FMSTM/HERON/blob/beta/AGENTS.md" in text
+        assert 'H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ' in text
+        assert 'ghcr.io/fmstm/heron:beta"' in text
+    builder = (root / "agents/roles/builder.md").read_text(encoding="utf-8")
+    assert 'ghcr.io/fmstm/heron:beta"' in builder and 'heron:prod"' not in builder
+    deploy = (root / "agents/guide/06-deploy.md").read_text(encoding="utf-8")
+    assert "https://github.com/FMSTM/HERON/blob/beta/env/.env.example" in deploy
+    assert "| `ghcr.io/fmstm/heron:prod` |" in deploy  # таблица тегов — описание, не адрес
+    # кроме адресов канала — байт в байт с docs/ru
+    changed = 0
+    for rel, have in docs.tree("ru").items():
+        source = (docs.root() / "docs" / have / rel).read_bytes()
+        placed = (root / "agents" / rel).read_bytes()
+        assert placed == _for_channel(source, "beta"), rel
+        changed += placed != source
+    assert changed >= 3
+    # манифест — по выложенному: повторное обновление без правок
+    listed = {e["path"]: e["sha256"] for e in load_manifest(root)["files"]}
+    for rel, digest in listed.items():
+        assert hashlib.sha256((root / agents._site_rel(rel)).read_bytes()).hexdigest() == digest
+    again = put(root, "ru", mode="update")
+    assert not again.edited and [r for r in again.updated if r != "agents/heron-kit.yaml"] == []
+
+
+def test_channel_change_replaces_untouched_files_without_edits(tmp_path, monkeypatch):
+    monkeypatch.delenv("HERON_CHANNEL", raising=False)
+    root = tmp_path / "site"
+    put(root, "ru")
+    assert b'heron:prod"' in (root / "agents/README.md").read_bytes()
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    plan = put(root, "ru", mode="update")
+    assert not plan.edited and not plan.forced
+    assert {"agents/README.md", "agents/roles/builder.md", "AGENTS.md"} <= set(plan.updated)
+    assert b'heron:beta"' in (root / "agents/README.md").read_bytes()
+    assert load_manifest(root)["channel"] == "beta"
+
+
+def test_docs_export_follows_the_channel_like_the_kit(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    site, out, every = tmp_path / "site", tmp_path / "out", tmp_path / "all"
+    put(site, "ru")
+    docs.export(out, "ru")
+    for rel in docs.tree("ru"):
+        assert (out / rel).read_bytes() == (site / "agents" / rel).read_bytes(), rel
+    assert "blob/beta/AGENTS.md" in (out / "AGENTS.md").read_text(encoding="utf-8")
+    docs.export(every, all_langs=True)
+    assert (every / "ru/README.md").read_bytes() == (site / "agents/README.md").read_bytes()
+    monkeypatch.setenv("HERON_CHANNEL", "prod")
+    docs.export(tmp_path / "prod", "ru")
+    assert (tmp_path / "prod/README.md").read_bytes() == (
+        docs.root() / "docs/ru/README.md"
+    ).read_bytes()
+
+
 def test_deterministic_with_source_date_epoch(tmp_path, monkeypatch):
     monkeypatch.setenv("SOURCE_DATE_EPOCH", "1761386400")
     first, second = tmp_path / "a", tmp_path / "b"

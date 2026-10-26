@@ -6,9 +6,9 @@ This folder is the **kit**: in the engine repository it sits as `docs/<lang>/`, 
 
 ```bash
 H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"
-$H docs --lang ru                 # table of contents of this documentation, the same version as the engine
-$H docs --lang ru kit             # this file
-$H docs --lang ru --search E023   # search: file, line, context
+$H docs --lang en                 # table of contents of this documentation, the same version as the engine
+$H docs --lang en kit             # this file
+$H docs --lang en --search E023   # search: file, line, context
 ```
 
 ## What HERON is, in one minute
@@ -18,8 +18,8 @@ A static site engine: the image `ghcr.io/fmstm/heron:<channel>` or the pip packa
 ## Roles
 
 ```
- Архитектор ──▶ структура, site.yaml, типы ──┬──▶ Дизайнер ──▶ тема ──────┐
-                                             └──▶ Контент и SEO ──▶ страницы ┴──▶ Сборщик ──▶ сайт, отчёт
+ Architect ──▶ structure, site.yaml, types ──┬──▶ Designer ──▶ theme ─────────┐
+                                             └──▶ Content and SEO ──▶ pages ──┴──▶ Builder ──▶ site, report
 ```
 
 | Incoming task | Role | Instruction | Done when |

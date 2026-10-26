@@ -46,30 +46,30 @@ Recorded in [`spec/23-distribution.md`](spec/23-distribution.md):
 ## Diagram
 
 ```
-                папка сайта
+                site folder
    site.yaml · content/ · data/ · media/ · static/ · theme/
-   agents/ · AGENTS.md  (комплект для агентов — сборка не читает)
+   agents/ · AGENTS.md  (agent kit - the build does not read it)
                      |
                      v
-        heron:<версия>   (образ или pip-пакет; внутри — docs/ru, docs/en → heron docs)
-     контракты -> парсер -> резолв -> рендер -> генераторы
+        heron:<version>   (image or pip package; inside - docs/ru, docs/en → heron docs)
+     contracts -> parser -> resolve -> render -> generators
                      |
           +----------+-----------+
           v                      v
-        dist/               образ nginx
-      (на хостинг)     (site.sh image на хосте)
+        dist/               nginx image
+      (to hosting)     (site.sh image on the host)
           |
           v
-        nginx  ------>  посетитель
+        nginx  ------>  visitor
                             |
                             v
-                     heron-relay (позже)
+                     heron-relay (later)
                        |    |     |
-                     почта  CRM  Telegram
+                     mail   CRM  Telegram
 
-   docs/<язык>/ ──▶ heron new/init ──▶ <сайт>/agents/        (копия, манифест с хешами)
-                ──▶ пакет и образ   ──▶ heron docs --lang
-                ──▶ CI сайта движка ──▶ sitebuilder.heron.software/agents/<язык>/, /schema/
+   docs/<lang>/ ──▶ heron new/init ──▶ <site>/agents/        (copy, manifest with hashes)
+                ──▶ package and image ──▶ heron docs --lang
+                ──▶ engine site CI   ──▶ sitebuilder.heron.software/agents/<lang>/, /schema/
 ```
 
 The site does not depend on `heron-relay`: if the service is down, the static files are still served; only form submission is lost.

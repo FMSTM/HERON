@@ -1,13 +1,15 @@
 # Glossary ru → en
 
-Terms of the HERON documentation and their English equivalents. The source is `docs/ru/`, the translation is `docs/en/` (`spec/23-distribution.md` §10). Every translation uses these terms; a new term gets a row here first, then it is used. This file is a tool for translators: it has no Russian pair and is not part of the agent kit.
+Terms of the HERON documentation and their English equivalents. The source is `docs/ru/`, the translation is `docs/en/` (`spec/23-distribution.md` §10). Every translation uses these terms; a new term gets a row here first, then it is used. This is a working file for translators of the documentation, not an instruction for a site author: it has no Russian pair and is not part of the agent kit `agents/` (`spec/20-data-contract.md` §1), while the repository, the wheel and the image carry it.
 
 ## Rules
 
-- **Structure 1:1.** The same file names, the same number of headings of each level, the same sequence of explicit anchors `{#…}`, the same set of relative links and their targets, the same number of tables and rows, the same lists.
+- **One language throughout.** A human who chose `en` reads every file in English: instructions, comments, hints. No Russian text is left in `docs/en/` except literal tokens and values for the other language of an example.
+- **Structure 1:1.** The same file names, the same number of lines, the same number of headings of each level, the same sequence of explicit anchors `{#…}`, the same set of relative links and their targets, the same number of tables and rows, the same lists, the same number of code blocks and lines in each.
 - **Not translated:** commands, flags, YAML keys, values of non-string fields, error codes (`E024`), file and folder names, paths, environment variables, template and macro names, `heron docs` topic names, role names in file names, addresses (`sitebuilder.heron.software`, `FMSTM/HERON`).
-- **Code blocks are byte-equal to the source.** Only comments may be translated: comment lines and the text after ` # ` in shell and YAML, `<!-- -->` in markdown examples. Everything else in a block stays as in the source, even if it is Russian text.
+- **Only literal tokens are byte-equal**, in code blocks too: commands, flags, keys, error codes, paths, file names, values of non-string fields. Everything else in a block is translated: diagrams and forms in blocks without a language and in `markdown` blocks, placeholders, comments and captions, example values (`мой-сайт` → `my-site`, `"Название"` → `"Site name"`). The kit language in ready commands equals the file language (`--notes en`, `heron docs --lang en`); site languages in examples (`--lang en,ru`, a translation with `--lang ru`) stay.
 - **Samples** (`templates/*.yaml`, `templates/page.md`): comments and hints are translated; string placeholder values are translated by meaning; values for the `ru` language (`name_ru`, `*_ru`, `llms_note.ru`) stay Russian because they are the Russian variant of the site. `build.notes` equals the language of the kit.
+- **Explicit anchors.** A heading that other files link to (`file.md#anchor`) carries an explicit anchor `{#…}`, the same in both languages; a link to an auto-generated Russian anchor stays as in the source until its target is translated.
 - **Placeholders in inline code** are translated: `<язык>` → `<lang>`, `<канал>` → `<channel>`, `<тема>` → `<topic>`, `<сайт>` → `<site>`, `<папка>` → `<folder>`, `<тип>` → `<type>`, `<ключ>` → `<key>`, `<имя>` → `<name>`, `<текст>` → `<text>`, `<якорь>` → `<anchor>`, `<модуль>` → `<module>`, `<файл>` → `<file>`.
 - **Neutrality.** Tool names appear only where the Russian text has them (the "Who reads which file" list of the kit `README.md`, the root pointers in `spec/20-data-contract.md` §1). Company names appear nowhere.
 - **Typography and tone.** Short sentences, "you" for instructions to the agent, no marketing. A plain hyphen is preferred to a long dash.
@@ -104,6 +106,8 @@ Terms of the HERON documentation and their English equivalents. The source is `d
 | дорвеи | doorway pages | `roles/architect.md` |
 | задача на движок | engine task | `templates/structure.md` |
 | ДЫРА (метка в структуре) | GAP | `templates/structure.md` |
+| мой-сайт (папка в примерах команд) | my-site | `roles/content.md` |
+| «Название» (в примерах команд) | "Site name" | `roles/builder.md` |
 | граница публикации | publication boundary | `roles/builder.md` |
 | группы предупреждений (`картинки`, `связи`, …) | as the engine prints them in English: `images`, `relations`, `links`, `menu`, `translations`, `languages`, `content`, `other` | `roles/builder.md` |
 | перевод | translation | `README.md` |

@@ -20,7 +20,7 @@ Documentation of this engine version - `$H docs` (table of contents), `$H docs <
 An agent has no terminal, so `new` asks no questions - everything goes through flags:
 
 ```bash
-$H new мой-сайт --notes ru --name "Название" --domain example.com --lang en,ru -y
+$H new my-site --notes en --name "Site name" --domain example.com --lang en,ru -y
 ```
 
 - `--lang` - languages separated by commas, the first one is the main one; `--domain` without a scheme. If you do not know the domain, do not pass it: the placeholder `<name>.example` stays, and that is a line in the report;
@@ -28,7 +28,7 @@ $H new мой-сайт --notes ru --name "Название" --domain example.com
 - a folder under git (`.git`, `.gitignore`, `README`) is fine: `$H new . …`;
 - the result is `site.yaml`, a theme, a home page and a 404 in each language with an SEO block, notes in the folders. The starter site builds with `--env prod --strict` without warnings.
 
-If a folder with content already exists - not `new` but `$H init мой-сайт`: it adds what is missing and overwrites nothing.
+If a folder with content already exists - not `new` but `$H init my-site`: it adds what is missing and overwrites nothing.
 
 ## 2. Fill in `site.yaml`
 
@@ -53,7 +53,7 @@ nav:
 Then complete the folders for the languages:
 
 ```bash
-$H init мой-сайт          # content/<lang>/index.md and 404.md, theme/i18n/<lang>.yaml
+$H init my-site           # content/<lang>/index.md and 404.md, theme/i18n/<lang>.yaml
 ```
 
 What not to do: do not write an "approximate" domain, phone or counters - empty is better than invented. Do not put a Dockerfile, compose or `.env` into the folder.
@@ -64,14 +64,14 @@ What not to do: do not write an "approximate" domain, phone or counters - empty 
 
 ## 4. Content
 
-A file for each page of the structure; file name = key, the same in all languages. A new page - `$H page <type> <name> мой-сайт`. How to write the SEO block and the sections - [`content.md`](content.md).
+A file for each page of the structure; file name = key, the same in all languages. A new page - `$H page <type> <name> my-site`. How to write the SEO block and the sections - [`content.md`](content.md).
 
 ## 5. The check loop
 
 ```bash
-$H check мой-сайт                     # report without a build
-$H build мой-сайт                     # dev build into мой-сайт/dist
-$H build мой-сайт --env prod --strict # like production: warnings are errors
+$H check my-site                      # report without a build
+$H build my-site                      # dev build into my-site/dist
+$H build my-site --env prod --strict  # like production: warnings are errors
 ```
 
 Read the whole report. Errors (`E0xx`) stop the build - fix them. Warnings are grouped: `images`, `relations`, `links`, `menu`, `translations`, `languages`, `content`, `other`; the full list is `.heron-cache/warnings.txt` next to the build. The "Not filled" summary is the content debts; they go to the report.
@@ -109,10 +109,10 @@ The full list - `21` §11 (`docs/spec/21-engine.md`).
 The `dist/` folder goes to any static hosting, with `.heron-nginx.conf` for your own nginx. The image and the check of server responses come from a clone of the engine repository:
 
 ```bash
-./scripts/site.sh <сайт> build prod
-./scripts/site.sh <сайт> image prod
-./scripts/site.sh <сайт> smoke prod      # 200, 404, every 301 and every 410
-./scripts/site.sh <сайт> push prod
+./scripts/site.sh <site> build prod
+./scripts/site.sh <site> image prod
+./scripts/site.sh <site> smoke prod      # 200, 404, every 301 and every 410
+./scripts/site.sh <site> push prod
 ```
 
 A site in its own repository without a HERON clone uses the reusable workflow `FMSTM/HERON/.github/workflows/site-image.yml`: it builds, packages, checks and pushes the image; no Dockerfile of your own is needed.

@@ -86,13 +86,13 @@ Before handing in, go through your structure and for each decision name the sect
 Only if the need is not in [`capabilities.md`](capabilities.md) and cannot be covered by the site and the theme.
 
 ```markdown
-### <короткое название>
+### <short title>
 
-**Сайту нужно:** что должно получиться для посетителя или поисковика.
-**Сейчас в HERON:** что есть и почему не подходит — со ссылкой на раздел документации.
-**Без этого:** что будет на сайте, если не делать (обходной путь, если есть).
-**Не предлагаю реализацию** — её выбирает тот, кто ведёт движок.
-**Как проверить:** что должно получиться на собранном сайте.
+**The site needs:** what should come out for a visitor or a search engine.
+**HERON now:** what exists and why it does not fit, with a link to the section of the documentation.
+**Without it:** what happens on the site if this is not done (a workaround, if there is one).
+**I do not propose an implementation** - whoever maintains the engine chooses it.
+**How to check:** what should come out on the built site.
 ```
 
 The task must not contain site names, domains or slugs: the engine is shared by all sites.

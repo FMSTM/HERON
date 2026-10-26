@@ -23,7 +23,7 @@ The key is the path from `content/<lang>/` without `.md`, the same in all langua
 A filled-in example for `default_lang: en`, `languages: [en, ru]`:
 
 ```
-content/en/ и content/ru/                тип        en                        ru (slug в ru-файле)
+content/en/ and content/ru/              type       en                        ru (slug in the ru file)
   index.md                               home       /                         /ru/
   404.md                                 404        —                         —
   about.md                               about      /about/                   /ru/o-nas/                 o-nas
@@ -60,30 +60,30 @@ Sections of each type:
 ```yaml
 heron: ">=0.1,<0.2"
 site:
-  domain: <домен>
+  domain: <domain>
   theme: main
   default_lang: en
   languages: [en, ru]
-  name: <название>
-  name_ru: <название по-русски>
+  name: <name>
+  name_ru: <name in Russian>
 seo:
-  title_suffix: " — <название>"
-  title_suffix_ru: " — <название по-русски>"
+  title_suffix: " — <name>"
+  title_suffix_ru: " — <name in Russian>"
 nav:
   main: ["/", …]
 analytics:
-  ga4: <или ДЫРА>
+  ga4: <or GAP>
 gone:
   - /wp-*
 contact:
-  phone: <или ДЫРА>
+  phone: <or GAP>
 ```
 
 ## 5. Address migration
 
 | Old address | What it was | Decision | Key | en | ru | Type |
 |---|---|---|---|---|---|---|
-| `/старый-адрес/` | service | 301 | `services/design` | `/services/design/` | `/ru/uslugi/dizajn/` | `service` |
+| `/old-address/` | service | 301 | `services/design` | `/services/design/` | `/ru/uslugi/dizajn/` | `service` |
 | `/category/news/page/2/` | pagination | 410 (`gone`) | — | — | — | — |
 
 ## 6. Relations

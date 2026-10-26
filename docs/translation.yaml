@@ -42,16 +42,16 @@ files:
     ru_sha256: "e403787947ddd668a865b460e0715430749107d5472fb7aaf7068fdb37b74217"
     en_status: current
   - path: spec/20-data-contract.md
-    ru_sha256: "3b00752dc769943b604aae4515a49768a9355fe67ccfe098060d5bbca3f0bee7"
+    ru_sha256: "1c6e23816d7989e63108c6d058aa73f54578ee77832b804142d6c991c54e0729"
     en_status: missing
   - path: spec/21-engine.md
-    ru_sha256: "7bf7da5a51c7682a2c8779b53f5a5970b9064884a137f0c011e6377db6688219"
+    ru_sha256: "5cf7b73d993c9a32ba766b69b691ef5d0da0d4ba147a3b4f7f73d82e9c08bf16"
     en_status: missing
   - path: spec/22-deploy.md
     ru_sha256: "1a209673a89a14fd34f1f5362a6522b6d0410dd63ca9ce3d3e36c27810f99199"
     en_status: missing
   - path: spec/23-distribution.md
-    ru_sha256: "234aa5bce1c93d603f2d56d187616f4fa01b1c7e0c73d18d1b22e1d29599d783"
+    ru_sha256: "39d0867327745811341d7f310664d6a09e50af553aeb318574240a0c50823bcb"
     en_status: missing
   - path: templates/page.md
     ru_sha256: "2b0443157c409457a2625775e89bd72a4345f2ac5b85d4dda7e140ddc82fcd39"

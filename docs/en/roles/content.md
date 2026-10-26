@@ -10,8 +10,8 @@ Write and move pages, fill in the SEO block, keep translations and old addresses
 ## 1. Create a file
 
 ```bash
-$H page service roof мой-сайт --folder services            # → content/<main language>/services/roof.md
-$H page service roof мой-сайт --folder services --lang ru  # translation
+$H page service roof my-site --folder services             # → content/<main language>/services/roof.md
+$H page service roof my-site --folder services --lang ru   # translation
 ```
 
 `heron page` puts the full SEO block and stubs of **all** sections the theme declared for the type (`types.<type>.uses`). You can also copy a ready file - the result is the same. A sample of a filled-in page - [`templates/page.md`](../templates/page.md).

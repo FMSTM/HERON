@@ -21,7 +21,7 @@ Short, to the point, in the past tense. One line - one action.
 The "Not filled" summary from the `heron check` report - verbatim, without cuts. Empty - say so: "No debts".
 
 ```
-<вставка сводки>
+<the summary pasted here>
 ```
 
 ## 4. Questions for the human

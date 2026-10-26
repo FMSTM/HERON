@@ -411,6 +411,48 @@ def test_beta_keeps_the_fallback_note(tmp_path, monkeypatch):
     )
 
 
+def test_search_in_beta_points_at_beta(monkeypatch):
+    """Поиск в beta-образе показывает команды и ссылки беты, номера строк — как в файле.
+
+    Тег в обратных кавычках (таблица тегов) — описание каналов, он остаётся prod.
+    """
+    command = re.compile(re.escape(PROD_IMAGE) + "(?!`)")
+    readme = "docs/ru/README.md"
+    lines = (docs.root() / readme).read_text(encoding="utf-8").splitlines()
+    numbers = [n for n, line in enumerate(lines, 1) if PROD_IMAGE in line or PROD_BLOB in line]
+    assert numbers  # иначе проверять нечего
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    for needle in ("docker run", "heron:", "github.com/FMSTM/HERON/"):
+        found = "\n".join(docs.search(needle, "ru"))
+        assert not command.search(found) and PROD_BLOB not in found, needle
+    found = docs.search("ghcr.io/fmstm/heron:beta", "ru")
+    heads = {line for line in found if line.startswith(f"kit · {readme}:")}
+    assert {f"kit · {readme}:{n}" for n in numbers if PROD_IMAGE in lines[n - 1]} <= heads
+    assert any(line.startswith("agents · AGENTS.md:") for line in found)
+    printed = docs.read_topic("kit", "ru").splitlines()
+    assert len(printed) == len(lines)
+    for n in numbers:
+        assert f"  > {printed[n - 1]}" in docs.search(lines[n - 1][:20], "ru")
+    result = run("docs", "--lang", "ru", "--search", "heron:prod")
+    assert result.exit_code == 0, result.output
+    assert not command.search(result.output)
+
+
+@pytest.mark.parametrize("value", [None, "", "prod"])
+def test_search_in_prod_shows_the_file(monkeypatch, value):
+    if value is None:
+        monkeypatch.delenv("HERON_CHANNEL", raising=False)
+    else:
+        monkeypatch.setenv("HERON_CHANNEL", value)
+    readme = "docs/ru/README.md"
+    lines = (docs.root() / readme).read_text(encoding="utf-8").splitlines()
+    number = next(n for n, line in enumerate(lines, 1) if PROD_IMAGE in line)
+    found = docs.search(PROD_IMAGE, "ru")
+    at = found.index(f"kit · {readme}:{number}")
+    assert f"  > {lines[number - 1]}" in found[at : at + 4]
+    assert "heron:beta" not in "\n".join(found)
+
+
 def test_template_in_beta_points_at_beta(tmp_path, monkeypatch):
     root = fake_root(tmp_path, monkeypatch, en=False)
     sample = root / "docs" / "ru" / "templates" / "x.md"

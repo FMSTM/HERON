@@ -350,26 +350,22 @@ def seo_block(
     )
 
 
-# Ссылки демо-страниц на репозиторий движка: в исходнике ветка prod.
-_DEMO_BRANCH = re.compile(r"(https://github\.com/FMSTM/HERON/(?:blob|tree))/prod/")
-
-
 def _demo_links(text: str) -> str:
-    """Ветка prod в ссылках демо-страницы — на канал образа (`HERON_CHANNEL`, вне образа prod).
+    """Ветка и образ prod демо-страницы — на канал образа (`HERON_CHANNEL`, вне образа prod).
 
-    Как `docs_url` комплекта (`scaffold.agents.channel`): сайт из prod-образа ведёт
-    на prod, из beta-образа — на beta. В prod текст байт в байт как исходник.
+    Та же подстановка, что у комплекта (`scaffold.agents.channel_links`, 23 §12):
+    сайт из beta-образа ведёт на ветку beta и в готовой команде — на образ beta.
+    В prod текст байт в байт как исходник.
     """
-    from heron.scaffold.agents import channel
+    from heron.scaffold.agents import channel_links
 
-    name = channel()
-    return text if name == "prod" else _DEMO_BRANCH.sub(lambda m: f"{m[1]}/{name}/", text)
+    return channel_links(text)
 
 
 def _demo(root: Path, lang: str, name: str, plan: Plan, force: bool, notes: str) -> None:
     """Демонстрационные страницы белой темы в язык `lang` и картинки к ним.
 
-    Ссылки на репозиторий движка ведут на ветку канала образа (`_demo_links`).
+    Ссылки на репозиторий движка и образ в команде — на канал образа (`_demo_links`).
     """
     source = lang if lang in DEMO_LANGS else "en"
     for page, order in zip(DEMO_PAGES, (0, 10, 20, 30), strict=True):

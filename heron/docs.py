@@ -562,12 +562,17 @@ def _search_files(lang: str) -> list[tuple[str, str]]:
 
 
 def search(text: str, lang: str | None = None, context: int = 1) -> list[str]:
-    """Строки документации с `text` (без учёта регистра) и соседние строки."""
+    """Строки документации с `text` (без учёта регистра) и соседние строки.
+
+    Текст файлов — как его печатает `heron docs` (`_printed`): в канале не prod
+    команды и ссылки ведут на канал образа. Подстановка не меняет число строк,
+    поэтому номера строк в выводе — номера строк файла.
+    """
     lang = _lang(lang)
     pattern = re.compile(re.escape(text), re.IGNORECASE)
     out: list[str] = []
     for name, rel in _search_files(lang):
-        lines = (root() / rel).read_text(encoding="utf-8").splitlines()
+        lines = _printed(rel, lang).splitlines()
         for index, line in enumerate(lines):
             if not pattern.search(line):
                 continue

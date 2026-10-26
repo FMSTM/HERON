@@ -123,9 +123,13 @@ DEMO_SOURCE = Path(scaffold.__file__).parent / "demo"
 
 @pytest.mark.parametrize("lang", ["ru", "en"])
 def test_demo_page_points_at_the_channel_branch(tmp_path, monkeypatch, lang):
-    """Из beta-образа демо-страница ведёт на beta, вне образа и из prod — на prod."""
+    """Из beta-образа демо-страница ведёт на beta, вне образа и из prod — на prod.
+
+    Ссылки и образ в готовой команде — по тому же правилу, что комплект (23 §12).
+    """
     source = (DEMO_SOURCE / lang / "docs.md").read_text(encoding="utf-8")
     assert "/HERON/tree/prod/docs/ru/guide" in source and "/beta/" not in source
+    assert "ghcr.io/fmstm/heron:prod serve ." in source and "heron:beta" not in source
     for channel, want in ((None, "prod"), ("  ", "prod"), ("prod", "prod"), ("beta", "beta")):
         if channel is None:
             monkeypatch.delenv("HERON_CHANNEL", raising=False)
@@ -140,7 +144,10 @@ def test_demo_page_points_at_the_channel_branch(tmp_path, monkeypatch, lang):
         assert f"https://github.com/FMSTM/HERON/tree/{want}/docs/ru/guide" in body
         assert f"https://github.com/FMSTM/HERON/blob/{want}/AGENTS.md" in body
         assert f"/HERON/tree/{other}/" not in body and f"/HERON/blob/{other}/" not in body
+        assert f"ghcr.io/fmstm/heron:{want} serve ." in body
+        assert f"ghcr.io/fmstm/heron:{other}" not in body
         if want == "prod":
             assert body == source  # в prod — байт в байт как исходник
         else:
-            assert body == source.replace("/prod/", f"/{want}/")
+            expected = source.replace("/prod/", f"/{want}/")
+            assert body == expected.replace("heron:prod serve", f"heron:{want} serve")

@@ -58,12 +58,14 @@ LANGS_OF_KIT = ("ru", "en")
 _LINK = re.compile(r"\]\((?!https?://|mailto:|#|/|agents/)")
 # Цель ссылки markdown: `](цель)` или `](цель#якорь)`.
 _TARGET = re.compile(r"\]\(([^)\s#]*)(#[^)\s]*)?\)")
-GITHUB = "https://github.com/FMSTM/HERON/blob"
+REPO = "https://github.com/FMSTM/HERON"
+GITHUB = f"{REPO}/blob"
 IMAGE = "ghcr.io/fmstm/heron"
-# Адреса канала в тексте docs/<язык>/: ссылка на ветку prod и образ prod в готовой
-# команде (`H="docker run … heron:prod"`). Тег в таблице тегов (`heron:prod` в
-# обратных кавычках) — описание каналов, а не адрес: он не меняется.
-_PROD_BLOB = re.compile(re.escape(f"{GITHUB}/prod/"))
+# Адреса канала в тексте docs/<язык>/ и демо-страниц: ссылка на ветку prod (файл
+# blob/ или папка tree/) и образ prod в готовой команде (`H="docker run … heron:prod"`).
+# Тег в таблице тегов (`heron:prod` в обратных кавычках) — описание каналов,
+# а не адрес: он не меняется.
+_PROD_BLOB = re.compile(re.escape(REPO) + r"/(blob|tree)/prod/")
 _PROD_IMAGE = re.compile(re.escape(f"{IMAGE}:prod") + r"(?=[\"'\s])")
 
 
@@ -151,12 +153,16 @@ def _short_links(rel: str, text: str, lang: str) -> str:
     return _TARGET.sub(swap, text)
 
 
-def _channel_links(text: str) -> str:
-    """Ветка и образ prod в тексте — на канал сборки (`HERON_CHANNEL`, 23 §12)."""
+def channel_links(text: str) -> str:
+    """Ветка и образ prod в тексте — на канал сборки (`HERON_CHANNEL`, 23 §12).
+
+    Одна подстановка на все точки вывода: комплект, `heron docs` (тема, образец,
+    поиск, `--export`) и демо-страницы нового сайта. В prod — текст как есть.
+    """
     name = channel()
     if name == "prod":
         return text
-    text = _PROD_BLOB.sub(f"{GITHUB}/{name}/", text)
+    text = _PROD_BLOB.sub(lambda m: f"{REPO}/{m[1]}/{name}/", text)
     return _PROD_IMAGE.sub(f"{IMAGE}:{name}", text)
 
 
@@ -174,7 +180,7 @@ def deliver(rel: str, data: bytes, lang: str, level: str = "true") -> bytes:
     if not rel.endswith(".md"):
         return data
     text = data.decode("utf-8")
-    changed = _channel_links(text)
+    changed = channel_links(text)
     if level == "kit":
         changed = _short_links(rel, changed, lang)
     return data if changed == text else changed.encode("utf-8")

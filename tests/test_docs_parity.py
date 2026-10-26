@@ -54,30 +54,20 @@ MISSING_ALLOWED = ("guide/", "spec/", "README.md")
 # Кириллица в docs/en допустима только здесь. Каждое правило вырезает из строки
 # разрешённый фрагмент; если после этого кириллица осталась — это непереведённый
 # текст. Значения для второго языка примера (llms_note.ru) многострочные и
-# разрешаются отдельно — см. _llms_note_ru_lines.
-# Третье поле — временное ли разрешение: временное может перестать применяться
-# (после S7 ссылка пойдёт на явный якорь), постоянное обязано где-то срабатывать.
-ALLOWED_CYRILLIC: tuple[tuple[str, str, bool], ...] = (
+# разрешаются отдельно — см. _llms_note_ru_lines. Каждое правило обязано где-то
+# срабатывать (test_allowed_cyrillic_rules_are_used).
+ALLOWED_CYRILLIC: tuple[tuple[str, str], ...] = (
     (
         r"\bname_ru:\s*[^#\n]*",
         "name_ru — имя сайта на втором языке примера, оно русское по смыслу (23 §10)",
-        False,
     ),
     (
         r"\btitle_suffix_ru:\s*\"[^\"\n]*\"",
         "title_suffix_ru — суффикс <title> русских страниц примера (23 §10)",
-        False,
     ),
     (
         r"\"Читать далее\"",
         "пример ru-строки интерфейса темы рядом с английской в roles/capabilities.md",
-        False,
-    ),
-    (
-        r"\]\(\.\./guide/05-seo\.md#переезд-со-старого-сайта\)",
-        "цель ссылки на неявный якорь русского guide/05-seo.md; до S7 (перевод guide "
-        "и явный якорь <a id>) другой цели нет",
-        True,
     ),
 )
 LLMS_NOTE_RU = "llms_note.ru — текст llms*.txt для русской версии сайта примера (23 §10)"
@@ -395,7 +385,7 @@ def _cyrillic_problems(rel: str) -> list[str]:
         if number in note or not CYRILLIC.search(line):
             continue
         rest = line
-        for pattern, _reason, _temporary in ALLOWED_CYRILLIC:
+        for pattern, _reason in ALLOWED_CYRILLIC:
             rest = re.sub(pattern, "", rest)
         if CYRILLIC.search(rest):
             problems.append(f"docs/en/{rel}:{number + 1}: {line.strip()}")
@@ -483,7 +473,7 @@ def test_page_template_has_seo_groups(lang: str) -> None:
 
 def test_no_cyrillic_in_en_outside_allowed() -> None:
     problems = [line for rel in sorted(EN_FILES - EN_ONLY) for line in _cyrillic_problems(rel)]
-    allowed = "; ".join([*(reason for _, reason, _ in ALLOWED_CYRILLIC), LLMS_NOTE_RU])
+    allowed = "; ".join([*(reason for _, reason in ALLOWED_CYRILLIC), LLMS_NOTE_RU])
     assert not problems, (
         f"русский текст в docs/en вне разрешённых мест (разрешено: {allowed}):\n"
         + "\n".join(problems)
@@ -491,11 +481,7 @@ def test_no_cyrillic_in_en_outside_allowed() -> None:
 
 
 def test_allowed_cyrillic_rules_are_used() -> None:
-    """Каждое постоянное разрешение кому-то нужно: лишнее правило — дыра в проверке."""
+    """Каждое разрешение кому-то нужно: лишнее правило — дыра в проверке."""
     text = "\n".join((EN / rel).read_text(encoding="utf-8") for rel in sorted(EN_FILES - EN_ONLY))
-    unused = [
-        reason
-        for pattern, reason, temporary in ALLOWED_CYRILLIC
-        if not temporary and not re.search(pattern, text)
-    ]
+    unused = [reason for pattern, reason in ALLOWED_CYRILLIC if not re.search(pattern, text)]
     assert not unused, f"разрешения кириллицы, которые нигде не применяются: {unused}"

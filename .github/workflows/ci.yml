@@ -19,6 +19,12 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Полная история всех веток: check_commit_messages.sh сверяет
+          # коммиты после origin/prod. С fetch-depth: 0 checkout забирает
+          # refs/heads/* в refs/remotes/origin/*, отдельный fetch prod не нужен;
+          # ветки prod ещё нет (первый пуш) — скрипт пропускает проверку с пометкой.
+          fetch-depth: 0
 
       - name: поставить uv
         uses: astral-sh/setup-uv@v7
@@ -39,6 +45,10 @@ jobs:
       - name: проверки
         env:
           HERON_REQUIRE_NGINX: "1"
+          # Ветка для check_translation.py: на pull_request — целевая (base_ref),
+          # на push — сама ветка или тег (ref_name). HEAD у pull_request
+          # отсоединён, git branch --show-current там пуст.
+          HERON_BRANCH: ${{ github.base_ref || github.ref_name }}
         # Тот же набор, что гоняется локально одной командой: граница ядра,
         # формат, линтер, тесты. Два места с разными наборами расходятся
         # в первый же день — и расходились.

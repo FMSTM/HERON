@@ -18,7 +18,7 @@ files:
     ru_sha256: "fd7f90d1b2d027c2c357ee05e08937f77c44b16b24f7139d412c37d499ce571e"
     en_status: missing
   - path: guide/04-theme.md
-    ru_sha256: "e4fa0eaaa385977223294a8e2316cdc891cf4c3e5a6dfa3015ea908e316ffced"
+    ru_sha256: "eed407af31deafed5e0d4931ab205541323c6ca239816ff9852c3afc654146de"
     en_status: missing
   - path: guide/05-seo.md
     ru_sha256: "f7756a3ba6d61b6c1ccb5903d696799ea695fcb782d3b6faa2b1f96ea9396ef3"

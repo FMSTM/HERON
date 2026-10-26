@@ -775,6 +775,31 @@ TEXT["en"].update(
     }
 )
 
+# E024 общего писателя (write_files): на месте папки не папка. Писатель не знает
+# языка вызывающего, поэтому печатает оба текста подряд (E13.S1.T17).
+TEXT["ru"].update(
+    {
+        "write_dangling": (
+            "на месте папки символическая ссылка, которая никуда не ведёт — записать в неё нельзя"
+        ),
+        "write_not_folder": "на месте папки файл или ссылка не на папку — записать в неё нельзя",
+        "write_folder_hint": "уберите ссылку или файл либо назовите другую папку",
+    }
+)
+TEXT["en"].update(
+    {
+        "write_dangling": (
+            "a symbolic link that leads nowhere stands where a folder should be — "
+            "nothing can be written into it"
+        ),
+        "write_not_folder": (
+            "a file or a link to something other than a folder stands where a folder "
+            "should be — nothing can be written into it"
+        ),
+        "write_folder_hint": "remove the link or the file, or name another folder",
+    }
+)
+
 # Виды предупреждений (Warning_.kind) — ключи группировки, по-русски в коде;
 # на экран они идут на языке сообщений. Нет вида в таблице — как есть.
 KINDS: dict[str, dict[str, str]] = {

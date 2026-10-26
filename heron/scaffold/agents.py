@@ -451,24 +451,72 @@ def _not_a_file(rel: str, path: Path) -> HeronError:
     )
 
 
+def _both(key: str) -> str:
+    """Текст на обоих языках: писатель общий, языка сообщений вызывающего он не знает."""
+    return f"{_say('ru', key)} · {_say('en', key)}"
+
+
+def _not_a_folder(shown: str, path: Path) -> HeronError:
+    """На месте папки — висячая ссылка, файл или ссылка не на папку: mkdir упал бы."""
+    key = "write_dangling" if path.is_symlink() and not path.exists() else "write_not_folder"
+    return HeronError(
+        code=paths.CODE,
+        message=f"{shown}: {_both(key)}",
+        path=str(path),
+        hint=_both("write_folder_hint"),
+    )
+
+
+def _blocked(path: Path) -> bool:
+    """Путь занят не папкой: висячая ссылка, файл, ссылка на файл."""
+    return (path.exists() or path.is_symlink()) and not path.is_dir()
+
+
+def _check_folders(root: Path, items: list[tuple[str, bytes]]) -> None:
+    """E024 до записи: папка, которую пришлось бы создать, занята не папкой.
+
+    Сама `root` и папки над ней, которых ещё нет (их создаст mkdir), и папки
+    по пути к каждому файлу внутри `root`. Ссылка на существующую папку —
+    папка: так и задумано (21 §4).
+    """
+    for folder in (root, *root.parents):
+        if _blocked(folder):
+            shown = str(folder) if folder != root else root.name or str(root)
+            raise _not_a_folder(shown, folder)
+        if folder.exists():
+            break
+    for rel, _ in items:
+        parts = Path(rel).parts[:-1]
+        for depth in range(1, len(parts) + 1):
+            folder = root.joinpath(*parts[:depth])
+            if _blocked(folder):
+                raise _not_a_folder("/".join(parts[:depth]), folder)
+
+
 def write_files(root: Path, items: list[tuple[str, bytes]]) -> list[str]:
     """Безопасная запись файлов в папку `root`: сначала проверка всех целей, потом запись.
 
     Цель, ведущая ссылкой за пределы `root` (сам файл или папка по пути к нему), —
     E024; ссылка или папка на месте файла — тоже E024, даже внутри: запись через
-    неё изменила бы не тот файл. Всё проверяется до первой записи, сама запись —
-    с O_NOFOLLOW (ссылка, подложенная после проверки, — ошибка, а не запись мимо).
-    Сама `root` может быть ссылкой: её назвал человек. Возвращает записанные пути.
+    неё изменила бы не тот файл. Висячая ссылка или файл на месте папки (сама
+    `root` или папка по пути к файлу) — E024, а не падение mkdir. Всё проверяется
+    до первой записи, сама запись — с O_NOFOLLOW (ссылка, подложенная после
+    проверки, — ошибка, а не запись мимо). Сама `root` может быть ссылкой на
+    папку: её назвал человек. Возвращает записанные пути.
     """
     root = Path(root)
     for rel, _ in items:
         path = paths.in_site(root, rel)
         if path.is_symlink() or (path.exists() and not path.is_file()):
             raise _not_a_file(rel, path)
+    _check_folders(root, items)
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
     for rel, data in items:
         path = paths.in_site(root, rel)
-        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        except (FileExistsError, NotADirectoryError) as exc:  # подложили после проверки
+            raise _not_a_folder(rel, path.parent) from exc
         path = paths.in_site(root, rel)  # папки созданы — проверить ещё раз
         fd = os.open(path, flags, 0o644)
         with os.fdopen(fd, "wb") as out:

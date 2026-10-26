@@ -1195,3 +1195,121 @@ def test_setup_keeps_kit_language_of_the_snapshot(tmp_path):
     plan = adopt(root, notes="en")  # анкета зовёт adopt с языком своих пояснений
     assert plan.kit.lang == "ru" and plan.kit.notes_lang == "en"
     assert (root / "agents/heron-kit.yaml").read_bytes() == before
+
+
+# --- E13.S1.T17: висячая ссылка или файл на месте папки выгрузки — E024 ------------
+
+
+def _export(kind: str, target: Path):
+    from click.testing import CliRunner
+
+    from heron.cli import main
+
+    return CliRunner().invoke(main, [kind, "--export", str(target)])
+
+
+def _occupy(tmp_path: Path, how: str) -> Path:
+    """Цель выгрузки, занятая не папкой: висячая ссылка, ссылка на файл, файл."""
+    target = tmp_path / "out"
+    if how == "dangling":
+        target.symlink_to(tmp_path / "nowhere", target_is_directory=True)
+    elif how == "link-to-file":
+        (tmp_path / "file.txt").write_text("keep\n", encoding="utf-8")
+        target.symlink_to(tmp_path / "file.txt")
+    else:
+        target.write_text("keep\n", encoding="utf-8")
+    return target
+
+
+@pytest.mark.parametrize("kind", ["docs", "schema"])
+def test_export_into_dangling_link_is_e024_not_a_crash(tmp_path, kind):
+    target = _occupy(tmp_path, "dangling")
+    before = _snapshot(tmp_path)
+    result = _export(kind, target)
+    assert result.exit_code == 1
+    assert "E024" in result.output
+    assert "unexpected error" not in result.output and "engine bug" not in result.output
+    assert "FileExistsError" not in result.output
+    assert "out: на месте папки символическая ссылка, которая никуда не ведёт" in result.output
+    assert "a symbolic link that leads nowhere" in result.output
+    assert "уберите ссылку или файл" in result.output
+    assert not (tmp_path / "nowhere").exists()  # по висячей ссылке ничего не создано
+    assert _snapshot(tmp_path) == before
+
+
+@pytest.mark.parametrize("kind", ["docs", "schema"])
+@pytest.mark.parametrize("how", ["link-to-file", "file"])
+def test_export_into_file_is_e024(tmp_path, kind, how):
+    """Командная строка такую цель отклоняет сама (click, код 2); писатель — E024."""
+    from heron.cli import _write_schemas
+
+    target = _occupy(tmp_path, how)
+    before = _snapshot(tmp_path)
+    with pytest.raises(HeronError) as caught:
+        if kind == "docs":
+            docs.export(target, "ru")
+        else:
+            _write_schemas(target)
+    assert caught.value.code == "E024"
+    assert "файл или ссылка не на папку" in caught.value.message
+    assert "a file or a link to something other" in caught.value.message
+    assert _snapshot(tmp_path) == before
+
+
+def test_dangling_link_outside_container_path_is_e024(tmp_path):
+    """Как в CI: static/agents ведёт на путь, которого в контейнере нет."""
+    target = tmp_path / "static" / "agents"
+    target.parent.mkdir()
+    target.symlink_to(tmp_path / "missing" / "deep" / "agents", target_is_directory=True)
+    with pytest.raises(HeronError) as caught:
+        docs.export(target, "ru")
+    assert caught.value.code == "E024"
+    assert caught.value.path == str(target)
+    assert "agents: на месте папки символическая ссылка" in caught.value.message
+    assert not (tmp_path / "missing").exists()
+
+
+@pytest.mark.parametrize("how", ["dangling", "file"])
+def test_missing_parent_of_the_target_is_checked_too(tmp_path, how):
+    """out/sub ещё нет, а out — висячая ссылка или файл: mkdir parents упал бы на out."""
+    out = _occupy(tmp_path, how)
+    with pytest.raises(HeronError) as caught:
+        agents.write_files(out / "sub", [("a.txt", b"a")])
+    assert caught.value.code == "E024"
+    assert caught.value.path == str(out)
+
+
+@pytest.mark.parametrize("how", ["dangling", "file"])
+def test_non_folder_inside_the_target_is_e024_before_any_write(tmp_path, how):
+    target = tmp_path / "out"
+    target.mkdir()
+    if how == "dangling":
+        (target / "roles").symlink_to(target / "nowhere", target_is_directory=True)
+    else:
+        (target / "roles").write_text("keep\n", encoding="utf-8")
+    with pytest.raises(HeronError) as caught:
+        docs.export(target, "ru")
+    assert caught.value.code == "E024"
+    assert caught.value.message.startswith("roles: на месте папки")
+    assert not (target / "README.md").exists()  # ни одного файла до проверки
+    assert not (target / "nowhere").exists()
+
+
+@pytest.mark.parametrize("kind", ["docs", "schema"])
+def test_export_through_link_to_existing_folder_works(tmp_path, kind):
+    real = tmp_path / "real"
+    real.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(real, target_is_directory=True)
+    result = _export(kind, alias)
+    assert result.exit_code == 0, result.output
+    name = "README.md" if kind == "docs" else "errors.json"
+    assert (real / name).is_file()
+
+
+def test_write_dangling_texts_on_both_languages():
+    from heron.messages import TEXT
+
+    for key in ("write_dangling", "write_not_folder", "write_folder_hint"):
+        assert TEXT["ru"][key] and TEXT["en"][key]
+        assert TEXT["ru"][key] != TEXT["en"][key]

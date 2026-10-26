@@ -46,6 +46,9 @@ analytics:                     # только в прод-сборке; заго
   # metrika:                   # ядро принимает, заготовка темы не выводит
 
 build:
+  notes: ru                    # язык пояснений и комплекта agents/: ru или en. Без ключа — en,
+                               # и `heron init --agents` переложит комплект на английский
+  agents: true                 # комплект для агентов: true — полный, kit — без guide/ и spec/, false — нет
   fail_on_warning: false       # true — как --strict
   allow_raw_html: false        # сырой HTML в markdown
   updated_from: git            # manual | git | file — откуда дата обновления

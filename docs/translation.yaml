@@ -63,7 +63,7 @@ files:
     ru_sha256: "d963047fcc3f11952ce4711fae8f85d98284ec7418241d39f42e07af743ac3b1"
     en_status: missing
   - path: templates/site.yaml
-    ru_sha256: "c8deab7a176f5c06a8d78de7af89756982a67d40eb6eef40e4c570c29fdb409a"
+    ru_sha256: "f57fb9e1662126feb00b6be2303a260a0cb07a98d4344415fd54334cc1ae3f47"
     en_status: missing
   - path: templates/structure.md
     ru_sha256: "6099ae919a9e4dd098a56f6fffaf1b535237f5b9cf454d10a05b7657c1cb8f29"

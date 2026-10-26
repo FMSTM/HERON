@@ -80,6 +80,8 @@ class KitPlan(Plan):
     `edited` — правленные человеком и потому не тронутые, `forced` — правленные,
     но перезаписанные по `force`, `orphans` — файлы прежнего комплекта, которых
     нет в новом (не удаляются), `fallback` — файлы комплекта, взятые с другого языка.
+    `lang_from` — язык прежнего комплекта по манифесту (`lang`, 20 §1), если он
+    другой: комплект переложен с `lang_from` на `lang` (пусто — язык тот же).
     """
 
     mode: str = "create"
@@ -93,6 +95,7 @@ class KitPlan(Plan):
     files: int = 0
     # прежний манифест был, но не годился (битый, чужой, с путями наружу)
     damaged: bool = False
+    lang_from: str = ""
 
 
 def _level(level: str | bool) -> str:
@@ -535,6 +538,9 @@ def place(
     plan.fallback = [f"{KIT}/{rel}" for rel in fallback_files(lang, level)]
     previous = read_manifest(root)
     old = previous.files
+    was = previous.header.get("lang", "")
+    if was in LANGS_OF_KIT and was != lang:
+        plan.lang_from = was
     writes: list[tuple[str, bytes]] = []
     records: dict[str, str] = {}
 

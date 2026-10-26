@@ -20,7 +20,8 @@
 # --all-langs`), schema/<major.minor>/*.json (`schema --export`) и AGENTS.md
 # (`docs agents`). Произвольной команды вход не принимает — белый список (О10).
 #
-# Документация: docs/guide/06-deploy.md, «Образ из репозитория сайта».
+# Документация: docs/ru/guide/06-deploy.md, «Образ из репозитория сайта»;
+# шаг export_docs - docs/ru/spec/22-deploy.md, раздел 4.
 
 name: site-image
 

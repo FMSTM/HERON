@@ -162,6 +162,53 @@ images:
 
 То же правило работает в подстановках разметки (`{{ contact.address }}` в блоке `schema`), так что адрес в подвале и в разметке не разойдутся.
 
+## Накопление данных в шаблоне без `append`
+
+Шаблоны темы собираются в неизменяемой песочнице ([`21` §7](../spec/21-engine.md#7-рендеринг)): методы, которые меняют список или словарь, - `.append`, `.extend`, `.insert`, `.update`, `.pop`, `.remove`, `.add`, `.setdefault`, `.clear`, `.sort`, `.reverse` - валят сборку с `E033` и именем шаблона. Шаблон не меняет значение, а строит новое.
+
+Было - падает с `E033`:
+
+```jinja
+{% set body = [] %}
+{% for s in page.sections.values() %}
+  {% if s.id not in ['short', 'faq'] %}{% set _ = body.append(s) %}{% endif %}
+{% endfor %}
+{% if page.sections.get('faq') %}{% set _ = body.append(page.sections['faq']) %}{% endif %}
+{% set found = [] %}
+{% for p in page.children %}
+  {% if p.meta.extra.get('cluster') %}{% set _ = found.append(p) %}{% endif %}
+{% endfor %}
+{% set attrs = {'class': 'card'} %}
+{% if page.meta.get('accent') %}{% set _ = attrs.update({'accent': page.meta.get('accent')}) %}{% endif %}
+```
+
+Стало - то же самое без изменений:
+
+```jinja
+{% set faq = page.sections.get('faq') %}
+{% set body = page.sections.values()|rejectattr('id', 'in', ['short', 'faq'])|list %}
+{% set toc = body + ([faq] if faq else []) %}
+{% set acc = namespace(found=[]) %}
+{% for p in page.children %}
+  {% if p.meta.extra.get('cluster') %}{% set acc.found = acc.found + [p] %}{% endif %}
+{% endfor %}
+{% set found = acc.found %}
+{% set attrs = {'class': 'card'} %}
+{% if page.meta.get('accent') %}{% set attrs = dict(attrs, accent=page.meta.get('accent')) %}{% endif %}
+```
+
+Приёмы:
+
+- **Отбор - фильтром.** `rejectattr`, `selectattr`, `select`, `reject`, `map(attribute='url')`; в конце `|list`, если результат нужен списком, а не одним проходом.
+- **Без повторов - `unique`** с атрибутом и обязательно с `case_sensitive=True`, иначе `/A/` и `/a/` склеятся в один адрес: `{% set links = (page.related.get('see_also', []) + more)|unique(case_sensitive=True, attribute='url')|list %}`.
+- **Добавить элемент - сложением списков:** `body + [x]`, `body + ([faq] if faq else [])`.
+- **Добавить ключ - новым словарём:** `dict(base, key=val)`; ключ с дефисом так не передать - соберите словарь целиком: `{'class': 'card', 'data-x': x}`.
+- **Накопление в цикле - только через `namespace()`.** Обычный `{% set %}` внутри `for` живёт до конца шага цикла: `{% set found = found + [p] %}` в теле цикла не меняет `found` снаружи, и после цикла список снова пуст. Атрибут `namespace` (`acc.found`) цикл переживает.
+- **Осторожно со `StrictUndefined`.** `selectattr('meta.extra.cluster', ...)` падает на первой странице, где такого ключа нет. Необязательный ключ - цикл с `namespace` и `.get('cluster')`, как в примере.
+- **Теги - на тех же строках, что и раньше.** Строка, на которой только `{% %}`, ничего не выводит (`trim_blocks` и `lstrip_blocks`), поэтому замена тега на тег не меняет пробелы в HTML.
+
+Проверка - `heron build`: ни одного `E033`, страницы те же, что до правки.
+
 ## Строки интерфейса
 
 Тексты, которые принадлежат теме, а не странице, — в `theme/i18n/<язык>.yaml`:

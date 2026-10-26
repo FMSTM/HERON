@@ -513,3 +513,108 @@ def test_cli_init_agents_with_escaping_manifest_entry(here):
     assert "манифест agents/heron-kit.yaml не прочитан — переписан заново" in result.output
     assert not (here / "evil.md").exists()
     assert "evil" not in path.read_text(encoding="utf-8")
+
+
+# --- смена языка комплекта (E13.S1.T11) ------------------------------------------
+
+
+def set_notes(root: Path, lang: str) -> None:
+    """build.notes сайта — `lang` (как после замены site.yaml образцом)."""
+    path = root / "site.yaml"
+    text = path.read_text(encoding="utf-8")
+    changed = re.sub(r"(?m)^(\s+notes:)\s*\w+", rf"\1 {lang}", text, count=1)
+    assert changed != text
+    path.write_text(changed, encoding="utf-8")
+
+
+def agents_md(root: Path, lang: str) -> str:
+    from heron.scaffold import agents
+
+    return agents.root_files(lang, agents.fields(root, None, lang))["AGENTS.md"]
+
+
+CHANGED = {
+    "ru": "язык комплекта сменился: {old} → {new} (build.notes)",
+    "en": "kit language changed: {old} → {new} (build.notes)",
+}
+KEPT = {
+    "ru": "комплект оставлен на {kit}, build.notes — {notes}",
+    "en": "the kit stays in {kit}, build.notes is {notes}",
+}
+
+
+@pytest.mark.parametrize(("old", "new"), [("ru", "en"), ("en", "ru")])
+def test_kit_language_switch_is_named_and_agrees(here, old, new):
+    assert run("new", "site", "--notes", old, "-y").exit_code == 0
+    root = here / "site"
+    before = (root / "AGENTS.md").read_text(encoding="utf-8")
+    assert before == agents_md(root, old)
+    set_notes(root, new)
+
+    # init без флагов: комплект остаётся снимком — язык манифеста и AGENTS.md прежние
+    result = run("init", "site")
+    assert result.exit_code == 0, result.output
+    assert manifest(root)["lang"] == old
+    assert (root / "AGENTS.md").read_text(encoding="utf-8") == before
+    assert KEPT[new].format(kit=old, notes=new) in result.output
+    assert "heron init --agents" in result.output
+    assert CHANGED[new].format(old=old, new=new) not in result.output
+
+    # init --agents: смена названа, манифест и AGENTS.md — на новом языке
+    result = run("init", "site", "--agents")
+    assert result.exit_code == 0, result.output
+    assert f"! {CHANGED[new].format(old=old, new=new)}" in result.output
+    assert manifest(root)["lang"] == new
+    assert (root / "AGENTS.md").read_text(encoding="utf-8") == agents_md(root, new)
+    assert (root / "agents/roles/architect.md").read_bytes() == (
+        docs.root() / "docs" / docs.tree(new)["roles/architect.md"] / "roles/architect.md"
+    ).read_bytes()
+
+    # повторно — молчит: ни строки о смене, ни строки о расхождении
+    for args in (("init", "site", "--agents"), ("init", "site")):
+        again = run(*args)
+        assert again.exit_code == 0, again.output
+        assert CHANGED[new].format(old=old, new=new) not in again.output
+        assert KEPT[new].format(kit=old, notes=new) not in again.output
+        assert manifest(root)["lang"] == new
+
+
+def test_kit_language_unchanged_says_nothing(here):
+    assert run("new", "site", "--notes", "ru", "-y").exit_code == 0
+    for args in (("init", "site"), ("init", "site", "--agents")):
+        result = run(*args)
+        assert result.exit_code == 0, result.output
+        assert "язык комплекта сменился" not in result.output
+        assert "комплект оставлен на" not in result.output
+    assert manifest(here / "site")["lang"] == "ru"
+
+
+def test_kit_language_switch_keeps_edited_files(here):
+    assert run("new", "site", "--notes", "ru", "-y").exit_code == 0
+    root = here / "site"
+    (root / "AGENTS.md").write_text("# наш AGENTS\n", encoding="utf-8")
+    (root / "agents/roles/content.md").write_text("# своё\n", encoding="utf-8")
+    set_notes(root, "en")
+    result = run("init", "site", "--agents")
+    assert result.exit_code == 0, result.output
+    assert "! kit language changed: ru → en (build.notes)" in result.output
+    edited = re.search(r"edited by you, left as is: (.+)", result.output)
+    assert edited and set(edited.group(1).split(", ")) == {"AGENTS.md", "agents/roles/content.md"}
+    assert (root / "AGENTS.md").read_text(encoding="utf-8") == "# наш AGENTS\n"
+    assert (root / "agents/roles/content.md").read_text(encoding="utf-8") == "# своё\n"
+    assert manifest(root)["lang"] == "en"
+
+
+def test_no_agents_ignores_kit_language(here):
+    assert run("new", "site", "--notes", "ru", "-y").exit_code == 0
+    root = here / "site"
+    kit = (root / "agents/heron-kit.yaml").read_bytes()
+    pointer = (root / "AGENTS.md").read_bytes()
+    set_notes(root, "en")
+    result = run("init", "site", "--no-agents")
+    assert result.exit_code == 0, result.output
+    assert config(root)["build"]["agents"] is False
+    assert (root / "agents/heron-kit.yaml").read_bytes() == kit
+    assert (root / "AGENTS.md").read_bytes() == pointer
+    assert "kit language changed" not in result.output
+    assert "the kit stays in" not in result.output

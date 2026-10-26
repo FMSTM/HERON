@@ -755,6 +755,26 @@ TEXT["en"].update(
     }
 )
 
+# Язык комплекта для агентов в сводке init (20 §1, 21 §10).
+TEXT["ru"].update(
+    {
+        "kit_lang_changed": "язык комплекта сменился: {old} → {new} (build.notes)",
+        "kit_lang_kept": (
+            "комплект оставлен на {kit}, build.notes — {notes}: "
+            "сменить язык комплекта — heron init --agents"
+        ),
+    }
+)
+TEXT["en"].update(
+    {
+        "kit_lang_changed": "kit language changed: {old} → {new} (build.notes)",
+        "kit_lang_kept": (
+            "the kit stays in {kit}, build.notes is {notes}: "
+            "to switch the kit language — heron init --agents"
+        ),
+    }
+)
+
 # Виды предупреждений (Warning_.kind) — ключи группировки, по-русски в коде;
 # на экран они идут на языке сообщений. Нет вида в таблице — как есть.
 KINDS: dict[str, dict[str, str]] = {

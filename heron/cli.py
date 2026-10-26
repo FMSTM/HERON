@@ -425,6 +425,12 @@ def _kit_lines(plan: Plan, kit_off: bool) -> list[tuple[str, str, str | None]]:
         lines.append(("+", say(lang, "kit_created", code=kit.lang, n=len(kit.created)), "green"))
     else:
         lines.append(("·", say(lang, "kit_in_place"), None))
+    if kit.lang_from:
+        text = say(lang, "kit_lang_changed", old=kit.lang_from, new=kit.lang)
+        lines.append(("!", text, "yellow"))
+    if kit.notes_lang:
+        text = say(lang, "kit_lang_kept", kit=kit.lang, notes=kit.notes_lang)
+        lines.append(("·", text, None))
     if kit.fallback:
         other = "en" if kit.lang == "ru" else "ru"
         text = say(lang, "kit_fallback", want=kit.lang, have=other, n=len(kit.fallback))

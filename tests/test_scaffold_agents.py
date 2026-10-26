@@ -1117,3 +1117,81 @@ def test_docs_export_pointers_match_the_kit(tmp_path, monkeypatch):
     for name in ("_Blank", "_DEFAULT_HEAD", "_pointer_head", "AGENTS_ROOT"):
         assert not hasattr(docs, name), name
     assert not hasattr(agents, "_TEXT")
+
+
+# --- язык комплекта при init без флагов (E13.S1.T11) ------------------------------
+
+
+def _set_notes(root: Path, lang: str) -> None:
+    path = root / "site.yaml"
+    text = path.read_text(encoding="utf-8")
+    changed = re.sub(r"(?m)^(\s+notes:)\s*\w+", rf"\1 {lang}", text, count=1)
+    assert changed != text
+    path.write_text(changed, encoding="utf-8")
+
+
+def test_kept_lang_is_the_manifest_language(tmp_path):
+    root = tmp_path / "s"
+    put(root, "ru")
+    assert agents.kept_lang(agents.read_manifest(root), "en") == "ru"
+    assert agents.kept_lang(agents.Manifest(), "en") == "en"  # манифеста нет
+    damaged = agents.Manifest(header={"lang": "ru"}, present=True, damaged=True)
+    assert agents.kept_lang(damaged, "en") == "en"
+    odd = agents.Manifest(header={"lang": "de"}, present=True)
+    assert agents.kept_lang(odd, "en") == "en"
+
+
+@pytest.mark.parametrize(("old", "new"), [("ru", "en"), ("en", "ru")])
+def test_plain_adopt_keeps_kit_language_and_header_together(tmp_path, old, new):
+    from heron.scaffold import adopt, create
+
+    root = tmp_path / "s"
+    create(root, name="s", notes=old)
+    (root / "AGENTS.md").unlink()
+    (root / "agents/roles/builder.md").unlink()
+    text = (root / "site.yaml").read_text(encoding="utf-8").replace("s.example", "real.example")
+    (root / "site.yaml").write_text(text, encoding="utf-8")
+    _set_notes(root, new)
+
+    plan = adopt(root)
+    assert plan.notes == new  # сообщения — на build.notes
+    assert plan.kit.lang == old and plan.kit.notes_lang == new and plan.kit.lang_from == ""
+    assert load_manifest(root)["lang"] == old
+    # недостающее положено на языке снимка, а не build.notes
+    expected = agents.root_files(old, agents.fields(root, None, old))["AGENTS.md"]
+    assert (root / "AGENTS.md").read_text(encoding="utf-8") == expected
+    assert "real.example" in expected
+    have = docs.tree(old)["roles/builder.md"]
+    assert (root / "agents/roles/builder.md").read_bytes() == (
+        docs.root() / "docs" / have / "roles/builder.md"
+    ).read_bytes()
+
+    switched = adopt(root, agents_only=True, agents_flag="true")
+    assert switched.kit.lang == new and switched.kit.lang_from == old
+    assert not switched.kit.notes_lang
+    assert load_manifest(root)["lang"] == new
+    again = adopt(root)
+    assert again.kit.lang == new and not again.kit.notes_lang and not again.kit.lang_from
+
+
+def test_plain_adopt_without_manifest_uses_build_notes(tmp_path):
+    from heron.scaffold import adopt, create
+
+    root = tmp_path / "s"
+    create(root, name="s", notes="ru")
+    (root / "agents/heron-kit.yaml").unlink()
+    _set_notes(root, "en")
+    plan = adopt(root)
+    assert plan.kit.lang == "en" and not plan.kit.notes_lang
+    assert load_manifest(root)["lang"] == "en"
+
+
+def test_setup_keeps_kit_language_of_the_snapshot(tmp_path):
+    from heron.scaffold import adopt, create
+
+    root = tmp_path / "s"
+    create(root, name="s", notes="ru")
+    before = (root / "agents/heron-kit.yaml").read_bytes()
+    plan = adopt(root, notes="en")  # анкета зовёт adopt с языком своих пояснений
+    assert plan.kit.lang == "ru" and plan.kit.notes_lang == "en"
+    assert (root / "agents/heron-kit.yaml").read_bytes() == before

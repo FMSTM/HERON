@@ -607,3 +607,70 @@ TEXT["en"].update(
         "schema_one_kind": "One schema at a time: pick one of {flags}",
     }
 )
+
+# --- check: изменение данных в шаблонах темы (E033, 21 §7) ------------------------
+# В подсказках двойные скобки: `say` подставляет поля через str.format.
+TEXT["ru"].update(
+    {
+        "sandbox_mutation": (
+            "{call} меняет данные на месте: шаблоны темы рендерятся в неизменяемой "
+            "песочнице, и сборка на этом месте упадёт с E033"
+        ),
+        "sandbox_hint_add": (
+            "стройте новый список вместо изменения: `{{% set xs = xs + [item] %}}`; "
+            "накопление в цикле — через namespace: `{{% set acc = namespace(xs=[]) %}}` … "
+            "`{{% set acc.xs = acc.xs + [item] %}}`; отбор — фильтры selectattr/rejectattr, "
+            "без повторов — `unique(case_sensitive=True, attribute='url')`; "
+            "рецепты: heron docs theme"
+        ),
+        "sandbox_hint_keys": (
+            "стройте новый словарь вместо изменения: `{{% set d = dict(d, key=value) %}}`; "
+            "в цикле — через namespace: `{{% set acc = namespace(d={{}}) %}}` … "
+            "`{{% set acc.d = dict(acc.d, key=value) %}}`; рецепты: heron docs theme"
+        ),
+        "sandbox_hint_remove": (
+            "уберите лишнее фильтром, а не из самого списка: `xs|reject('equalto', x)|list`, "
+            "`xs|rejectattr('id', 'in', ['a', 'b'])|list`, срез `xs[1:]`; "
+            "рецепты: heron docs theme"
+        ),
+        "sandbox_hint_order": (
+            "порядок задают фильтры, а не сам список: `xs|sort(attribute='title')|list`, "
+            "`xs|reverse|list`; рецепты: heron docs theme"
+        ),
+    }
+)
+TEXT["en"].update(
+    {
+        "sandbox_mutation": (
+            "{call} changes data in place: theme templates render in an immutable "
+            "sandbox, and the build fails here with E033"
+        ),
+        "sandbox_hint_add": (
+            "build a new list instead of changing one: `{{% set xs = xs + [item] %}}`; "
+            "to collect in a loop use a namespace: `{{% set acc = namespace(xs=[]) %}}` … "
+            "`{{% set acc.xs = acc.xs + [item] %}}`; to pick items use selectattr/rejectattr, "
+            "to drop repeats `unique(case_sensitive=True, attribute='url')`; "
+            "recipes: heron docs theme"
+        ),
+        "sandbox_hint_keys": (
+            "build a new dict instead of changing one: `{{% set d = dict(d, key=value) %}}`; "
+            "in a loop use a namespace: `{{% set acc = namespace(d={{}}) %}}` … "
+            "`{{% set acc.d = dict(acc.d, key=value) %}}`; recipes: heron docs theme"
+        ),
+        "sandbox_hint_remove": (
+            "drop items with a filter, not from the list itself: "
+            "`xs|reject('equalto', x)|list`, `xs|rejectattr('id', 'in', ['a', 'b'])|list`, "
+            "a slice `xs[1:]`; recipes: heron docs theme"
+        ),
+        "sandbox_hint_order": (
+            "set the order with filters, not on the list itself: "
+            "`xs|sort(attribute='title')|list`, `xs|reverse|list`; recipes: heron docs theme"
+        ),
+    }
+)
+TITLES["en"].update(
+    {
+        "E033": "a theme template reaches what the sandbox closes",
+        "E034": "a build file to check is empty, unreadable or not UTF-8",
+    }
+)

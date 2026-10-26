@@ -18,7 +18,7 @@ files:
     ru_sha256: "fd7f90d1b2d027c2c357ee05e08937f77c44b16b24f7139d412c37d499ce571e"
     en_status: missing
   - path: guide/04-theme.md
-    ru_sha256: "eed407af31deafed5e0d4931ab205541323c6ca239816ff9852c3afc654146de"
+    ru_sha256: "3bd00addb2533f033a66446fae5a6993ed06be66f6f8c956904d1a180f75451c"
     en_status: missing
   - path: guide/05-seo.md
     ru_sha256: "f7756a3ba6d61b6c1ccb5903d696799ea695fcb782d3b6faa2b1f96ea9396ef3"
@@ -42,16 +42,16 @@ files:
     ru_sha256: "e403787947ddd668a865b460e0715430749107d5472fb7aaf7068fdb37b74217"
     en_status: missing
   - path: spec/20-data-contract.md
-    ru_sha256: "2a67e62044844c8bef08c92c9114ed65d194b41ab485e0c64dd3a2e878cc5142"
+    ru_sha256: "3b00752dc769943b604aae4515a49768a9355fe67ccfe098060d5bbca3f0bee7"
     en_status: missing
   - path: spec/21-engine.md
-    ru_sha256: "c98bc7bf541a2d2595b512c89b68de1a89ff61e9370b6281534b224898a4202c"
+    ru_sha256: "b32e363f5d17c75ba2db9fb59582f7c4d9713be0f309ca5c413b21461acea3b5"
     en_status: missing
   - path: spec/22-deploy.md
     ru_sha256: "1a209673a89a14fd34f1f5362a6522b6d0410dd63ca9ce3d3e36c27810f99199"
     en_status: missing
   - path: spec/23-distribution.md
-    ru_sha256: "6120b9353bb980fa5cd7cd82925575bbd3fe125f7fe673487e4d48cbe15826d3"
+    ru_sha256: "29771969e3f154990ab007bb3e3dbf9893b2fbe97f306b669942ffa806ddb5fb"
     en_status: missing
   - path: templates/page.md
     ru_sha256: "2b0443157c409457a2625775e89bd72a4345f2ac5b85d4dda7e140ddc82fcd39"

@@ -9,10 +9,16 @@
 #       with:
 #         env: dev                 # dev или prod: индексация, счётчики, домен из site.domains
 #         engine: prod             # тег образа движка: prod, beta или X.Y.Z
+#         export_docs: false       # true — только сайт движка: сырые файлы документации
 #
 # Что делает: собирает сайт движком из образа, упаковывает dist/ в образ
 # nginx по Dockerfile.site этой же версии HERON, поднимает его и проверяет
 # коды ответа (scripts/smoke-site.sh), затем пушит в реестр.
+#
+# export_docs: true — перед сборкой тем же образом движка выкладывает в static/
+# сайта сырые файлы документации этой версии: agents/{ru,en}/** (`docs --export
+# --all-langs`), schema/<major.minor>/*.json (`schema --export`) и AGENTS.md
+# (`docs agents`). Произвольной команды вход не принимает — белый список (О10).
 #
 # Документация: docs/guide/06-deploy.md, «Образ из репозитория сайта».
 
@@ -54,6 +60,13 @@ on:
         type: string
         # тот же nginx 1.30.6, что в Dockerfile.site, — прибит по digest
         default: nginx:1.30.6-alpine@sha256:970364228b1e4f932abc22d321932816782cca8a20b85a77552a7cfe9acfb3b5
+      export_docs:
+        description: >-
+          Перед сборкой выложить в static/ сырые файлы документации движка:
+          agents/{ru,en}/**, schema/<major.minor>/*.json, AGENTS.md (22 §4, 23 §12).
+          Нужно сайту движка; обычному сайту — нет.
+        type: boolean
+        default: false
       push:
         description: Отправлять ли образ в реестр.
         type: boolean
@@ -141,6 +154,38 @@ jobs:
             scripts/smoke_site.py
           sparse-checkout-cone-mode: false
 
+      - name: сырые файлы документации
+        if: inputs.export_docs
+        # Тот же образ движка и те же ограничения, что у сборки: без сети, корень
+        # только на чтение, без capabilities, чужой uid. На запись монтируется
+        # только папка сайта в рабочей копии: файлы ложатся в static/ и дальше
+        # попадают в dist/ обычной сборкой. Набор команд фиксирован.
+        env:
+          SITE_PATH: ${{ steps.names.outputs.path }}
+          ENGINE: ${{ steps.names.outputs.engine }}
+        run: |
+          site="$PWD/$SITE_PATH"
+          [ -d "$site" ] || { echo "::error::path: нет папки $SITE_PATH"; exit 1; }
+          engine() {
+            docker run --rm --network=none --read-only --tmpfs /tmp \
+              --cap-drop=ALL --security-opt=no-new-privileges \
+              --user "$(id -u):$(id -g)" \
+              -v "$site":/site -w /site \
+              "ghcr.io/fmstm/heron:$ENGINE" "$@"
+          }
+          # «heron, version 0.1.0 (beta, …)» → 0.1: схемы лежат по major.minor
+          version="$(engine --version | sed -nE '1s/^heron, version ([0-9]+\.[0-9]+)\.[0-9].*$/\1/p')"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+$ ]] \
+            || { echo "::error::не удалось прочитать версию движка"; exit 1; }
+          engine docs --export static/agents --all-langs
+          engine schema --export "static/schema/$version"
+          # тема agents — AGENTS.md репозитория движка этой версии, байт в байт
+          engine docs agents > "$site/static/AGENTS.md"
+          for f in agents/ru/README.md agents/en/README.md \
+                   "schema/$version/site.schema.json" AGENTS.md; do
+            [ -s "$site/static/$f" ] || { echo "::error::нет static/$f"; exit 1; }
+          done
+
       - name: сборка сайта
         # Те же ограничения, что у scripts/site.sh: без сети, корень только на
         # чтение, без capabilities, чужой uid. Контент — только на чтение;
@@ -194,7 +239,7 @@ jobs:
           IMAGE: ${{ steps.names.outputs.image }}
         run: |
           docker run -d --name heron-smoke -p 127.0.0.1:18080:8080 "$IMAGE"
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             curl -s -o /dev/null http://localhost:18080/ && break
             sleep 0.5
           done

@@ -48,10 +48,10 @@ files:
     ru_sha256: "42a368978821ea3cda14bfd773ce4a6248b684d14055af0f395884aa1bf22dee"
     en_status: missing
   - path: spec/22-deploy.md
-    ru_sha256: "dc0c3b374c006c9f3423471b8d3616c050897006d8fff280390a72a84cd66b32"
+    ru_sha256: "74a9c184f89d5b8f918873c93eede6fced7cb8add06543e99101c9009cc3647a"
     en_status: missing
   - path: spec/23-distribution.md
-    ru_sha256: "7c5ef3b78d329f9a588677ebc0f9b97e6e8e9666b47bc409455987f743fec12d"
+    ru_sha256: "6120b9353bb980fa5cd7cd82925575bbd3fe125f7fe673487e4d48cbe15826d3"
     en_status: missing
   - path: templates/page.md
     ru_sha256: "2b0443157c409457a2625775e89bd72a4345f2ac5b85d4dda7e140ddc82fcd39"

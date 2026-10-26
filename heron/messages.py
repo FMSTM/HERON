@@ -10,16 +10,18 @@
 
 from __future__ import annotations
 
+import string
+
 TEXT: dict[str, dict[str, str]] = {
     "ru": {
         # --- находки init ---
         "found_site": "site.yaml: языки {languages}, тема {theme}",
-        "found_content": "content/: {pages} страниц, языки: {langs}",
+        "found_content": "content/: {pages} {pages:страница|страницы|страниц}, языки: {langs}",
         "found_folder": "{folder}/ на месте",
         "none": "нет",
         "found": "нашёл",
         "created": "создал",
-        "skipped": "оставил как есть: {count} файлов",
+        "skipped": "оставил как есть: {count} {count:файл|файла|файлов}",
         "bad_notes": "язык пояснений {value!r}: есть ru и en",
         # --- сводка того, что разложено ---
         "plan_found": "В папке уже есть:",
@@ -28,13 +30,17 @@ TEXT: dict[str, dict[str, str]] = {
         "plan_content": "контент {code}: {files}",
         "plan_home": "главная",
         "plan_404": "страница 404",
-        "plan_theme": "тема: {count} файлов — theme.yaml, шаблоны, модули, стили",
+        "plan_theme": (
+            "тема: {count} {count:файл|файла|файлов} — theme.yaml, шаблоны, модули, стили"
+        ),
         "plan_i18n": "строки интерфейса темы: {langs}",
         "plan_folders": "пустые папки: {folders}",
         "plan_notes": "записки heron-readme.md: {count} — что класть в каждую папку",
         "plan_other": "прочее: {files}",
         "plan_kept": "Не тронуто (уже было): {files}",
-        "plan_kept_many": "Не тронуто (уже было): {count} файлов — список: --verbose",
+        "plan_kept_many": (
+            "Не тронуто (уже было): {count} {count:файл|файла|файлов} — список: --verbose"
+        ),
         "plan_nothing": "Ничего создавать не понадобилось: всё уже на месте.",
         # --- new ---
         "new_title": "Новый сайт в папке {path}",
@@ -186,12 +192,12 @@ TEXT: dict[str, dict[str, str]] = {
     },
     "en": {
         "found_site": "site.yaml: languages {languages}, theme {theme}",
-        "found_content": "content/: {pages} pages, languages: {langs}",
+        "found_content": "content/: {pages} {pages:page|pages}, languages: {langs}",
         "found_folder": "{folder}/ is in place",
         "none": "none",
         "found": "found",
         "created": "created",
-        "skipped": "left as is: {count} files",
+        "skipped": "left as is: {count} {count:file|files}",
         "bad_notes": "notes language {value!r}: ru and en are available",
         "plan_found": "Already in the folder:",
         "plan_made": "Created:",
@@ -199,13 +205,15 @@ TEXT: dict[str, dict[str, str]] = {
         "plan_content": "content {code}: {files}",
         "plan_home": "home page",
         "plan_404": "404 page",
-        "plan_theme": "theme: {count} files — theme.yaml, templates, modules, styles",
+        "plan_theme": "theme: {count} {count:file|files} — theme.yaml, templates, modules, styles",
         "plan_i18n": "theme interface strings: {langs}",
         "plan_folders": "empty folders: {folders}",
         "plan_notes": "heron-readme.md notes: {count} — what goes into each folder",
         "plan_other": "other: {files}",
         "plan_kept": "Left untouched (already there): {files}",
-        "plan_kept_many": "Left untouched (already there): {count} files — list: --verbose",
+        "plan_kept_many": (
+            "Left untouched (already there): {count} {count:file|files} — list: --verbose"
+        ),
         "plan_nothing": "Nothing to create: everything is already in place.",
         "new_title": "New site in {path}",
         "new_done": "Site created: {path}",
@@ -390,10 +398,41 @@ TITLES: dict[str, dict[str, str]] = {
 }
 
 
+def plural(count: int, forms: str) -> str:
+    """Форма слова при числе: `файл|файла|файлов` — по-русски, `file|files` — по-английски.
+
+    Три формы — русское правило (1, 21 файл; 2–4, 22 файла; 5–20, 11–14 файлов),
+    две — английское (1 file, иначе files).
+    """
+    words = forms.split("|")
+    count = abs(count)
+    if len(words) == 2:
+        return words[0] if count == 1 else words[1]
+    if len(words) != 3:
+        raise ValueError(f"plural forms: {forms!r}")
+    if count % 10 == 1 and count % 100 != 11:
+        return words[0]
+    if 2 <= count % 10 <= 4 and not 12 <= count % 100 <= 14:
+        return words[1]
+    return words[2]
+
+
+class _Formatter(string.Formatter):
+    """str.format с одним дополнением: `{n:файл|файла|файлов}` — слово при числе n."""
+
+    def format_field(self, value: object, format_spec: str) -> str:
+        if "|" in format_spec and isinstance(value, int) and not isinstance(value, bool):
+            return plural(value, format_spec)
+        return super().format_field(value, format_spec)
+
+
+_FORMATTER = _Formatter()
+
+
 def say(lang: str, key: str, **fields: object) -> str:
     table = TEXT.get(lang, TEXT["en"])
     template = table.get(key) or TEXT["en"][key]
-    return template.format(**fields)
+    return _FORMATTER.format(template, **fields)
 
 
 def title(lang: str, code: str) -> str:
@@ -408,7 +447,7 @@ def title(lang: str, code: str) -> str:
 # --- serve ---------------------------------------------------------------------
 TEXT["ru"].update(
     {
-        "serve_built": "собрано: {count} файлов",
+        "serve_built": "собрано: {count} {count:файл|файла|файлов}",
         "serve_warnings": "предупреждений: {count}",
         "serve_dist": "собрано в {dist}",
         "serve_open": "открыто: {url}  (Ctrl+C — выход)",
@@ -433,7 +472,7 @@ TEXT["ru"].update(
 )
 TEXT["en"].update(
     {
-        "serve_built": "built: {count} files",
+        "serve_built": "built: {count} {count:file|files}",
         "serve_warnings": "warnings: {count}",
         "serve_dist": "built into {dist}",
         "serve_open": "open: {url}  (Ctrl+C to stop)",

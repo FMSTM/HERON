@@ -481,17 +481,30 @@ def test_pydantic_errors_are_translated(patch):
     assert "Input should" not in ru and "Field required" not in ru
 
 
-def test_audit_example_is_unchanged_in_english():
+def test_audit_example_in_both_languages():
     with pytest.raises(ValueError) as caught:
         Answers.model_validate({"site": {"domain": "https://bad/"}, "analytics": {"ga4": "UA-1"}})
     assert plain(caught.value, "en") == (
         "site.domain: 'https://bad/': domain without scheme and slashes, e.g. example.com; "
-        "analytics: Google Analytics 'UA-1': G-XXXXXXX"
+        "analytics: Google Analytics 'UA-1': expected G-XXXXXXX"
     )
     assert plain(caught.value, "ru") == (
         "site.domain: 'https://bad/': домен без схемы и слешей, например example.com; "
         "analytics: Google Analytics 'UA-1': ожидается G-XXXXXXX"
     )
+
+
+@pytest.mark.parametrize(
+    ("key", "ru", "en"),
+    [
+        ("ga4_bad", "ожидается G-XXXXXXX", "expected G-XXXXXXX"),
+        ("gtm_bad", "ожидается GTM-XXXXXX", "expected GTM-XXXXXX"),
+    ],
+)
+def test_counter_reasons_say_what_is_expected_in_both_languages(key, ru, en):
+    """E15.S1.T8: английская причина говорит то же, что русская, — «ожидается»."""
+    assert reasons.TEXT["ru"][key].endswith(ru)
+    assert reasons.TEXT["en"][key].endswith(en)
 
 
 def test_apply_and_load_reasons(site: Path, tmp_path: Path):

@@ -451,3 +451,74 @@ def test_init_of_a_broken_russian_site_speaks_russian(here):
     assert result.exit_code == 0, result.output
     assert "Папка" in result.output and "дополнена по site.yaml" in result.output
     assert "build.notes is en" not in result.output and "Already in the folder" not in result.output
+
+
+# --- склонение числа в сообщениях (E15.S1.T8) ---------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("count", "ru", "en"),
+    [
+        (0, "файлов", "files"),
+        (1, "файл", "file"),
+        (2, "файла", "files"),
+        (4, "файла", "files"),
+        (5, "файлов", "files"),
+        (11, "файлов", "files"),
+        (12, "файлов", "files"),
+        (14, "файлов", "files"),
+        (21, "файл", "files"),
+        (22, "файла", "files"),
+        (24, "файла", "files"),
+        (25, "файлов", "files"),
+        (101, "файл", "files"),
+        (111, "файлов", "files"),
+    ],
+)
+def test_plural_forms(count, ru, en):
+    from heron.messages import plural
+
+    assert plural(count, "файл|файла|файлов") == ru
+    assert plural(count, "file|files") == en
+
+
+@pytest.mark.parametrize(
+    ("count", "text"),
+    [
+        (1, "тема: 1 файл —"),
+        (2, "тема: 2 файла —"),
+        (5, "тема: 5 файлов —"),
+        (11, "тема: 11 файлов —"),
+        (21, "тема: 21 файл —"),
+        (24, "тема: 24 файла —"),
+    ],
+)
+def test_russian_counters_agree_with_the_number(count, text):
+    from heron.messages import say
+
+    assert say("ru", "plan_theme", count=count).startswith(text)
+    assert say("ru", "serve_built", count=count) == "собрано: " + text[6:-2]
+    assert say("en", "plan_theme", count=count).startswith(
+        f"theme: {count} {'file' if count == 1 else 'files'} —"
+    )
+
+
+def test_counters_keep_other_format_specs():
+    from heron.messages import say
+
+    line = say("ru", "report_missing_line", section="blog", count=5, shown="a, b, c")
+    assert line == "  blog         — 5 страниц: a, b, c"
+    assert say("ru", "found_content", pages=21, langs="ru") == "content/: 21 страница, языки: ru"
+
+
+def test_new_summary_in_russian_agrees_with_the_number(here):
+    import re
+
+    result = run("new", "s", "--notes", "ru", "-y")
+    assert result.exit_code == 0, result.output
+    found = re.search(r"тема: (\d+) (\S+) —", result.output)
+    assert found, result.output
+    from heron.messages import plural
+
+    assert found.group(2) == plural(int(found.group(1)), "файл|файла|файлов")
+    assert "24 файлов" not in result.output

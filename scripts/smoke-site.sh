@@ -26,6 +26,8 @@ python3 "$here/smoke_site.py" "$@" || rc=$?
 [ "$#" -eq 2 ] || exit "$rc"
 
 python3 - "$1" "$2" <<'PY' || rc=1
+from __future__ import annotations
+
 import http.client
 import sys
 from pathlib import Path
@@ -33,7 +35,6 @@ from urllib.parse import quote, urlsplit
 
 base, out = urlsplit(sys.argv[1].rstrip("/")), Path(sys.argv[2])
 WANT = {".md": "text/markdown", ".yaml": "application/yaml", ".yml": "application/yaml"}
-SKIP = {"404.html"}
 
 
 def first(suffix: str) -> Path | None:

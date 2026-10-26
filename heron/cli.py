@@ -19,6 +19,7 @@ import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 import click
@@ -50,6 +51,13 @@ DIST = "dist"
 # --- язык справки и служебных строк click ---------------------------------------
 
 
+# Язык запуска — в ContextVar, а не в общей переменной процесса: у каждого
+# потока (и у каждого контекста asyncio) свой, новый поток начинает с en.
+# Пока один поток работает по-русски, чужая команда click в другом потоке
+# того же процесса получает свои английские строки.
+_LANG: ContextVar[str] = ContextVar("heron_ui_lang", default="en")
+
+
 class _Ui:
     """Язык этого запуска для справки и рамки ошибок click.
 
@@ -58,9 +66,16 @@ class _Ui:
     `--notes` из сырых аргументов, затем HERON_NOTES, затем build.notes из
     site.yaml текущей папки, иначе en. Команда, узнавшая язык своего сайта
     (`_lang`), уточняет его: ошибки click после этого — на том же языке.
+    Значение живёт в `_LANG` — своё у каждого потока и контекста.
     """
 
-    lang = "en"
+    @property
+    def lang(self) -> str:
+        return _LANG.get()
+
+    @lang.setter
+    def lang(self, value: str) -> None:
+        _LANG.set(value)
 
 
 _UI = _Ui()
@@ -68,8 +83,12 @@ HELP_PREFIX = "help_"
 
 
 def _click_text(message: str) -> str:
-    """gettext для click: для ru — перевод из messages.CLICK_RU, иначе как есть."""
-    if _UI.lang == "ru":
+    """gettext для click: для ru — перевод из messages.CLICK_RU, иначе как есть.
+
+    Язык читается из `_LANG` при каждом вызове: подмена `_` в модулях click
+    общая на процесс, а язык — свой у каждого потока.
+    """
+    if _LANG.get() == "ru":
         return CLICK_RU.get(message, message)
     return message
 
@@ -84,6 +103,7 @@ def _install_click_catalog() -> None:
     click берёт их через gettext, импортированный в каждый модуль как `_` и
     `ngettext`; каталога .mo для своего домена у click нет. Подмена — только
     имён в модулях click, и для en она прозрачна: строка возвращается как есть.
+    Язык — из `_LANG` текущего потока: другие потоки процесса остаются на своём.
     """
     import click.core
     import click.decorators
@@ -130,11 +150,30 @@ def _notes_in(args: list[str]) -> str | None:
     return found
 
 
+# Справке и `--version` site.yaml больше мегабайта не читается: разбор такого
+# файла занял бы минуты, а `heron --version` разбирают скрипты и CI.
+HELP_SITE_LIMIT = 1 << 20
+
+
+def _help_site_yaml() -> Path | None:
+    """./site.yaml, если по нему стоит выбирать язык справки: обычный небольшой файл."""
+    site_yaml = Path("site.yaml")
+    if not site_yaml.is_file() or site_yaml.stat().st_size > HELP_SITE_LIMIT:
+        return None
+    return site_yaml
+
+
 def _help_lang(args: list[str]) -> str:
-    """Язык справки до разбора аргументов: --notes, HERON_NOTES, ./site.yaml, en."""
+    """Язык справки до разбора аргументов: --notes, HERON_NOTES, ./site.yaml, en.
+
+    Выбор идёт раньше HeronGroup.invoke, рамки ошибок ещё нет. Поэтому любой
+    сбой (битый или странный site.yaml, недоступная папка) даёт en: справка и
+    `--version` на английском лучше трейсбека, а ошибку конфига check и build
+    покажут по форме.
+    """
     try:
-        return resolve_notes(_notes_in(args), Path("site.yaml"))
-    except (ValueError, OSError):
+        return resolve_notes(_notes_in(args), _help_site_yaml())
+    except Exception:  # noqa: BLE001 — до рамки ошибок: только язык справки
         return "en"
 
 
@@ -202,12 +241,11 @@ class _LocalizedCommand:
 
     def main(self, args=None, *rest, **extra):
         raw = list(sys.argv[1:] if args is None else args)
-        previous = _UI.lang
-        _UI.lang = _help_lang(raw)
+        token = _LANG.set(_help_lang(raw))
         try:
             return super().main(args, *rest, **extra)  # type: ignore[misc]
         finally:
-            _UI.lang = previous
+            _LANG.reset(token)
 
 
 class HeronCommand(_LocalizedCommand, click.Command):

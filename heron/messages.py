@@ -565,6 +565,11 @@ TEXT["ru"].update(
         "kit_current": "инструкции для агентов уже актуальны ({code})",
         "kit_bad_value": "build.agents: {value} — не понято, комплект не тронут",
         "kit_bad_value_hint": "допустимо true, kit или false; heron check покажет ту же ошибку",
+        "build_not_block": "build: {value} — не блок ключей, папка не тронута",
+        "build_not_block_hint": (
+            "build — блок ключей с отступом (notes: ru, agents: true); "
+            "heron check покажет ту же ошибку"
+        ),
         "kit_orphan": "нет в новом комплекте, оставлен: {files}",
         "kit_fallback": "без перевода на {want}, положены на {have}: файлов {n}",
         "kit_about_placeholder": "<о проекте: заполняет архитектор>",
@@ -611,6 +616,11 @@ TEXT["en"].update(
         "kit_current": "agent instructions already up to date ({code})",
         "kit_bad_value": "build.agents: {value} — not understood, the kit is left alone",
         "kit_bad_value_hint": "allowed: true, kit or false; heron check shows the same error",
+        "build_not_block": "build: {value} — not a block of keys, the folder is left alone",
+        "build_not_block_hint": (
+            "build is an indented block of keys (notes: en, agents: true); "
+            "heron check shows the same error"
+        ),
         "kit_orphan": "not in the new kit, left in place: {files}",
         "kit_fallback": "no {want} translation yet, placed in {have}: {n} files",
         "kit_about_placeholder": "<about the project: the architect fills this in>",

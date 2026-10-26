@@ -224,8 +224,14 @@ NOTES_LINE = re.compile(r"""^[ \t]*notes:[ \t]*["']?(ru|en)["']?[ \t]*(?:#.*)?$"
 
 
 def notes_in_text(site_yaml: Path) -> str | None:
-    """Язык пояснений из сырого текста site.yaml, который не разбирается как YAML."""
+    """Язык пояснений из сырого текста site.yaml, который не разбирается как YAML.
+
+    Читается только обычный файл: из FIFO или устройства под именем site.yaml
+    чтение зависло бы или не кончилось.
+    """
     try:
+        if not site_yaml.is_file():
+            return None
         text = site_yaml.read_text(encoding="utf-8", errors="replace")
     except (OSError, ValueError):
         return None
@@ -755,6 +761,16 @@ def adopt(
     declared = _declared(root / "site.yaml")
     current = (declared or {}).get("agents")
     flag = agents_level(agents_flag) if agents_flag is not None else None
+    if declared and declared.get("build_error") is not None:
+        from heron.core.errors import HeronError
+
+        # с любым флагом: set_build_agents дописал бы второй блок build
+        raise HeronError(
+            code="E011",
+            message=message(notes, "build_not_block", value=declared["build_error"]),
+            path=str(root / "site.yaml"),
+            hint=message(notes, "build_not_block_hint"),
+        )
     if flag is None and declared and declared.get("agents_error") is not None:
         from heron.core.errors import HeronError
 
@@ -861,7 +877,15 @@ def _declared(site_yaml: Path) -> dict | None:
         return None
     if not languages:
         return None
-    build_block = data.get("build") or {}
+    # build не блок ключей (`build: x`, `build: [1]`) — ответа о notes и agents
+    # нет, а непонятое значение — текстом: init отвечает E011, как check, и не
+    # дописывает второй build; справка и --version работают как обычно
+    build_block = data.get("build")
+    build_error = None
+    if not isinstance(build_block, dict):
+        if build_block is not None:
+            build_error = _short(build_block)
+        build_block = {}
     notes = str(build_block.get("notes") or "") or None
     agents, error = _declared_agents(build_block)
     return {
@@ -870,7 +894,16 @@ def _declared(site_yaml: Path) -> dict | None:
         "notes": notes,
         "agents": agents,
         "agents_error": error,
+        "build_error": build_error,
     }
+
+
+def _short(value: object) -> str:
+    """Значение из site.yaml для сообщения: коротко, даже если оно огромное."""
+    import reprlib
+
+    shown = reprlib.Repr(maxlevel=2, maxlist=4, maxdict=4, maxstring=40, maxother=40)
+    return shown.repr(value)
 
 
 def _declared_agents(build_block: object) -> tuple[str | None, str | None]:

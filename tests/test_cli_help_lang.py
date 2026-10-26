@@ -465,3 +465,227 @@ def test_recipe_translation_changes_only_comments_and_the_message():
     assert instructions(ru) == instructions(en)
     assert len(instructions(ru)) > 10
     assert en != ru
+
+
+# --- site.yaml, который нельзя прочесть как конфиг (E15.S1.T9, E1) -------------------
+
+# Справка и `--version` выбирают язык до HeronGroup.invoke, раньше рамки ошибок:
+# любой сбой там — язык en, но не трейсбек. Строку --version разбирают
+# .github/workflows/site-image.yml (sed по первой строке) и scripts/site.sh.
+VERSION_LINE = re.compile(r"^heron, version ([0-9]+\.[0-9]+)\.[0-9].*$")
+
+ODD_SITE_YAML = {
+    "build-scalar": "site:\n  languages: [en]\nbuild: x\n",
+    "build-list": "site:\n  languages: [en]\nbuild: [1]\n",
+    "build-notes-list": "site:\n  languages: [en]\nbuild:\n  notes: [1]\n",
+    "top-list": "- a\n- b\n",
+    "top-scalar": "just a line of text\n",
+    "empty": "",
+    "site-list": "site: [x]\n",
+    "languages-int": "site:\n  languages: 5\n",
+}
+
+
+def write_odd(folder: Path, case: str) -> None:
+    if case == "binary":
+        (folder / "site.yaml").write_bytes(bytes(range(256)) * 16)
+    else:
+        (folder / "site.yaml").write_text(ODD_SITE_YAML[case], encoding="utf-8")
+
+
+ODD_CASES = [*ODD_SITE_YAML, "binary"]
+
+
+def no_crash(result) -> None:
+    """Вышла сама команда (SystemExit) или всё прошло — исключение не улетело."""
+    assert result.exception is None or isinstance(result.exception, SystemExit), (
+        result.exc_info,
+        result.output,
+    )
+    assert "Traceback" not in result.output, result.output
+
+
+@pytest.mark.parametrize("case", ODD_CASES)
+def test_version_works_whatever_is_in_site_yaml(here, case):
+    write_odd(here, case)
+    for args in (["--version"], ["-V"], ["--notes", "ru", "--version"]):
+        result = run(*args)
+        no_crash(result)
+        assert result.exit_code == 0, result.output
+        lines = result.output.splitlines()
+        assert len(lines) == 1 and VERSION_LINE.match(lines[0]), result.output
+
+
+@pytest.mark.parametrize("case", ODD_CASES)
+def test_help_works_whatever_is_in_site_yaml(here, case):
+    write_odd(here, case)
+    for args in (["--help"], ["check", "--help"], ["build", "--help"]):
+        result = run(*args)
+        no_crash(result)
+        assert result.exit_code == 0 and result.output.startswith("Usage: heron"), result.output
+    ru = run("check", "--help", "--notes", "ru")
+    assert ru.output.startswith("Использование: heron")  # флаг по-прежнему главнее
+
+
+def test_help_lang_falls_back_to_english_on_any_error(here, monkeypatch):
+    """Не только ValueError и OSError: любой сбой выбора языка — en."""
+    import heron.scaffold
+
+    site_yaml(here, "ru")
+
+    def boom(_path):
+        raise AttributeError("'str' object has no attribute 'get'")
+
+    monkeypatch.setattr(heron.scaffold, "_declared", boom)
+    assert cli._help_lang(["--help"]) == "en"
+    assert run("--version").exit_code == 0
+    assert run("--help").output.startswith("Usage: heron")
+
+
+def test_help_does_not_read_a_huge_site_yaml(here, monkeypatch):
+    """Огромный site.yaml справка и --version не разбирают: язык из флага, env или en."""
+    import heron.scaffold
+
+    site_yaml(here, "ru")
+    monkeypatch.setattr(cli, "HELP_SITE_LIMIT", 16)
+
+    read: list[Path] = []
+
+    def must_not_read(path):
+        # исключение здесь _help_lang проглотил бы; поэтому чтение записывается
+        read.append(path)
+        return None
+
+    monkeypatch.setattr(heron.scaffold, "_declared", must_not_read)
+    monkeypatch.setattr(heron.scaffold, "notes_in_text", must_not_read)
+    assert cli._help_lang([]) == "en"
+    assert cli._help_lang(["--notes", "ru"]) == "ru"
+    assert run("--help").output.startswith("Usage: heron")
+    assert run("--help", env={"HERON_NOTES": "ru"}).output.startswith("Использование: heron")
+    assert VERSION_LINE.match(run("--version").output.strip())
+    assert read == []  # site.yaml больше предела не читался ни разу
+
+
+def test_help_site_yaml_of_normal_size_is_still_read(here):
+    site_yaml(here, "ru")
+    assert (here / "site.yaml").stat().st_size < cli.HELP_SITE_LIMIT
+    assert cli._help_lang([]) == "ru"
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="нужен mkfifo")
+def test_version_does_not_hang_on_a_fifo_named_site_yaml(here):
+    """FIFO вместо site.yaml: чтение повисло бы навсегда, --version обязана ответить."""
+    import subprocess
+    import sys
+
+    os.mkfifo(here / "site.yaml")
+    code = "import sys; from heron.cli import main; main(sys.argv[1:], prog_name='heron')"
+    env = {k: v for k, v in os.environ.items() if k != "HERON_NOTES"}
+    for args in (["--version"], ["--help"], ["check"]):
+        done = subprocess.run(
+            [sys.executable, "-c", code, *args],
+            cwd=here,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert "Traceback" not in done.stderr + done.stdout, done.stderr
+        if args == ["--version"]:
+            assert done.returncode == 0 and VERSION_LINE.match(done.stdout.strip()), done
+
+
+@pytest.mark.parametrize("case", ["build-scalar", "build-list"])
+def test_real_process_prints_no_traceback(here, case):
+    """Тот же сайт в настоящем процессе: в выводе нет трейсбека, --version — одна строка."""
+    import subprocess
+    import sys
+
+    write_odd(here, case)
+    code = "import sys; from heron.cli import main; main(sys.argv[1:], prog_name='heron')"
+    env = {k: v for k, v in os.environ.items() if k not in ("HERON_NOTES", "HERON_DEBUG")}
+    for args in (["--version"], ["--help"], ["check"], ["build"]):
+        done = subprocess.run(
+            [sys.executable, "-c", code, *args],
+            cwd=here,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        both = done.stdout + done.stderr
+        assert "Traceback" not in both, both
+        if args == ["--version"]:
+            assert done.returncode == 0 and VERSION_LINE.match(done.stdout.strip()), both
+        elif args == ["--help"]:
+            assert done.returncode == 0 and done.stdout.startswith("Usage: heron"), both
+        else:
+            assert done.returncode == 1 and "Error E011: site.yaml is not valid" in both, both
+
+
+# --- язык запуска не течёт между потоками (E15.S1.T9, W2) ---------------------------
+
+
+def test_language_does_not_leak_between_threads(here):
+    """Поток с ru не меняет язык другого потока: ни справку heron, ни строки click."""
+    import threading
+
+    import click.formatting
+
+    ru_ready = threading.Event()
+    other_done = threading.Event()
+    seen: dict[str, object] = {}
+
+    def russian() -> None:
+        try:
+            seen["a_lang"] = cli._lang("ru")
+            ru_ready.set()
+            other_done.wait(30)
+            # свой язык поток держит, пока другой работал по-английски
+            seen["a_after"] = cli._UI.lang
+            seen["a_usage"] = click.formatting._("Usage:")
+        finally:
+            ru_ready.set()
+
+    def english() -> None:
+        try:
+            ru_ready.wait(30)
+            seen["b_lang"] = cli._UI.lang
+            seen["b_usage"] = click.formatting._("Usage:")
+            seen["b_help"] = say_help()
+            command = click.Command(
+                "x", params=[click.Option(["--x"], type=int)], callback=lambda x: None
+            )
+            try:
+                command.main(["--x", "abc"], standalone_mode=False)
+            except click.BadParameter as error:
+                seen["b_error"] = error.format_message()
+        finally:
+            other_done.set()
+
+    def say_help() -> str:
+        ctx = click.Context(main, info_name="heron")
+        return main.get_help(ctx)
+
+    threads = [threading.Thread(target=russian), threading.Thread(target=english)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(60)
+    assert seen["a_lang"] == "ru" and seen["a_after"] == "ru"
+    assert seen["a_usage"] == "Использование:"
+    assert seen["b_lang"] == "en" and seen["b_usage"] == "Usage:"
+    assert "'abc' is not a valid integer." in str(seen["b_error"]), seen
+    assert not CYRILLIC.search(str(seen["b_help"])), seen["b_help"]
+    assert cli._UI.lang == "en"  # и в основном потоке язык прежний
+
+
+def test_main_restores_the_language_of_its_thread(here):
+    """main ставит язык токеном и возвращает тот, что был до него, даже если это ru."""
+    cli._UI.lang = "ru"
+    try:
+        assert run("--notes", "en", "--help").output.startswith("Usage: heron")
+        assert cli._UI.lang == "ru"
+    finally:
+        cli._UI.lang = "en"
+    assert isinstance(cli._LANG.get(), str)

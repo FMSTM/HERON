@@ -453,6 +453,87 @@ def test_init_of_a_broken_russian_site_speaks_russian(here):
     assert "build.notes is en" not in result.output and "Already in the folder" not in result.output
 
 
+# --- build не блок ключей (E15.S1.T9, E1) -------------------------------------------
+
+
+NOT_A_BLOCK = {
+    "scalar": "site:\n  name: S\n  languages: [en]\nbuild: x\n",
+    "list": "site:\n  name: S\n  languages: [en]\nbuild: [1]\n",
+}
+
+
+def no_crash(result) -> None:
+    assert result.exception is None or isinstance(result.exception, SystemExit), (
+        result.exc_info,
+        result.output,
+    )
+    assert "Traceback" not in result.output, result.output
+
+
+@pytest.mark.parametrize("case", sorted(NOT_A_BLOCK))
+@pytest.mark.parametrize("command", ["check", "build"])
+def test_build_that_is_not_a_block_gives_e011(here, case, command):
+    (here / "site.yaml").write_text(NOT_A_BLOCK[case], encoding="utf-8")
+    for args in ([command], [command, "."], [command, str(here)]):
+        result = run(*args)
+        no_crash(result)
+        assert result.exit_code == 1, result.output
+        head, where, details = FRAME["en"]
+        assert head in result.output and where in result.output, result.output
+        assert "unexpected error" not in result.output
+
+
+@pytest.mark.parametrize("case", sorted(NOT_A_BLOCK))
+@pytest.mark.parametrize("flags", [[], ["--agents"], ["--no-agents"]], ids=["-", "agents", "no"])
+def test_init_on_build_that_is_not_a_block_touches_nothing(here, case, flags):
+    """init отвечает E011, как check, и не дописывает в site.yaml второй блок build."""
+    text = NOT_A_BLOCK[case]
+    (here / "site.yaml").write_text(text, encoding="utf-8")
+    result = run("init", ".", *flags)
+    no_crash(result)
+    assert result.exit_code == 1, result.output
+    assert FRAME["en"][0].split(":")[0] in result.output  # Error E011
+    assert "not a block of keys, the folder is left alone" in result.output, result.output
+    assert (here / "site.yaml").read_text(encoding="utf-8") == text
+    assert sorted(p.name for p in here.iterdir()) == ["site.yaml"]
+    ru = run("init", ".", "--notes", "ru", *flags)
+    assert "Ошибка E011" in ru.output and "не блок ключей, папка не тронута" in ru.output
+    assert "Error" not in ru.output, ru.output
+
+
+def test_new_in_a_folder_with_build_that_is_not_a_block(here):
+    (here / "site.yaml").write_text(NOT_A_BLOCK["scalar"], encoding="utf-8")
+    result = run("new", ".", "-y")
+    no_crash(result)
+    assert result.exit_code != 0
+    assert (here / "site.yaml").read_text(encoding="utf-8") == NOT_A_BLOCK["scalar"]
+
+
+def test_declared_ignores_build_that_is_not_a_block(tmp_path):
+    from heron.scaffold import _declared, resolve_notes
+
+    site_yaml = tmp_path / "site.yaml"
+    site_yaml.write_text(NOT_A_BLOCK["list"], encoding="utf-8")
+    declared = _declared(site_yaml)
+    assert declared is not None
+    assert declared["notes"] is None and declared["agents"] is None
+    assert declared["build_error"] == "[1]"
+    assert resolve_notes(None, site_yaml) == "en"
+    site_yaml.write_text("site:\n  languages: [en]\nbuild:\n  notes: ru\n", encoding="utf-8")
+    assert _declared(site_yaml)["build_error"] is None
+    site_yaml.write_text("site:\n  languages: [en]\nbuild:\n", encoding="utf-8")
+    assert _declared(site_yaml)["build_error"] is None  # пустой build — не ошибка
+
+
+def test_build_error_value_is_short_even_when_huge(tmp_path):
+    from heron.scaffold import _declared
+
+    site_yaml = tmp_path / "site.yaml"
+    items = ", ".join(str(i) for i in range(5000))
+    site_yaml.write_text(f"site:\n  languages: [en]\nbuild: [{items}]\n", encoding="utf-8")
+    assert len(_declared(site_yaml)["build_error"]) < 80
+
+
 # --- склонение числа в сообщениях (E15.S1.T8) ---------------------------------------
 
 

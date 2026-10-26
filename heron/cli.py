@@ -283,14 +283,14 @@ def _finish(
     full: Path | None = None,
 ) -> None:
     """Напечатать сводку и выйти с нужным кодом."""
-    summary = report_module.summary(result.collector, full=full)
+    summary = report_module.summary(result.collector, full=full, lang=lang)
     if result.collector.errors:
         _err(summary)
         _err("\n" + say(lang, f"{kind}_failed", count=len(result.collector.errors)))
         sys.exit(1)
 
     if result.report is not None:
-        click.echo(result.report.render())
+        click.echo(result.report.render(lang))
     if summary:
         click.secho(summary, fg="yellow")
 
@@ -693,16 +693,19 @@ def _start_site(
         default = languages[0]
 
     path.mkdir(parents=True, exist_ok=True)
-    plan = create(
-        path,
-        name=guess,
-        languages=languages,
-        notes=lang,
-        domain=domain.lower() if domain else None,
-        default_lang=default,
-        demo=demo,
-        agents=agents,
-    )
+    try:
+        plan = create(
+            path,
+            name=guess,
+            languages=languages,
+            notes=lang,
+            domain=domain.lower() if domain else None,
+            default_lang=default,
+            demo=demo,
+            agents=agents,
+        )
+    except HeronError as error:
+        _fail(error, lang)  # на языке пояснений, который выбран для сайта
     click.secho("\n" + say(lang, done_key, path=_shown(path)), fg="green", bold=True)
     _report_plan(plan, verbose, kit_off=agents == "false")
     ordered = [default] + [x for x in languages if x != default]
@@ -862,12 +865,17 @@ def init(
         )
         return
 
-    if with_agents:
-        plan = adopt(path, force=force, notes=notes, agents_only=True, agents_flag="true")
-    elif no_agents:
-        plan = adopt(path, force=force, notes=notes, agents_flag="false")
-    else:
-        plan = adopt(path, force=force, notes=notes)
+    # Ошибка раскладки (E024 и другие) — на языке сайта, как у setup и check,
+    # а не на языке по умолчанию: --notes, затем HERON_NOTES, затем build.notes.
+    try:
+        if with_agents:
+            plan = adopt(path, force=force, notes=notes, agents_only=True, agents_flag="true")
+        elif no_agents:
+            plan = adopt(path, force=force, notes=notes, agents_flag="false")
+        else:
+            plan = adopt(path, force=force, notes=notes)
+    except HeronError as error:
+        _fail(error, _lang(notes, path))
     from heron.scaffold import _declared
 
     declared = _declared(path / "site.yaml") or {}

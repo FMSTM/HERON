@@ -111,7 +111,7 @@ def once(
         click.secho(str(error), fg="red")
         return
     if result.collector.errors:
-        click.secho(report_module.summary(result.collector), fg="red")
+        click.secho(report_module.summary(result.collector, lang=lang), fg="red")
         return
     click.secho(say(lang, "serve_built", count=len(result.written)), fg="green")
     if result.collector.warnings:

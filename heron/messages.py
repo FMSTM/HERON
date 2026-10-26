@@ -674,3 +674,105 @@ TITLES["en"].update(
         "E034": "a build file to check is empty, unreadable or not UTF-8",
     }
 )
+
+# --- отчёт check и build, сводка ошибок и предупреждений (heron/core/report.py) ----
+TEXT["ru"].update(
+    {
+        "report_pages": "Страниц — {count} ({by_lang})",
+        "report_types": "Типы — {by_type}",
+        "report_untranslated": "Не переведено:",
+        "report_missing": "Тема ждёт секцию, а в файле её нет:",
+        "report_missing_line": "  {section:12} — {count} страниц: {shown}",
+        "report_format": "Формат секции не тот, которого ждёт тема (это не ошибка):",
+        "report_format_line": "  {source}: {section} — ждали {want}, пришло {got}",
+        "report_format_fix": (
+            "  как исправить: если по смыслу это форма из «ждали» — задайте её "
+            "классом в якоре секции: `## Заголовок {{#якорь .checklist}}`; если права "
+            "разметка — поменяйте форму в `uses` типа в theme.yaml: `якорь:форма`"
+        ),
+        "report_nameless": "В меню, но без короткого имени — покажется имя файла:",
+        "report_unused_sections": "Секции, которых тема не использует (опечатка в якоре?):",
+        "report_unused_modules": "Модули темы, которые не зовёт ни один шаблон: {names}",
+        "report_broken": "Ссылки в никуда:",
+        "report_orphans": "На эти страницы никто не ссылается: {urls}",
+        "report_schema": "Разметка schema.org — {by_kind}",
+        "report_unused_media": "Файлы в media, которых никто не ждёт — {count}:",
+        "report_static_media": "В static лежит контент — его место в media:",
+        "report_uneven": "Поле есть не у всех элементов списка (шаблон обязан это учесть):",
+        "report_uneven_line": "  {owner}: {where} — {field} у {have} из {total}",
+        "report_list": "список",
+        "report_nginx_ok": "nginx -t на собранном конфиге: прошёл",
+        "report_manual_dates": (
+            "Ручная дата updated у {manual} из {total} страниц перекрывает "
+            "updated_from: {mode} — у этих страниц дата из {mode} не берётся. "
+            "Где дата должна обновляться сама, уберите updated из фронтматтера."
+        ),
+        "report_notes_missing": "Без пояснительной записки (это не ошибка): {folders}",
+        "report_root": "корень",
+        "summary_warnings": "Предупреждений — {count}:",
+        "summary_more": "    … и ещё {count}",
+        "summary_full": "  полный список: {path}",
+        "summary_unknown_file": "<неизвестный файл>",
+    }
+)
+TEXT["en"].update(
+    {
+        "report_pages": "Pages — {count} ({by_lang})",
+        "report_types": "Types — {by_type}",
+        "report_untranslated": "Not translated:",
+        "report_missing": "The theme expects a section the file does not have:",
+        "report_missing_line": "  {section:12} — {count} pages: {shown}",
+        "report_format": "A section is not in the form the theme expects (not an error):",
+        "report_format_line": "  {source}: {section} — expected {want}, got {got}",
+        "report_format_fix": (
+            "  how to fix: if by meaning it is the expected form, set it with a class "
+            "in the section anchor: `## Heading {{#anchor .checklist}}`; if the markup is "
+            "right, change the form in the type's `uses` in theme.yaml: `anchor:form`"
+        ),
+        "report_nameless": "In the menu without a short name — the file name will show:",
+        "report_unused_sections": "Sections the theme does not use (a typo in the anchor?):",
+        "report_unused_modules": "Theme modules no template calls: {names}",
+        "report_broken": "Links to nowhere:",
+        "report_orphans": "No page links to these: {urls}",
+        "report_schema": "schema.org markup — {by_kind}",
+        "report_unused_media": "Files in media nothing expects — {count}:",
+        "report_static_media": "Content sits in static — it belongs in media:",
+        "report_uneven": "A field only some list items have (the template must allow for it):",
+        "report_uneven_line": "  {owner}: {where} — {field} in {have} of {total}",
+        "report_list": "list",
+        "report_nginx_ok": "nginx -t on the built config: passed",
+        "report_manual_dates": (
+            "A manual updated date on {manual} of {total} pages overrides "
+            "updated_from: {mode} — these pages do not take the date from {mode}. "
+            "Where the date should update by itself, remove updated from the front matter."
+        ),
+        "report_notes_missing": "No explanatory note (not an error): {folders}",
+        "report_root": "root",
+        "summary_warnings": "Warnings — {count}:",
+        "summary_more": "    … and {count} more",
+        "summary_full": "  full list: {path}",
+        "summary_unknown_file": "<unknown file>",
+    }
+)
+
+# Виды предупреждений (Warning_.kind) — ключи группировки, по-русски в коде;
+# на экран они идут на языке сообщений. Нет вида в таблице — как есть.
+KINDS: dict[str, dict[str, str]] = {
+    "en": {
+        "картинки": "images",
+        "связи": "relations",
+        "ссылки": "links",
+        "меню": "menu",
+        "переводы": "translations",
+        "языки": "languages",
+        "прочее": "other",
+        "нет перевода": "not translated",
+        "даты": "dates",
+        "контент": "content",
+    },
+}
+
+
+def kind(lang: str, name: str) -> str:
+    """Вид предупреждения на языке сообщений."""
+    return KINDS.get(lang, {}).get(name, name)

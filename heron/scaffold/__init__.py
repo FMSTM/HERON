@@ -680,7 +680,10 @@ def adopt(
     Комплект для агентов (20 §1): без флагов кладётся только недостающее, если
     `build.agents` не `false`, а корневые указатели (AGENTS.md: имя, языки,
     домен, о проекте) обновляются по манифесту — правленый человеком не
-    трогается; `force` на комплект без флага не действует (21 §10).
+    трогается; `force` на комплект без флага не действует (21 §10). Язык
+    комплекта без флага — язык манифеста (`agents.kept_lang`): недостающее и
+    указатели кладутся на нём, а не на `build.notes`, и шапка манифеста с ними
+    согласована; смену языка делает `init --agents` и называет её (`lang_from`).
     `agents_flag="false"` (`init --no-agents`) записывает `build.agents: false`
     и комплект не трогает; `"true"`/`"kit"` (`init --agents`) обновляет
     комплект по манифесту (с `force` — и правленые). `"true"` на сайте с
@@ -707,11 +710,16 @@ def adopt(
     if flag == "true" and current == "kit":
         flag = "kit"
     level = flag or current or "true"
+    kit_lang = notes
     if level != "false":
         # все цели комплекта — до первой записи, в том числе до правки build.agents
         from heron.scaffold import agents as kit
 
-        kit.check_targets(root, level, notes)
+        previous = kit.read_manifest(root)
+        if flag is None:
+            # без флага язык комплекта — язык снимка по манифесту (20 §1, 21 §10)
+            kit_lang = kit.kept_lang(previous, notes)
+        kit.check_targets(root, level, kit_lang)
     if flag is not None and (flag != current or declared is None):
         set_build_agents(root, flag)
     if declared:
@@ -758,17 +766,17 @@ def adopt(
         plan.created = made.created
         plan.skipped = made.skipped
     if level != "false":
-        from heron.scaffold import agents as kit
-
-        previous = kit.read_manifest(root)
         if flag is not None:
-            # init --agents — по манифесту
+            # init --agents — по манифесту, на языке build.notes (смена — lang_from)
             mode: Literal["create", "update"] = "update" if previous.present else "create"
             made = _place_kit(root, notes, None, mode, force, level)
         else:
-            # без флага — только недостающее, указатели — по манифесту (20 §1)
+            # без флага — только недостающее, указатели — по манифесту (20 §1),
+            # всё — на языке снимка; build.notes другой — сводка называет это
             pointers: Literal["update"] | None = "update" if previous.present else None
-            made = _place_kit(root, notes, None, "create", False, level, pointers)
+            made = _place_kit(root, kit_lang, None, "create", False, level, pointers)
+            if kit_lang != notes:
+                made.notes_lang = notes
         _merge_kit(plan, made)
     plan.notes = notes
     return plan

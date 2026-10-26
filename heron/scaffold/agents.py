@@ -90,6 +90,8 @@ class KitPlan(Plan):
     нет в новом (не удаляются), `fallback` — файлы комплекта, взятые с другого языка.
     `lang_from` — язык прежнего комплекта по манифесту (`lang`, 20 §1), если он
     другой: комплект переложен с `lang_from` на `lang` (пусто — язык тот же).
+    `notes_lang` — язык пояснений (`build.notes`), если `init` без флагов оставил
+    комплект на языке манифеста `lang` (`kept_lang`): сменить язык — `init --agents`.
     """
 
     mode: str = "create"
@@ -104,6 +106,7 @@ class KitPlan(Plan):
     # прежний манифест был, но не годился (битый, чужой, с путями наружу)
     damaged: bool = False
     lang_from: str = ""
+    notes_lang: str = ""
 
 
 def _level(level: str | bool) -> str:
@@ -428,6 +431,22 @@ def read_manifest(root: Path) -> Manifest:
         out[entry["path"]] = digest
     header = {key: str(data[key]) for key in HEADER_KEYS if isinstance(data.get(key), str)}
     return Manifest(files=out, header=header, present=True)
+
+
+def kept_lang(previous: Manifest, notes: str) -> str:
+    """Язык комплекта для `init` без флагов: язык снимка по манифесту, иначе `notes`.
+
+    Комплект — снимок на момент записи, `lang` манифеста — `build.notes` того
+    момента (20 §1); `init` без флагов только дописывает недостающее (21 §10) и
+    шапку манифеста сохраняет. Поэтому недостающие файлы и указатели он кладёт на
+    языке снимка: комплект и `lang` не расходятся. Сменить язык комплекта —
+    `init --agents`: обновление по манифесту на языке `build.notes` (`lang_from`).
+    Нет манифеста, он битый или язык в нём не ru/en — `notes`.
+    """
+    was = previous.header.get("lang", "")
+    if previous.present and not previous.damaged and was in LANGS_OF_KIT:
+        return was
+    return notes
 
 
 # --- запись --------------------------------------------------------------------

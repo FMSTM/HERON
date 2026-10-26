@@ -77,6 +77,16 @@ ORDER = {"sort", "reverse", "rotate"}
 SUFFIXES = {".html", ".htm", ".j2", ".jinja", ".jinja2"}
 NOT_TEMPLATES = {"assets", "i18n"}
 
+# Имена, которые движок кладёт в контекст страницы (`env.context`), с типом,
+# который песочница не закрывает: `mod` отдаёт рендер модуля на любое имя
+# (`mod.update()` — шаблон modules/update.html), `t` — строки интерфейса,
+# `env` — окружение сборки, остальное — функции. Контейнеры контекста
+# (`data`, `nav`, `languages`, `hreflang`) сюда не входят: их изменение
+# песочница закрывает. Совпадение с `env.context` сверяет тест.
+CONTEXT_OBJECTS: frozenset[str] = frozenset(
+    {"mod", "t", "env", "page_of", "picture", "media_url", "jsonld"}
+)
+
 
 def mutations(
     site_root: Path | None,
@@ -181,6 +191,10 @@ def _calls(tree: nodes.Template, env: Environment) -> list[tuple[int, str, str]]
     """Вызовы меняющих методов: (строка, как записан вызов, метод)."""
     bound = {n.name for n in tree.find_all(nodes.Name) if n.ctx in ("store", "param")}
     bound |= {macro.name for macro in tree.find_all(nodes.Macro)}
+    # Псевдоним `{% import … as h %}` — модуль шаблона, а не контейнер:
+    # `h.update()` вызывает его макрос. Имена `{% from … import x %}` сюда
+    # не входят: так приходит и переменная шаблона, а она бывает списком.
+    modules = {node.target for node in tree.find_all(nodes.Import)}
     found: list[tuple[int, str, str]] = []
     for call in tree.find_all(nodes.Call):
         target = call.node
@@ -208,11 +222,26 @@ def _calls(tree: nodes.Template, env: Environment) -> list[tuple[int, str, str]]
             written = f"{_text(owner)}|attr({method!r})(…)"
         if method is None or owner is None:
             continue
+        if _known_object(owner, bound, modules):
+            continue
         if _harmless_global(owner, method, env, bound):
             continue
         found.append((call.lineno, written, method))
     found.sort(key=lambda item: item[0])
     return found
+
+
+def _known_object(owner: nodes.Node, bound: set[str], modules: set[str]) -> bool:
+    """Владелец вызова — имя, чей тип движок знает и это не контейнер.
+
+    `self` — блоки шаблона (`self.<блок>()`), псевдоним импорта — модуль
+    шаблона, имена из `CONTEXT_OBJECTS` — объекты и функции движка.
+    Переопределённое в шаблоне имя (`set`, `for`, параметр макроса) уже
+    не то, что дал движок: о нём говорим.
+    """
+    if not isinstance(owner, nodes.Name) or owner.name in bound:
+        return False
+    return owner.name == "self" or owner.name in modules or owner.name in CONTEXT_OBJECTS
 
 
 def _harmless_global(owner: nodes.Node, method: str, env: Environment, bound: set[str]) -> bool:

@@ -22,6 +22,7 @@ from heron.core import build as pipeline
 from heron.core import check as lint
 from heron.core.errors import Collector
 from heron.core.hooks import Hooks
+from heron.core.render import env as envmod
 from heron.scaffold import create
 from tests import sites
 
@@ -207,17 +208,110 @@ CLEAN = [
     "{% set item = {'sort': 3, 'add': 'x'} %}{{ item.sort }}{{ item.add }}",
     # строковые методы с похожими именами
     "{{ 'a-b'.split('-')|join }}{{ ' x '.strip() }}{{ 'ab'.removeprefix('a') }}",
+    # модуль темы с именем метода: mod отдаёт рендер на любое имя
+    (
+        "{{ mod.update() }}{{ mod.add() }}{{ mod.clear('no-such-section') }}",
+        {"theme/modules/update.html": "u", "theme/modules/add.html": "a"},
+    ),
+    # псевдоним импорта — модуль шаблона, h.update() — его макрос
+    (
+        "{% import 'partials/h.html' as h %}{{ h.update() }}{{ h.pop(1) }}",
+        {
+            "theme/partials/h.html": "{% macro update() %}u{% endmacro %}"
+            "{% macro pop(x) %}{{ x }}{% endmacro %}"
+        },
+    ),
+    # self.<блок>() — блок шаблона с именем метода
+    "{% block update %}u{% endblock %}{{ self.update() }}{% block sort %}s{% endblock %}"
+    "{{ self.sort() }}",
 ]
 
 
-@pytest.mark.parametrize("body", CLEAN)
-def test_no_false_positive_and_the_build_agrees(tmp_path, body):
+def _files(root: Path, files: dict[str, str]) -> None:
+    for rel, text in files.items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+
+@pytest.mark.parametrize("case", CLEAN)
+def test_no_false_positive_and_the_build_agrees(tmp_path, case):
+    body, files = case if isinstance(case, tuple) else (case, {})
     root = _site(tmp_path)
     _page(root, body)
+    _files(root, files)
     checked = pipeline.check(root)
     assert _lint(checked) == [], [e.message for e in checked.collector.errors]
     built = _built(root)
     assert not built.failed, [str(e) for e in built.collector.errors]
+
+
+@pytest.mark.parametrize(
+    ("body", "files", "call"),
+    [
+        # имя движка, переопределённое в шаблоне, — уже не объект движка
+        ("{% set mod = [] %}{{ mod.append(1) }}", {}, "mod.append(…)"),
+        ("{% set t = {} %}{{ t.update({'a': 1}) }}", {}, "t.update(…)"),
+        # псевдоним импорта, переопределённый списком
+        (
+            "{% import 'partials/h.html' as h %}{% set h = [] %}{{ h.append(1) }}",
+            {"theme/partials/h.html": "{% macro update() %}u{% endmacro %}"},
+            "h.append(…)",
+        ),
+        # from-import приносит и переменную шаблона, а она бывает словарём
+        (
+            "{% from 'partials/c.html' import cfg %}{{ cfg.update({'a': 1}) }}",
+            {"theme/partials/c.html": "{% set cfg = {} %}"},
+            "cfg.update(…)",
+        ),
+        # содержимое модуля импорта — по-прежнему данные
+        (
+            "{% import 'partials/c.html' as c %}{{ c.cfg.update({'a': 1}) }}",
+            {"theme/partials/c.html": "{% set cfg = {} %}"},
+            "c.cfg.update(…)",
+        ),
+    ],
+)
+def test_known_names_do_not_hide_real_mutation(tmp_path, body, files, call):
+    root = _site(tmp_path)
+    _page(root, body)
+    _files(root, files)
+
+    found = _lint(pipeline.check(root))
+    assert [(e.path, e.line) for e in found] == [(PAGE, 3)]
+    assert found[0].message.startswith(call)
+
+    built = _built(root)
+    assert built.failed
+    assert "E033" in {e.code for e in built.collector.errors}
+
+
+def test_context_objects_are_engine_objects_not_containers(tmp_path, monkeypatch):
+    """CONTEXT_OBJECTS сверяется с настоящим контекстом страницы (env.context)."""
+    seen: list[dict] = []
+    original = envmod.context
+
+    def spy(*args, **kwargs):
+        scope = original(*args, **kwargs)
+        seen.append(scope)
+        return scope
+
+    monkeypatch.setattr(envmod, "context", spy)
+    root = _site(tmp_path)
+    assert not _built(root).failed
+    assert seen
+    scope = seen[0]
+    assert set(scope) >= lint.CONTEXT_OBJECTS
+    for name in lint.CONTEXT_OBJECTS:
+        value = scope[name]
+        assert not any(sandbox.modifies_known_mutable(value, m) for m in lint.MUTATING), name
+    containers = {
+        name
+        for name, value in scope.items()
+        if any(sandbox.modifies_known_mutable(value, m) for m in lint.MUTATING)
+    }
+    assert {"data", "nav", "languages", "hreflang"} <= containers
+    assert not containers & lint.CONTEXT_OBJECTS
 
 
 def test_js_file_in_assets_is_not_a_template(tmp_path):

@@ -325,21 +325,27 @@ TEXT: dict[str, dict[str, str]] = {
         "step_write": "writing",
         "done": "done",
         "done_config": "theme {theme}, languages: {langs}",
-        "done_pages": "{count} pages",
-        "done_masters": "{count} source images",
-        "done_files": "{count} files",
+        "done_pages": "{count} {count:page|pages}",
+        "done_masters": "{count} source {count:image|images}",
+        "done_files": "{count} {count:file|files}",
         "build_head": "HERON {version} · building {path} · environment {env}",
         "check_head": "HERON {version} · checking {path}",
         "build_failed": (
-            "Build failed: {count} errors. The output folder is untouched. "
+            "Build failed: {count} {count:error|errors}. The output folder is untouched. "
             "Fix them and build again."
         ),
-        "check_failed": "Check found {count} errors. A build would fail on them.",
+        "check_failed": (
+            "Check found {count} {count:error|errors}. A build would fail on {count:it|them}."
+        ),
         "build_strict": (
-            "Build stopped: strict mode (--strict or build.fail_on_warning), {count} warnings. "
+            "Build stopped: strict mode (--strict or build.fail_on_warning), "
+            "{count} {count:warning|warnings}. "
             "The output folder is untouched — it still holds the last good build."
         ),
-        "check_strict": "Check: strict mode (--strict or build.fail_on_warning), {count} warnings.",
+        "check_strict": (
+            "Check: strict mode (--strict or build.fail_on_warning), "
+            "{count} {count:warning|warnings}."
+        ),
         "build_env": "environment {env} · domain {domain} · {index} · {counters}",
         "finish_failed": (
             "The site is written and intact, but a plugin finishing step "
@@ -727,7 +733,9 @@ TEXT["ru"].update(
         "report_types": "Типы — {by_type}",
         "report_untranslated": "Не переведено:",
         "report_missing": "Тема ждёт секцию, а в файле её нет:",
-        "report_missing_line": "  {section:12} — {count} страниц: {shown}",
+        "report_missing_line": (
+            "  {section:12} — {count} {count:страница|страницы|страниц}: {shown}"
+        ),
         "report_format": "Формат секции не тот, которого ждёт тема (это не ошибка):",
         "report_format_line": "  {source}: {section} — ждали {want}, пришло {got}",
         "report_format_fix": (
@@ -748,8 +756,8 @@ TEXT["ru"].update(
         "report_list": "список",
         "report_nginx_ok": "nginx -t на собранном конфиге: прошёл",
         "report_manual_dates": (
-            "Ручная дата updated у {manual} из {total} страниц перекрывает "
-            "updated_from: {mode} — у этих страниц дата из {mode} не берётся. "
+            "Ручная дата updated у {manual} из {total} {total:страницы|страниц|страниц} "
+            "перекрывает updated_from: {mode} — у этих страниц дата из {mode} не берётся. "
             "Где дата должна обновляться сама, уберите updated из фронтматтера."
         ),
         "report_notes_missing": "Без пояснительной записки (это не ошибка): {folders}",
@@ -766,7 +774,7 @@ TEXT["en"].update(
         "report_types": "Types — {by_type}",
         "report_untranslated": "Not translated:",
         "report_missing": "The theme expects a section the file does not have:",
-        "report_missing_line": "  {section:12} — {count} pages: {shown}",
+        "report_missing_line": "  {section:12} — {count} {count:page|pages}: {shown}",
         "report_format": "A section is not in the form the theme expects (not an error):",
         "report_format_line": "  {source}: {section} — expected {want}, got {got}",
         "report_format_fix": (
@@ -787,7 +795,7 @@ TEXT["en"].update(
         "report_list": "list",
         "report_nginx_ok": "nginx -t on the built config: passed",
         "report_manual_dates": (
-            "A manual updated date on {manual} of {total} pages overrides "
+            "A manual updated date on {manual} of {total} {total:page|pages} overrides "
             "updated_from: {mode} — these pages do not take the date from {mode}. "
             "Where the date should update by itself, remove updated from the front matter."
         ),

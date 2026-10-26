@@ -235,7 +235,7 @@ def test_render_in_english_has_no_russian_frame():
         "Types — page: 2",
         "Not translated:",
         "The theme expects a section the file does not have:",
-        "faq          — 1 pages: en/a.md",
+        "faq          — 1 page: en/a.md",
         "en/a.md: steps — expected timeline, got prose",
         "how to fix:",
         "In the menu without a short name",
@@ -255,14 +255,14 @@ def test_render_in_english_has_no_russian_frame():
         assert needle in text, needle
 
 
-def test_render_in_russian_keeps_the_old_text():
+def test_render_in_russian_keeps_the_text():
     text = _full_report().render("ru")
     for needle in (
         "Страниц — 2 (en: 2)",
         "Типы — page: 2",
         "Не переведено:",
         "Тема ждёт секцию, а в файле её нет:",
-        "faq          — 1 страниц: en/a.md",
+        "faq          — 1 страница: en/a.md",
         "en/a.md: steps — ждали timeline, пришло prose",
         "как исправить: если по смыслу это форма из «ждали»",
         "`## Заголовок {#якорь .checklist}`",
@@ -443,3 +443,63 @@ def test_new_e024_speaks_the_chosen_language(cli, tmp_path, notes, head, foreign
     assert head in result.output, result.output
     assert foreign not in result.output
     assert not Path("s/site.yaml").exists()
+
+
+# --- склонение чисел в отчёте (E15.S1.T11, W4, F29) ----------------------------------
+
+# Число страниц перед словом: 1 и 21 страница, 2 и 22 страницы, 0, 5, 11 страниц.
+MISSING = {
+    0: ("страниц", "pages"),
+    1: ("страница", "page"),
+    2: ("страницы", "pages"),
+    5: ("страниц", "pages"),
+    11: ("страниц", "pages"),
+    21: ("страница", "pages"),
+}
+
+
+@pytest.mark.parametrize("count", sorted(MISSING))
+def test_missing_section_line_agrees_with_the_number(count):
+    from heron.messages import say
+
+    ru, en = MISSING[count]
+    fields = {"section": "faq", "count": count, "shown": "en/a.md"}
+    assert say("ru", "report_missing_line", **fields) == f"  faq          — {count} {ru}: en/a.md"
+    assert say("en", "report_missing_line", **fields) == f"  faq          — {count} {en}: en/a.md"
+
+
+# После «из» — родительный падеж: «из 1 страницы», «из 21 страницы» (единственное
+# число у 1, 21, 31, 101, кроме 11), у всех остальных «из N страниц»: из 2, 3, 4,
+# 5, 11, 12, 22 страниц. По-английски «of 1 page», иначе «of N pages».
+OF_TOTAL = {
+    0: ("страниц", "pages"),
+    1: ("страницы", "page"),
+    2: ("страниц", "pages"),
+    4: ("страниц", "pages"),
+    5: ("страниц", "pages"),
+    11: ("страниц", "pages"),
+    21: ("страницы", "pages"),
+    22: ("страниц", "pages"),
+    101: ("страницы", "pages"),
+    111: ("страниц", "pages"),
+}
+
+
+@pytest.mark.parametrize("total", sorted(OF_TOTAL))
+def test_manual_dates_of_total_takes_the_genitive(total):
+    from heron.messages import say
+
+    ru, en = OF_TOTAL[total]
+    fields = {"manual": 1, "total": total, "mode": "git"}
+    assert f"у 1 из {total} {ru} перекрывает" in say("ru", "report_manual_dates", **fields)
+    assert f"on 1 of {total} {en} overrides" in say("en", "report_manual_dates", **fields)
+
+
+def test_render_of_one_missing_page_reads_naturally():
+    """Тот самый случай из ревью: одна страница без секции."""
+    ru = _full_report().render("ru")
+    en = _full_report().render("en")
+    assert "— 1 страница:" in ru and "— 1 страниц:" not in ru
+    assert "— 1 page:" in en and "— 1 pages:" not in en
+    assert "у 1 из 2 страниц перекрывает" in ru
+    assert "on 1 of 2 pages overrides" in en

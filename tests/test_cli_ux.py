@@ -603,3 +603,56 @@ def test_new_summary_in_russian_agrees_with_the_number(here):
 
     assert found.group(2) == plural(int(found.group(1)), "файл|файла|файлов")
     assert "24 файлов" not in result.output
+
+
+# --- склонение чисел в итогах check и build (E15.S1.T11, W4, F29) --------------------
+
+ERRORS_EN = {0: "errors", 1: "error", 2: "errors", 5: "errors", 11: "errors", 21: "errors"}
+
+
+@pytest.mark.parametrize("count", sorted(ERRORS_EN))
+def test_check_and_build_totals_agree_with_the_number(count):
+    from heron.messages import say
+
+    word = ERRORS_EN[count]
+    them = "it" if count == 1 else "them"
+    assert say("en", "check_failed", count=count) == (
+        f"Check found {count} {word}. A build would fail on {them}."
+    )
+    assert say("en", "build_failed", count=count).startswith(f"Build failed: {count} {word}.")
+    warn = "warning" if count == 1 else "warnings"
+    assert f"{count} {warn}." in say("en", "check_strict", count=count)
+    assert f"{count} {warn}." in say("en", "build_strict", count=count)
+    # по-русски число стоит после подписи: «ошибок: 1» — форма слова от числа не зависит
+    assert say("ru", "check_failed", count=count).startswith(f"Проверка нашла ошибок: {count}.")
+
+
+@pytest.mark.parametrize(
+    ("count", "pages", "files", "images"),
+    [
+        (1, "1 page", "1 file", "1 source image"),
+        (2, "2 pages", "2 files", "2 source images"),
+        (21, "21 pages", "21 files", "21 source images"),
+    ],
+)
+def test_build_step_totals_agree_with_the_number(count, pages, files, images):
+    from heron.messages import say
+
+    assert say("en", "done_pages", count=count) == pages
+    assert say("en", "done_files", count=count) == files
+    assert say("en", "done_masters", count=count) == images
+
+
+def test_check_with_one_error_says_one_error(here):
+    """Обычный check с одной ошибкой: «Check found 1 error.», без «1 errors»."""
+    assert run("new", "s", "--notes", "en", "-y").exit_code == 0
+    page = here / "s" / "content" / "en" / "index.md"
+    text = page.read_text(encoding="utf-8")
+    page.write_text(text.replace("title:", "titel:", 1), encoding="utf-8")
+    result = run("check", "s")
+    assert result.exit_code == 1, result.output
+    found = [line for line in result.output.splitlines() if line.startswith("Check found")]
+    assert found, result.output
+    count = int(found[0].split()[2])
+    assert found[0].startswith(f"Check found {count} {'error' if count == 1 else 'errors'}.")
+    assert "1 errors" not in result.output

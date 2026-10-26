@@ -313,8 +313,8 @@ do_smoke() {
 
   local failed=0
   # nginx поднимается не мгновенно; ждём его, а не спим наугад.
-  local ready=0 i
-  for i in $(seq 1 30); do
+  local ready=0
+  for _ in $(seq 1 30); do
     if curl -sS -o /dev/null "http://localhost:${port}/" 2>/dev/null; then ready=1; break; fi
     sleep 0.5
   done
@@ -336,7 +336,11 @@ do_smoke() {
 }
 
 do_stop() {
-  docker rm -f "$CONTAINER" >/dev/null 2>&1 && ok "просмотр погашен" || note "не запущен"
+  if docker rm -f "$CONTAINER" >/dev/null 2>&1; then
+    ok "просмотр погашен"
+  else
+    note "не запущен"
+  fi
 }
 
 do_push() {

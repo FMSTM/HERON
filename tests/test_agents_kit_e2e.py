@@ -32,6 +32,7 @@ import heron
 from heron import cli
 from heron.cli import main
 from tests.nginx_server import needs_nginx, serve
+from tests.test_agent_docs import COMPANIES, VENDORS, vendor_left
 
 ROOT = Path(__file__).resolve().parents[1]
 SMOKE = ROOT / "scripts" / "smoke-site.sh"
@@ -387,37 +388,29 @@ def test_short_kit_from_build_agents_kit(here):
 
 # --- 6. агент-нейтральность с белым списком --------------------------------------------
 
-_VENDORS = re.compile(r"claude|anthropic|openai|gemini|copilot|cursor", re.I)
-_WHO_READS = ("- **Кто какой файл читает.**", "- **Who reads which file.**")
-
-
-def _vendor_left(line: str) -> bool:
-    """Остаётся ли имя инструмента после белого списка (23 §12)."""
-    if line.strip() == "@AGENTS.md" or line.lstrip().startswith(_WHO_READS):
-        return False
-    rest = line.replace(".claude/", "")
-    if "CLAUDE.md" in rest or "GEMINI.md" in rest:
-        # строка, которая называет файл-указатель, — это перечень «кто какой файл читает»
-        # (20 §1): там имена инструментов к месту, но не названия их разработчиков
-        rest = re.sub(r"CLAUDE\.md|GEMINI\.md|Claude Code|Gemini CLI|Cursor|Copilot", "", rest)
-    return bool(_VENDORS.search(rest))
+# Белый список 23 §12 и его проверка — общие с tests/test_agent_docs.py
+# (NEUTRAL_WHITELIST, vendor_left): комплект сайта — те же файлы docs/<язык>/.
 
 
 @pytest.mark.parametrize("lang", ["ru", "en"])
 def test_kit_texts_are_agent_neutral(here, lang):
     site = new_site(lang)
     bad = []
-    for path in [site / "AGENTS.md", *sorted((site / "agents").rglob("*"))]:
+    kit = site / "agents"
+    for path in [site / "AGENTS.md", *sorted(kit.rglob("*"))]:
         if not path.is_file():
             continue
+        # белый список 23 §12 — по файлу комплекта; тело AGENTS.md сайта — текст
+        # agents/README.md (20 §1), у него белый список README
+        kit_path = path.relative_to(kit).as_posix() if path.is_relative_to(kit) else "README.md"
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            if _VENDORS.search(line) and _vendor_left(line):
+            if VENDORS.search(line) and vendor_left(kit_path, line):
                 bad.append(f"{path.relative_to(site)}:{number}: {line.strip()[:120]}")
     assert not bad, "\n".join(bad)
     # «Anthropic» и «OpenAI» — ни в одной строке комплекта, даже в перечне
-    texts = [p.read_text(encoding="utf-8") for p in (site / "agents").rglob("*.md")]
+    texts = [p.read_text(encoding="utf-8") for p in kit.rglob("*.md")]
     text = "\n".join([*texts, (site / "AGENTS.md").read_text(encoding="utf-8")])
-    assert not re.search(r"anthropic|openai", text, re.I)
+    assert not COMPANIES.search(text)
 
 
 def test_engine_code_names_no_agent_except_the_llms_hint():
@@ -431,7 +424,7 @@ def test_engine_code_names_no_agent_except_the_llms_hint():
             continue
         for number, line in enumerate(lines, 1):
             rest = re.sub(r"CLAUDE\.md|GEMINI\.md|\bcursor:\s", "", line)
-            if not _VENDORS.search(rest):
+            if not VENDORS.search(rest):
                 continue
             rel = path.relative_to(ROOT).as_posix()
             if rel == "heron/setup/page.html" and "g_ai_about:" in line:

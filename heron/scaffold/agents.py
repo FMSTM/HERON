@@ -317,21 +317,6 @@ def created_at() -> str:
     return moment.replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def manifest(
-    files: list[tuple[str, bytes]],
-    lang: str,
-    created: str | None = None,
-    fallback: list[str] | tuple[str, ...] = (),
-) -> str:
-    """Текст `agents/heron-kit.yaml` (20 §1): блочный YAML, LF, файлы по алфавиту.
-
-    `files` — пути, как их хранит манифест: внутри agents/ или `root/<имя>`;
-    `work/` в манифест не входит. Файл с другого языка помечен `lang`.
-    """
-    records = {rel: sha256(data) for rel, data in files if not rel.startswith(WORK)}
-    return _manifest_text(records, lang, {"created": created} if created else {}, fallback)
-
-
 def _manifest_text(
     records: dict[str, str],
     lang: str,

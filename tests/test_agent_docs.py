@@ -358,9 +358,44 @@ def test_repository_pointer_names_every_language_role_and_template():
 
 # --- агент-нейтральность (23 §12) -------------------------------------------------
 
-# Имя файла-указателя и папки инструмента — не упоминание инструмента.
-_FILE_NAMES = re.compile(r"CLAUDE\.md|\.claude/")
-_VENDOR = re.compile(r"claude|anthropic", re.I)
+# Имена инструментов и их разработчиков. Разработчиков нет нигде (23 §12).
+VENDORS = re.compile(r"claude|anthropic|openai|gemini|copilot|cursor", re.I)
+COMPANIES = re.compile(r"anthropic|openai", re.I)
+# Не упоминание инструмента: имена файлов-указателей и папки инструментов
+# (`.claude/`, `.cursor/` и подобные, 20 §1).
+_NOT_A_MENTION = re.compile(r"CLAUDE\.md|GEMINI\.md|(?<![\w.])\.[A-Za-z][\w-]*/")
+# Ровно два места, где имена инструментов к месту (23 §12): файл комплекта
+# (путь от docs/<язык>/ или от agents/ сайта) и начало строки в нём.
+NEUTRAL_WHITELIST: dict[str, tuple[str, ...]] = {
+    # перечень «Кто какой файл читает» README комплекта
+    "README.md": ("- **Кто какой файл читает.**", "- **Who reads which file.**"),
+    # описание корневых указателей в 20 §1: строки дерева и абзац
+    "spec/20-data-contract.md": ("├── CLAUDE.md", "├── GEMINI.md", "**Корневые указатели.**"),
+}
+
+
+def vendor_left(kit_path: str | None, line: str) -> bool:
+    """Упоминает ли строка инструмент там, где 23 §12 этого не разрешает.
+
+    `kit_path` — путь файла внутри комплекта (`spec/20-data-contract.md`),
+    для файла вне комплекта — None: белого списка у него нет.
+    """
+    if COMPANIES.search(line):
+        return True
+    if line.strip() == "@AGENTS.md":
+        return False
+    if kit_path is not None and line.lstrip().startswith(NEUTRAL_WHITELIST.get(kit_path, ())):
+        return False
+    return bool(VENDORS.search(_NOT_A_MENTION.sub("", line)))
+
+
+def _kit_path(path: Path) -> str | None:
+    """Путь от docs/<язык>/ — так же он лежит в agents/ сайта."""
+    for lang in LANGS:
+        base = ROOT / "docs" / lang
+        if path.is_relative_to(base):
+            return path.relative_to(base).as_posix()
+    return None
 
 
 def _neutral_sources() -> list[Path]:
@@ -371,20 +406,58 @@ def _neutral_sources() -> list[Path]:
 
 
 def test_texts_are_agent_neutral():
-    """Claude/Anthropic — только имя файла CLAUDE.md и строка «кто какой файл читает».
+    """Имена инструментов — только в двух местах из 23 §12, разработчиков — нигде.
 
-    Белый список: «Claude Code» допустим лишь в строке, которая называет файл
-    `CLAUDE.md` (перечень «какой файл какой агент читает», 20 §1, README комплекта).
-    «Anthropic» не допускается нигде.
+    Белый список (NEUTRAL_WHITELIST): строка «- **Кто какой файл читает.**»
+    README комплекта и описание корневых указателей в 20 §1 — строки дерева
+    `├── CLAUDE.md`, `├── GEMINI.md` и абзац «**Корневые указатели.**». Имена
+    файлов `CLAUDE.md`/`GEMINI.md`, строка `@AGENTS.md` и папки инструментов
+    (`.claude/`) — не упоминание.
     """
     bad = []
     for path in _neutral_sources():
+        kit_path = _kit_path(path)
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            if not _VENDOR.search(line):
-                continue
-            rest = _FILE_NAMES.sub("", line)
-            if "CLAUDE.md" in line:
-                rest = rest.replace("Claude Code", "")
-            if _VENDOR.search(rest):
+            if VENDORS.search(line) and vendor_left(kit_path, line):
                 bad.append(f"{path.relative_to(ROOT)}:{number}: {line.strip()[:120]}")
     assert not bad, "\n".join(bad)
+
+
+@pytest.mark.parametrize(
+    ("kit_path", "line"),
+    [
+        # имя инструмента в другом файле — даже рядом с именем файла-указателя
+        ("guide/01-concepts.md", "`CLAUDE.md` — Claude Code сам решает"),
+        ("guide/01-concepts.md", "- **Кто какой файл читает.** `CLAUDE.md` — Claude Code"),
+        # в README — только перечень, в 20 — только дерево и абзац
+        ("README.md", "`GEMINI.md` читает Gemini CLI"),
+        ("spec/20-data-contract.md", "`CLAUDE.md` — для Claude Code"),
+        ("spec/20-data-contract.md", "│   ├── CLAUDE.md   для Claude Code"),
+        # вне комплекта белого списка нет
+        (None, "- **Кто какой файл читает.** `CLAUDE.md` — Claude Code"),
+        # разработчиков нет нигде, в том числе в разрешённых строках
+        ("README.md", "- **Кто какой файл читает.** `CLAUDE.md` — Claude Code (Anthropic)"),
+        ("spec/20-data-contract.md", "**Корневые указатели.** Codex от OpenAI"),
+        ("guide/04-theme.md", "Copilot и Cursor"),
+    ],
+)
+def test_neutrality_whitelist_is_exactly_23_12(kit_path, line):
+    assert vendor_left(kit_path, line)
+
+
+@pytest.mark.parametrize(
+    ("kit_path", "line"),
+    [
+        ("README.md", "- **Кто какой файл читает.** `CLAUDE.md` — Claude Code; Cursor"),
+        ("README.md", "- **Who reads which file.** `GEMINI.md` — Gemini CLI"),
+        ("spec/20-data-contract.md", "├── CLAUDE.md      одна строка — для Claude Code"),
+        ("spec/20-data-contract.md", "├── GEMINI.md      одна строка — для Gemini CLI"),
+        ("spec/20-data-contract.md", "**Корневые указатели.** Cursor, Copilot; Claude Code"),
+        # не упоминание — где угодно
+        ("guide/01-concepts.md", "`CLAUDE.md` и `GEMINI.md` — по строке"),
+        ("guide/01-concepts.md", "@AGENTS.md"),
+        (None, "папки навыков (`.claude/`, `.cursor/`, `.gemini/`) движок не кладёт"),
+    ],
+)
+def test_neutrality_whitelist_allows_23_12_places(kit_path, line):
+    assert not vendor_left(kit_path, line)

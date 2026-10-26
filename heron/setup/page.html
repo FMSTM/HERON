@@ -718,7 +718,7 @@ async function save() {
   try {
     const answers = clone(A);
     answers.about.contacts = (answers.about.contacts || []).filter((c) => (c.value || "").trim());
-    const r = await fetch("/api/save", { method: "POST", headers: { "Content-Type": "application/json", "X-Heron-Token": TOKEN }, body: JSON.stringify({ answers, upload: UPLOAD }) });
+    const r = await fetch("/api/save", { method: "POST", headers: { "Content-Type": "application/json", "X-Heron-Token": TOKEN }, body: JSON.stringify({ answers, upload: UPLOAD, lang: L }) });
     const j = await r.json();
     if (!j.ok) { toast("bad", t("error"), [j.error, j.hint].filter(Boolean)); return; }
     const lines = [];

@@ -1,0 +1,247 @@
+"""Причины отказа проверки ответов анкеты — на языке сайта (ru, en).
+
+Проверка ответов одна для страницы анкеты и для `heron setup --answers`, а
+читает её человек на своём языке. Поэтому валидаторы `answers.py` бросают не
+готовую строку, а `Reason`: ключ и поля. Текст собирается при показе, на
+языке запуска — `plain(error, lang)`.
+
+Строка `Reason` по умолчанию — английская: её видит pydantic, и сравнения
+вида `match=` в тестах и в чужом коде остаются прежними. Ошибки самого
+pydantic (нет поля, лишний ключ, не тот тип) переводятся по `type`; на
+английском остаётся их собственный текст.
+
+Наборы ключей ru и en совпадают, это проверяет tests/test_setup.py.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+LANGS = ("ru", "en")
+
+TEXT: dict[str, dict[str, str]] = {
+    "ru": {
+        # сайт
+        "domain_bad": "{value}: домен без схемы и слешей, например example.com",
+        "languages_none": "нужен хотя бы один язык",
+        "languages_bad": "не код языка: {codes} (ожидается en, de, pt-br)",
+        "languages_repeat": "языки повторяются",
+        "default_lang_missing": "основного языка {value} нет в списке",
+        "preview_same": "служебный домен должен отличаться от рабочего",
+        # связь
+        "contact_empty": "у канала связи нет значения",
+        "purpose_bad": "назначение {value}: одно из {names}",
+        "phone_bad": "{value} не похоже на телефон: +00 000 000 00 00",
+        "email_bad": "{value} не похоже на адрес почты",
+        "link_needed": "{kind}: нужна ссылка, https://…",
+        # о сайте
+        "direction_unknown": "сферы деятельности {value} нет в классификаторе",
+        "spec_unknown": "специализации {value} нет в классификаторе",
+        "spec_other": "специализация {value} не относится к сфере {direction}",
+        "type_unknown": "типа {value} нет в списке; возьмите ближайший более общий",
+        "fields_unknown": "поля, которые для типа {kind} не спрашиваются: {names}",
+        # счётчики
+        "ga4_bad": "Google Analytics {value}: ожидается G-XXXXXXX",
+        "gtm_bad": "Tag Manager {value}: ожидается GTM-XXXXXX",
+        "metrika_bad": "Яндекс Метрика {value}: только цифры",
+        # публикация
+        "control_chars": "{field}: служебные символы (перевод строки, NUL, ...) недопустимы",
+        "helpers_unknown": "helpers: неизвестные {names}",
+        "engine_bad": (
+            "engine {value}: prod, beta или версия вида 0.1.0, "
+            "можно с закреплением: prod@sha256:<digest>"
+        ),
+        "repo_bad": "репозиторий {value}: владелец/имя, например you/my-site",
+        "docker_name_bad": "{value}: строчные латинские буквы, цифры, точки, дефисы",
+        "dockerhub_needs": "для Docker Hub нужны имя пользователя и имя образа",
+        "server_needed": "для выкладки статики на сервер нужен адрес сервера",
+        "server_bad": "сервер {value}: user@host или host",
+        "path_bad": "папка на сервере — абсолютный путь без .. из букв, цифр и . _ - + ~ @",
+        "branch_bad": "ветка {value}: буквы, цифры и . _ - + /, например main или release/v1",
+        # ответы целиком
+        "note_lang": "заметка для ИИ на языке, которого нет у сайта: {codes}",
+        "field_lang": "{name}: языка нет у сайта: {codes}",
+        "not_number": "{value} — не число",
+        "country_bad": "страна {value}: двухбуквенный код, например AT",
+        "answers_mapping": "ответы: ожидается словарь «ключ: значение»",
+        "no_site": "в {root} нет {name}: сначала создайте сайт (heron new)",
+        # ошибки pydantic по type
+        "py_missing": "обязательное поле не заполнено",
+        "py_extra_forbidden": "неизвестный ключ",
+        "py_literal_error": "одно из: {expected}",
+        "py_string_type": "ожидается строка",
+        "py_bool": "ожидается true или false",
+        "py_int": "ожидается целое число",
+        "py_float": "ожидается число",
+        "py_list_type": "ожидается список",
+        "py_dict": "ожидается словарь «ключ: значение»",
+        "py_other": "недопустимое значение ({type})",
+        # сервер анкеты
+        "srv_local_only": "только с этой машины",
+        "srv_token": "откройте адрес, который напечатан в терминале",
+        "srv_not_found": "нет такого адреса",
+        "srv_too_large": "слишком большой запрос",
+        "srv_port": "не открыть конфигуратор на {host}:{port}: {reason}",
+        "srv_port_hint": (
+            "возьмите другой порт: --port {next} (и -p 127.0.0.1:{next}:{next} в докере)"
+        ),
+    },
+    "en": {
+        "domain_bad": "{value}: domain without scheme and slashes, e.g. example.com",
+        "languages_none": "at least one language is needed",
+        "languages_bad": "not a language code: {codes} (expected en, de, pt-br)",
+        "languages_repeat": "languages repeat",
+        "default_lang_missing": "main language {value} is not in the list",
+        "preview_same": "the service domain must differ from the working one",
+        "contact_empty": "a contact needs a value",
+        "purpose_bad": "purpose {value}: one of {names}",
+        "phone_bad": "{value} does not look like a phone: +00 000 000 00 00",
+        "email_bad": "{value} does not look like an email",
+        "link_needed": "{kind}: a link is expected, https://…",
+        "direction_unknown": "field of work {value} is not in the classifier",
+        "spec_unknown": "specialization {value} is not in the classifier",
+        "spec_other": "specialization {value} is not in {direction}",
+        "type_unknown": "type {value} is not in the list; take the nearest broader one",
+        "fields_unknown": "fields not asked for type {kind}: {names}",
+        "ga4_bad": "Google Analytics {value}: G-XXXXXXX",
+        "gtm_bad": "Tag Manager {value}: GTM-XXXXXX",
+        "metrika_bad": "Yandex Metrica {value}: digits only",
+        "control_chars": "{field}: control characters (newline, NUL, ...) are not allowed",
+        "helpers_unknown": "helpers: unknown {names}",
+        "engine_bad": (
+            "engine {value}: prod, beta, a version like 0.1.0, "
+            "optionally pinned: prod@sha256:<digest>"
+        ),
+        "repo_bad": "repository {value}: owner/name, e.g. you/my-site",
+        "docker_name_bad": "{value}: lowercase letters, digits, dots, dashes",
+        "dockerhub_needs": "Docker Hub needs your user name and the image name",
+        "server_needed": "static files to a server need the server address",
+        "server_bad": "server {value}: user@host or host",
+        "path_bad": (
+            "the folder on the server is an absolute path without .. — "
+            "letters, digits and . _ - + ~ @"
+        ),
+        "branch_bad": "branch {value}: letters, digits and . _ - + /, like main or release/v1",
+        "note_lang": "note for AI in a language the site does not have: {codes}",
+        "field_lang": "{name}: language not on the site: {codes}",
+        "not_number": "{value} is not a number",
+        "country_bad": "country {value}: a two-letter code, e.g. AT",
+        "answers_mapping": "answers: a mapping is expected",
+        "no_site": "no {name} in {root}: create the site first (heron new)",
+        "py_missing": "Field required",
+        "py_extra_forbidden": "Extra inputs are not permitted",
+        "py_literal_error": "Input should be {expected}",
+        "py_string_type": "Input should be a valid string",
+        "py_bool": "Input should be a valid boolean",
+        "py_int": "Input should be a valid integer",
+        "py_float": "Input should be a valid number",
+        "py_list_type": "Input should be a valid list",
+        "py_dict": "Input should be a valid dictionary",
+        "py_other": "invalid value ({type})",
+        "srv_local_only": "local only",
+        "srv_token": "open the address printed in the terminal",
+        "srv_not_found": "not found",
+        "srv_too_large": "too large",
+        "srv_port": "cannot open the configurator on {host}:{port}: {reason}",
+        "srv_port_hint": (
+            "take another port: --port {next} (and -p 127.0.0.1:{next}:{next} in docker)"
+        ),
+    },
+}
+
+# type ошибки pydantic → ключ: родственные типы делят одну фразу
+PYDANTIC = {
+    "missing": "py_missing",
+    "extra_forbidden": "py_extra_forbidden",
+    "literal_error": "py_literal_error",
+    "string_type": "py_string_type",
+    "bool_type": "py_bool",
+    "bool_parsing": "py_bool",
+    "int_type": "py_int",
+    "int_parsing": "py_int",
+    "int_from_float": "py_int",
+    "float_type": "py_float",
+    "float_parsing": "py_float",
+    "list_type": "py_list_type",
+    "dict_type": "py_dict",
+    "model_type": "py_dict",
+    "model_attributes_type": "py_dict",
+}
+
+
+def say(lang: str, key: str, **fields: Any) -> str:
+    table = TEXT[lang if lang in LANGS else "en"]
+    return table[key].format(**fields)
+
+
+class Reason(ValueError):
+    """Отказ проверки: ключ из `TEXT` и поля. `str()` — английский текст."""
+
+    def __init__(self, key: str, **fields: Any) -> None:
+        self.key = key
+        self.fields = fields
+        super().__init__(say("en", key, **fields))
+
+    def text(self, lang: str) -> str:
+        return say(lang, self.key, **self.fields)
+
+
+def run_lang(root: Path | str | None = None, flag: str | None = None) -> str:
+    """Язык запуска, когда его не передали: как у командной строки.
+
+    `--notes` и папка сайта — из параметров текущей команды click, если она
+    идёт (`heron setup` зовёт проверку, не передавая язык); затем
+    HERON_NOTES, затем `build.notes` из `site.yaml`; иначе en. Тот же порядок,
+    что у `resolve_notes` для сообщений терминала.
+    """
+    from heron.scaffold import resolve_notes
+
+    try:
+        import click
+
+        ctx = click.get_current_context(silent=True)
+    except ImportError:  # pragma: no cover - click всегда рядом с движком
+        ctx = None
+    if ctx is not None:
+        flag = flag or ctx.params.get("notes")
+        if root is None and ctx.params.get("path") is not None:
+            root = ctx.params["path"]
+    site_yaml = Path(root) / "site.yaml" if root is not None else None
+    try:
+        return resolve_notes(flag, site_yaml)
+    except ValueError:
+        return "en"
+
+
+def _item(item: dict[str, Any], lang: str) -> str:
+    """Одна ошибка pydantic: своя причина — на языке, чужая — по type."""
+    found = (item.get("ctx") or {}).get("error")
+    if isinstance(found, Reason):
+        return found.text(lang)
+    message = str(item.get("msg", "")).removeprefix("Value error, ")
+    if lang == "en" or item.get("type") == "value_error":
+        return message
+    key = PYDANTIC.get(str(item.get("type")), "py_other")
+    # перечень pydantic: "'keep', 'starter' or 'file'" — значения токены, союз переводим
+    expected = str((item.get("ctx") or {}).get("expected", ""))
+    if lang == "ru":
+        expected = expected.replace(" or ", " или ")
+    return say(lang, key, expected=expected, type=item.get("type"))
+
+
+def plain(error: ValueError, lang: str | None = None) -> str:
+    """Ошибка проверки ответов человеческим языком: поле и что с ним не так."""
+    lang = lang if lang in LANGS else run_lang()
+    if isinstance(error, Reason):
+        return error.text(lang)
+    errors = getattr(error, "errors", None)
+    if callable(errors):
+        parts = []
+        for item in errors():
+            where = ".".join(str(x) for x in item.get("loc", ()) if x != "__root__")
+            message = _item(item, lang)
+            parts.append(f"{where}: {message}" if where else message)
+        if parts:
+            return "; ".join(parts)
+    return str(error)

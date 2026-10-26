@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any
 
 from heron.core.errors import HeronError
+from heron.setup.reasons import plain, run_lang, say
 
 PAGE = Path(__file__).parent / "page.html"
 MAX_BODY = 210 * 1024 * 1024
@@ -46,6 +47,9 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
     from heron import setup
 
     token = secrets.token_urlsafe(24)
+    # Язык ответов сервера — язык запуска (--notes, HERON_NOTES, build.notes);
+    # причины отказа при сохранении — на языке, который выбран на странице.
+    lang = run_lang(root)
     uploads: dict[str, Path] = {}
     workdir = tempfile.TemporaryDirectory(prefix="heron-setup-")
     done = threading.Event()
@@ -85,24 +89,24 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
 
         def do_GET(self) -> None:  # noqa: N802
             if not self._local():
-                self._json(403, {"error": "local only"})
+                self._json(403, {"error": say(lang, "srv_local_only")})
                 return
             if self.path in ("/", "/index.html"):
                 self._send(200, PAGE.read_bytes(), "text/html; charset=utf-8")
             elif not self._allowed():
-                self._json(403, {"error": "open the address printed in the terminal"})
+                self._json(403, {"error": say(lang, "srv_token")})
             elif self.path == "/api/state":
                 self._json(200, setup.state(root))
             else:
-                self._json(404, {"error": "not found"})
+                self._json(404, {"error": say(lang, "srv_not_found")})
 
         def do_POST(self) -> None:  # noqa: N802
             if not self._allowed():
-                self._json(403, {"error": "open the address printed in the terminal"})
+                self._json(403, {"error": say(lang, "srv_token")})
                 return
             length = int(self.headers.get("Content-Length") or 0)
             if length > MAX_BODY:
-                self._json(413, {"error": "too large"})
+                self._json(413, {"error": say(lang, "srv_too_large")})
                 return
             body = self.rfile.read(length)
             if self.path == "/api/upload":
@@ -117,10 +121,13 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
                 done.set()
                 return
             if self.path != "/api/save":
-                self._json(404, {"error": "not found"})
+                self._json(404, {"error": say(lang, "srv_not_found")})
                 return
+            shown = lang
             try:
                 data = json.loads(body.decode("utf-8") or "{}")
+                if isinstance(data, dict) and data.get("lang") in ("ru", "en"):
+                    shown = data["lang"]
                 answers = setup.Answers.model_validate(data.get("answers") or {})
                 upload = uploads.get(str(data.get("upload") or ""))
                 result = setup.apply(root, answers, upload=upload)
@@ -128,7 +135,7 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
                 self._json(400, {"ok": False, "error": error.message, "hint": error.hint or ""})
                 return
             except ValueError as error:
-                self._json(400, {"ok": False, "error": _plain(error)})
+                self._json(400, {"ok": False, "error": _plain(error, shown)})
                 return
             self._json(
                 200,
@@ -150,11 +157,8 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
     except OSError as error:
         raise HeronError(
             code="E031",
-            message=f"cannot open the configurator on {host}:{port}: {error.strerror or error}",
-            hint=(
-                f"take another port: --port {port + 1} "
-                f"(and -p 127.0.0.1:{port + 1}:{port + 1} in docker)"
-            ),
+            message=say(lang, "srv_port", host=host, port=port, reason=error.strerror or error),
+            hint=say(lang, "srv_port_hint", next=port + 1),
         ) from error
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -170,15 +174,10 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
         workdir.cleanup()
 
 
-def _plain(error: ValueError) -> str:
-    """Ошибка проверки ответов человеческим языком: поле и что с ним не так."""
-    errors = getattr(error, "errors", None)
-    if callable(errors):
-        parts = []
-        for item in errors():
-            where = ".".join(str(x) for x in item.get("loc", ()) if x != "__root__")
-            message = str(item.get("msg", "")).removeprefix("Value error, ")
-            parts.append(f"{where}: {message}" if where else message)
-        if parts:
-            return "; ".join(parts)
-    return str(error)
+def _plain(error: ValueError, lang: str | None = None) -> str:
+    """Ошибка проверки ответов человеческим языком: поле и что с ним не так.
+
+    Язык не передан (так зовёт `heron setup --answers`) — язык запуска, как у
+    сообщений терминала (`reasons.run_lang`).
+    """
+    return plain(error, lang)

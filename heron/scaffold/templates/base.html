@@ -17,7 +17,7 @@
 {% if page.meta.noindex or not env.indexable %}<meta name="robots" content="noindex, nofollow">{% endif %}
 <meta name="color-scheme" content="light dark">
 <script>
-  // светлая или тёмная: выбор человека, иначе — как в системе
+  {# heron:note base.scheme #}
   try { var v = localStorage.getItem("theme"); if (v === "light" || v === "dark") document.documentElement.dataset.theme = v; } catch (e) {}
 </script>
 <link rel="stylesheet" href="/assets/site.css">

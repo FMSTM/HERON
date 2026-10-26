@@ -19,6 +19,23 @@ from heron.scaffold import seo_block
 
 SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\Z")
 
+# Подсказки заготовки на языке пояснений сайта (build.notes, HERON_NOTES).
+# TODO — метка, по которой автор находит недописанное, она не переводится.
+BODY = {
+    "ru": {
+        "intro": "Вводный абзац — то, что попадёт в сниппет.",
+        "heading": "TODO заголовок",
+        "content": "TODO содержимое.",
+        "description": "TODO: что человек получит на странице",
+    },
+    "en": {
+        "intro": "Intro paragraph — what goes into the search snippet.",
+        "heading": "TODO heading",
+        "content": "TODO content.",
+        "description": "TODO: what the visitor gets",
+    },
+}
+
 
 def write_page(
     root: Path,
@@ -68,21 +85,25 @@ def write_page(
     if target.exists():
         raise HeronError(code="E004", message="такой файл уже есть", path=str(target))
 
+    import os
+
+    # Заготовка — подсказка автору, а не текст страницы: она на языке
+    # пояснений, как SEO-блок над ней. Язык страницы (`lang`) — язык того
+    # текста, которым автор заменит подсказки.
+    notes = (os.environ.get("HERON_NOTES", "").strip() or config.build.notes).lower()
+    notes = notes if notes in BODY else "en"
+    words = BODY[notes]
+
     sections = theme.sections_of(page_type) or ["intro"]
     body: list[str] = []
     for section in sections:
         if section == "intro":
-            body.append("Вводный абзац — то, что попадёт в сниппет.\n")
+            body.append(words["intro"] + "\n")
             continue
-        body.append(f"## TODO заголовок {{#{section}}}\n\nTODO содержимое.\n")
+        body.append(f"## {words['heading']} {{#{section}}}\n\n{words['content']}\n")
 
     title = slug.replace("-", " ").capitalize()
     target.parent.mkdir(parents=True, exist_ok=True)
-    import os
-
-    notes = (os.environ.get("HERON_NOTES", "").strip() or config.build.notes).lower()
-    notes = notes if notes in ("ru", "en") else "en"
-    todo = {"ru": "TODO: что человек получит на странице", "en": "TODO: what the visitor gets"}
-    head = seo_block(title, title, todo[notes], page_type=page_type, notes=notes)
+    head = seo_block(title, title, words["description"], page_type=page_type, notes=notes)
     target.write_text(head + "\n" + "\n".join(body), encoding="utf-8")
     return target

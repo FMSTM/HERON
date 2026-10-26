@@ -1,4 +1,4 @@
-{# Pages of a section: an _index.md page lists its children as cards. #}
+{# heron:note children #}
 {% if page.children|rejectattr('type', 'equalto', '404')|list %}
 <section class="block children">
   <ul class="cards">

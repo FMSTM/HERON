@@ -621,3 +621,71 @@ def test_page_sends_its_language_with_save():
     page = (Path(reasons.__file__).parent / "page.html").read_text(encoding="utf-8")
     call = next(line for line in page.splitlines() if 'fetch("/api/save"' in line)
     assert re.search(r"JSON\.stringify\(\{[^}]*\blang: L\b", call), call
+
+
+# --- тема из анкеты на языке пояснений сайта (E15.S1.T10, W1, F07) -------------------
+
+STARTER_ANSWERS = "site:\n  name: Example\n  languages: [en]\ntheme:\n  source: starter\n"
+RU_THEME = "# Что тема ждёт от site.yaml"
+EN_THEME = "# What the theme expects from site.yaml"
+CYRILLIC_RE = re.compile(r"[А-Яа-яЁё]")
+
+
+def _site_with_notes(tmp_path: Path, notes: str) -> Path:
+    root = tmp_path / f"site-{notes}"
+    create(root, name="Example", languages=["en"], notes=notes)
+    return root
+
+
+def _theme_yaml(root: Path) -> str:
+    return (root / "theme" / "theme.yaml").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "notes, flag, env, want",
+    [
+        ("ru", None, None, "ru"),  # build.notes сайта
+        ("en", None, None, "en"),
+        ("en", None, "ru", "ru"),  # HERON_NOTES главнее build.notes
+        ("ru", "en", "ru", "en"),  # флаг главнее всего
+        ("en", "ru", None, "ru"),
+    ],
+)
+def test_setup_installs_the_starter_in_the_notes_language(
+    tmp_path: Path, monkeypatch, notes, flag, env, want
+):
+    if env:
+        monkeypatch.setenv("HERON_NOTES", env)
+    else:
+        monkeypatch.delenv("HERON_NOTES", raising=False)
+    root = _site_with_notes(tmp_path, notes)
+    (root / "theme" / "theme.yaml").write_text("name: old\n", encoding="utf-8")
+    result = apply(root, load_answers(STARTER_ANSWERS), lang=flag)
+    assert result.theme == "starter"
+    assert (RU_THEME if want == "ru" else EN_THEME) in _theme_yaml(root)
+    css = (root / "theme" / "assets" / "site.css").read_text(encoding="utf-8")
+    head = css.split("*/", 1)[0]
+    assert bool(CYRILLIC_RE.search(head)) == (want == "ru"), head
+
+
+def test_setup_command_installs_the_starter_in_the_site_language(tmp_path: Path, monkeypatch):
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    root = _site_with_notes(tmp_path, "ru")
+    done = CliRunner().invoke(main, ["setup", str(root), "--answers", "-"], input=STARTER_ANSWERS)
+    assert done.exit_code == 0, done.output
+    assert RU_THEME in _theme_yaml(root)
+    en = _site_with_notes(tmp_path, "en")
+    done = CliRunner().invoke(
+        main, ["setup", str(en), "--answers", "-", "--notes", "ru"], input=STARTER_ANSWERS
+    )
+    assert done.exit_code == 0, done.output
+    assert RU_THEME in _theme_yaml(en)
+
+
+def test_notes_lang_survives_build_that_is_not_a_block():
+    from heron.setup import notes_lang
+
+    assert notes_lang({"build": "x"}) == "en"
+    assert notes_lang({"build": [1]}) == "en"
+    assert notes_lang({"build": {"notes": "ru"}}) == "ru"
+    assert notes_lang({"build": "x"}, "ru") == "ru"

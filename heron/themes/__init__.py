@@ -248,11 +248,35 @@ def _check_theme(theme_dir: Path, manifest: dict[str, Any]) -> str:
     return config.name
 
 
-def _starter(stage: Path, languages: list[str]) -> None:
-    """Стартовая тема и её демо из самого движка."""
+def _site_notes(root: Path) -> str:
+    """Язык пояснений сайта: --notes команды (`heron theme get --notes ru` или
+    `heron theme --notes ru get`), затем HERON_NOTES, затем build.notes из
+    site.yaml, иначе en. Порядок тот же, что у сообщений командной строки.
+    """
+    import click
+
+    from heron.scaffold import resolve_notes
+
+    flag = None
+    ctx = click.get_current_context(silent=True)
+    while ctx is not None and flag is None:
+        flag = (ctx.params or {}).get("notes") or None
+        ctx = ctx.parent
+    try:
+        return resolve_notes(flag, root / "site.yaml")
+    except ValueError:
+        return "en"
+
+
+def _starter(stage: Path, languages: list[str], notes: str) -> None:
+    """Стартовая тема и её демо из самого движка — с комментариями на языке `notes`.
+
+    Комментарии шаблонов и site.css, theme.yaml и комментарии SEO-блока
+    демо-страниц — на языке пояснений сайта, как у `heron new` (20 §5).
+    """
     from heron.scaffold import starter_theme
 
-    starter_theme(stage, languages)
+    starter_theme(stage, languages, notes)
 
 
 def _backup_dir(root: Path) -> Path:
@@ -345,19 +369,24 @@ def install(
     upload: Path | None = None,
     *,
     archive: Path | None = None,
+    notes: str | None = None,
 ) -> Installed:
     """Поставить тему в `theme/` сайта; прежнюю — в резервную копию.
 
     Источник `file`: `upload` (загрузка) и `archive` (доверенный путь из терминала)
     берутся как есть; `value` без них — только путь внутри сайта (E024 иначе).
+    `notes` — язык пояснений сайта для стартовой темы; не передан — как у
+    командной строки (`_site_notes`). Тема из архива ставится как есть: её
+    комментарии пишет автор темы.
     """
     root = Path(root)
     languages = languages or ["en"]
+    notes = notes or _site_notes(root)
     with tempfile.TemporaryDirectory(prefix="heron-theme-") as tmp:
         stage = Path(tmp)
         manifest: dict[str, Any] = {}
         if source in ("starter", "later") or (source == "name" and value in ("", STARTER)):
-            _starter(stage, languages)
+            _starter(stage, languages, notes)
         else:
             if source == "name":
                 if not NAME_RE.match(value):

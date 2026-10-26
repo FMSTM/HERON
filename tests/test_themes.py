@@ -4,6 +4,7 @@
 """
 
 import io
+import re
 import tarfile
 import zipfile
 from pathlib import Path
@@ -192,3 +193,142 @@ def test_theme_get_accepts_absolute_and_cwd_relative(site: Path, tmp_path: Path,
     monkeypatch.chdir(archive.parent)
     result = runner.invoke(main, ["theme", "get", "t.tar.gz", str(third)])
     assert result.exit_code == 0, result.output
+
+
+# --- стартовая тема на языке пояснений сайта (E15.S1.T10, W1, F07) -------------------
+
+CYRILLIC = re.compile(r"[А-Яа-яЁё]")
+DEMO = ("index.md", "blocks.md", "themes.md", "docs.md")
+
+
+def _files(folder: Path) -> dict[str, bytes]:
+    return {
+        p.relative_to(folder).as_posix(): p.read_bytes()
+        for p in sorted(folder.rglob("*"))
+        if p.is_file()
+    }
+
+
+def _new(here: Path, notes: str) -> Path:
+    """Сайт с одним языком en: язык пояснений от языка сайта не зависит."""
+    done = CliRunner().invoke(
+        main, ["new", "s", "--notes", notes, "--lang", "en", "-y"], catch_exceptions=False
+    )
+    assert done.exit_code == 0, done.output
+    return here / "s"
+
+
+@pytest.fixture
+def here(tmp_path: Path, monkeypatch) -> Path:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    return tmp_path
+
+
+def _comments(data: bytes) -> list[str]:
+    return [line for line in data.decode("utf-8").splitlines() if line.lstrip().startswith("#")]
+
+
+def _demo_pages(root: Path) -> dict[str, bytes]:
+    folder = root / "content" / "en"
+    return {name: (folder / name).read_bytes() for name in DEMO if (folder / name).is_file()}
+
+
+@pytest.mark.parametrize("notes", ["ru", "en"])
+def test_theme_get_starter_is_the_theme_of_new_in_the_site_language(here: Path, notes: str):
+    """theme get starter даёт ту же тему, что new: комментарии, site.css, theme.yaml, демо."""
+    root = _new(here, notes)
+    theme_before = _files(root / "theme")
+    demo_before = _demo_pages(root)
+    assert set(demo_before) == set(DEMO)
+    for name in demo_before:
+        (root / "content" / "en" / name).unlink()  # демо ляжет заново на пустые места
+    done = CliRunner().invoke(main, ["theme", "get", "starter", str(root)])
+    assert done.exit_code == 0, done.output
+    after = _files(root / "theme")
+    # записка heron-readme.md — от new, а не от темы; имя и заголовок в theme.yaml
+    # у new — от сайта, у starter — свои; всё остальное побайтно то же
+    theme_before.pop("heron-readme.md", None)
+    assert sorted(after) == sorted(theme_before)
+    for rel, data in after.items():
+        if rel == "theme.yaml":
+            assert data.split(b"\n")[3:] == theme_before[rel].split(b"\n")[3:]
+        else:
+            assert data == theme_before[rel], rel
+    # демо темы подписано именем HERON, демо new — именем сайта: сравниваются
+    # комментарии SEO-блока, в них язык пояснений
+    assert sorted(_demo_pages(root)) == sorted(demo_before)
+    for name, data in _demo_pages(root).items():
+        assert _comments(data) == _comments(demo_before[name]), name
+        assert _comments(data)
+
+
+def test_theme_get_starter_in_a_russian_site_speaks_russian(here: Path):
+    root = _new(here, "ru")
+    assert CliRunner().invoke(main, ["theme", "get", "starter", str(root)]).exit_code == 0
+    theme = root / "theme"
+    assert "# Что тема ждёт от site.yaml" in (theme / "theme.yaml").read_text(encoding="utf-8")
+    css = (theme / "assets" / "site.css").read_text(encoding="utf-8")
+    assert CYRILLIC.search(css.split("*/", 1)[0]), css[:200]  # первый комментарий site.css
+    base = (theme / "base.html").read_text(encoding="utf-8")
+    assert "{# светлая или тёмная" in base
+    assert "heron:note" not in "".join(
+        p.read_text(encoding="utf-8") for p in theme.rglob("*") if p.suffix in (".html", ".css")
+    )
+
+
+def test_theme_get_starter_in_an_english_site_has_no_cyrillic(here: Path):
+    root = _new(here, "en")
+    for name in DEMO:
+        (root / "content" / "en" / name).unlink(missing_ok=True)
+    assert CliRunner().invoke(main, ["theme", "get", "starter", str(root)]).exit_code == 0
+    for rel, data in _files(root / "theme").items():
+        assert not CYRILLIC.search(data.decode("utf-8")), rel
+    for name, data in _demo_pages(root).items():
+        assert not CYRILLIC.search(data.decode("utf-8")), name
+
+
+@pytest.mark.parametrize(
+    "args, env",
+    [
+        (["theme", "get", "starter", "s", "--notes", "ru"], {}),
+        (["theme", "--notes", "ru", "get", "starter", "s"], {}),
+        (["--notes", "ru", "theme", "get", "starter", "s"], {}),
+        (["theme", "get", "starter", "s"], {"HERON_NOTES": "ru"}),
+    ],
+    ids=["get-flag", "group-flag", "root-flag", "env"],
+)
+def test_flag_and_env_choose_the_starter_language(here: Path, args, env):
+    """--notes (у get, у группы theme или у heron) и HERON_NOTES главнее build.notes."""
+    root = _new(here, "en")
+    done = CliRunner().invoke(main, args, env=env)
+    assert done.exit_code == 0, done.output
+    text = (root / "theme" / "theme.yaml").read_text(encoding="utf-8")
+    assert "# Что тема ждёт от site.yaml" in text
+    assert "Тема" in done.output  # и сообщение на том же языке
+
+
+def test_flag_beats_a_russian_site(here: Path):
+    root = _new(here, "ru")
+    done = CliRunner().invoke(main, ["theme", "get", "starter", str(root), "--notes", "en"])
+    assert done.exit_code == 0, done.output
+    for rel, data in _files(root / "theme").items():
+        assert not CYRILLIC.search(data.decode("utf-8")), rel
+
+
+def test_install_takes_notes_or_reads_the_site(site: Path, monkeypatch):
+    """Без notes install берёт язык как командная строка: HERON_NOTES, build.notes, en."""
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+
+    def theme_yaml() -> str:
+        return (site / "theme" / "theme.yaml").read_text(encoding="utf-8")
+
+    install(site, "starter", languages=["en"], notes="ru")
+    assert "# Что тема ждёт от site.yaml" in theme_yaml()
+    install(site, "starter", languages=["en"])  # у site из create build.notes: en
+    assert "# What the theme expects from site.yaml" in theme_yaml()
+    monkeypatch.setenv("HERON_NOTES", "ru")
+    install(site, "starter", languages=["en"])
+    assert "# Что тема ждёт от site.yaml" in theme_yaml()
+    install(site, "starter", languages=["en"], notes="en")
+    assert "# What the theme expects from site.yaml" in theme_yaml()

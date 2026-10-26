@@ -112,7 +112,10 @@ def raw_config(root: Path) -> dict[str, Any]:
 
 
 def notes_lang(data: dict[str, Any], flag: str | None = None) -> str:
-    value = flag or str((data.get("build") or {}).get("notes") or "en")
+    """Язык пояснений по флагу или build.notes разобранного конфига, иначе en."""
+    block = data.get("build")
+    notes = block.get("notes") if isinstance(block, dict) else None
+    value = flag or str(notes or "en")
     return value if value in ("ru", "en") else "en"
 
 
@@ -219,7 +222,11 @@ def apply(
         raise Reason("no_site", name=SITE_YAML, root=root)
     result = Result()
     old = raw_config(root)
-    lang = notes_lang(old, lang)
+    # язык пояснений — как у командной строки: --notes, HERON_NOTES, build.notes,
+    # иначе en; на нём шапка site.yaml, стартовая тема и новые страницы
+    from heron.setup.reasons import run_lang
+
+    lang = run_lang(root, lang)
     new = ordered(merge(old, answers, _version_spec()))
     if answers.theme.source in ("starter", "name", "url", "file", "later") and not old:
         new["site"]["theme"] = new["site"].get("theme") or "main"
@@ -261,6 +268,7 @@ def apply(
             answers.theme.value,
             languages=new["site"]["languages"],
             upload=upload,
+            notes=lang,
         )
         new["site"]["theme"] = installed.name
         result.theme = installed.name

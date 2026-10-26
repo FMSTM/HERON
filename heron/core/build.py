@@ -18,6 +18,7 @@ from heron.contracts import version as version_contract
 from heron.contracts import wiring
 from heron.contracts.site import SiteConfig, load_site
 from heron.contracts.theme import ThemeConfig, load_theme
+from heron.core import check as templates_check
 from heron.core import data as data_module
 from heron.core import (
     dates,
@@ -504,6 +505,9 @@ def check(site_root: Path, drafts: bool = False, strict: bool = False) -> Result
         raise
 
     rooted(site_root, theme_dir)
+    # check шаблоны не рендерит; изменение данных, на котором песочница
+    # уронит сборку (E033), видно и по разбору шаблона — говорим заранее
+    templates_check.mutations(site_root, theme_dir, config, collector, hooks)
     site = content(site_root, config, theme, theme_dir, hooks, collector, drafts)
     _roots(site, config, collector, prod=False)
     media.folder(site_root, collector)

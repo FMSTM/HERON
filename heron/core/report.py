@@ -89,6 +89,11 @@ KIT_MANIFEST_LIMIT = 64 * 1024
 _ENGINE = re.compile(r"\d+(\.\d+){1,3}([.+-]?[0-9A-Za-z.+-]*)?\Z", re.ASCII)
 _LANGS = ("ru", "en")
 
+# Метки в данных отчёта, которые переводятся при печати: список без имени
+# (`uneven_keys`) и корень сайта (`notes_missing`).
+LIST = "список"
+ROOT = "корень"
+
 
 def kit_status(site_root: Path | None, config: SiteConfig) -> KitStatus:
     """Прочитать манифест комплекта мягко: любой сбой — одна строка-сведение.
@@ -152,11 +157,11 @@ class Report:
     # язык пояснений (build.notes): на нём печатается строка о комплекте
     notes_lang: str = "en"
 
-    def kit_line(self) -> str:
+    def kit_line(self, lang: str | None = None) -> str:
         """Одна строка-сведение о комплекте для агентов."""
         from heron.messages import say
 
-        lang = self.notes_lang
+        lang = lang or self.notes_lang
         kit = self.kit or KitStatus()
         if kit.disabled:
             return say(lang, "kit_disabled")
@@ -168,120 +173,141 @@ class Report:
             return say(lang, "kit_outdated", kit=kit.engine, engine=heron.__version__)
         return say(lang, "kit_found", engine=kit.engine, code=kit.lang or "?")
 
-    def render(self) -> str:
-        """Отчёт текстом — то, что печатается после сборки."""
+    def render(self, lang: str | None = None) -> str:
+        """Отчёт текстом — то, что печатается после сборки.
+
+        Язык — язык сообщений (`build.notes`, флаг `--notes` или
+        `HERON_NOTES` сильнее); не задан — язык пояснений сайта.
+        """
+        from heron.messages import say
+
+        lang = lang or self.notes_lang
         lines: list[str] = []
 
         by_lang = ", ".join(
-            f"{lang}: {count}" for lang, count in sorted(self.pages_by_lang.items())
+            f"{code}: {count}" for code, count in sorted(self.pages_by_lang.items())
         )
-        lines.append(f"Страниц — {sum(self.pages_by_lang.values())} ({by_lang})")
+        lines.append(
+            say(lang, "report_pages", count=sum(self.pages_by_lang.values()), by_lang=by_lang)
+        )
         by_type = ", ".join(
             f"{name}: {count}" for name, count in sorted(self.pages_by_type.items())
         )
-        lines.append(f"Типы — {by_type}")
+        lines.append(say(lang, "report_types", by_type=by_type))
 
         if self.untranslated:
             lines.append("")
-            lines.append("Не переведено:")
-            for lang, pages in sorted(self.untranslated.items()):
+            lines.append(say(lang, "report_untranslated"))
+            for code, pages in sorted(self.untranslated.items()):
                 shown = ", ".join(pages[:5]) + (" …" if len(pages) > 5 else "")
-                lines.append(f"  {lang} — {len(pages)}: {shown}")
+                lines.append(f"  {code} — {len(pages)}: {shown}")
 
         if self.missing_sections:
             lines.append("")
-            lines.append("Тема ждёт секцию, а в файле её нет:")
+            lines.append(say(lang, "report_missing"))
             for section, pages in sorted(self.missing_sections.items()):
                 shown = ", ".join(pages[:5]) + (" …" if len(pages) > 5 else "")
-                lines.append(f"  {section:12} — {len(pages)} страниц: {shown}")
+                lines.append(
+                    say(lang, "report_missing_line", section=section, count=len(pages), shown=shown)
+                )
 
         if self.format_mismatch:
             lines.append("")
-            lines.append("Формат секции не тот, которого ждёт тема (это не ошибка):")
+            lines.append(say(lang, "report_format"))
             for source, section, want, got in self.format_mismatch[:20]:
-                lines.append(f"  {source}: {section} — ждали {want}, пришло {got}")
-            lines.append(
-                "  как исправить: если по смыслу это форма из «ждали» — задайте её "
-                "классом в якоре секции: `## Заголовок {#якорь .checklist}`; если права "
-                "разметка — поменяйте форму в `uses` типа в theme.yaml: `якорь:форма`"
-            )
+                lines.append(
+                    say(
+                        lang,
+                        "report_format_line",
+                        source=source,
+                        section=section,
+                        want=want,
+                        got=got,
+                    )
+                )
+            lines.append(say(lang, "report_format_fix"))
 
         if self.nameless_in_nav:
             lines.append("")
-            lines.append("В меню, но без короткого имени — покажется имя файла:")
+            lines.append(say(lang, "report_nameless"))
             for source in self.nameless_in_nav[:20]:
                 lines.append(f"  {source}")
 
         if self.unused_sections:
             lines.append("")
-            lines.append("Секции, которых тема не использует (опечатка в якоре?):")
+            lines.append(say(lang, "report_unused_sections"))
             for source, section in self.unused_sections[:20]:
                 lines.append(f"  {source}: {section}")
 
         if self.unused_modules:
             lines.append("")
-            lines.append(
-                "Модули темы, которые не зовёт ни один шаблон: " + ", ".join(self.unused_modules)
-            )
+            lines.append(say(lang, "report_unused_modules", names=", ".join(self.unused_modules)))
 
         if self.broken_links:
             lines.append("")
-            lines.append("Ссылки в никуда:")
+            lines.append(say(lang, "report_broken"))
             for source, line, href in self.broken_links[:20]:
                 lines.append(f"  {source}:{line} -> {href}")
 
         if self.orphans:
             lines.append("")
-            lines.append("На эти страницы никто не ссылается: " + ", ".join(self.orphans[:10]))
+            lines.append(say(lang, "report_orphans", urls=", ".join(self.orphans[:10])))
 
         if self.schema_nodes:
             by_kind = ", ".join(
                 f"{kind}: {count}" for kind, count in sorted(self.schema_nodes.items())
             )
             lines.append("")
-            lines.append(f"Разметка schema.org — {by_kind}")
+            lines.append(say(lang, "report_schema", by_kind=by_kind))
 
         if self.unused_media:
             lines.append("")
-            lines.append(f"Файлы в media, которых никто не ждёт — {len(self.unused_media)}:")
+            lines.append(say(lang, "report_unused_media", count=len(self.unused_media)))
             for path in self.unused_media[:20]:
                 lines.append(f"  {path}")
 
         if self.static_media:
             lines.append("")
-            lines.append("В static лежит контент — его место в media:")
+            lines.append(say(lang, "report_static_media"))
             for path in self.static_media[:20]:
                 lines.append(f"  {path}")
 
         if self.uneven_keys:
             lines.append("")
-            lines.append("Поле есть не у всех элементов списка (шаблон обязан это учесть):")
+            lines.append(say(lang, "report_uneven"))
             for owner, where, key, have, total in self.uneven_keys[:20]:
-                lines.append(f"  {owner}: {where} — {key} у {have} из {total}")
+                if where == LIST:
+                    where = say(lang, "report_list")
+                lines.append(
+                    say(
+                        lang,
+                        "report_uneven_line",
+                        owner=owner,
+                        where=where,
+                        field=key,
+                        have=have,
+                        total=total,
+                    )
+                )
 
         if self.nginx_test is not None:
             passed, output = self.nginx_test
             if passed:
-                lines.append("nginx -t на собранном конфиге: прошёл")
+                lines.append(say(lang, "report_nginx_ok"))
 
         if self.manual_dates:
             manual, total, mode = self.manual_dates
             lines.append("")
-            lines.append(
-                f"Ручная дата updated у {manual} из {total} страниц перекрывает "
-                f"updated_from: {mode} — у этих страниц дата из {mode} не берётся. "
-                "Где дата должна обновляться сама, уберите updated из фронтматтера."
-            )
+            lines.append(say(lang, "report_manual_dates", manual=manual, total=total, mode=mode))
 
         if self.notes_missing:
             lines.append("")
-            lines.append(
-                "Без пояснительной записки (это не ошибка): " + ", ".join(self.notes_missing)
-            )
+            folders = [say(lang, "report_root") if f == ROOT else f for f in self.notes_missing]
+            lines.append(say(lang, "report_notes_missing", folders=", ".join(folders)))
 
         if self.kit is not None:
             lines.append("")
-            lines.append(self.kit_line())
+            lines.append(self.kit_line(lang))
 
         return "\n".join(lines) + "\n"
 
@@ -409,7 +435,7 @@ def _uneven(owner: str, where: str, node) -> list[tuple[str, str, str, int, int]
     for item in items:
         counts.update(item.keys())
     return [
-        (owner, where or "список", str(key), have, len(items))
+        (owner, where or LIST, str(key), have, len(items))
         for key, have in sorted(counts.items())
         if have < len(items)
     ]
@@ -424,7 +450,7 @@ def _without_notes(site_root) -> list[str]:
     чтения спецификации.
     """
     folders = ["content", "media", "theme", "data", "static", "plugins"]
-    missing = [] if (site_root / notes.NOTE).is_file() else ["корень"]
+    missing = [] if (site_root / notes.NOTE).is_file() else [ROOT]
     for name in folders:
         folder = site_root / name
         if folder.is_dir() and not (folder / notes.NOTE).is_file():
@@ -494,17 +520,24 @@ ORDER = [
 EXAMPLES = 6
 
 
-def summary(collector: Collector, full: Path | None = None) -> str:
+def summary(collector: Collector, full: Path | None = None, lang: str = "en") -> str:
     """Короткая сводка ошибок и предупреждений.
 
     Предупреждения группируются по виду. Сто однотипных замечаний про
     переводы не должны прятать десяток важных про картинки, которых нет
     на диске: раньше сводка резалась на тридцатом по порядку появления,
     и важное просто не доходило до глаз.
+
+    Рамка сводки — на языке сообщений (`lang`); тексты самих замечаний
+    движок пока пишет по-русски (21 §10). Файл `full` — для разбора, в нём
+    виды как в коде.
     """
+    from heron.messages import kind as kind_label
+    from heron.messages import say
+
     lines: list[str] = []
     for error in collector.errors:
-        lines.append(str(error))
+        lines.append(_error_text(error, lang))
     if not collector.warnings:
         return "\n".join(lines)
 
@@ -513,12 +546,12 @@ def summary(collector: Collector, full: Path | None = None) -> str:
         groups.setdefault(getattr(warning, "kind", "прочее") or "прочее", []).append(warning)
 
     lines.append("")
-    lines.append(f"Предупреждений — {len(collector.warnings)}:")
+    lines.append(say(lang, "summary_warnings", count=len(collector.warnings)))
     for kind in [*ORDER, *sorted(set(groups) - set(ORDER))]:
         batch = groups.get(kind)
         if not batch:
             continue
-        lines.append(f"  {kind} — {len(batch)}:")
+        lines.append(f"  {kind_label(lang, kind)} — {len(batch)}:")
         for warning in batch[:EXAMPLES]:
             where = warning.path or ""
             if where and warning.line:
@@ -526,7 +559,7 @@ def summary(collector: Collector, full: Path | None = None) -> str:
             where = f"{where}: " if where else ""
             lines.append(f"    {where}{warning.message}")
         if len(batch) > EXAMPLES:
-            lines.append(f"    … и ещё {len(batch) - EXAMPLES}")
+            lines.append(say(lang, "summary_more", count=len(batch) - EXAMPLES))
 
     if full is not None:
         try:
@@ -540,7 +573,20 @@ def summary(collector: Collector, full: Path | None = None) -> str:
                 + "\n",
                 encoding="utf-8",
             )
-            lines.append(f"  полный список: {full}")
+            lines.append(say(lang, "summary_full", path=full))
         except OSError:
             pass
     return "\n".join(lines)
+
+
+def _error_text(error, lang: str) -> str:
+    """Ошибка одной строкой, как `str(HeronError)`, но рамка — на языке сообщений."""
+    from heron.messages import say
+
+    where = error.path or say(lang, "summary_unknown_file")
+    if error.line is not None:
+        where = f"{where}:{error.line}"
+    text = f"{error.code} {where}: {error.message}"
+    if error.hint:
+        text = f"{text}\n" + say(lang, "error_hint", hint=error.hint)
+    return text

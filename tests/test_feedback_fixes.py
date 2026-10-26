@@ -211,6 +211,6 @@ def test_manual_dates_over_git_are_one_line_in_the_report(site):
     )
     result = pipeline.run(site)
     assert result.report.manual_dates == (1, len(result.site.pages), "file")
-    assert "перекрывает updated_from: file" in result.report.render()
+    assert "перекрывает updated_from: file" in result.report.render("ru")
     # отчёт, а не предупреждение: --strict из-за этого не падает
     assert not [w for w in result.collector.warnings if "updated" in w.message]

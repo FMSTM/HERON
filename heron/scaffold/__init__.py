@@ -350,13 +350,32 @@ def seo_block(
     )
 
 
+# Ссылки демо-страниц на репозиторий движка: в исходнике ветка prod.
+_DEMO_BRANCH = re.compile(r"(https://github\.com/FMSTM/HERON/(?:blob|tree))/prod/")
+
+
+def _demo_links(text: str) -> str:
+    """Ветка prod в ссылках демо-страницы — на канал образа (`HERON_CHANNEL`, вне образа prod).
+
+    Как `docs_url` комплекта (`scaffold.agents.channel`): сайт из prod-образа ведёт
+    на prod, из beta-образа — на beta. В prod текст байт в байт как исходник.
+    """
+    from heron.scaffold.agents import channel
+
+    name = channel()
+    return text if name == "prod" else _DEMO_BRANCH.sub(lambda m: f"{m[1]}/{name}/", text)
+
+
 def _demo(root: Path, lang: str, name: str, plan: Plan, force: bool, notes: str) -> None:
-    """Демонстрационные страницы белой темы в язык `lang` и картинки к ним."""
+    """Демонстрационные страницы белой темы в язык `lang` и картинки к ним.
+
+    Ссылки на репозиторий движка ведут на ветку канала образа (`_demo_links`).
+    """
     source = lang if lang in DEMO_LANGS else "en"
     for page, order in zip(DEMO_PAGES, (0, 10, 20, 30), strict=True):
         title, h1, description, nav = (part.format(name=name) for part in DEMO_TITLES[source][page])
         head = seo_block(title, h1, description, order=order, notes=notes, nav_title=nav)
-        body = (DEMO / source / f"{page}.md").read_text(encoding="utf-8")
+        body = _demo_links((DEMO / source / f"{page}.md").read_text(encoding="utf-8"))
         _put(root, f"content/{lang}/{page}.md", head + "\n" + body, plan, force)
     for image in sorted(DEMO_MEDIA.glob("*")):
         rel = f"media/demo/{image.name}"

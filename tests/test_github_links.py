@@ -88,8 +88,8 @@ def test_github_links_point_to_existing_paths() -> None:
 def test_scan_sees_the_known_links() -> None:
     """Проверка не пустая: адреса из демо-страницы, анкеты и docs/ru найдены."""
     found = {(where, kind, branch, path) for where, _, kind, branch, path in _links(ROOT)}
-    assert ("heron/scaffold/demo/ru/docs.md", "tree", "beta", "docs/ru/guide") in found
-    assert ("heron/scaffold/demo/en/docs.md", "tree", "beta", "docs/ru/guide") in found
+    assert ("heron/scaffold/demo/ru/docs.md", "tree", "prod", "docs/ru/guide") in found
+    assert ("heron/scaffold/demo/en/docs.md", "tree", "prod", "docs/ru/guide") in found
     assert ("heron/setup/page.html", "blob", "beta", "docs/ru/guide/06-deploy.md") in found
     assert ("docs/ru/README.md", "blob", "prod", "AGENTS.md") in found
     assert ("docs/ru/guide/06-deploy.md", "blob", "prod", "env/.env.example") in found
@@ -134,6 +134,33 @@ def test_broken_link_is_reported(tmp_path: Path, text: str, reason: str) -> None
 )
 def test_good_link_and_templates_pass(tmp_path: Path, text: str) -> None:
     assert _broken(_tree(tmp_path, text + "\n")) == []
+
+
+@pytest.mark.parametrize("channel", [None, "beta", "prod"])
+def test_demo_site_links_follow_the_channel(tmp_path: Path, monkeypatch, channel) -> None:
+    """Демо-страница нового сайта ведёт на ветку канала образа, и путь есть в дереве."""
+    from heron.scaffold import create
+
+    if channel is None:
+        monkeypatch.delenv("HERON_CHANNEL", raising=False)
+    else:
+        monkeypatch.setenv("HERON_CHANNEL", channel)
+    want = channel or "prod"
+    root = tmp_path / "s"
+    root.mkdir()
+    create(root, name="S", languages=["ru", "en"], demo=True, agents="false")
+    found = []
+    for lang in ("ru", "en"):
+        text = (root / "content" / lang / "docs.md").read_text(encoding="utf-8")
+        found += [(lang, m["kind"], m["branch"], m["path"]) for m in URL.finditer(text)]
+    assert {(lang, kind, path) for lang, kind, _, path in found} == {
+        (lang, kind, path)
+        for lang in ("ru", "en")
+        for kind, path in (("tree", "docs/ru/guide"), ("blob", "AGENTS.md"))
+    }
+    for lang, kind, branch, path in found:
+        assert branch == want, (lang, kind, branch, path)
+        assert (ROOT / path).exists(), path
 
 
 def test_e033_hint_names_existing_spec() -> None:

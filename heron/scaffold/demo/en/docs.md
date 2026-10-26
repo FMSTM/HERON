@@ -48,8 +48,8 @@ docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD":/site -w /site --user $(id 
 
 ## Where to read {#where}
 
-- **In the repository.** [The guides in order](https://github.com/FMSTM/HERON/tree/beta/docs/ru/guide): concepts, first site, pages, theme, search, publishing.
-- **For AI agents.** [AGENTS.md](https://github.com/FMSTM/HERON/blob/beta/AGENTS.md): roles, rules and the map of the documentation.
+- **In the repository.** [The guides in order](https://github.com/FMSTM/HERON/tree/prod/docs/ru/guide): concepts, first site, pages, theme, search, publishing.
+- **For AI agents.** [AGENTS.md](https://github.com/FMSTM/HERON/blob/prod/AGENTS.md): roles, rules and the map of the documentation.
 - **In the terminal.** Offline, the same version as the engine:
 
   ```bash

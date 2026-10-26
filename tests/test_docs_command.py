@@ -61,8 +61,17 @@ def test_every_document_is_reachable(lang):
 
 
 def test_files_lists_the_whole_tree():
+    """Всё дерево docs/{ru,en}/, кроме файлов вне комплекта (глоссарий переводчика)."""
     expected = {rel for rel in repo_docs() if rel.startswith(("docs/ru/", "docs/en/"))}
-    assert set(docs.files("ru")) | set(docs.files("en")) == expected
+    outside = {f"docs/{lang}/{rel}" for lang in docs.LANGS for rel in docs.NOT_IN_KIT}
+    assert set(docs.files("ru")) | set(docs.files("en")) == expected - outside
+    assert (ROOT / "docs" / "en" / "GLOSSARY.md").is_file() or not HAS_EN
+
+
+def test_glossary_stays_out_of_the_kit():
+    """GLOSSARY.md — инструмент перевода (23 §10): не тема, не файл agents/ (20 §1)."""
+    for lang in docs.LANGS:
+        assert not set(docs.tree(lang)) & docs.NOT_IN_KIT, lang
 
 
 @pytest.mark.parametrize("lang", docs.LANGS)
@@ -218,7 +227,8 @@ def test_schemas_topic_names_every_file(lang):
 @pytest.mark.parametrize("lang", docs.LANGS)
 def test_search_shows_file_line_and_context(lang):
     found = "\n".join(docs.search("page.meta.get", lang))
-    path = "docs/en/guide/04-theme.md" if HAS_EN and lang == "en" else "docs/ru/guide/04-theme.md"
+    # файл того языка, что отдаёт дерево: гайд без перевода — фолбэком (по файлу)
+    path = f"docs/{docs.tree(lang)['guide/04-theme.md']}/guide/04-theme.md"
     assert re.search(rf"theme · {re.escape(path)}:\d+", found)
     assert "  > " in found
 

@@ -49,10 +49,9 @@ packages = ["heron"]
 "Dockerfile.site" = "heron/_recipe/Dockerfile.site"
 "README.md" = "heron/_docs/README.md"
 "docs/ru" = "heron/_docs/docs/ru"
-# "docs/en" = "heron/_docs/docs/en" — строка добавляется вместе с папкой docs/en:
-# hatchling падает на отсутствующем источнике force-include, а перевода пока нет.
-# Забыть нельзя: tests/test_packaging.py и test_docs_command.py требуют, чтобы
-# каждый файл docs/<язык>/** был покрыт force-include.
+# tests/test_packaging.py и test_docs_command.py требуют, чтобы каждый файл
+# docs/<язык>/** был покрыт force-include.
+"docs/en" = "heron/_docs/docs/en"
 "docs/translation.yaml" = "heron/_docs/docs/translation.yaml"
 # навыки: `heron docs skills` перечисляет их из пакета
 "skills" = "heron/_docs/skills"

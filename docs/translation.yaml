@@ -4,10 +4,10 @@
 files:
   - path: README.md
     ru_sha256: "1b5acc92074b4eb22005a8b32151a125ea04f1b870f89acf5416f51c4444920b"
-    en_status: missing
+    en_status: current
   - path: architecture.md
     ru_sha256: "6e0af9b4613139a2d31066f3149549854657514ad4e33a04d8699257cccdc38b"
-    en_status: missing
+    en_status: current
   - path: guide/01-concepts.md
     ru_sha256: "ffb34bf58b634092d7b439de7712534d6ffd8d460e265e7d3af7805c5f4eca33"
     en_status: missing
@@ -55,19 +55,19 @@ files:
     en_status: missing
   - path: templates/page.md
     ru_sha256: "2b0443157c409457a2625775e89bd72a4345f2ac5b85d4dda7e140ddc82fcd39"
-    en_status: missing
+    en_status: current
   - path: templates/questions.md
     ru_sha256: "16aba6600932ddff322ac9d4051c82734d8ac6670b5d8c608b74a51ad24367bb"
-    en_status: missing
+    en_status: current
   - path: templates/report.md
     ru_sha256: "d963047fcc3f11952ce4711fae8f85d98284ec7418241d39f42e07af743ac3b1"
-    en_status: missing
+    en_status: current
   - path: templates/site.yaml
     ru_sha256: "f57fb9e1662126feb00b6be2303a260a0cb07a98d4344415fd54334cc1ae3f47"
-    en_status: missing
+    en_status: current
   - path: templates/structure.md
     ru_sha256: "6099ae919a9e4dd098a56f6fffaf1b535237f5b9cf454d10a05b7657c1cb8f29"
-    en_status: missing
+    en_status: current
   - path: templates/theme.yaml
     ru_sha256: "0efabd8d3f9c52fba3d7224d6af34616977fa1905a877f41995b9d5bb8e816ef"
-    en_status: missing
+    en_status: current

@@ -1,0 +1,50 @@
+# Sample theme.yaml. Reference - ../spec/20-data-contract.md (in the engine repository docs/<lang>/spec/), section 6.
+# Section forms after the colon come from the table in 20 §4.4:
+# prose list alert-list checklist two-lists steps table facts faq timeline callout gallery
+
+name: main
+version: "1.0"
+title: Site theme
+heron: ">=0.1"                 # engine version the theme is made for
+
+requires:                      # site.yaml paths the theme does not work without
+  - site.name
+fields: [nav_title]            # frontmatter fields the templates refer to
+
+modules: [breadcrumbs, prose, list, alert-list, steps, faq, facts, checklist, cards]
+
+types:                         # page type → sections and markup; template templates/<type>.html
+  home:
+    uses: [intro, "why:list", "how:steps", "faq:faq"]
+    jsonld: [WebSite]
+  category:
+    uses: [intro]
+    jsonld: [CollectionPage]
+  service:
+    uses: [intro, "includes:list", "when:alert-list", "how:steps", "documents:checklist", "faq:faq"]
+    jsonld: [Service]
+  article:
+    uses: [intro, "short:callout", "*", "faq:faq"]   # "*" - any sections
+    jsonld: [Article]
+  page:
+    uses: [intro, "*"]
+  "404":
+    uses: [intro]
+
+links:                         # relation fields in the frontmatter
+  - field: related             # service → services
+    type: service
+    back: related_from         # reverse list on the target
+  - field: services            # article → services
+    type: service
+    back: articles
+    on: article                # the field is expected on articles
+    required: 1                # fewer - a warning
+
+images:
+  widths: [400, 800, 1200, 1600]
+  ratios: ["1:1", "16:9", "4:3"]
+  formats: [avif, webp]
+  crop: []                     # paths to crop even if they have transparency
+  as_is: []                    # paths to copy without cutting: scans, documents
+  fallback_width: 800          # fallback PNG/JPEG for <img src> - one width

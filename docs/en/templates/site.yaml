@@ -1,0 +1,83 @@
+# Sample site.yaml with every core key. Reference - ../spec/20-data-contract.md (in the engine repository docs/<lang>/spec/), section 5.
+# The values below are examples. What the site does not have is deleted or left empty:
+# an invented phone number is worse than a missing one.
+
+heron: ">=0.1,<0.2"            # engine version the site requires. Required, the first line
+
+site:
+  domain: example.com          # no scheme, no slashes
+  # domains:                   # a domain per environment: a preview build links to itself
+  #   dev: dev.example.com
+  theme: main                  # theme name; the local folder theme/ wins over the package
+  default_lang: en             # served from the root: content/en/about.md → /about/
+  languages: [en, ru]          # one to N; the others go under /<lang>/: /ru/o-nas/
+  name: Daybreak               # site name
+  name_ru: Рассвет             # the same in the ru language; without it - name
+
+seo:
+  title_suffix: " — Daybreak"  # the theme appends it to <title>
+  title_suffix_ru: " — Рассвет"
+  og_default_image: media/og/default.png        # default image for social networks
+  og_default_image_ru: media/og/default-ru.png  # a separate one for ru, if needed
+  twitter_card: summary_large_image
+  llms_txt: true               # full texts for AI models: llms-full*.txt
+  llms_note:                   # facts about the site for llms*.txt, verbatim, by language
+    en: |
+      ### How to reach us
+
+      Phone and opening hours are on the contacts page.
+    ru: |
+      ### Как связаться
+
+      Телефон и часы работы — на странице контактов.
+  robots_extra: []             # extra lines of robots.txt
+  allow_prices: false          # true - prices in schema.org markup are allowed
+  # feed: article              # page type for the Atom feed; no key - no feed
+  feed_limit: 20
+
+nav:
+  main: ["/", about, services, contacts]   # page keys: file path without .md, the home page is "/"
+                                           # on Russian pages about becomes /ru/o-nas/ by itself
+  # footer: [privacy]                      # group names are up to the theme
+
+analytics:                     # production build only; the starter theme renders ga4 and gtm
+  ga4:
+  gtm:
+  # metrika:                   # the core accepts it, the starter theme does not render it
+
+build:
+  notes: en                    # language of hints and of the agents/ kit: ru or en. Without the key - en,
+                               # and `heron init --agents` moves the kit to English
+  agents: true                 # agent kit: true - full, kit - without guide/ and spec/, false - none
+  fail_on_warning: false       # true - same as --strict
+  allow_raw_html: false        # raw HTML in markdown
+  updated_from: git            # manual | git | file - where the update date comes from
+  workers: 0                   # processes for cutting images; 0 - one per core
+
+plugins: []
+
+gone:                          # 410: exact addresses, prefixes, an address with a parameter
+  - /sample-page/
+  - /wp-*
+  - /?p=*
+
+# The core does not parse the blocks below: the theme and schema substitutions use them.
+# A language variant of a value takes the same suffix: address_ru.
+contact:
+  phone: ""
+  address: ""
+  address_ru: ""
+  city: ""
+  geo: []                      # [latitude, longitude]
+
+organization:
+  name: ""
+  same_as: []
+
+schema:
+  entity:                      # site-wide node, on every indexable page
+    "@id": "#org"
+    "@type": Organization
+    name: "{{ organization.name }}"
+    telephone: "{{ contact.phone }}"
+    url: "{{ site.base }}"

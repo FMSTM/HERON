@@ -6,7 +6,8 @@ README комплекта и корневой AGENTS.md называют все 
 агент-нейтральны, а сайт, собранный по шаблонам, собирается в прод без ошибок.
 
 Спецификация: docs/ru/spec/23-distribution.md §4, §12; 20 §1; 21 §10.
-docs/en/ может ещё отсутствовать: проверки идут по языкам, чья папка есть.
+docs/en/ может ещё отсутствовать: проверки идут по языкам, чья папка есть;
+файл с `en_status: missing` в docs/translation.yaml — ещё не переведён (23 §10).
 """
 
 from __future__ import annotations
@@ -152,13 +153,34 @@ def _links(text: str) -> list[str]:
     return out
 
 
+def _missing_translations() -> set[str]:
+    """Пути внутри docs/<язык>/ с `en_status: missing` в docs/translation.yaml (23 §10)."""
+    data = yaml.safe_load((ROOT / "docs" / "translation.yaml").read_text(encoding="utf-8"))
+    return {e["path"] for e in data["files"] if e.get("en_status") == "missing"}
+
+
+MISSING = _missing_translations()
+
+
 def _untranslated(target: Path) -> bool:
-    """Ссылка в дерево языка, перевода на который ещё нет (docs/en до перевода)."""
+    """Цель в дереве языка, перевода на который ещё нет.
+
+    Либо нет всей папки языка (docs/en до перевода), либо нет одного файла:
+    запись `en_status: missing`, а русский файл на месте. Такой файл комплект
+    получает фолбэком по файлу (21 §10), поэтому в agents/ сайта ссылка жива;
+    в дереве docs/en/ она оживает с переводом. Опечатка в пути сюда не попадает:
+    русского файла с таким путём нет.
+    """
     try:
         rel = target.resolve().relative_to(ROOT / "docs")
     except ValueError:
         return False
-    return rel.parts[0] in docs.LANGS and rel.parts[0] not in LANGS
+    if not rel.parts or rel.parts[0] not in docs.LANGS:
+        return False
+    if rel.parts[0] not in LANGS:
+        return True
+    inner = Path(*rel.parts[1:]).as_posix()
+    return rel.parts[0] != "ru" and inner in MISSING and (ROOT / "docs" / "ru" / inner).is_file()
 
 
 def test_links_between_agent_docs_resolve():
@@ -327,12 +349,13 @@ def test_agents_prompt_names_every_role_document(lang):
     base = ROOT / "docs" / lang
     text = (base / "README.md").read_text(encoding="utf-8")
     links = set(_links(text))
+    roles = {f"{r}.md" for r in (*ROLES, "capabilities")}
+    # ещё не переведённая роль (en_status: missing) приходит в комплект фолбэком
+    awaiting = {name for name in roles if _untranslated(base / "roles" / name)}
     for role in (*ROLES, "capabilities"):
         assert f"roles/{role}.md" in links, role
-        assert (base / "roles" / f"{role}.md").is_file(), role
-    assert {p.name for p in (base / "roles").glob("*.md")} == {
-        f"{r}.md" for r in (*ROLES, "capabilities")
-    }
+        assert (base / "roles" / f"{role}.md").is_file() or f"{role}.md" in awaiting, role
+    assert {p.name for p in (base / "roles").glob("*.md")} == roles - awaiting
     for name in TEMPLATE_FILES:
         assert f"`{name}`" in text, name
         assert (base / "templates" / name).is_file(), name

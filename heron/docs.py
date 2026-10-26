@@ -218,6 +218,10 @@ TOPICS: tuple[Topic, ...] = (
 
 TEMPLATES = "docs/{lang}/templates"
 
+# Файлы docs/<язык>/ вне комплекта: глоссарий — инструмент перевода (23 §10),
+# а не текст для агента сайта; в agents/ (20 §1), темы и выгрузку он не идёт.
+NOT_IN_KIT = frozenset({"GLOSSARY.md"})
+
 # Группы оглавления по порядку; заголовки — ключи messages.py docs_group_<группа>.
 GROUPS = ("start", "roles", "guide", "spec", "machine")
 
@@ -331,14 +335,15 @@ def translation() -> dict[str, str]:
 
 
 def _tree_files(lang: str) -> list[str]:
-    """Пути внутри docs/<lang>/ (без префикса), только файлы, без скрытых."""
+    """Пути внутри docs/<lang>/ (без префикса), только файлы, без скрытых и NOT_IN_KIT."""
     base = root() / "docs" / lang
     if not base.is_dir():
         return []
     out = []
     for path in base.rglob("*"):
         rel = path.relative_to(base)
-        if path.is_file() and not any(part.startswith(".") for part in rel.parts):
+        hidden = any(part.startswith(".") for part in rel.parts)
+        if path.is_file() and not hidden and rel.as_posix() not in NOT_IN_KIT:
             out.append(rel.as_posix())
     return sorted(out)
 

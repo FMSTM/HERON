@@ -6,11 +6,13 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 import pytest
 import yaml
 from click.testing import CliRunner
 
+from heron import scaffold
 from heron.cli import main
 from heron.core import build as pipeline
 from heron.scaffold import adopt, create
@@ -112,3 +114,33 @@ def test_english_cli_messages(tmp_path, monkeypatch):
     result = CliRunner().invoke(main, ["new", "site"])
     assert "Site created: site" in result.output
     assert not CYRILLIC.search(result.output)
+
+
+# --- демо-страница: ветка канала образа (E13.S1.T22) -------------------------------
+
+DEMO_SOURCE = Path(scaffold.__file__).parent / "demo"
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_demo_page_points_at_the_channel_branch(tmp_path, monkeypatch, lang):
+    """Из beta-образа демо-страница ведёт на beta, вне образа и из prod — на prod."""
+    source = (DEMO_SOURCE / lang / "docs.md").read_text(encoding="utf-8")
+    assert "/HERON/tree/prod/docs/ru/guide" in source and "/beta/" not in source
+    for channel, want in ((None, "prod"), ("  ", "prod"), ("prod", "prod"), ("beta", "beta")):
+        if channel is None:
+            monkeypatch.delenv("HERON_CHANNEL", raising=False)
+        else:
+            monkeypatch.setenv("HERON_CHANNEL", channel)
+        root = tmp_path / f"s-{want}-{len(channel or '')}"
+        root.mkdir()
+        create(root, name="S", languages=[lang], demo=True, agents="false")
+        page = (root / "content" / lang / "docs.md").read_text(encoding="utf-8")
+        body = page.split("\n---\n", 1)[1].removeprefix("\n")
+        other = "beta" if want == "prod" else "prod"
+        assert f"https://github.com/FMSTM/HERON/tree/{want}/docs/ru/guide" in body
+        assert f"https://github.com/FMSTM/HERON/blob/{want}/AGENTS.md" in body
+        assert f"/HERON/tree/{other}/" not in body and f"/HERON/blob/{other}/" not in body
+        if want == "prod":
+            assert body == source  # в prod — байт в байт как исходник
+        else:
+            assert body == source.replace("/prod/", f"/{want}/")

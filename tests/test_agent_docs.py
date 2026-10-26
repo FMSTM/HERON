@@ -195,6 +195,37 @@ def test_links_between_agent_docs_resolve():
     assert checked > 50
 
 
+# Явный якорь заголовка (23 §10): `<a id="…"></a>` в конце строки. `{#…}` — синтаксис
+# секций страниц сайта; GitHub его не понимает, поэтому в документации — `<a id>`.
+_EXPLICIT = re.compile(r'^#{1,6} .*<a id="([^"]+)"></a>\s*$', re.M)
+
+
+def _explicit_anchors(path: Path) -> set[str]:
+    text = re.sub(r"```.*?```", "", path.read_text(encoding="utf-8"), flags=re.S)
+    return set(_EXPLICIT.findall(text))
+
+
+def test_links_between_files_lead_to_explicit_anchors():
+    """Ссылка `файл.md#якорь` ведёт на явный якорь заголовка: перевод заголовка её не ломает."""
+    bad, checked = [], 0
+    for doc in _docs_to_check():
+        text = re.sub(r"```.*?```", "", doc.read_text(encoding="utf-8"), flags=re.S)
+        text = re.sub(r"`[^`\n]*`", "", text)
+        for path, anchor in re.findall(r"\]\(([^)\s#:]+)#([^)\s]+)\)", text):
+            if path.startswith("/"):
+                continue  # адрес страницы сайта в примере, не файл
+            target = (doc.parent / path).resolve()
+            if not target.is_file() and _untranslated(target):
+                # комплект получит русский файл фолбэком — якорь должен быть в нём
+                inner = target.relative_to(ROOT / "docs").parts[1:]
+                target = ROOT / "docs" / "ru" / Path(*inner)
+            checked += 1
+            if anchor not in _explicit_anchors(target):
+                bad.append(f"{doc.relative_to(ROOT)}: {path}#{anchor}")
+    assert not bad, "\n".join(bad)
+    assert checked > 30
+
+
 # --- сборка по образцам ----------------------------------------------------------
 
 

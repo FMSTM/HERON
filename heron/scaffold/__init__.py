@@ -207,12 +207,30 @@ def resolve_notes(flag: str | None = None, site_yaml: Path | None = None) -> str
 
     value = flag or os.environ.get(ENV_NOTES, "").strip() or None
     if value is None and site_yaml is not None:
+        # Конфиг не разобрался — а ошибку о нём человек должен прочесть на своём
+        # языке целиком, рамку и подробность (F05): тогда язык ищется простой
+        # строкой `notes: ru|en` в тексте файла.
         declared = _declared(site_yaml)
-        value = (declared or {}).get("notes")
+        value = declared.get("notes") if declared is not None else notes_in_text(site_yaml)
     value = (value or "en").lower()
     if value not in NOTE_LANGS:
         raise ValueError(message("en", "bad_notes", value=value))
     return value
+
+
+# `notes: ru` в начале строки (с отступом, в кавычках или без, с комментарием
+# после); закомментированная строка `# notes: ru` не считается.
+NOTES_LINE = re.compile(r"""^[ \t]*notes:[ \t]*["']?(ru|en)["']?[ \t]*(?:#.*)?$""", re.M | re.I)
+
+
+def notes_in_text(site_yaml: Path) -> str | None:
+    """Язык пояснений из сырого текста site.yaml, который не разбирается как YAML."""
+    try:
+        text = site_yaml.read_text(encoding="utf-8", errors="replace")
+    except (OSError, ValueError):
+        return None
+    found = NOTES_LINE.search(text)
+    return found.group(1).lower() if found else None
 
 
 def _text(lang: str, name: str) -> str:

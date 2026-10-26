@@ -76,7 +76,7 @@ Terms of the HERON documentation and their English equivalents. The source is `d
 | тест паритета | parity test | `architecture.md` |
 | резолв | resolve | `architecture.md` |
 | генераторы | generators | `architecture.md` |
-| сведение (в отчёте `check`) | info line | `roles/builder.md` |
+| сведение (в отчёте `check`) | info line | `spec/21-engine.md` |
 | раздел (папка с `_index.md`) | section (a folder with `_index.md`) | `roles/architect.md` |
 | раздел (документа) | section | `README.md` |
 | каталог | catalog | `roles/architect.md` |
@@ -105,4 +105,5 @@ Terms of the HERON documentation and their English equivalents. The source is `d
 | задача на движок | engine task | `templates/structure.md` |
 | ДЫРА (метка в структуре) | GAP | `templates/structure.md` |
 | граница публикации | publication boundary | `roles/builder.md` |
+| группы предупреждений (`картинки`, `связи`, …) | as the engine prints them in English: `images`, `relations`, `links`, `menu`, `translations`, `languages`, `content`, `other` | `roles/builder.md` |
 | перевод | translation | `README.md` |

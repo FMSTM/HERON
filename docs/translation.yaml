@@ -28,19 +28,19 @@ files:
     en_status: missing
   - path: roles/architect.md
     ru_sha256: "c2118c8ad6d40ee65b95dcab7cad5bb4a09f9ac0101666e9023ca33ca7ad0486"
-    en_status: missing
+    en_status: current
   - path: roles/builder.md
     ru_sha256: "c35fe23c0d77fd44c73f47d481e03aff03c8710a03fbf626a028ea3faccdfd00"
-    en_status: missing
+    en_status: current
   - path: roles/capabilities.md
     ru_sha256: "789648ec0ede903dc36fe1a24b4d312860844845842c47390f13c216385c1e3b"
-    en_status: missing
+    en_status: current
   - path: roles/content.md
     ru_sha256: "af770d3a9debc77bc3e986932ad9fd389e74bb35e2585a41ba64a0f9dddd3257"
-    en_status: missing
+    en_status: current
   - path: roles/designer.md
     ru_sha256: "e403787947ddd668a865b460e0715430749107d5472fb7aaf7068fdb37b74217"
-    en_status: missing
+    en_status: current
   - path: spec/20-data-contract.md
     ru_sha256: "3b00752dc769943b604aae4515a49768a9355fe67ccfe098060d5bbca3f0bee7"
     en_status: missing

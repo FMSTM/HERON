@@ -158,29 +158,37 @@ jobs:
         if: inputs.export_docs
         # Тот же образ движка и те же ограничения, что у сборки: без сети, корень
         # только на чтение, без capabilities, чужой uid. На запись монтируется
-        # только папка сайта в рабочей копии: файлы ложатся в static/ и дальше
+        # только static/ папки сайта, а не вся рабочая копия: при path "." это был бы
+        # корень checkout вместе с .git и .heron/ (рецепт и smoke). Файлы дальше
         # попадают в dist/ обычной сборкой. Набор команд фиксирован.
         env:
           SITE_PATH: ${{ steps.names.outputs.path }}
           ENGINE: ${{ steps.names.outputs.engine }}
         run: |
           site="$PWD/$SITE_PATH"
+          static="$site/static"
           [ -d "$site" ] || { echo "::error::path: нет папки $SITE_PATH"; exit 1; }
+          # ссылка вместо static/ или static/AGENTS.md увела бы запись за пределы
+          # папки сайта: монтирование и перенаправление оболочки идут по ссылкам
+          [ ! -L "$static" ] || { echo "::error::static/ — символическая ссылка"; exit 1; }
+          mkdir -p "$static"
+          [ ! -L "$static/AGENTS.md" ] \
+            || { echo "::error::static/AGENTS.md — символическая ссылка"; exit 1; }
           engine() {
             docker run --rm --network=none --read-only --tmpfs /tmp \
               --cap-drop=ALL --security-opt=no-new-privileges \
               --user "$(id -u):$(id -g)" \
-              -v "$site":/site -w /site \
+              -v "$static":/out -w /out \
               "ghcr.io/fmstm/heron:$ENGINE" "$@"
           }
           # «heron, version 0.1.0 (beta, …)» → 0.1: схемы лежат по major.minor
           version="$(engine --version | sed -nE '1s/^heron, version ([0-9]+\.[0-9]+)\.[0-9].*$/\1/p')"
           [[ "$version" =~ ^[0-9]+\.[0-9]+$ ]] \
             || { echo "::error::не удалось прочитать версию движка"; exit 1; }
-          engine docs --export static/agents --all-langs
-          engine schema --export "static/schema/$version"
+          engine docs --export /out/agents --all-langs
+          engine schema --export "/out/schema/$version"
           # тема agents — AGENTS.md репозитория движка этой версии, байт в байт
-          engine docs agents > "$site/static/AGENTS.md"
+          engine docs agents > "$static/AGENTS.md"
           for f in agents/ru/README.md agents/en/README.md \
                    "schema/$version/site.schema.json" AGENTS.md; do
             [ -s "$site/static/$f" ] || { echo "::error::нет static/$f"; exit 1; }

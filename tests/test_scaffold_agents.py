@@ -163,6 +163,92 @@ def test_level_kit_leaves_out_guides_and_specs(tmp_path):
         agents.kit_files("ru", "yes")
 
 
+GITHUB_LINK = re.compile(r"\]\((https://github\.com/FMSTM/HERON/blob/[^)\s]+)\)")
+
+
+def _github_links(text: str) -> list[str]:
+    return GITHUB_LINK.findall(text)
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_level_kit_has_no_dead_links_to_guides_and_specs(tmp_path, lang):
+    """Сокращённый комплект: ссылки на guide/ и spec/ — абсолютные, на ветку канала (23 §12)."""
+    root = tmp_path / "site"
+    put(root, lang, level="kit")
+    checked = 0
+    absolute: list[str] = []
+    for path in [root / "AGENTS.md", *(root / "agents").rglob("*.md")]:
+        text = path.read_text(encoding="utf-8")
+        for link in md_links(text):
+            assert (path.parent / link).exists(), f"{path.relative_to(root)} → {link}"
+            checked += 1
+        absolute += _github_links(text)
+    assert checked > 20
+    # ссылки, что в полном комплекте шли в guide/ и spec/, — все стали абсолютными
+    full = tmp_path / "full"
+    put(full, lang)
+    dead = 0
+    for path in [full / "AGENTS.md", *(full / "agents").rglob("*.md")]:
+        if path.relative_to(full).as_posix().startswith(("agents/guide/", "agents/spec/")):
+            continue
+        for link in md_links(path.read_text(encoding="utf-8")):
+            where = (path.parent / link).resolve()
+            if where.is_relative_to((full / "agents").resolve()):
+                inner = where.relative_to((full / "agents").resolve()).as_posix()
+                dead += inner.startswith(("guide/", "spec/"))
+    moved = [url for url in absolute if "/docs/" in url and ("/guide/" in url or "/spec/" in url)]
+    assert dead >= 10 and len(moved) == dead
+    prefix = "https://github.com/FMSTM/HERON/blob/prod/docs/"
+    for url in moved:
+        assert url.startswith(prefix), url
+        rel = url.removeprefix(prefix).split("#", 1)[0]
+        assert (docs.root() / "docs" / rel).is_file(), url  # файл есть в репозитории движка
+    # якорь сохраняется, язык — того файла, что лёг бы в полный комплект
+    have = docs.tree(lang)["guide/05-seo.md"]
+    content = (root / "agents/roles/content.md").read_text(encoding="utf-8")
+    assert f"]({prefix}{have}/guide/05-seo.md#" in content
+    assert "](../guide/" not in content and "](../README.md)" in content
+
+
+def test_level_kit_links_follow_the_channel(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    root = tmp_path / "site"
+    put(root, "ru", level="kit")
+    text = (root / "AGENTS.md").read_text(encoding="utf-8")
+    assert "](https://github.com/FMSTM/HERON/blob/beta/docs/ru/guide/01-concepts.md)" in text
+    assert "](https://github.com/FMSTM/HERON/blob/beta/docs/ru/spec/21-engine.md)" in text
+    assert "](agents/guide/" not in text and "](agents/spec/" not in text
+
+
+def test_level_kit_manifest_is_of_the_delivered_files(tmp_path):
+    """Манифест — по выложенным байтам: повторное обновление не видит правок."""
+    root = tmp_path / "site"
+    put(root, "ru", level="kit")
+    readme = (root / "agents/README.md").read_bytes()
+    assert readme != (docs.root() / "docs/ru/README.md").read_bytes()  # ссылки переписаны
+    listed = {e["path"]: e["sha256"] for e in load_manifest(root)["files"]}
+    for rel, digest in listed.items():
+        path = root / agents._site_rel(rel)
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == digest, rel
+    again = put(root, "ru", mode="update", level="kit")
+    assert not again.edited and not again.forced and not again.created
+    assert [rel for rel in again.updated if rel != "agents/heron-kit.yaml"] == []
+    # файл без ссылок в guide/ и spec/ — байт в байт
+    assert (root / "agents/templates/page.md").read_bytes() == (
+        docs.root() / "docs" / docs.tree("ru")["templates/page.md"] / "templates/page.md"
+    ).read_bytes()
+    # переход kit → true и обратно: нетронутые файлы заменяются, правок нет
+    full = put(root, "ru", mode="update")
+    assert not full.edited and "agents/README.md" in full.updated
+    assert (root / "agents/README.md").read_bytes() == (
+        docs.root() / "docs/ru/README.md"
+    ).read_bytes()
+    back = put(root, "ru", mode="update", level="kit")
+    assert not back.edited and "agents/README.md" in back.updated
+    assert (root / "agents/README.md").read_bytes() == readme
+    assert "agents/guide/01-concepts.md" in back.orphans  # лишние не удаляются
+
+
 def test_english_kit_uses_translation_or_marks_fallback(tmp_path):
     root = tmp_path / "site"
     plan = put(root, "en")

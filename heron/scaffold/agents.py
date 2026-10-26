@@ -2,7 +2,9 @@
 
 Агенту дают ссылку на репозиторий сайта — и инструкции должны лежать там же,
 на языке сайта, той версии движка, что сайт создала. Комплект — копия
-`docs/<язык>/` движка (байт в байт, с фолбэком по файлу), схемы контрактов
+`docs/<язык>/` движка (байт в байт, с фолбэком по файлу; адреса ветки и
+образа — по каналу, ссылки сокращённого комплекта на guide/ и spec/ —
+абсолютные: `deliver`), схемы контрактов
 `schemas/`, папка результатов `work/` и манифест `agents/heron-kit.yaml`
 с sha256 каждого файла. Рядом в корне — `AGENTS.md` (шапка о сайте и текст
 `agents/README.md`), `CLAUDE.md` и `GEMINI.md` из одной строки `@AGENTS.md`.
@@ -21,6 +23,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import posixpath
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -53,6 +56,15 @@ LANGS_OF_KIT = ("ru", "en")
 # Ссылка README, которую в AGENTS.md надо направить внутрь agents/:
 # не внешняя, не якорь, не от корня и не уже в agents/.
 _LINK = re.compile(r"\]\((?!https?://|mailto:|#|/|agents/)")
+# Цель ссылки markdown: `](цель)` или `](цель#якорь)`.
+_TARGET = re.compile(r"\]\(([^)\s#]*)(#[^)\s]*)?\)")
+GITHUB = "https://github.com/FMSTM/HERON/blob"
+IMAGE = "ghcr.io/fmstm/heron"
+# Адреса канала в тексте docs/<язык>/: ссылка на ветку prod и образ prod в готовой
+# команде (`H="docker run … heron:prod"`). Тег в таблице тегов (`heron:prod` в
+# обратных кавычках) — описание каналов, а не адрес: он не меняется.
+_PROD_BLOB = re.compile(re.escape(f"{GITHUB}/prod/"))
+_PROD_IMAGE = re.compile(re.escape(f"{IMAGE}:prod") + r"(?=[\"'\s])")
 
 
 def _say(lang: str, key: str, **values: object) -> str:
@@ -76,6 +88,8 @@ class KitPlan(Plan):
     `edited` — правленные человеком и потому не тронутые, `forced` — правленные,
     но перезаписанные по `force`, `orphans` — файлы прежнего комплекта, которых
     нет в новом (не удаляются), `fallback` — файлы комплекта, взятые с другого языка.
+    `lang_from` — язык прежнего комплекта по манифесту (`lang`, 20 §1), если он
+    другой: комплект переложен с `lang_from` на `lang` (пусто — язык тот же).
     """
 
     mode: str = "create"
@@ -89,6 +103,7 @@ class KitPlan(Plan):
     files: int = 0
     # прежний манифест был, но не годился (битый, чужой, с путями наружу)
     damaged: bool = False
+    lang_from: str = ""
 
 
 def _level(level: str | bool) -> str:
@@ -108,12 +123,66 @@ def _work_note(lang: str) -> bytes:
     return source.read_bytes()
 
 
+def _short_links(rel: str, text: str, lang: str) -> str:
+    """Сокращённый комплект: ссылки в guide/ и spec/ — абсолютные, на GitHub (23 §12).
+
+    `rel` — путь файла внутри agents/; цель ссылки считается от его папки.
+    Ссылка ведёт на ветку канала образа (`HERON_CHANNEL`, вне образа — prod)
+    и на тот язык, чей файл лёг бы в полный комплект (фолбэк по файлу).
+    Прочие ссылки не меняются: их файлы в сокращённом комплекте есть.
+    """
+    from heron import docs
+
+    tree = docs.tree(lang)
+    base = posixpath.dirname(rel)
+
+    def swap(match: re.Match[str]) -> str:
+        target, anchor = match.group(1), match.group(2) or ""
+        if not target or re.match(r"[a-z]+:|/", target):
+            return match.group(0)
+        where = posixpath.normpath(posixpath.join(base, target))
+        if not where.startswith(SHORT) or where not in tree:
+            return match.group(0)
+        return f"]({GITHUB}/{channel()}/docs/{tree[where]}/{where}{anchor})"
+
+    return _TARGET.sub(swap, text)
+
+
+def _channel_links(text: str) -> str:
+    """Ветка и образ prod в тексте — на канал сборки (`HERON_CHANNEL`, 23 §12)."""
+    name = channel()
+    if name == "prod":
+        return text
+    text = _PROD_BLOB.sub(f"{GITHUB}/{name}/", text)
+    return _PROD_IMAGE.sub(f"{IMAGE}:{name}", text)
+
+
+def deliver(rel: str, data: bytes, lang: str, level: str = "true") -> bytes:
+    """Файл `docs/<язык>/<rel>` так, как он ложится в комплект: байты для манифеста.
+
+    Канал prod, полный комплект — байт в байт. Другой канал (beta) — ссылки на
+    ветку prod и образ prod в готовых командах ведут на ветку и образ канала.
+    Сокращённый комплект (`kit`) — ещё и абсолютные ссылки на отсутствующие в нём
+    guide/ и spec/. Тот же текст выгружает `heron docs --export`. Манифест
+    считается по этим байтам, поэтому обновление не принимает подстановку за
+    правку человека.
+    """
+    level = _level(level)
+    if not rel.endswith(".md"):
+        return data
+    text = data.decode("utf-8")
+    changed = _channel_links(text)
+    if level == "kit":
+        changed = _short_links(rel, changed, lang)
+    return data if changed == text else changed.encode("utf-8")
+
+
 def kit_files(lang: str, level: str = "true") -> list[tuple[str, bytes]]:
     """Файлы `agents/` на языке `lang`: путь внутри agents/ → байты, по алфавиту.
 
     `docs/<lang>/**` (нет файла на языке — тот же файл другого языка),
     `schemas/` той же версии движка, `work/.gitkeep` и записка `work/`.
-    `level == "kit"` — без `guide/` и `spec/`.
+    `level == "kit"` — без `guide/` и `spec/`, ссылки на них — абсолютные (`deliver`).
     """
     from heron import docs
     from heron.contracts.schemas import all_schemas
@@ -123,7 +192,8 @@ def kit_files(lang: str, level: str = "true") -> list[tuple[str, bytes]]:
     for rel, have in docs.tree(lang).items():
         if level == "kit" and rel.startswith(SHORT):
             continue
-        out.append((rel, (docs.root() / "docs" / have / rel).read_bytes()))
+        data = (docs.root() / "docs" / have / rel).read_bytes()
+        out.append((rel, deliver(rel, data, lang, level)))
     for name, text in all_schemas().items():
         out.append((f"schemas/{name}", text.encode("utf-8")))
     out.append((f"{WORK}.gitkeep", b""))
@@ -150,13 +220,18 @@ def _template(lang: str, name: str) -> str:
     raise FileNotFoundError(TEMPLATES / lang / name)
 
 
-def root_files(lang: str, fields: dict[str, Any]) -> dict[str, str]:
-    """Корневые указатели: AGENTS.md (шапка + текст agents/README.md), CLAUDE.md, GEMINI.md."""
+def root_files(lang: str, fields: dict[str, Any], level: str = "true") -> dict[str, str]:
+    """Корневые указатели: AGENTS.md (шапка + текст agents/README.md), CLAUDE.md, GEMINI.md.
+
+    Тело AGENTS.md — README комплекта в том виде, как он лёг в agents/ (`deliver`),
+    со ссылками, направленными внутрь agents/.
+    """
     from heron import docs
 
     head = _template(lang, "AGENTS.md").format_map(_Blank(fields))
     found = docs.localize("README.md", lang)
-    body = (docs.root() / found.path).read_text(encoding="utf-8") if found else ""
+    raw = (docs.root() / found.path).read_bytes() if found else b""
+    body = deliver("README.md", raw, lang, level).decode("utf-8")
     body = _LINK.sub("](agents/", body)
     if found is not None and found.lang_used != lang and found.note:
         body = f"{found.note}\n{body}"
@@ -189,7 +264,7 @@ def channel() -> str:
 
 
 def docs_url(lang: str) -> str:
-    return f"https://github.com/FMSTM/HERON/blob/{channel()}/docs/{lang}/"
+    return f"{GITHUB}/{channel()}/docs/{lang}/"
 
 
 def fields(root: Path, declared: dict[str, Any] | None, lang: str) -> dict[str, str]:
@@ -479,13 +554,16 @@ def place(
     check_targets(root, level, lang)
 
     inner = kit_files(lang, level)
-    texts = root_files(lang, fields)
+    texts = root_files(lang, fields, level)
     tracked = [(rel, data) for rel, data in inner if not rel.startswith(WORK)]
     tracked += [(f"{ROOT_PREFIX}{name}", texts[name].encode("utf-8")) for name in ROOT_FILES]
     plan.files = len(inner) + len(ROOT_FILES) + 1
     plan.fallback = [f"{KIT}/{rel}" for rel in fallback_files(lang, level)]
     previous = read_manifest(root)
     old = previous.files
+    was = previous.header.get("lang", "")
+    if was in LANGS_OF_KIT and was != lang:
+        plan.lang_from = was
     writes: list[tuple[str, bytes]] = []
     records: dict[str, str] = {}
 

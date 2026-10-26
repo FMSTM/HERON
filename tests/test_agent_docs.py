@@ -12,6 +12,7 @@ docs/en/ может ещё отсутствовать: проверки идут
 from __future__ import annotations
 
 import io
+import json
 import re
 import shutil
 from pathlib import Path
@@ -28,7 +29,7 @@ from heron.contracts.theme import ThemeConfig
 from heron.core import build as pipeline
 from heron.core.environment import BuildEnv
 from heron.core.parser import blocks, frontmatter, markdown, sections
-from heron.scaffold import create
+from heron.scaffold import adopt, create
 
 ROOT = Path(__file__).resolve().parents[1]
 LANGS = [lang for lang in docs.LANGS if (ROOT / "docs" / lang / "README.md").is_file()]
@@ -226,6 +227,83 @@ def test_site_built_from_templates_passes_prod_strict_checks(tmp_path):
     assert "/wp-*  1;" in (dist / "gone.map").read_text(encoding="utf-8")
     design = result.site.page("services/design", "en")
     assert [p.url for p in design.related["related"]] == ["/services/planning/"]
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_site_template_names_kit_language_and_level(lang):
+    """Образец «со всеми ключами ядра» несёт build.notes и build.agents (20 §5)."""
+    text = (_templates(lang) / "site.yaml").read_text(encoding="utf-8")
+    data = yaml.load(text, Loader=_Yaml12)
+    assert data["build"]["notes"] == lang
+    assert data["build"]["agents"] is True
+    config = SiteConfig.model_validate(yaml.safe_load(text))
+    assert (config.build.notes, config.build.agents) == (lang, True)
+    _schema_ok(schemas.site_schema(), text)
+
+
+def _site_from_template(tmp_path: Path) -> Path:
+    """Сайт ru с комплектом, site.yaml которого заменён образцом целиком (как советует README)."""
+    root = tmp_path / "site"
+    create(root, name="demo", languages=["en"], notes="ru")
+    shutil.copy(TEMPLATES / "site.yaml", root / "site.yaml")
+    return root
+
+
+def _kit_lang(root: Path) -> str:
+    return yaml.safe_load((root / "agents/heron-kit.yaml").read_text(encoding="utf-8"))["lang"]
+
+
+def test_site_template_keeps_the_kit_language_on_init_agents(tmp_path, monkeypatch):
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    root = _site_from_template(tmp_path)
+    readme = (root / "agents/README.md").read_bytes()
+    plan = adopt(root, agents_only=True, agents_flag="true")
+    assert plan.kit is not None and plan.kit.lang == "ru" and plan.kit.lang_from == ""
+    assert _kit_lang(root) == "ru"
+    assert (root / "agents/README.md").read_bytes() == readme
+    assert (root / "AGENTS.md").read_text(encoding="utf-8").startswith("# Daybreak — для агентов")
+    assert not plan.kit.edited and not plan.kit.forced
+
+
+def test_init_agents_names_the_kit_language_change(tmp_path, monkeypatch):
+    """Без build.notes язык комплекта — en: init --agents перекладывает его и говорит с какого."""
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    root = _site_from_template(tmp_path)
+    text = (root / "site.yaml").read_text(encoding="utf-8")
+    text = re.sub(r"^  notes: ru.*\n(?:\s+#.*\n)?", "", text, flags=re.M)
+    assert "notes:" not in text.split("\nbuild:", 1)[1].split("\nplugins:", 1)[0]
+    (root / "site.yaml").write_text(text, encoding="utf-8")
+    plan = adopt(root, agents_only=True, agents_flag="true")
+    assert plan.kit is not None and plan.kit.lang == "en" and plan.kit.lang_from == "ru"
+    assert _kit_lang(root) == "en"
+    assert "AGENTS.md" in plan.kit.updated
+    # повторно — язык уже тот же, смены нет
+    again = adopt(root, agents_only=True, agents_flag="true")
+    assert again.kit is not None and again.kit.lang_from == ""
+
+
+def test_site_from_template_passes_check(tmp_path, monkeypatch):
+    """Образец после `init` проходит `heron check --json` без ошибок и сохраняет язык комплекта."""
+    from click.testing import CliRunner
+
+    from heron.cli import main
+
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    root = _site_from_template(tmp_path)
+    assert CliRunner().invoke(main, ["init", str(root), "-y"]).exit_code == 0
+    head = "---\ntitle: {t} page title\nh1: {t}\ndescription: Description\n---\n\nText.\n"
+    for lang in ("en", "ru"):
+        for key in ("about", "services", "contacts"):  # nav.main образца
+            (root / "content" / lang / f"{key}.md").write_text(
+                head.format(t=f"{key} {lang}"), encoding="utf-8"
+            )
+    for name in ("default.png", "default-ru.png"):  # seo.og_default_image* образца
+        _png(root / "media" / "og" / name)
+    result = CliRunner().invoke(main, ["check", str(root), "--json"])
+    data = json.loads(result.output)
+    assert [e["message"] for e in data["errors"]] == []
+    assert result.exit_code == 0 and data["ok"] is True
+    assert data["kit"]["lang"] == "ru" and data["kit"]["current"] is True
 
 
 @pytest.mark.parametrize("lang", LANGS)

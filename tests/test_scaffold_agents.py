@@ -163,6 +163,92 @@ def test_level_kit_leaves_out_guides_and_specs(tmp_path):
         agents.kit_files("ru", "yes")
 
 
+GITHUB_LINK = re.compile(r"\]\((https://github\.com/FMSTM/HERON/blob/[^)\s]+)\)")
+
+
+def _github_links(text: str) -> list[str]:
+    return GITHUB_LINK.findall(text)
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_level_kit_has_no_dead_links_to_guides_and_specs(tmp_path, lang):
+    """Сокращённый комплект: ссылки на guide/ и spec/ — абсолютные, на ветку канала (23 §12)."""
+    root = tmp_path / "site"
+    put(root, lang, level="kit")
+    checked = 0
+    absolute: list[str] = []
+    for path in [root / "AGENTS.md", *(root / "agents").rglob("*.md")]:
+        text = path.read_text(encoding="utf-8")
+        for link in md_links(text):
+            assert (path.parent / link).exists(), f"{path.relative_to(root)} → {link}"
+            checked += 1
+        absolute += _github_links(text)
+    assert checked > 20
+    # ссылки, что в полном комплекте шли в guide/ и spec/, — все стали абсолютными
+    full = tmp_path / "full"
+    put(full, lang)
+    dead = 0
+    for path in [full / "AGENTS.md", *(full / "agents").rglob("*.md")]:
+        if path.relative_to(full).as_posix().startswith(("agents/guide/", "agents/spec/")):
+            continue
+        for link in md_links(path.read_text(encoding="utf-8")):
+            where = (path.parent / link).resolve()
+            if where.is_relative_to((full / "agents").resolve()):
+                inner = where.relative_to((full / "agents").resolve()).as_posix()
+                dead += inner.startswith(("guide/", "spec/"))
+    moved = [url for url in absolute if "/docs/" in url and ("/guide/" in url or "/spec/" in url)]
+    assert dead >= 10 and len(moved) == dead
+    prefix = "https://github.com/FMSTM/HERON/blob/prod/docs/"
+    for url in moved:
+        assert url.startswith(prefix), url
+        rel = url.removeprefix(prefix).split("#", 1)[0]
+        assert (docs.root() / "docs" / rel).is_file(), url  # файл есть в репозитории движка
+    # якорь сохраняется, язык — того файла, что лёг бы в полный комплект
+    have = docs.tree(lang)["guide/05-seo.md"]
+    content = (root / "agents/roles/content.md").read_text(encoding="utf-8")
+    assert f"]({prefix}{have}/guide/05-seo.md#" in content
+    assert "](../guide/" not in content and "](../README.md)" in content
+
+
+def test_level_kit_links_follow_the_channel(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    root = tmp_path / "site"
+    put(root, "ru", level="kit")
+    text = (root / "AGENTS.md").read_text(encoding="utf-8")
+    assert "](https://github.com/FMSTM/HERON/blob/beta/docs/ru/guide/01-concepts.md)" in text
+    assert "](https://github.com/FMSTM/HERON/blob/beta/docs/ru/spec/21-engine.md)" in text
+    assert "](agents/guide/" not in text and "](agents/spec/" not in text
+
+
+def test_level_kit_manifest_is_of_the_delivered_files(tmp_path):
+    """Манифест — по выложенным байтам: повторное обновление не видит правок."""
+    root = tmp_path / "site"
+    put(root, "ru", level="kit")
+    readme = (root / "agents/README.md").read_bytes()
+    assert readme != (docs.root() / "docs/ru/README.md").read_bytes()  # ссылки переписаны
+    listed = {e["path"]: e["sha256"] for e in load_manifest(root)["files"]}
+    for rel, digest in listed.items():
+        path = root / agents._site_rel(rel)
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == digest, rel
+    again = put(root, "ru", mode="update", level="kit")
+    assert not again.edited and not again.forced and not again.created
+    assert [rel for rel in again.updated if rel != "agents/heron-kit.yaml"] == []
+    # файл без ссылок в guide/ и spec/ — байт в байт
+    assert (root / "agents/templates/page.md").read_bytes() == (
+        docs.root() / "docs" / docs.tree("ru")["templates/page.md"] / "templates/page.md"
+    ).read_bytes()
+    # переход kit → true и обратно: нетронутые файлы заменяются, правок нет
+    full = put(root, "ru", mode="update")
+    assert not full.edited and "agents/README.md" in full.updated
+    assert (root / "agents/README.md").read_bytes() == (
+        docs.root() / "docs/ru/README.md"
+    ).read_bytes()
+    back = put(root, "ru", mode="update", level="kit")
+    assert not back.edited and "agents/README.md" in back.updated
+    assert (root / "agents/README.md").read_bytes() == readme
+    assert "agents/guide/01-concepts.md" in back.orphans  # лишние не удаляются
+
+
 def test_english_kit_uses_translation_or_marks_fallback(tmp_path):
     root = tmp_path / "site"
     plan = put(root, "en")
@@ -224,6 +310,79 @@ def test_channel_from_environment(tmp_path, monkeypatch):
     assert "ghcr.io/fmstm/heron:beta docs --lang ru" in (root / "AGENTS.md").read_text(
         encoding="utf-8"
     )
+
+
+def _for_channel(data: bytes, name: str) -> bytes:
+    """Ожидаемая подстановка: ветка prod и образ prod в готовой команде → канал `name`."""
+    text = data.decode("utf-8").replace(
+        "https://github.com/FMSTM/HERON/blob/prod/", f"https://github.com/FMSTM/HERON/blob/{name}/"
+    )
+    return re.sub(
+        r"ghcr\.io/fmstm/heron:prod(?=[\"'\s])", f"ghcr.io/fmstm/heron:{name}", text
+    ).encode("utf-8")
+
+
+def test_kit_body_follows_the_channel(tmp_path, monkeypatch):
+    """Канал beta: README комплекта и тело AGENTS.md ведут на ветку и образ beta (23 §12)."""
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    root = tmp_path / "site"
+    put(root, "ru")
+    readme = (root / "agents/README.md").read_text(encoding="utf-8")
+    body = (root / "AGENTS.md").read_text(encoding="utf-8")
+    for text in (readme, body):
+        assert "blob/prod" not in text and 'ghcr.io/fmstm/heron:prod"' not in text
+        assert "https://github.com/FMSTM/HERON/blob/beta/AGENTS.md" in text
+        assert 'H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ' in text
+        assert 'ghcr.io/fmstm/heron:beta"' in text
+    builder = (root / "agents/roles/builder.md").read_text(encoding="utf-8")
+    assert 'ghcr.io/fmstm/heron:beta"' in builder and 'heron:prod"' not in builder
+    deploy = (root / "agents/guide/06-deploy.md").read_text(encoding="utf-8")
+    assert "https://github.com/FMSTM/HERON/blob/beta/env/.env.example" in deploy
+    assert "| `ghcr.io/fmstm/heron:prod` |" in deploy  # таблица тегов — описание, не адрес
+    # кроме адресов канала — байт в байт с docs/ru
+    changed = 0
+    for rel, have in docs.tree("ru").items():
+        source = (docs.root() / "docs" / have / rel).read_bytes()
+        placed = (root / "agents" / rel).read_bytes()
+        assert placed == _for_channel(source, "beta"), rel
+        changed += placed != source
+    assert changed >= 3
+    # манифест — по выложенному: повторное обновление без правок
+    listed = {e["path"]: e["sha256"] for e in load_manifest(root)["files"]}
+    for rel, digest in listed.items():
+        assert hashlib.sha256((root / agents._site_rel(rel)).read_bytes()).hexdigest() == digest
+    again = put(root, "ru", mode="update")
+    assert not again.edited and [r for r in again.updated if r != "agents/heron-kit.yaml"] == []
+
+
+def test_channel_change_replaces_untouched_files_without_edits(tmp_path, monkeypatch):
+    monkeypatch.delenv("HERON_CHANNEL", raising=False)
+    root = tmp_path / "site"
+    put(root, "ru")
+    assert b'heron:prod"' in (root / "agents/README.md").read_bytes()
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    plan = put(root, "ru", mode="update")
+    assert not plan.edited and not plan.forced
+    assert {"agents/README.md", "agents/roles/builder.md", "AGENTS.md"} <= set(plan.updated)
+    assert b'heron:beta"' in (root / "agents/README.md").read_bytes()
+    assert load_manifest(root)["channel"] == "beta"
+
+
+def test_docs_export_follows_the_channel_like_the_kit(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    site, out, every = tmp_path / "site", tmp_path / "out", tmp_path / "all"
+    put(site, "ru")
+    docs.export(out, "ru")
+    for rel in docs.tree("ru"):
+        assert (out / rel).read_bytes() == (site / "agents" / rel).read_bytes(), rel
+    assert "blob/beta/AGENTS.md" in (out / "AGENTS.md").read_text(encoding="utf-8")
+    docs.export(every, all_langs=True)
+    assert (every / "ru/README.md").read_bytes() == (site / "agents/README.md").read_bytes()
+    monkeypatch.setenv("HERON_CHANNEL", "prod")
+    docs.export(tmp_path / "prod", "ru")
+    assert (tmp_path / "prod/README.md").read_bytes() == (
+        docs.root() / "docs/ru/README.md"
+    ).read_bytes()
 
 
 def test_deterministic_with_source_date_epoch(tmp_path, monkeypatch):

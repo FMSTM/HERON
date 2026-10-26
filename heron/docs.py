@@ -581,8 +581,11 @@ def _pointers(lang: str) -> dict[str, str]:
 
 
 def _tree_items(lang: str, prefix: str = "") -> list[tuple[str, bytes]]:
+    """Дерево docs/<lang>/ так, как его получает сайт в agents/ (ветка и образ канала)."""
+    from heron.scaffold.agents import deliver
+
     return [
-        (f"{prefix}{rel}", (root() / "docs" / have / rel).read_bytes())
+        (f"{prefix}{rel}", deliver(rel, (root() / "docs" / have / rel).read_bytes(), lang))
         for rel, have in tree(lang).items()
     ]
 
@@ -590,7 +593,8 @@ def _tree_items(lang: str, prefix: str = "") -> list[tuple[str, bytes]]:
 def export(target: Path, lang: str | None = None, all_langs: bool = False) -> list[str]:
     """Выложить документацию папкой — ровно то, что новый сайт получает в agents/.
 
-    `docs/<lang>/**` → `target/**` (байт в байт, с фолбэком по файлу), корневые
+    `docs/<lang>/**` → `target/**` (байт в байт, с фолбэком по файлу; в канале
+    не prod — ссылки на ветку и образ канала, как в комплекте сайта), корневые
     указатели AGENTS.md, CLAUDE.md, GEMINI.md → `target/`, схемы → `target/schemas/`.
     `all_langs` — для сайта движка: `target/ru/**` и `target/en/**`, без указателей и схем.
     Запись — общим безопасным писателем: все цели проверяются до первой записи,

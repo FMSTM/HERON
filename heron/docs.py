@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -643,19 +642,11 @@ def _pointer(name: str) -> str:
     return path.read_text(encoding="utf-8") if path.is_file() else "@AGENTS.md\n"
 
 
-def _copy_tree(lang: str, target: Path, prefix: str = "") -> list[str]:
-    written = []
-    for rel, have in tree(lang).items():
-        destination = target / prefix / rel
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(root() / "docs" / have / rel, destination)
-        written.append(f"{prefix}{rel}")
-    return written
-
-
-def _write(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8", newline="\n")
+def _tree_items(lang: str, prefix: str = "") -> list[tuple[str, bytes]]:
+    return [
+        (f"{prefix}{rel}", (root() / "docs" / have / rel).read_bytes())
+        for rel, have in tree(lang).items()
+    ]
 
 
 def export(target: Path, lang: str | None = None, all_langs: bool = False) -> list[str]:
@@ -664,29 +655,30 @@ def export(target: Path, lang: str | None = None, all_langs: bool = False) -> li
     `docs/<lang>/**` → `target/**` (байт в байт, с фолбэком по файлу), корневые
     указатели AGENTS.md, CLAUDE.md, GEMINI.md → `target/`, схемы → `target/schemas/`.
     `all_langs` — для сайта движка: `target/ru/**` и `target/en/**`, без указателей и схем.
+    Запись — общим безопасным писателем: все цели проверяются до первой записи,
+    ссылка или папка на месте файла и ссылка наружу — E024 (21 §4).
     Возвращает записанные пути относительно `target`.
     """
+    from heron.scaffold.agents import write_files
+
     lang = _lang(lang)
     target = Path(target)
     if all_langs:
-        written: list[str] = []
+        items: list[tuple[str, bytes]] = []
         for each in LANGS:
-            written += _copy_tree(each, target, f"{each}/")
-        return written
-    written = _copy_tree(lang, target)
-    readme = target / "README.md"
-    body = readme.read_text(encoding="utf-8") if readme.is_file() else ""
-    _write(target / "AGENTS.md", _pointer_head(lang) + "\n" + body)
-    _write(target / "CLAUDE.md", _pointer("CLAUDE.md"))
-    _write(target / "GEMINI.md", _pointer("GEMINI.md"))
-    written += ["AGENTS.md", "CLAUDE.md", "GEMINI.md"]
+            items += _tree_items(each, f"{each}/")
+        return write_files(target, items)
+    items = _tree_items(lang)
+    readme = localize("README.md", lang)
+    body = (root() / readme.path).read_text(encoding="utf-8") if readme else ""
+    items.append(("AGENTS.md", (_pointer_head(lang) + "\n" + body).encode("utf-8")))
+    items.append(("CLAUDE.md", _pointer("CLAUDE.md").encode("utf-8")))
+    items.append(("GEMINI.md", _pointer("GEMINI.md").encode("utf-8")))
 
     from heron.contracts.schemas import all_schemas
 
-    for name, text in all_schemas().items():
-        _write(target / "schemas" / name, text)
-        written.append(f"schemas/{name}")
-    return written
+    items += [(f"schemas/{name}", text.encode("utf-8")) for name, text in all_schemas().items()]
+    return write_files(target, items)
 
 
 def start_hint(target: Path, lang: str | None = None) -> str:

@@ -592,3 +592,189 @@ def test_site_created_with_kit_builds_the_same_dist(tmp_path, monkeypatch):
     assert [k for k in left if left[k] != right[k]] == []
     assert not any(k.startswith("agents") or k in agents.ROOT_FILES for k in left)
     assert filecmp.cmp(with_kit / "site.yaml", plain / "site.yaml", shallow=False)
+
+
+# --- безопасность записи (E12.S2.T9) ----------------------------------------------
+
+
+def _snapshot(folder: Path) -> dict[str, bytes]:
+    return {
+        p.relative_to(folder).as_posix(): p.read_bytes()
+        for p in folder.rglob("*")
+        if p.is_file() and not p.is_symlink()
+    }
+
+
+@pytest.mark.parametrize(
+    "rel", ["agents/roles/content.md", "agents/work", "agents/heron-kit.yaml", "agents/roles"]
+)
+def test_link_outside_inside_the_kit_is_e024_before_any_write(tmp_path, rel):
+    from heron.scaffold import adopt, create
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "keep.md").write_text("keep\n", encoding="utf-8")
+    root = tmp_path / "site"
+    create(root, name="Demo")
+    adopt(root, agents_flag="false")
+    target = root / rel
+    if target.is_dir():
+        import shutil
+
+        shutil.rmtree(target)
+        target.symlink_to(outside, target_is_directory=True)
+    else:
+        target.unlink()
+        target.symlink_to(outside / "keep.md")
+    before = _snapshot(root)
+    (root / "AGENTS.md").write_bytes(b"# old pointer\n")
+    before["AGENTS.md"] = b"# old pointer\n"
+    with pytest.raises(HeronError) as caught:
+        adopt(root, agents_flag="true", force=True)
+    assert caught.value.code == "E024"
+    assert _snapshot(root) == before  # build.agents: false на месте, AGENTS.md не тронут
+    assert _agents_value(root) is False
+    assert _snapshot(outside) == {"keep.md": b"keep\n"}
+
+
+def test_new_in_folder_with_agents_link_outside_writes_nothing(tmp_path):
+    from heron.scaffold import create
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / "agents").symlink_to(outside, target_is_directory=True)
+    with pytest.raises(HeronError) as caught:
+        create(root, name="Demo")
+    assert caught.value.code == "E024"
+    assert sorted(p.name for p in root.iterdir()) == ["agents"]  # скелет не записан
+    assert list(outside.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "../../outside/evil.md",
+        "root/../../outside/r.md",
+        "/tmp/abs.md",
+        "roles/../../../outside/x.md",
+        "root/README.md",
+    ],
+)
+def test_manifest_with_escaping_paths_is_treated_as_damaged(tmp_path, bad):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    root = tmp_path / "site"
+    put(root, "ru")
+    (root / "agents/roles/content.md").write_text("# edited\n", encoding="utf-8")
+    manifest = root / "agents/heron-kit.yaml"
+    data = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+    data["files"].append({"path": bad, "sha256": "0" * 64})
+    manifest.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    assert agents.read_manifest(root).damaged is True
+    assert agents.read_manifest(root).files == {}
+
+    plan = put(root, "ru", mode="update")
+    assert plan.edited == ["agents/roles/content.md"]  # без манифеста правленое не затирается
+    assert not plan.orphans
+    assert any("heron-kit.yaml" in line for line in plan.found)
+    assert list(outside.iterdir()) == []
+    fresh = agents.read_manifest(root)
+    assert fresh.damaged is False and bad not in fresh.files  # переписан начисто
+
+
+def test_manifest_link_inside_or_folder_is_damaged_not_read(tmp_path):
+    root = tmp_path / "site"
+    put(root, "ru")
+    manifest = root / "agents/heron-kit.yaml"
+    manifest.unlink()
+    manifest.mkdir()
+    assert agents.read_manifest(root).damaged is True
+    with pytest.raises(HeronError) as caught:
+        put(root, "ru", mode="update")
+    assert caught.value.code == "E024"  # писать манифест на место папки нельзя
+
+
+def test_link_inside_the_site_is_not_written_through(tmp_path):
+    root = tmp_path / "site"
+    put(root, "ru")
+    designer = (root / "agents/roles/designer.md").read_bytes()
+    content = root / "agents/roles/content.md"
+    content.unlink()
+    content.symlink_to(root / "agents/roles/designer.md")
+    plan = put(root, "ru", mode="update", force=True)
+    assert content.is_symlink()
+    assert (root / "agents/roles/designer.md").read_bytes() == designer
+    assert "agents/roles/content.md" in plan.edited
+
+
+def test_write_files_checks_every_target_first(tmp_path):
+    outside = tmp_path / "outside.txt"
+    outside.write_text("keep\n", encoding="utf-8")
+    target = tmp_path / "out"
+    target.mkdir()
+    (target / "b.txt").symlink_to(outside)
+    with pytest.raises(HeronError) as caught:
+        agents.write_files(target, [("a.txt", b"a"), ("b.txt", b"b")])
+    assert caught.value.code == "E024"
+    assert not (target / "a.txt").exists()
+    assert outside.read_text(encoding="utf-8") == "keep\n"
+    # сама папка назначения может быть ссылкой — её назвал человек
+    real = tmp_path / "real"
+    real.mkdir()
+    (tmp_path / "alias").symlink_to(real, target_is_directory=True)
+    assert agents.write_files(tmp_path / "alias", [("x/y.txt", b"y")]) == ["x/y.txt"]
+    assert (real / "x/y.txt").read_bytes() == b"y"
+
+
+@pytest.mark.parametrize("rel", ["README.md", "roles", "schemas/errors.json"])
+def test_docs_export_does_not_write_through_links(tmp_path, rel):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "README.md").write_text("keep\n", encoding="utf-8")
+    target = tmp_path / "out"
+    (target / rel).parent.mkdir(parents=True, exist_ok=True)
+    if rel == "roles":
+        (target / rel).symlink_to(outside, target_is_directory=True)
+    else:
+        (target / rel).symlink_to(outside / "README.md")
+    with pytest.raises(HeronError) as caught:
+        docs.export(target, "ru")
+    assert caught.value.code == "E024"
+    assert _snapshot(outside) == {"README.md": b"keep\n"}
+    assert not (target / "architecture.md").exists()  # ни одного файла до проверки
+
+
+def test_docs_export_all_langs_does_not_write_through_links(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = tmp_path / "out"
+    target.mkdir()
+    (target / "en").symlink_to(outside, target_is_directory=True)
+    with pytest.raises(HeronError):
+        docs.export(target, all_langs=True)
+    assert list(outside.iterdir()) == []
+    assert not (target / "ru").exists()
+
+
+def test_setup_checks_kit_targets_before_the_first_write(tmp_path):
+    from heron.scaffold import create
+    from heron.setup import apply
+    from heron.setup.answers import Answers
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    root = tmp_path / "site"
+    create(root, name="Demo", place_kit=False)
+    (root / "agents").symlink_to(outside, target_is_directory=True)
+    before = _snapshot(root)
+    answers = Answers.model_validate(
+        {"site": {"name": "Studio", "domain": "studio.example", "languages": ["en", "ru"]}}
+    )
+    with pytest.raises(HeronError) as caught:
+        apply(root, answers)
+    assert caught.value.code == "E024"
+    assert _snapshot(root) == before  # site.yaml прежний, резервной копии и темы нет
+    assert not (root / ".heron-cache").exists()
+    assert list(outside.iterdir()) == []

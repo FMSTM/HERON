@@ -239,6 +239,13 @@ def apply(
         checked.append(".gitignore")
     for lang_name in new["site"]["languages"]:
         checked.append(f"content/{lang_name}")
+    # комплект для агентов кладёт adopt ниже — его цели тоже до первой записи (21 §4)
+    from heron.scaffold import agents as kit
+    from heron.scaffold import agents_level
+
+    level = agents_level((new.get("build") or {}).get("agents", True))
+    if level != "false":
+        checked += kit.targets(level, lang)
     for rel in checked:
         paths.in_site(root, rel)
 

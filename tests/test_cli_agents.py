@@ -427,3 +427,27 @@ def test_docs_help_mentions_spec_and_options(here):
     text = run("docs", "--help").output
     assert "--lang" in text and "--all-langs" in text and "21 §10" in text
     assert "--export" in run("schema", "--help").output
+
+
+# --- безопасность записи (E12.S2.T9) ----------------------------------------------
+
+
+def test_cli_docs_export_through_a_link_is_e024(here):
+    outside = here / "outside.md"
+    outside.write_text("keep\n", encoding="utf-8")
+    (here / "d").mkdir()
+    (here / "d" / "README.md").symlink_to(outside)
+    result = run("docs", "--lang", "ru", "--export", "d")
+    assert result.exit_code == 1
+    assert "E024" in result.output
+    assert outside.read_text(encoding="utf-8") == "keep\n"
+
+
+def test_cli_new_with_agents_link_outside_fails_before_writing(here):
+    (here / "outside").mkdir()
+    (here / "s").mkdir()
+    (here / "s" / "agents").symlink_to(here / "outside", target_is_directory=True)
+    result = run("new", "s", "-y")
+    assert result.exit_code == 1 and "E024" in result.output
+    assert not (here / "s" / "site.yaml").exists()
+    assert list((here / "outside").iterdir()) == []

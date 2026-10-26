@@ -59,12 +59,14 @@ _TEXT: dict[str, dict[str, str]] = {
         "kit_skipped_edited": "правлен вами, не тронут: {files}",
         "kit_orphan": "нет в новом комплекте, оставлен: {files}",
         "kit_manifest_head": "# Манифест комплекта для агентов. Пишет движок, руками не правят.",
+        "kit_manifest_damaged": "манифест agents/heron-kit.yaml не прочитан — переписан заново",
     },
     "en": {
         "kit_about_placeholder": "<about the project: the architect fills this in>",
         "kit_skipped_edited": "edited by you, left as is: {files}",
         "kit_orphan": "not in the new kit, left in place: {files}",
         "kit_manifest_head": "# Agent kit manifest. Written by the engine, not edited by hand.",
+        "kit_manifest_damaged": "agents/heron-kit.yaml could not be read — written anew",
     },
 }
 
@@ -292,25 +294,66 @@ def manifest(
     return "\n".join(lines) + "\n"
 
 
-def read_manifest(root: Path) -> dict[str, str]:
-    """Прежний манифест: путь → sha256. Нет, битый, чужой — пусто, без ошибки."""
-    path = Path(root) / KIT / MANIFEST
+@dataclass(slots=True)
+class Manifest:
+    """Прежний манифест: путь → sha256 и шапка. `damaged` — есть, но не годится."""
+
+    files: dict[str, str] = field(default_factory=dict)
+    header: dict[str, str] = field(default_factory=dict)
+    present: bool = False
+    damaged: bool = False
+
+
+HEADER_KEYS = ("engine", "channel", "contract", "lang", "created", "docs_url")
+
+
+def _valid_entry(rel: object) -> bool:
+    """Путь записи манифеста: внутри agents/ или один из корневых указателей.
+
+    `..`, абсолютный путь, обратная косая — признак чужого или подменённого
+    манифеста: такой не читается вовсе (иначе init --agents пошёл бы по нему).
+    """
+    if not isinstance(rel, str) or not rel or "\\" in rel or rel.startswith("/"):
+        return False
+    if rel.startswith(ROOT_PREFIX):
+        return rel.removeprefix(ROOT_PREFIX) in ROOT_FILES
+    clean = paths.normalize(rel)
+    return clean == rel and not paths.escapes(clean) and ".." not in clean.split("/")
+
+
+def read_manifest(root: Path) -> Manifest:
+    """`agents/heron-kit.yaml` мягко: нет — пусто; битый, чужой, ссылка — `damaged`, без ошибки.
+
+    Файл открывается через проверку пути: ссылку наружу движок не читает.
+    """
     try:
-        if not path.is_file() or path.stat().st_size > MANIFEST_LIMIT:
-            return {}
+        path = paths.in_site(Path(root), f"{KIT}/{MANIFEST}")
+    except HeronError:
+        return Manifest(present=True, damaged=True)
+    if not (path.exists() or path.is_symlink()):
+        return Manifest()
+    broken = Manifest(present=True, damaged=True)
+    try:
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > MANIFEST_LIMIT:
+            return broken
         import yaml
 
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001 — битый манифест: все файлы считаются правлеными
-        return {}
+        return broken
     entries = data.get("files") if isinstance(data, dict) else None
+    if not isinstance(entries, list):
+        return broken
     out: dict[str, str] = {}
-    for entry in entries if isinstance(entries, list) else []:
-        if isinstance(entry, dict):
-            rel, digest = entry.get("path"), entry.get("sha256")
-            if isinstance(rel, str) and isinstance(digest, str):
-                out[rel] = digest
-    return out
+    for entry in entries:
+        if not isinstance(entry, dict) or not _valid_entry(entry.get("path")):
+            return broken
+        digest = entry.get("sha256")
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            return broken
+        out[entry["path"]] = digest
+    header = {key: str(data[key]) for key in HEADER_KEYS if isinstance(data.get(key), str)}
+    return Manifest(files=out, header=header, present=True)
 
 
 # --- запись --------------------------------------------------------------------
@@ -321,28 +364,87 @@ def _site_rel(rel: str) -> str:
     return rel.removeprefix(ROOT_PREFIX) if rel.startswith(ROOT_PREFIX) else f"{KIT}/{rel}"
 
 
-def _write(root: Path, rel: str, data: bytes) -> None:
-    """Запись внутрь папки сайта: ссылка наружу — E024 до записи (21 §4)."""
-    path = paths.in_site(root, rel)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path = paths.in_site(root, rel)  # папки созданы — проверить ещё раз
-    if path.is_symlink() or (path.exists() and not path.is_file()):
-        raise HeronError(
-            code=paths.CODE,
-            message=f"{rel}: на месте файла комплекта не обычный файл",
-            path=str(path),
-            hint="уберите или переименуйте его и повторите heron init --agents",
-        )
-    path.write_bytes(data)
+def _not_a_file(rel: str, path: Path) -> HeronError:
+    return HeronError(
+        code=paths.CODE,
+        message=f"{rel}: на месте файла ссылка или папка — запись через неё не делается",
+        path=str(path),
+        hint="уберите или переименуйте её и повторите команду",
+    )
+
+
+def write_files(root: Path, items: list[tuple[str, bytes]]) -> list[str]:
+    """Безопасная запись файлов в папку `root`: сначала проверка всех целей, потом запись.
+
+    Цель, ведущая ссылкой за пределы `root` (сам файл или папка по пути к нему), —
+    E024; ссылка или папка на месте файла — тоже E024, даже внутри: запись через
+    неё изменила бы не тот файл. Всё проверяется до первой записи, сама запись —
+    с O_NOFOLLOW (ссылка, подложенная после проверки, — ошибка, а не запись мимо).
+    Сама `root` может быть ссылкой: её назвал человек. Возвращает записанные пути.
+    """
+    root = Path(root)
+    for rel, _ in items:
+        path = paths.in_site(root, rel)
+        if path.is_symlink() or (path.exists() and not path.is_file()):
+            raise _not_a_file(rel, path)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+    for rel, data in items:
+        path = paths.in_site(root, rel)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path = paths.in_site(root, rel)  # папки созданы — проверить ещё раз
+        fd = os.open(path, flags, 0o644)
+        with os.fdopen(fd, "wb") as out:
+            out.write(data)
+    return [rel for rel, _ in items]
+
+
+def _kit_names(lang: str, level: str) -> list[str]:
+    """Пути внутри agents/ без чтения файлов: для проверки целей до записи."""
+    from heron import docs
+    from heron.contracts.schemas import FILES
+
+    names = [rel for rel in docs.tree(lang) if not (level == "kit" and rel.startswith(SHORT))]
+    names += [f"schemas/{name}" for name in FILES]
+    names += [f"{WORK}.gitkeep", f"{WORK}{NOTE}", MANIFEST]
+    return sorted(names)
+
+
+def targets(level: str = "true", lang: str = "en") -> list[str]:
+    """Все пути комплекта от корня сайта: agents/, agents/work/, файлы, манифест, указатели."""
+    level = _level(level)
+    return [KIT, f"{KIT}/work", *(f"{KIT}/{rel}" for rel in _kit_names(lang, level)), *ROOT_FILES]
+
+
+def check_targets(root: Path, level: str = "true", lang: str = "en") -> None:
+    """E024 до первой записи: путь комплекта ведёт ссылкой за пределы папки сайта (21 §4)."""
+    for rel in targets(level, lang):
+        paths.in_site(Path(root), rel)
+
+
+# Ссылка (внутри сайта) или папка на месте файла комплекта: читать её и писать
+# через неё не надо — это решение человека, оно считается правкой.
+_ODD = b"\0not-a-regular-file"
 
 
 def _on_disk(root: Path, rel: str) -> bytes | None:
+    """Что лежит на месте файла комплекта: None — ничего; ссылка или папка — `_ODD`."""
     path = paths.in_site(root, rel)
     if not (path.exists() or path.is_symlink()):
         return None
-    if not path.is_file():
-        return b"\0not-a-file"
+    if path.is_symlink() or not path.is_file():
+        return _ODD
     return path.read_bytes()
+
+
+def _pointer_link(root: Path, name: str) -> bool:
+    """CLAUDE.md или GEMINI.md — ссылка внутри сайта на AGENTS.md: указатель уже на месте."""
+    path = root / name
+    if name == "AGENTS.md" or not path.is_symlink():
+        return False
+    try:
+        return path.resolve() == (root / "AGENTS.md").resolve()
+    except OSError:
+        return False
 
 
 def place(
@@ -360,13 +462,16 @@ def place(
     нетронутый файл заменяется, правленый остаётся и попадает в `edited`
     (с `force` — заменяется), лишний остаётся и попадает в `orphans`.
     `work/` кладётся, только если его нет, и не перезаписывается никогда.
-    Манифест пишется последним.
+    Ссылка или папка на месте файла не перезаписываются никогда — это правка.
+    Сначала решается всё, потом проверяются все цели (E024), потом запись;
+    манифест пишется последним.
     """
     if mode not in ("create", "update"):
         raise ValueError(f"mode {mode!r}: expected create or update")
     level = _level(level)
     root = Path(root)
     plan = KitPlan(notes=lang, mode=mode, lang=lang, level=level)
+    check_targets(root, level, lang)
 
     inner = kit_files(lang, level)
     pointers = root_files(lang, fields)
@@ -374,32 +479,40 @@ def place(
     tracked += [(f"{ROOT_PREFIX}{name}", pointers[name].encode("utf-8")) for name in ROOT_FILES]
     plan.files = len(inner) + len(ROOT_FILES) + 1
     plan.fallback = [f"{KIT}/{rel}" for rel in fallback_files(lang, level)]
-    old = read_manifest(root) if mode == "update" else {}
+    previous = read_manifest(root)
+    old = previous.files if mode == "update" else {}
+    writes: list[tuple[str, bytes]] = []
 
     for rel, data in inner:
         site_rel = f"{KIT}/{rel}"
         if rel.startswith(WORK) and _on_disk(root, site_rel) is None:
-            _write(root, site_rel, data)
+            writes.append((site_rel, data))
             plan.created.append(site_rel)
 
     for rel, data in tracked:
         site_rel = _site_rel(rel)
+        if rel.startswith(ROOT_PREFIX) and _pointer_link(root, site_rel):
+            continue
         current = _on_disk(root, site_rel)
         if current is None:
-            _write(root, site_rel, data)
+            writes.append((site_rel, data))
             plan.created.append(site_rel)
             continue
         if current == data:
             continue
+        if current is _ODD:
+            plan.skipped.append(site_rel)
+            plan.edited.append(site_rel)
+            continue
         if mode == "create":
             if force:
-                _write(root, site_rel, data)
+                writes.append((site_rel, data))
                 plan.updated.append(site_rel)
             else:
                 plan.skipped.append(site_rel)
             continue
         if force or (rel in old and sha256(current) == old[rel]):
-            _write(root, site_rel, data)
+            writes.append((site_rel, data))
             plan.updated.append(site_rel)
         else:
             plan.skipped.append(site_rel)
@@ -410,24 +523,30 @@ def place(
         if rel in known or rel.startswith(WORK):
             continue
         site_rel = _site_rel(rel)
-        if _on_disk(root, site_rel) is not None:
-            plan.orphans.append(site_rel)
+        try:
+            if _on_disk(root, site_rel) is not None:
+                plan.orphans.append(site_rel)
+        except HeronError:
+            continue  # ссылка наружу на месте лишнего файла: его и так не трогаем
 
     if plan.edited:
         plan.found.append(_say(lang, "kit_skipped_edited", files=", ".join(plan.edited)))
     if plan.orphans:
         plan.found.append(_say(lang, "kit_orphan", files=", ".join(plan.orphans)))
+    if mode == "update" and previous.damaged:
+        plan.found.append(_say(lang, "kit_manifest_damaged"))
 
     manifest_rel = f"{KIT}/{MANIFEST}"
     text = manifest(tracked, lang, fallback=fallback_files(lang, level)).encode("utf-8")
     current = _on_disk(root, manifest_rel)
     if current is None:
-        _write(root, manifest_rel, text)
+        writes.append((manifest_rel, text))
         plan.created.append(manifest_rel)
     elif mode == "update" or force:
         if current != text:
-            _write(root, manifest_rel, text)
+            writes.append((manifest_rel, text))
             plan.updated.append(manifest_rel)
     elif current != text:
         plan.skipped.append(manifest_rel)
+    write_files(root, writes)
     return plan

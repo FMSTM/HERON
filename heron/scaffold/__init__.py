@@ -481,6 +481,11 @@ def create(
     if notes not in NOTE_LANGS:
         raise ValueError(message("en", "bad_notes", value=notes))
     agents = agents_level(agents)
+    if agents != "false" and place_kit:
+        # ссылка наружу на месте agents/ или указателя — E024 до первой записи скелета
+        from heron.scaffold import agents as kit
+
+        kit.check_targets(root, agents, notes)
     plan = Plan(notes=notes)
     languages = list(languages or ["en"])
     if default_lang:
@@ -673,9 +678,14 @@ def adopt(
     notes = resolve_notes(notes, root / "site.yaml")
     declared = _declared(root / "site.yaml")
     flag = agents_level(agents_flag) if agents_flag is not None else None
+    level = flag or (declared or {}).get("agents") or "true"
+    if level != "false":
+        # все цели комплекта — до первой записи, в том числе до правки build.agents
+        from heron.scaffold import agents as kit
+
+        kit.check_targets(root, level, notes)
     if flag is not None:
         set_build_agents(root, flag)
-    level = flag or (declared or {}).get("agents") or "true"
     if declared:
         plan.found.append(
             message(

@@ -1117,33 +1117,17 @@ SCHEMA_KINDS = {
 
 
 def _write_schemas(target: Path) -> list[str]:
-    """Пять файлов схем в папку `target` — каждый через проверку пути (E024).
+    """Пять файлов схем в папку `target` — общим безопасным писателем (E024).
 
-    Папку называет человек, и она может быть ссылкой. А вот файл на месте
-    схемы, ведущий ссылкой куда угодно, — ошибка до первой записи: `--export`
-    не пишет туда, куда указывает чужая ссылка.
+    Папку называет человек, и она может быть ссылкой. А вот ссылка или папка
+    на месте файла схемы — ошибка до первой записи: `--export` не пишет туда,
+    куда указывает чужая ссылка.
     """
     from heron.contracts.schemas import all_schemas
-    from heron.core import paths
+    from heron.scaffold.agents import write_files
 
     texts = all_schemas()
-    for name in texts:  # всё — до первой записи
-        destination = paths.in_site(target, name)
-        if destination.is_symlink() or (destination.exists() and not destination.is_file()):
-            raise HeronError(
-                code=paths.CODE,
-                message=f"{name}: на месте файла схемы ссылка или папка",
-                path=str(destination),
-                hint="уберите её или выберите другую папку",
-            )
-    target.mkdir(parents=True, exist_ok=True)
-    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
-    for name, text in texts.items():
-        # O_NOFOLLOW: ссылка, подложенная после проверки, — ошибка, а не запись мимо
-        fd = os.open(paths.in_site(target, name), flags, 0o644)
-        with os.fdopen(fd, "wb") as out:
-            out.write(text.encode("utf-8"))
-    return list(texts)
+    return write_files(target, [(name, text.encode("utf-8")) for name, text in texts.items()])
 
 
 @main.command()
@@ -1398,7 +1382,10 @@ def docs(
         click.echo("\n".join(found))
         return
     if target is not None:
-        written = library.export(target, lang, all_langs=all_langs)
+        try:
+            written = library.export(target, lang, all_langs=all_langs)
+        except HeronError as error:
+            _fail(error, lang)
         click.secho(say(lang, "docs_exported", target=target, n=len(written)), fg="green")
         if all_langs:
             click.echo(library.start_hint(target / lang, lang))

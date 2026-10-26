@@ -526,6 +526,7 @@ TEXT["ru"].update(
         "kit_fallback": "без перевода на {want}, положены на {have}: файлов {n}",
         "kit_about_placeholder": "<о проекте: заполняет архитектор>",
         "kit_manifest_head": "# Манифест комплекта для агентов. Пишет движок, руками не правят.",
+        "kit_manifest_damaged": "манифест agents/heron-kit.yaml не прочитан — переписан заново",
         # сведение check (21 §12)
         "kit_found": (
             "`agents/`: инструкции для агентов, движок {engine}, {code}; в сборку не входит"
@@ -569,6 +570,7 @@ TEXT["en"].update(
         "kit_fallback": "no {want} translation yet, placed in {have}: {n} files",
         "kit_about_placeholder": "<about the project: the architect fills this in>",
         "kit_manifest_head": "# Agent kit manifest. Written by the engine, not edited by hand.",
+        "kit_manifest_damaged": "agents/heron-kit.yaml could not be read — written anew",
         "kit_found": (
             "`agents/`: agent instructions, engine {engine}, {code}; not part of the build"
         ),

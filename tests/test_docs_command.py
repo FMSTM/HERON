@@ -110,7 +110,7 @@ def test_kit_on_english_marks_fallback_or_reads_translation():
     else:
         assert found.path == "docs/ru/README.md"
         assert found.lang_used == "ru"
-        assert found.note == "[ru: перевода на en пока нет]"
+        assert found.note == "[ru: no English translation yet]"
         text = docs.read_topic("kit", "en")
         first, blank, *_ = text.splitlines()
         assert first == found.note
@@ -151,7 +151,7 @@ def test_fallback_per_file(tmp_path, monkeypatch):
     assert docs.resolve("kit", "en") == docs.Resolved("docs/en/README.md", "en", None)
     theme = docs.resolve("theme", "en")
     assert theme.path == "docs/ru/guide/04-theme.md"
-    assert theme.note == "[ru: перевода на en пока нет]"
+    assert theme.note == "[ru: no English translation yet]"
     assert docs.tree("en") == {"README.md": "en", "guide/04-theme.md": "ru"}
 
 
@@ -159,8 +159,8 @@ def test_stale_translation_is_marked(tmp_path, monkeypatch):
     fake_root(tmp_path, monkeypatch, en=True, status="stale")
     found = docs.resolve("kit", "en")
     assert found.lang_used == "en"
-    assert found.note == "[en: перевод отстаёт от ru]"
-    assert docs.read_topic("kit", "en") == "[en: перевод отстаёт от ru]\n\n# en kit\n"
+    assert found.note == "[en: the translation lags behind ru]"
+    assert docs.read_topic("kit", "en") == "[en: the translation lags behind ru]\n\n# en kit\n"
     assert docs.resolve("kit", "ru").note is None
 
 
@@ -196,7 +196,7 @@ def test_contents_differ_by_language():
     assert "Роли агентов" in ru and "Agent roles" not in ru
     assert "Agent roles" in en and "Роли агентов" not in en
     if not HAS_EN:
-        assert en.startswith("[ru: перевода на en пока нет]")
+        assert en.startswith("[ru: no English translation yet]")
 
 
 # --- виртуальные темы ----------------------------------------------------------
@@ -405,7 +405,7 @@ def test_beta_keeps_the_fallback_note(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("HERON_CHANNEL", "beta")
     assert docs.read_topic("kit", "en") == (
-        "[en: перевод отстаёт от ru]\n\n# en kit\n"
+        "[en: the translation lags behind ru]\n\n# en kit\n"
         "docker run --rm ghcr.io/fmstm/heron:beta docs\n"
         "https://github.com/FMSTM/HERON/blob/beta/docs/en/README.md\n"
     )
@@ -469,7 +469,74 @@ def test_template_in_beta_points_at_beta(tmp_path, monkeypatch):
     english = CliRunner().invoke(main, ["docs", "--lang", "en", "template", "x.md"])
     assert english.exit_code == 0, english.output
     assert english.stdout == expected
-    assert english.stderr.strip() == "[ru: перевода на en пока нет]"
+    assert english.stderr.strip() == "[ru: no English translation yet]"
     monkeypatch.delenv("HERON_CHANNEL")
     prod = CliRunner().invoke(main, ["docs", "--lang", "ru", "template", "x.md"])
     assert prod.stdout_bytes == sample.read_bytes()
+
+
+# --- пометки на языке запрошенной темы (E15.S1.T7: F10, F11) ---------------------
+
+CYRILLIC = re.compile(r"[А-Яа-яЁё]")
+LATIN_WORD = re.compile(r"\b[A-Za-z]{3,}\b")
+
+
+def test_fallback_note_is_in_the_requested_language(tmp_path, monkeypatch):
+    """en-читатель читает пометку по-английски, ru-читатель — по-русски; язык файла — токен."""
+    fake_root(tmp_path, monkeypatch, en=True)
+    en = docs.resolve("theme", "en").note
+    assert en == "[ru: no English translation yet]"
+    assert not CYRILLIC.search(en)
+    (tmp_path / "docs" / "en" / "guide").mkdir()
+    (tmp_path / "docs" / "en" / "guide" / "05-seo.md").write_text("# en seo\n", encoding="utf-8")
+    ru = docs.resolve("seo", "ru").note
+    assert ru == "[en: перевода на ru пока нет]"
+    assert LATIN_WORD.findall(ru) == []
+
+
+def test_stale_note_is_in_english():
+    from heron.messages import say
+
+    note = say("en", "docs_stale", have="ru", want="en")
+    assert note == "[en: the translation lags behind ru]" and not CYRILLIC.search(note)
+    assert say("ru", "docs_stale", have="ru", want="en") == "[en: перевод отстаёт от ru]"
+
+
+def test_contents_marks_topics_that_open_in_the_other_language(tmp_path, monkeypatch):
+    fake_root(tmp_path, monkeypatch, en=True)
+    lines = docs.contents("en").splitlines()
+    theme = next(line for line in lines if line.startswith("  theme "))
+    kit = next(line for line in lines if line.startswith("  kit "))
+    assert theme.endswith("(opens in ru)") and not CYRILLIC.search(theme)
+    assert "(opens in" not in kit
+    ru = docs.contents("ru")
+    assert "(откроется на" not in ru and "(opens in" not in ru
+
+
+def test_contents_on_russian_marks_english_only_topics(tmp_path, monkeypatch):
+    fake_root(tmp_path, monkeypatch, en=True)
+    (tmp_path / "docs" / "ru" / "README.md").unlink()
+    line = next(row for row in docs.contents("ru").splitlines() if row.startswith("  kit "))
+    assert line.endswith("(откроется на en)")
+
+
+def test_real_contents_marks_every_fallback_topic():
+    """Каждая тема без файла на языке помечена, остальные — нет; число совпадает с деревом."""
+    for lang in docs.LANGS:
+        have = docs.tree(lang)
+        mark = "(opens in" if lang == "en" else "(откроется на"
+        lines = docs.contents(lang).splitlines()
+        expected = set()
+        for item in docs.TOPICS:
+            rel = docs._tree_rel(item.path)
+            if rel is not None and have.get(rel, lang) != lang:
+                expected.add(item.name)
+        marked = {line.split()[0] for line in lines if line.startswith("  ") and mark in line}
+        assert marked == expected, lang
+
+
+def test_cli_contents_on_english_has_no_cyrillic():
+    result = CliRunner().invoke(main, ["docs", "--lang", "en"])
+    assert result.exit_code == 0, result.output
+    lines = [line for line in result.output.splitlines() if CYRILLIC.search(line)]
+    assert not lines, lines

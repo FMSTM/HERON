@@ -93,7 +93,7 @@ def test_new_en_uses_english_or_marks_fallback(here):
             docs.root() / "docs/en/README.md"
         ).read_bytes()
     else:
-        assert "[ru: перевода на en пока нет]" in text
+        assert "[ru: no English translation yet]" in text
         assert "no en translation yet, placed in ru" in result.output
         assert {e.get("lang") for e in data["files"] if e["path"] == "README.md"} == {"ru"}
 
@@ -234,7 +234,7 @@ def test_docs_lang_en_kit(here):
         assert result.output == (docs.root() / "docs/en/README.md").read_text(encoding="utf-8")
     else:
         first, _, rest = result.output.partition("\n\n")
-        assert first == "[ru: перевода на en пока нет]"
+        assert first == "[ru: no English translation yet]"
         assert rest == (docs.root() / "docs/ru/README.md").read_text(encoding="utf-8")
 
 
@@ -499,7 +499,7 @@ def test_cli_docs_template_fallback_note_goes_to_stderr(here):
     assert result.exit_code == 0
     assert not result.stdout.startswith("[")
     if not HAS_EN:
-        assert "[ru: перевода на en пока нет]" in result.stderr
+        assert "[ru: no English translation yet]" in result.stderr
 
 
 def test_cli_init_agents_with_escaping_manifest_entry(here):

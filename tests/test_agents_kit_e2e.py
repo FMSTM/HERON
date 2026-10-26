@@ -476,7 +476,7 @@ def test_docs_language_priority(here, monkeypatch, flag, env, site_notes, expect
     elif has_en:
         assert first.startswith("# HERON for agents"), first
     else:
-        assert first == "[ru: перевода на en пока нет]", first
+        assert first == "[ru: no English translation yet]", first
 
 
 # --- 8. из образа ---------------------------------------------------------------------

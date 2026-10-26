@@ -543,8 +543,6 @@ TEXT["ru"].update(
         "kit_missing": "комплекта нет — `heron init`",
         "agents_conflict": "--agents и --no-agents вместе не задаются: выберите одно",
         # heron docs
-        "docs_fallback": "[{have}: перевода на {want} пока нет]",
-        "docs_stale": "[{want}: перевод отстаёт от {have}]",
         "docs_start_with": "Начать с {path}",
         "docs_group_start": "Начало",
         "docs_group_roles": "Роли агентов",
@@ -590,8 +588,6 @@ TEXT["en"].update(
         "kit_missing": "no agent kit — `heron init`",
         "agents_conflict": "--agents and --no-agents cannot be used together: pick one",
         # Пометка фолбэка — буквально как в 21 §10 на обоих языках: её ищут агенты и тесты.
-        "docs_fallback": "[{have}: перевода на {want} пока нет]",
-        "docs_stale": "[{want}: перевод отстаёт от {have}]",
         "docs_start_with": "Start with {path}",
         "docs_group_start": "Start",
         "docs_group_roles": "Agent roles",
@@ -1309,4 +1305,24 @@ RECIPE_EN: tuple[tuple[str, str], ...] = (
         "# /tmp/nginx.pid behind, which the worker process then cannot write to —\n"
         "# the container dies at the start with “permission denied”.\n",
     ),
+)
+
+
+# --- heron docs: пометки языка (21 §10) ---
+# Пометка — на языке запрошенной темы: en-читатель должен её прочесть.
+# have — язык файла, который печатается; want — запрошенный язык.
+TEXT["ru"].update(
+    {
+        "docs_fallback": "[{have}: перевода на {want} пока нет]",
+        "docs_stale": "[{want}: перевод отстаёт от {have}]",
+        "docs_toc_other": "(откроется на {have})",
+    }
+)
+
+TEXT["en"].update(
+    {
+        "docs_fallback": "[{have}: no English translation yet]",
+        "docs_stale": "[{want}: the translation lags behind {have}]",
+        "docs_toc_other": "(opens in {have})",
+    }
 )

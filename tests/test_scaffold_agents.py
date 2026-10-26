@@ -267,7 +267,7 @@ def test_english_kit_uses_translation_or_marks_fallback(tmp_path):
         assert readme == (docs.root() / "docs/ru/README.md").read_bytes()
         assert marked["README.md"] == "ru"
         assert "agents/README.md" in plan.fallback
-        assert "[ru: перевода на en пока нет]" in text
+        assert "[ru: no English translation yet]" in text
     for rel, have in docs.tree("en").items():
         assert marked[rel] == (None if have == "en" else "ru"), rel
 
@@ -1113,7 +1113,7 @@ def test_docs_export_pointers_match_the_kit(tmp_path, monkeypatch):
     assert "ghcr.io/fmstm/heron:prod docs --lang en" in text  # пустой канал — prod
     assert "](agents/" not in text and "[agents/README.md](README.md)" in text
     if not (docs.root() / "docs/en/README.md").is_file():
-        assert "[ru: перевода на en пока нет]" in text
+        assert "[ru: no English translation yet]" in text
     for name in ("_Blank", "_DEFAULT_HEAD", "_pointer_head", "AGENTS_ROOT"):
         assert not hasattr(docs, name), name
     assert not hasattr(agents, "_TEXT")

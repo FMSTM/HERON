@@ -528,16 +528,25 @@ def schemas_text(lang: str | None = None) -> str:
 
 
 def contents(lang: str | None = None) -> str:
-    """Оглавление: темы по группам с одной строкой описания на языке `lang`."""
+    """Оглавление: темы по группам с одной строкой описания на языке `lang`.
+
+    Тема, у которой нет файла на `lang`, помечена в своей строке: откроется
+    на другом языке (21 §10). Пометка — на языке оглавления.
+    """
     lang = _lang(lang)
     lines = []
     if not (root() / "docs" / lang).is_dir():
         lines += [_text(lang, "docs_fallback", have=_other(lang), want=lang), ""]
     lines += [_text(lang, "head", code=lang), ""]
+    have = tree(lang)
     for group in GROUPS:
         lines.append(f"{_group_title(group, lang)}:")
         for item in (t for t in TOPICS if t.group == group):
-            lines.append(f"  {item.name:<14} {item.about(lang)}")
+            line = f"  {item.name:<14} {item.about(lang)}"
+            rel = _tree_rel(item.path)
+            if rel is not None and have.get(rel, lang) != lang:
+                line += " " + _text(lang, "docs_toc_other", have=have[rel])
+            lines.append(line)
         lines.append("")
     lines.append(_text(lang, "samples", names=", ".join(templates(lang))))
     lines.append(_text(lang, "search"))

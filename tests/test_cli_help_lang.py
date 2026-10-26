@@ -404,6 +404,24 @@ def test_docs_and_schema_follow_notes(here):
     assert both.exit_code == 2 and "Схема одна за раз" in both.output
 
 
+def test_docs_fallback_note_and_contents_follow_notes(here):
+    """F10, F11: пометка фолбэка и отметки оглавления — на языке запрошенной темы."""
+    from heron import docs
+
+    fallback = [t.name for t in docs.TOPICS if docs.resolve(t.name, "en").note]
+    for name in fallback:
+        first = run("docs", name, "--notes", "en").output.split("\n", 1)[0]
+        assert first.startswith("[") and not CYRILLIC.search(first), (name, first)
+    contents = run("docs", "--notes", "en").output
+    assert not [line for line in contents.splitlines() if CYRILLIC.search(line)]
+    other = [n for n in fallback if docs.resolve(n, "en").lang_used != "en"]
+    for name in other:
+        row = next(line for line in contents.splitlines() if line.startswith(f"  {name} "))
+        assert row.endswith(")") and "(opens in " in row, row
+    ru = run("docs", "--notes", "ru").output
+    assert "(opens in" not in ru
+
+
 # --- heron recipe на языке пояснений (F16, решение владельца) ----------------------
 
 

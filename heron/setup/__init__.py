@@ -50,14 +50,14 @@ HEADER = {
         "# Все настройки сайта в одном файле. Записал heron setup: перезапуск\n"
         "# конфигуратора покажет эти ответы и перепишет только свои ключи —\n"
         "# остальное (gone, forms, свои блоки) останется как есть. Править руками\n"
-        "# тоже можно: все ключи — heron docs site-yaml.\n"
+        "# тоже можно: все ключи — heron docs contract, раздел 5.\n"
         "# Паролей и токенов здесь нет и быть не должно: они вне папки сайта.\n\n"
     ),
     "en": (
         "# All settings of the site in one file. Written by heron setup: running the\n"
         "# configurator again shows these answers and rewrites only its own keys;\n"
         "# the rest (gone, forms, your own blocks) stays as it is. Editing by hand\n"
-        "# is fine too: every key is in heron docs site-yaml.\n"
+        "# is fine too: every key is in heron docs contract, section 5.\n"
         "# No passwords or tokens here: they live outside the site folder.\n\n"
     ),
 }

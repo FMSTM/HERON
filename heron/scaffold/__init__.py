@@ -219,6 +219,30 @@ def _text(lang: str, name: str) -> str:
     return (TEXT / lang / name).read_text(encoding="utf-8")
 
 
+# Комментарии стартовой темы — на языке пояснений, как theme.yaml и записки.
+# В шаблонах на их месте метка, текст — в text/<язык>/theme-notes.yaml.
+# Ключа нет в таблице — KeyError: тема с меткой вместо комментария уехать
+# в сайт не должна, и тест ловит это раньше.
+NOTE_MARK = re.compile(r"\{# heron:note ([a-z0-9.-]+) #\}|/\* heron:note ([a-z0-9.-]+) \*/")
+
+
+def theme_notes(lang: str) -> dict[str, str]:
+    import yaml
+
+    return yaml.safe_load(_text(lang, "theme-notes.yaml"))
+
+
+def with_notes(text: str, lang: str) -> str:
+    """Шаблон темы с комментариями на языке `lang` вместо меток."""
+    table = theme_notes(lang)
+    return NOTE_MARK.sub(lambda m: table[m.group(1) or m.group(2)], text)
+
+
+def _theme_file(root: Path, source: Path, plan: Plan, force: bool, notes: str) -> None:
+    rel = f"theme/{source.relative_to(TEMPLATES).as_posix()}"
+    _put(root, rel, with_notes(source.read_text(encoding="utf-8"), notes), plan, force)
+
+
 @dataclass(slots=True)
 class Plan:
     """Что команда собирается создать."""
@@ -376,7 +400,7 @@ def starter_theme(stage: Path, languages: list[str], notes: str = "en") -> None:
     _put(stage, "theme/theme.yaml", _text(notes, "theme.yaml").format(**fields), plan, True)
     for source in sorted(TEMPLATES.rglob("*")):
         if source.is_file():
-            _copy(stage, source, f"theme/{source.relative_to(TEMPLATES).as_posix()}", plan, True)
+            _theme_file(stage, source, plan, True, notes)
     for lang in languages:
         _put(stage, f"theme/i18n/{lang}.yaml", STRINGS.get(lang, STRINGS["en"]), plan, True)
     for lang in languages:
@@ -543,7 +567,7 @@ def create(
     _put(root, "theme/theme.yaml", _text(notes, "theme.yaml").format(**fields), plan, force)
     for source in sorted(TEMPLATES.rglob("*")):
         if source.is_file():
-            _copy(root, source, f"theme/{source.relative_to(TEMPLATES).as_posix()}", plan, force)
+            _theme_file(root, source, plan, force, notes)
     for lang in languages:
         _put(root, f"theme/i18n/{lang}.yaml", STRINGS.get(lang, STRINGS["en"]), plan, force)
 

@@ -21,7 +21,92 @@ from heron.modules.redirects import Plan
 
 NAME = ".heron-nginx.conf"
 
-HEAD = """# Собран движком вместе с сайтом. Правки здесь переживут одну сборку.
+# Комментарии конфига — на языке пояснений сайта (build.notes): конфиг читает
+# тот, кто публикует сайт. В шаблонах ниже на месте комментария метка
+# `#@ключ` с отступом; `_comments` ставит вместо неё строки `# …` с тем же
+# отступом. Директивы от языка не зависят: меняются только строки комментариев.
+COMMENTS = {
+    "ru": {
+        "built": "Собран движком вместе с сайтом. Правки здесь переживут одну сборку.",
+        "types": (
+            "Типы файлов. `types` на уровне server не дополняет http-уровень, а\n"
+            "заменяет его целиком, поэтому стоковый список подключается сам, а\n"
+            "недостающее (markdown, yaml) объявляется рядом: записи в одном блоке\n"
+            "nginx сливает. Без этого .md уезжает как application/octet-stream."
+        ),
+        "charset": (
+            "`charset` касается только типов из этого списка. Стоковый перечень\n"
+            "повторён целиком (директива заменяет его, а не дополняет), плюс markdown.\n"
+            "text/html nginx включает сам: упомянутый здесь, он даёт предупреждение."
+        ),
+        "gzip": (
+            "Сжатие: текст, стили, скрипты, svg, карты и разметка. Картинки и видео\n"
+            "уже сжаты, второй раз их жать — только тратить процессор."
+        ),
+        "pages": (
+            "Страницы — всегда спрашивать сервер: правка текста должна быть видна\n"
+            "сразу. Ответ «не изменилось» (ETag, Last-Modified) почти бесплатен."
+        ),
+        "assets": (
+            "Картинки, стили и скрипты — сутки. Имена файлов не меняются при\n"
+            "замене содержимого, поэтому «навсегда» здесь значило бы неделю\n"
+            "показывать старую картинку тем, кто уже заходил."
+        ),
+        "hidden": (
+            "Скрытые файлы наружу не отдаём. Рядом со статикой лежит служебное —\n"
+            "например, этот самый конфиг: образ забирает его себе, но папку могут\n"
+            "разложить и руками на чужой сервер. Проверку домена оставляем."
+        ),
+        "root": "Корень — основной язык сайта, его 404 лежит рядом с index.html.",
+        "exact": "301 и 410: точные адреса, регистр важен",
+    },
+    "en": {
+        "built": "Built by the engine together with the site. Edits here survive one build.",
+        "types": (
+            "File types. `types` at the server level does not extend the http level,\n"
+            "it replaces it entirely, so the stock list is included here, and what\n"
+            "is missing (markdown, yaml) is declared next to it: nginx merges entries\n"
+            "of one block. Without this, .md goes out as application/octet-stream."
+        ),
+        "charset": (
+            "`charset` applies only to the types in this list. The stock list is\n"
+            "repeated in full (the directive replaces it, it does not extend it),\n"
+            "plus markdown. nginx adds text/html itself: listed here, it gives a warning."
+        ),
+        "gzip": (
+            "Compression: text, styles, scripts, svg, maps and markup. Images and video\n"
+            "are already compressed; compressing them again only wastes the processor."
+        ),
+        "pages": (
+            "Pages: always ask the server, an edit of the text must show at once.\n"
+            'A "not modified" answer (ETag, Last-Modified) costs almost nothing.'
+        ),
+        "assets": (
+            "Images, styles and scripts: one day. File names do not change when\n"
+            'the content is replaced, so "forever" here would mean showing the old\n'
+            "image for a week to those who have visited before."
+        ),
+        "hidden": (
+            "Hidden files are not served. Service files lie next to the static ones,\n"
+            "for example this very config: the image takes it for itself, but the\n"
+            "folder can also be laid out by hand on another server. Domain checks stay."
+        ),
+        "root": "The root is the main language of the site, its 404 lies next to index.html.",
+        "exact": "301 and 410: exact addresses, case matters",
+    },
+}
+MARK = re.compile(r"^( *)#@([a-z]+)\n", re.M)
+
+
+def _comments(text: str, lang: str) -> str:
+    """Метки `#@ключ` — строками комментария на языке `lang`."""
+    table = COMMENTS.get(lang, COMMENTS["en"])
+    return MARK.sub(
+        lambda m: "".join(f"{m[1]}# {line}\n" for line in table[m[2]].split("\n")), text
+    )
+
+
+HEAD = """#@built
 server {
     listen       8080;
     server_name  _;
@@ -32,23 +117,17 @@ server {
     charset utf-8;
     absolute_redirect off;
 
-    # Типы файлов. `types` на уровне server не дополняет http-уровень, а
-    # заменяет его целиком, поэтому стоковый список подключается сам, а
-    # недостающее (markdown, yaml) объявляется рядом: записи в одном блоке
-    # nginx сливает. Без этого .md уезжает как application/octet-stream.
+    #@types
     include /etc/nginx/mime.types;
     types {
         text/markdown    md;
         application/yaml yaml yml;
     }
-    # `charset` касается только типов из этого списка. Стоковый перечень
-    # повторён целиком (директива заменяет его, а не дополняет), плюс markdown.
-    # text/html nginx включает сам: упомянутый здесь, он даёт предупреждение.
+    #@charset
     charset_types text/xml text/plain text/vnd.wap.wml
                   application/javascript application/rss+xml text/markdown;
 
-    # Сжатие: текст, стили, скрипты, svg, карты и разметка. Картинки и видео
-    # уже сжаты, второй раз их жать — только тратить процессор.
+    #@gzip
     gzip on;
     gzip_vary on;
     gzip_min_length 1024;
@@ -56,13 +135,10 @@ server {
                application/xml application/rss+xml application/atom+xml
                application/manifest+json image/svg+xml text/markdown application/yaml;
 
-    # Страницы — всегда спрашивать сервер: правка текста должна быть видна
-    # сразу. Ответ «не изменилось» (ETag, Last-Modified) почти бесплатен.
+    #@pages
     add_header Cache-Control "no-cache" always;
 
-    # Картинки, стили и скрипты — сутки. Имена файлов не меняются при
-    # замене содержимого, поэтому «навсегда» здесь значило бы неделю
-    # показывать старую картинку тем, кто уже заходил.
+    #@assets
     location ^~ /media/ {
         add_header Cache-Control "public, max-age=86400" always;
         location ~ /\\. { return 404; }
@@ -88,13 +164,11 @@ LANG = """
 """
 
 TAIL = """
-    # Скрытые файлы наружу не отдаём. Рядом со статикой лежит служебное —
-    # например, этот самый конфиг: образ забирает его себе, но папку могут
-    # разложить и руками на чужой сервер. Проверку домена оставляем.
+    #@hidden
     location ^~ /.well-known/ { try_files $uri =404; }
     location ~ /\\.           { return 404; }
 
-    # Корень — основной язык сайта, его 404 лежит рядом с index.html.
+    #@root
     error_page 404 /404.html;
     location = /404.html { internal; }
 
@@ -155,7 +229,7 @@ def _block(head: str, default: str, rows: list[str]) -> str:
     return head + " {\n    default " + default + ";\n" + "\n".join(rows) + "\n}\n"
 
 
-def _locations(plan: Plan) -> str:
+def _locations(plan: Plan, lang: str = "en") -> str:
     """301 и 410 точными и префиксными location.
 
     Строковые ключи `map` nginx сравнивает без учёта регистра, а адреса в
@@ -179,11 +253,7 @@ def _locations(plan: Plan) -> str:
     for path in plan.gone_prefixes:
         if path not in plan.raw:
             rows.append(f"    location ^~ {quote(path)} {{ return 410; }}")
-    return (
-        ("\n    # 301 и 410: точные адреса, регистр важен\n" + "\n".join(rows) + "\n")
-        if rows
-        else ""
-    )
+    return (_comments("\n    #@exact\n", lang) + "\n".join(rows) + "\n") if rows else ""
 
 
 def _maps(plan: Plan) -> tuple[str, str]:
@@ -236,14 +306,19 @@ def generate(config: SiteConfig, plan: Plan | None = None) -> dict[str, str]:
     plan = plan or Plan()
     default = config.site.default_lang
     maps, checks = _maps(plan)
-    head = HEAD.replace(
-        "    absolute_redirect off;\n", "    absolute_redirect off;\n" + checks + _locations(plan)
+    # Комментарии — по build.notes, без HERON_NOTES: те же исходники дают тот
+    # же конфиг на любой машине. Метки раскрываются в шаблоне до вставки
+    # адресов: строка сайта меткой не станет.
+    notes = config.build.notes
+    head = _comments(HEAD, notes).replace(
+        "    absolute_redirect off;\n",
+        "    absolute_redirect off;\n" + checks + _locations(plan, notes),
     )
     parts = [maps + "\n" if maps else "", head]
     for lang in config.site.languages:
         if lang != default:
             parts.append(LANG.format(lang=lang))
-    parts.append(TAIL)
+    parts.append(_comments(TAIL, notes))
     return {NAME: "".join(parts)}
 
 

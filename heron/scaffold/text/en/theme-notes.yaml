@@ -1,0 +1,43 @@
+# Comments of the starter theme in the site's notes language (build.notes).
+# Templates in heron/scaffold/templates/ carry a mark in their place,
+# `{# heron:note <key> #}` or `/* heron:note <key> */`; when the theme is
+# copied into a site, the mark is replaced with the text from here as is.
+# The ru and en keys match, tests/test_scaffold_notes.py checks it.
+base.scheme: |-
+  {# light or dark: the visitor's choice, otherwise as the system says #}
+checklist: |-
+  {# checklist: three or more ### groups with lists; two-lists: exactly two, side by side #}
+timeline: |-
+  {# timeline comes as "period | event" pairs or as numbered steps #}
+children: |-
+  {# Pages of a section: an _index.md page lists its children as cards. #}
+tabs: |-
+  {# Tabs without scripts: a radio button per tab, CSS shows the chosen one.
+     Without CSS every tab is a plain heading with its content, readable as is. #}
+sections: |-
+  {# Every section of the page, each with the module of its form.
+     A theme of your own usually places sections by anchor instead:
+     {{ mod.faq('faq') }} exactly where the questions belong. #}
+footer: |-
+  {# Contacts come from site.yaml: contact.channels is written by the configurator (heron setup).
+     An older config has no channels; then the main phone and email are shown. #}
+mark: |-
+  {# The HERON mark. Colours come from theme variables: --mark-a and --mark-b, the dark theme has its own. #}
+analytics: |-
+  {# Counters run only after the visitor agrees.
+
+     Until the choice, the page has no counter script and makes no request to
+     them: only the banner. "Accept" loads the counters at once and on the
+     next pages; "Decline" does not load them, and the banner is not shown
+     again. The choice is kept in localStorage of this browser
+     (heron-consent: yes | no); the button in the footer changes it.
+     Counter numbers come from site.yaml (analytics.*) and reach the page
+     code through tojson: they are data, not markup. #}
+css.tokens: |-
+  /* HERON starter — white, plain, readable. Change the tokens below and it is yours. */
+css.dark: |-
+  /* Dark theme: by the system setting or by the button in the header (data-theme). */
+css.tabs: |-
+  /* up to twelve tabs; add lines above for more */
+css.consent: |-
+  /* consent to counters: a banner at the bottom of the screen, no counters before the choice */

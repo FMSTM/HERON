@@ -1,4 +1,4 @@
-/* HERON starter — white, plain, readable. Change the tokens below and it is yours. */
+/* heron:note css.tokens */
 :root {
   --ink: #16151d;
   --muted: #5f6270;
@@ -17,7 +17,7 @@
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
-/* Тёмная тема: по настройке системы или по кнопке в шапке (data-theme). */
+/* heron:note css.dark */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --ink: #e9eaee; --muted: #a2a6b3; --paper: #14151a; --wash: #1d1f26; --line: #2c2f38;
@@ -132,7 +132,7 @@ th { background: var(--wash); font-weight: 600; }
 .tabset input:nth-of-type(10):checked ~ .panel:nth-of-type(10) { display: block; }
 .tabset input:nth-of-type(11):checked ~ .panel:nth-of-type(11) { display: block; }
 .tabset input:nth-of-type(12):checked ~ .panel:nth-of-type(12) { display: block; }
-/* up to twelve tabs; add lines above for more */
+/* heron:note css.tabs */
 
 .children .cards { list-style: none; padding: 0; display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
 .children a { display: block; height: 100%; padding: 1rem 1.25rem; border: 1px solid var(--line); border-radius: var(--radius); text-decoration: none; color: inherit; }
@@ -164,7 +164,7 @@ th { background: var(--wash); font-weight: 600; }
 .powered a { display: inline-flex; align-items: center; gap: .45rem; text-decoration: none; }
 .powered .mark { width: 14px; height: 22px; }
 
-/* согласие на счётчики: плашка внизу экрана, до выбора счётчиков нет */
+/* heron:note css.consent */
 .consent[hidden] { display: none; }
 .consent {
   position: fixed; inset: auto 1rem 1rem 1rem; z-index: 20; max-width: 40rem; margin-inline: auto;

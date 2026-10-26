@@ -112,3 +112,116 @@ def test_english_cli_messages(tmp_path, monkeypatch):
     result = CliRunner().invoke(main, ["new", "site"])
     assert "Site created: site" in result.output
     assert not CYRILLIC.search(result.output)
+
+
+# --- комментарии стартовой темы и шапка site.yaml (E15.S1.T4: F07, F24) ---------
+
+from heron import docs as library  # noqa: E402
+from heron.scaffold import NOTE_MARK, TEMPLATES, theme_notes, with_notes  # noqa: E402
+from heron.setup import HEADER  # noqa: E402
+
+LATIN_WORD = re.compile(r"[A-Za-z]{3,}")
+# Комментарий темы: Jinja {# … #}, CSS /* … */, строка JS // …
+THEME_COMMENT = re.compile(r"\{#.*?#\}|/\*.*?\*/|^\s*//.*$", re.S | re.M)
+# Технические токены, которые в русском комментарии не переводятся
+TOKENS = {
+    "HERON",
+    "CSS",
+    "site",
+    "yaml",
+    "contact",
+    "channels",
+    "heron",
+    "setup",
+    "mark",
+    "localStorage",
+    "consent",
+    "yes",
+    "analytics",
+    "tojson",
+    "data",
+    "theme",
+    "checklist",
+    "two",
+    "lists",
+    "timeline",
+    "index",
+    "mod",
+    "faq",
+}
+
+
+def _theme_comments(root):
+    for path in sorted((root / "theme").rglob("*")):
+        if path.is_file() and path.suffix in (".html", ".css"):
+            text = path.read_text(encoding="utf-8")
+            for found in THEME_COMMENT.finditer(text):
+                yield path.relative_to(root).as_posix(), found.group(0)
+
+
+def test_theme_note_tables_have_the_same_keys_and_cover_every_mark():
+    ru, en = theme_notes("ru"), theme_notes("en")
+    assert set(ru) == set(en)
+    used = set()
+    for source in TEMPLATES.rglob("*"):
+        if source.is_file():
+            for found in NOTE_MARK.finditer(source.read_text(encoding="utf-8")):
+                used.add(found.group(1) or found.group(2))
+    assert used == set(ru), used ^ set(ru)
+    # метка, которой нет в таблице, не уезжает в сайт молча
+    with pytest.raises(KeyError):
+        with_notes("{# heron:note no-such-note #}", "ru")
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_theme_comments_speak_the_notes_language(tmp_path, lang):
+    root = tmp_path / "s"
+    root.mkdir()
+    create(root, name="demo", languages=["en"], notes=lang)
+    comments = list(_theme_comments(root))
+    assert len(comments) >= 13
+    for rel, text in comments:
+        assert "heron:note" not in text, rel
+        if lang == "en":
+            assert not CYRILLIC.search(text), (rel, text)
+        else:
+            assert CYRILLIC.search(text), (rel, text)
+            # латиница в русском комментарии — только токены: `код`, пути, имена ключей
+            plain = re.sub(r"`[^`]*`|\{\{.*?\}\}|[\w.-]*[._/-][\w./*-]*|--[\w-]+", " ", text)
+            stray = [w for w in LATIN_WORD.findall(plain) if w not in TOKENS]
+            assert not stray, (rel, stray)
+    # en-сайт: во всей теме, кроме i18n чужого языка, кириллицы нет вовсе
+    if lang == "en":
+        for path in (root / "theme").rglob("*"):
+            if path.is_file() and "i18n" not in path.parts:
+                assert not CYRILLIC.search(path.read_text(encoding="utf-8")), path
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_dist_carries_no_comment_of_the_other_language(tmp_path, lang):
+    root = tmp_path / "s"
+    root.mkdir()
+    create(root, name="demo", languages=["en"], notes=lang)
+    result = pipeline.run(root)
+    assert not result.failed, [str(e) for e in result.collector.errors]
+    dist = root / "dist"
+    for page in dist.rglob("*.html"):
+        html = page.read_text(encoding="utf-8")
+        # комментарий скрипта темы — Jinja-комментарий: в HTML его нет ни на каком языке
+        assert "//" not in html.split("<script>", 1)[1].split("</script>", 1)[0], page
+        if lang == "en":
+            assert not CYRILLIC.search(html), page
+    css = (dist / "assets" / "site.css").read_text(encoding="utf-8")
+    css_comments = re.findall(r"/\*.*?\*/", css, re.S)
+    assert css_comments
+    for comment in css_comments:
+        assert bool(CYRILLIC.search(comment)) is (lang == "ru"), comment
+
+
+def test_setup_header_names_an_existing_docs_topic():
+    for lang, text in HEADER.items():
+        names = re.findall(r"heron docs ([a-z][a-z-]*)", text)
+        assert names, lang
+        for name in names:
+            assert library.topic(name) is not None, (lang, name)
+        assert bool(CYRILLIC.search(text)) is (lang == "ru")

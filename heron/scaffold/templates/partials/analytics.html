@@ -1,12 +1,4 @@
-{# Счётчики — только после согласия посетителя.
-
-   До выбора на странице нет ни одного скрипта счётчика и ни одного запроса к
-   ним: только плашка. «Принять» — счётчики подключаются сразу и на
-   следующих страницах; «Отказаться» — не подключаются, плашка больше не
-   показывается. Выбор хранится в localStorage этого браузера
-   (heron-consent: yes | no), передумать — кнопка в подвале.
-   Номера счётчиков — из site.yaml (analytics.*), в код страницы они
-   попадают через tojson: это данные, а не разметка. #}
+{# heron:note analytics #}
 {% set counters = {} %}
 {% if site.analytics.gtm %}{% set counters = dict(counters, gtm=site.analytics.gtm) %}{% endif %}
 {% if site.analytics.ga4 %}{% set counters = dict(counters, ga4=site.analytics.ga4) %}{% endif %}

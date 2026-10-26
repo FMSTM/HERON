@@ -8,6 +8,7 @@ from pathlib import Path
 import yaml
 
 from heron.core import build as pipeline
+from heron.modules import nginx
 from heron.scaffold import create
 from tests.nginx_server import needs_nginx, serve
 
@@ -70,12 +71,10 @@ def test_catches_a_redirect_chain(tmp_path):
     dist = site(tmp_path)
     conf = dist / ".heron-nginx.conf"
     text = conf.read_text(encoding="utf-8")
-    # цель первого редиректа сама перенаправляет дальше
-    text = text.replace(
-        "    # 301 и 410: точные адреса, регистр важен\n",
-        "    # 301 и 410: точные адреса, регистр важен\n"
-        '    location = "/about/" { return 301 "/"; }\n',
-    )
+    # цель первого редиректа сама перенаправляет дальше; сайт с build.notes: en
+    anchor = f"    # {nginx.COMMENTS['en']['exact']}\n"
+    assert anchor in text
+    text = text.replace(anchor, anchor + '    location = "/about/" { return 301 "/"; }\n')
     conf.write_text(text, encoding="utf-8")
     code, _ = run(tmp_path, dist)
     assert code == 1

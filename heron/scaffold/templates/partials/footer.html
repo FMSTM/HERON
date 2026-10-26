@@ -1,5 +1,4 @@
-{# Контакты — из site.yaml: contact.channels пишет конфигуратор (heron setup).
-   У старого конфига каналов нет — тогда основной телефон и почта. #}
+{# heron:note footer #}
 {% set channels = site.get_path('contact.channels') or [] %}
 {% if not channels %}
   {% set channels = [] %}

@@ -1,5 +1,4 @@
-{# Tabs without scripts: a radio button per tab, CSS shows the chosen one.
-   Without CSS every tab is a plain heading with its content, readable as is. #}
+{# heron:note tabs #}
 <section id="{{ section.id }}" class="block tabs">
   {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
   <div class="tabset" style="--tabs: {{ items|length }}">

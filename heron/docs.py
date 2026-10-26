@@ -18,7 +18,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,8 +25,6 @@ from typing import Any
 
 PACKED = Path(__file__).parent / "_docs"
 SOURCE = Path(__file__).resolve().parent.parent
-# Шаблоны корневых указателей сайта (AGENTS.md, CLAUDE.md, GEMINI.md) — E12.S2.T4.
-AGENTS_ROOT = Path(__file__).parent / "scaffold" / "agents-root"
 
 LANGS = ("ru", "en")
 # Язык по умолчанию, если вызывающий его не назвал (21 §10: «иначе en»).
@@ -221,20 +218,13 @@ TOPICS: tuple[Topic, ...] = (
 
 TEMPLATES = "docs/{lang}/templates"
 
-# Заголовки групп. Если в messages.py есть ключи docs_group_<группа> (шов S2.T6),
-# берутся они; иначе — эти.
-GROUPS: dict[str, dict[str, str]] = {
-    "start": {"ru": "Начало", "en": "Start"},
-    "roles": {"ru": "Роли агентов", "en": "Agent roles"},
-    "guide": {"ru": "Гайды по порядку", "en": "Guides in order"},
-    "spec": {"ru": "Справочник", "en": "Reference"},
-    "machine": {"ru": "Для машин", "en": "For machines"},
-}
+# Группы оглавления по порядку; заголовки — ключи messages.py docs_group_<группа>.
+GROUPS = ("start", "roles", "guide", "spec", "machine")
 
+# Строки оглавления и виртуальных тем. Пометки фолбэка и подсказка «Начать с» —
+# в messages.py (docs_*), общие с командной строкой.
 _TEXT: dict[str, dict[str, str]] = {
     "ru": {
-        "docs_fallback": "[{have}: перевода на {want} пока нет]",
-        "docs_stale": "[{want}: перевод отстаёт от {have}]",
         "head": "Документация HERON этой версии движка ({code}). Читать: heron docs <тема>",
         "samples": "Образцы: heron docs template <файл> — {names}",
         "search": "Поиск:   heron docs --search <текст>",
@@ -253,12 +243,8 @@ _TEXT: dict[str, dict[str, str]] = {
         "schemas_export": "Получить файлами: heron schema --export <папка>",
         "schemas_url": "В сети, версия контракта {contract}: {url}",
         "schemas_kit": "В сайте они лежат в agents/schemas/ (heron new, heron init --agents).",
-        "docs_start_with": "Начать с {path}",
     },
     "en": {
-        # Пометка — буквально как в 21 §10 на обоих языках, пока шов S2.T6 не задаст свою.
-        "docs_fallback": "[{have}: перевода на {want} пока нет]",
-        "docs_stale": "[{want}: перевод отстаёт от {have}]",
         "head": "HERON documentation of this engine version ({code}). Read: heron docs <topic>",
         "samples": "Samples: heron docs template <file> — {names}",
         "search": "Search:  heron docs --search <text>",
@@ -278,32 +264,24 @@ _TEXT: dict[str, dict[str, str]] = {
         "schemas_export": "As files: heron schema --export <folder>",
         "schemas_url": "Online, contract version {contract}: {url}",
         "schemas_kit": "In a site they sit in agents/schemas/ (heron new, heron init --agents).",
-        "docs_start_with": "Start with {path}",
     },
 }
 
 
 def _text(lang: str, key: str, **fields: object) -> str:
-    """Строка: ключи `docs_*` — из messages.py, если они там уже есть (шов S2.T6), иначе свои."""
+    """Строка: ключи `docs_*` — из messages.py, прочие — из своей таблицы."""
     if key.startswith("docs_"):
-        try:
-            from heron.messages import say
+        from heron.messages import say
 
-            return say(lang, key, **fields)
-        except (KeyError, IndexError, ValueError, ImportError):
-            pass
+        return say(lang, key, **fields)
     table = _TEXT.get(lang, _TEXT["en"])
     return table.get(key, _TEXT["en"][key]).format(**fields)
 
 
 def _group_title(group: str, lang: str) -> str:
-    try:
-        from heron.messages import say
+    from heron.messages import say
 
-        return say(lang, f"docs_group_{group}")
-    except (KeyError, IndexError, ValueError, ImportError):
-        titles = GROUPS[group]
-        return titles.get(lang, titles["en"])
+    return say(lang, f"docs_group_{group}")
 
 
 def _lang(lang: str | None) -> str:
@@ -582,64 +560,24 @@ def search(text: str, lang: str | None = None, context: int = 1) -> list[str]:
 # --- выгрузка папкой -----------------------------------------------------------
 
 
-class _Blank(dict):
-    """Подстановки шаблона указателя: неизвестное поле — заглушка `<поле>`."""
+def _pointers(lang: str) -> dict[str, str]:
+    """AGENTS.md, CLAUDE.md, GEMINI.md выгрузки — те же, что у сайта (scaffold.agents).
 
-    def __missing__(self, key: str) -> str:
-        return f"<{key}>"
-
-
-def _pointer_fields(lang: str) -> _Blank:
+    Полей сайта у выгрузки нет: на их месте заглушки `<name>`; комплект лежит
+    в корне папки, а не в agents/, — ссылки без префикса.
+    """
     import heron
+    from heron.scaffold import agents as kit
 
-    channel = os.environ.get("HERON_CHANNEL") or "prod"
-    return _Blank(
-        notes=lang,
-        version=heron.__version__,
-        channel=channel,
-        docs_url=f"https://github.com/FMSTM/HERON/blob/{channel}/docs/{lang}/",
-    )
-
-
-_DEFAULT_HEAD = {
-    "ru": (
-        "# {name} — для агентов\n\n"
-        "Язык комплекта: {notes}. Движок HERON {version} ({channel}).\n"
-        "Документация этой версии: {docs_url} и "
-        "`docker run --rm ghcr.io/fmstm/heron:{channel} docs --lang {notes} <тема>`.\n\n"
-        "Читай сначала [README.md](README.md) (ниже — его текст).\n"
-    ),
-    "en": (
-        "# {name} — for agents\n\n"
-        "Kit language: {notes}. HERON engine {version} ({channel}).\n"
-        "Documentation of this version: {docs_url} and "
-        "`docker run --rm ghcr.io/fmstm/heron:{channel} docs --lang {notes} <topic>`.\n\n"
-        "Read [README.md](README.md) first (its text follows).\n"
-    ),
-}
-
-
-def _pointer_head(lang: str) -> str:
-    """Шапка AGENTS.md: шаблон agents-root/<язык>/AGENTS.md (S2.T4) или своя."""
-    template = None
-    for have in (lang, _other(lang)):
-        path = AGENTS_ROOT / have / "AGENTS.md"
-        if path.is_file():
-            template = path.read_text(encoding="utf-8")
-            break
-    if template is None:
-        template = _DEFAULT_HEAD[lang]
-    try:
-        head = template.format_map(_pointer_fields(lang))
-    except (ValueError, IndexError, KeyError, AttributeError):
-        head = template
-    # В выгрузке комплект лежит в корне папки, а не в agents/: ссылки без префикса.
-    return re.sub(r"\]\(agents/", "](", head)
-
-
-def _pointer(name: str) -> str:
-    path = AGENTS_ROOT / name
-    return path.read_text(encoding="utf-8") if path.is_file() else "@AGENTS.md\n"
+    fields = {
+        "notes": lang,
+        "version": heron.__version__,
+        "channel": kit.channel(),
+        "docs_url": kit.docs_url(lang),
+    }
+    files = kit.root_files(lang, fields)
+    files["AGENTS.md"] = re.sub(r"\]\(agents/", "](", files["AGENTS.md"])
+    return files
 
 
 def _tree_items(lang: str, prefix: str = "") -> list[tuple[str, bytes]]:
@@ -669,11 +607,7 @@ def export(target: Path, lang: str | None = None, all_langs: bool = False) -> li
             items += _tree_items(each, f"{each}/")
         return write_files(target, items)
     items = _tree_items(lang)
-    readme = localize("README.md", lang)
-    body = (root() / readme.path).read_text(encoding="utf-8") if readme else ""
-    items.append(("AGENTS.md", (_pointer_head(lang) + "\n" + body).encode("utf-8")))
-    items.append(("CLAUDE.md", _pointer("CLAUDE.md").encode("utf-8")))
-    items.append(("GEMINI.md", _pointer("GEMINI.md").encode("utf-8")))
+    items += [(name, text.encode("utf-8")) for name, text in _pointers(lang).items()]
 
     from heron.contracts.schemas import all_schemas
 

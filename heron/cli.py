@@ -413,14 +413,16 @@ def _kit_lines(plan: Plan, kit_off: bool) -> list[tuple[str, str, str | None]]:
     lines: list[tuple[str, str, str | None]] = []
     # манифест переписывается при каждом обновлении — в счёт заменённых он не идёт
     updated = [rel for rel in kit.updated if rel != "agents/heron-kit.yaml"]
-    if kit.mode == "update":
-        text = say(
-            lang, "kit_updated", code=kit.lang, updated=len(updated), created=len(kit.created)
-        )
-        lines.append(("+", text, "green"))
-    elif kit.created or kit.updated:
-        text = say(lang, "kit_created", code=kit.lang, n=len(kit.created) + len(kit.updated))
-        lines.append(("+", text, "green"))
+    if kit.mode == "update" or updated:
+        if updated or kit.created:
+            text = say(
+                lang, "kit_updated", code=kit.lang, updated=len(updated), created=len(kit.created)
+            )
+            lines.append(("+", text, "green"))
+        else:
+            lines.append(("·", say(lang, "kit_current", code=kit.lang), None))
+    elif kit.created:
+        lines.append(("+", say(lang, "kit_created", code=kit.lang, n=len(kit.created)), "green"))
     else:
         lines.append(("·", say(lang, "kit_in_place"), None))
     if kit.fallback:
@@ -429,8 +431,12 @@ def _kit_lines(plan: Plan, kit_off: bool) -> list[tuple[str, str, str | None]]:
         lines.append(("·", text, None))
     if kit.edited:
         lines.append(("!", say(lang, "kit_skipped_edited", files=", ".join(kit.edited)), "yellow"))
+    if kit.forced:
+        lines.append(("!", say(lang, "kit_forced", files=", ".join(kit.forced)), "yellow"))
     if kit.orphans:
         lines.append(("!", say(lang, "kit_orphan", files=", ".join(kit.orphans)), "yellow"))
+    if kit.damaged:
+        lines.append(("!", say(lang, "kit_manifest_damaged"), "yellow"))
     return lines
 
 
@@ -446,7 +452,10 @@ def _report_plan(plan: Plan, verbose: bool = False, kit_off: bool = False) -> No
         click.echo(say(lang, "plan_found"))
         for line in found:
             click.echo(f"  · {line}")
-    if created or (kit is not None and (kit.created or kit.updated)):
+    changed = kit is not None and (
+        kit.created or any(rel != "agents/heron-kit.yaml" for rel in kit.updated)
+    )
+    if created or changed:
         click.echo(say(lang, "plan_made"))
         if verbose:
             for name in plan.created:
@@ -1400,6 +1409,10 @@ def docs(
         if file not in names:
             _err(say(lang, "docs_no_template", file=file, names=", ".join(names)))
             sys.exit(1)
+        found = library.localize(f"templates/{file}", lang)
+        if found is not None and found.note:
+            # образец копируют как есть: пометка — в stderr, не в текст файла
+            click.echo(found.note, err=True)
         click.echo(library.read(f"{library.TEMPLATES}/{file}", lang), nl=False)
         return
     item = library.topic(name)

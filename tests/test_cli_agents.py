@@ -175,13 +175,14 @@ def test_init_agents_skips_edited_and_force_replaces(here):
     assert result.exit_code == 0, result.output
     assert (root / "AGENTS.md").read_text(encoding="utf-8") == "# edited by a person\n"
     assert "правлен вами, не тронут: AGENTS.md" in result.output
-    assert "инструкции для агентов обновлены (ru)" in result.output
+    assert "инструкции для агентов уже актуальны (ru)" in result.output
     assert not (root / "content/en/404.md").exists()  # --agents трогает только комплект
 
     result = run("init", "site", "--agents", "--force")
     assert result.exit_code == 0, result.output
     assert (root / "AGENTS.md").read_bytes() == fresh
-    assert "правлен вами" not in result.output
+    assert "правлен вами, не тронут" not in result.output
+    assert "правлен вами — перезаписан (--force): AGENTS.md" in result.output
 
 
 def test_init_agents_replaces_untouched_older_file(here):
@@ -451,3 +452,64 @@ def test_cli_new_with_agents_link_outside_fails_before_writing(here):
     assert result.exit_code == 1 and "E024" in result.output
     assert not (here / "s" / "site.yaml").exists()
     assert list((here / "outside").iterdir()) == []
+
+
+# --- поведение adopt/init (E12.S2.T10) --------------------------------------------
+
+
+def test_cli_init_agents_twice_says_up_to_date(here):
+    assert run("new", "site", "--notes", "ru", "-y").exit_code == 0
+    assert run("init", "site", "--agents").exit_code == 0
+    result = run("init", "site", "--agents")
+    assert result.exit_code == 0, result.output
+    assert "· инструкции для агентов уже актуальны (ru)" in result.output
+    assert "заменено 0, добавлено 0" not in result.output
+
+
+def test_cli_init_with_unclear_agents_value(here):
+    assert run("new", "site", "-y", "--no-agents").exit_code == 0
+    path = here / "site/site.yaml"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace("agents: false", 'agents: "yes"'),
+        encoding="utf-8",
+    )
+    result = run("init", "site")
+    assert result.exit_code == 1
+    assert "E011" in result.output and 'build.agents: "yes"' in result.output
+    assert "true, kit or false" in result.output
+    assert "build.agents: false)" not in result.output  # не выдумывает значение
+    assert not (here / "site/agents").exists()
+    assert run("check", "site").exit_code == 1
+
+
+def test_cli_init_agents_on_kit_site_keeps_kit(here):
+    assert run("new", "site", "-y").exit_code == 0
+    assert run("init", "site", "--no-agents").exit_code == 0
+    path = here / "site/site.yaml"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace("agents: false", "agents: kit"), encoding="utf-8"
+    )
+    result = run("init", "site", "--agents")
+    assert result.exit_code == 0, result.output
+    assert config(here / "site")["build"]["agents"] == "kit"
+
+
+def test_cli_docs_template_fallback_note_goes_to_stderr(here):
+    result = run("docs", "--lang", "en", "template", "page.md")
+    assert result.exit_code == 0
+    assert not result.stdout.startswith("[")
+    if not HAS_EN:
+        assert "[ru: перевода на en пока нет]" in result.stderr
+
+
+def test_cli_init_agents_with_escaping_manifest_entry(here):
+    assert run("new", "site", "--notes", "ru", "-y").exit_code == 0
+    path = here / "site/agents/heron-kit.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["files"].append({"path": "../../evil.md", "sha256": "0" * 64})
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    result = run("init", "site", "--agents")
+    assert result.exit_code == 0, result.output
+    assert "манифест agents/heron-kit.yaml не прочитан — переписан заново" in result.output
+    assert not (here / "evil.md").exists()
+    assert "evil" not in path.read_text(encoding="utf-8")

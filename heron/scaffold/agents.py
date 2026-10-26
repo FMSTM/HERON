@@ -46,39 +46,19 @@ LEVELS = ("true", "kit")
 SHORT = ("guide/", "spec/")
 # Манифест — несколько сотен строк; больше — не наш манифест.
 MANIFEST_LIMIT = 256 * 1024
+# Поля шапки манифеста, которые обновление «только недостающего» сохраняет.
+HEADER_KEYS = ("engine", "channel", "contract", "lang", "created", "docs_url")
+LANGS_OF_KIT = ("ru", "en")
 
 # Ссылка README, которую в AGENTS.md надо направить внутрь agents/:
 # не внешняя, не якорь, не от корня и не уже в agents/.
 _LINK = re.compile(r"\]\((?!https?://|mailto:|#|/|agents/)")
 
-# Строки, которых ещё может не быть в messages.py: шов S2.T6 кладёт их туда,
-# а модуль работает и без него.
-_TEXT: dict[str, dict[str, str]] = {
-    "ru": {
-        "kit_about_placeholder": "<о проекте: заполняет архитектор>",
-        "kit_skipped_edited": "правлен вами, не тронут: {files}",
-        "kit_orphan": "нет в новом комплекте, оставлен: {files}",
-        "kit_manifest_head": "# Манифест комплекта для агентов. Пишет движок, руками не правят.",
-        "kit_manifest_damaged": "манифест agents/heron-kit.yaml не прочитан — переписан заново",
-    },
-    "en": {
-        "kit_about_placeholder": "<about the project: the architect fills this in>",
-        "kit_skipped_edited": "edited by you, left as is: {files}",
-        "kit_orphan": "not in the new kit, left in place: {files}",
-        "kit_manifest_head": "# Agent kit manifest. Written by the engine, not edited by hand.",
-        "kit_manifest_damaged": "agents/heron-kit.yaml could not be read — written anew",
-    },
-}
-
 
 def _say(lang: str, key: str, **values: object) -> str:
-    try:
-        from heron.messages import say
+    from heron.messages import say
 
-        return say(lang, key, **values)
-    except (KeyError, IndexError, ValueError, ImportError):
-        table = _TEXT.get(lang, _TEXT["en"])
-        return table.get(key, _TEXT["en"][key]).format(**values)
+    return say(lang, key, **values)
 
 
 class _Blank(dict):
@@ -93,9 +73,9 @@ class KitPlan(Plan):
     """Что сделано с комплектом: пути от корня сайта.
 
     `created` — положенные впервые, `updated` — заменённые новой версией,
-    `edited` — правленные человеком и потому не тронутые, `orphans` — файлы
-    прежнего комплекта, которых нет в новом (не удаляются), `fallback` — файлы
-    комплекта, взятые с другого языка.
+    `edited` — правленные человеком и потому не тронутые, `forced` — правленные,
+    но перезаписанные по `force`, `orphans` — файлы прежнего комплекта, которых
+    нет в новом (не удаляются), `fallback` — файлы комплекта, взятые с другого языка.
     """
 
     mode: str = "create"
@@ -103,9 +83,12 @@ class KitPlan(Plan):
     level: str = "true"
     updated: list[str] = field(default_factory=list)
     edited: list[str] = field(default_factory=list)
+    forced: list[str] = field(default_factory=list)
     orphans: list[str] = field(default_factory=list)
     fallback: list[str] = field(default_factory=list)
     files: int = 0
+    # прежний манифест был, но не годился (битый, чужой, с путями наружу)
+    damaged: bool = False
 
 
 def _level(level: str | bool) -> str:
@@ -267,29 +250,48 @@ def manifest(
     `files` — пути, как их хранит манифест: внутри agents/ или `root/<имя>`;
     `work/` в манифест не входит. Файл с другого языка помечен `lang`.
     """
+    records = {rel: sha256(data) for rel, data in files if not rel.startswith(WORK)}
+    return _manifest_text(records, lang, {"created": created} if created else {}, fallback)
+
+
+def _manifest_text(
+    records: dict[str, str],
+    lang: str,
+    header: dict[str, str] | None = None,
+    fallback: list[str] | tuple[str, ...] = (),
+) -> str:
+    """Манифест по записям путь → sha256; `header` — сохранить поля прежней шапки."""
     import heron
 
     major, minor, *_ = heron.__version__.split(".")
+    head = {
+        "engine": heron.__version__,
+        "channel": channel(),
+        "contract": f"{major}.{minor}",
+        "lang": lang,
+        "created": created_at(),
+        "docs_url": docs_url(lang),
+        **{k: v for k, v in (header or {}).items() if k in HEADER_KEYS and v},
+    }
     q = json.dumps
+    kit_lang = head["lang"]
     lines = [
-        _say(lang, "kit_manifest_head"),
+        _say(kit_lang if kit_lang in LANGS_OF_KIT else "en", "kit_manifest_head"),
         f"heron_kit: {MANIFEST_FORMAT}",
-        f"engine: {q(heron.__version__)}",
-        f"channel: {q(channel())}",
-        f"contract: {q(f'{major}.{minor}')}",
-        f"lang: {lang}",
-        f"created: {q(created or created_at())}",
-        f"docs_url: {q(docs_url(lang))}",
+        f"engine: {q(head['engine'])}",
+        f"channel: {q(head['channel'])}",
+        f"contract: {q(head['contract'])}",
+        f"lang: {kit_lang}",
+        f"created: {q(head['created'])}",
+        f"docs_url: {q(head['docs_url'])}",
         "files:",
     ]
     marked = set(fallback)
-    for rel, data in sorted(files):
-        if rel.startswith(WORK):
-            continue
+    other = "en" if kit_lang == "ru" else "ru"
+    for rel in sorted(records):
         lines.append(f"  - path: {q(rel, ensure_ascii=False)}")
-        lines.append(f"    sha256: {q(sha256(data))}")
+        lines.append(f"    sha256: {q(records[rel])}")
         if rel in marked:
-            other = "en" if lang == "ru" else "ru"
             lines.append(f"    lang: {other}")
     return "\n".join(lines) + "\n"
 
@@ -302,9 +304,6 @@ class Manifest:
     header: dict[str, str] = field(default_factory=dict)
     present: bool = False
     damaged: bool = False
-
-
-HEADER_KEYS = ("engine", "channel", "contract", "lang", "created", "docs_url")
 
 
 def _valid_entry(rel: object) -> bool:
@@ -454,34 +453,41 @@ def place(
     mode: Literal["create", "update"] = "create",
     force: bool = False,
     level: str = "true",
+    pointers: Literal["create", "update"] | None = None,
 ) -> KitPlan:
     """Положить или обновить комплект в папке сайта `root`.
 
     `create` — как остальной скелет: недостающее кладётся, существующее
-    остаётся (с `force` — перезаписывается). `update` — по манифесту:
-    нетронутый файл заменяется, правленый остаётся и попадает в `edited`
-    (с `force` — заменяется), лишний остаётся и попадает в `orphans`.
-    `work/` кладётся, только если его нет, и не перезаписывается никогда.
-    Ссылка или папка на месте файла не перезаписываются никогда — это правка.
-    Сначала решается всё, потом проверяются все цели (E024), потом запись;
-    манифест пишется последним.
+    остаётся (с `force` — перезаписывается и попадает в `forced`, если его
+    правили). `update` — по манифесту: нетронутый файл заменяется, правленый
+    остаётся и попадает в `edited` (с `force` — заменяется и попадает в
+    `forced`), лишний остаётся и попадает в `orphans`. `pointers` — свой режим
+    для корневых указателей: `init` без флагов и анкета обновляют AGENTS.md по
+    манифесту (в нём имя, языки, домен, о проекте — 20 §1), остальной комплект
+    только дописывают. `work/` кладётся, только если его нет, и не
+    перезаписывается никогда. Ссылка или папка на месте файла не перезаписываются
+    никогда — это правка. Сначала решается всё, потом проверяются все цели
+    (E024), потом запись; манифест пишется последним.
     """
     if mode not in ("create", "update"):
         raise ValueError(f"mode {mode!r}: expected create or update")
+    if pointers not in (None, "create", "update"):
+        raise ValueError(f"pointers {pointers!r}: expected create or update")
     level = _level(level)
     root = Path(root)
     plan = KitPlan(notes=lang, mode=mode, lang=lang, level=level)
     check_targets(root, level, lang)
 
     inner = kit_files(lang, level)
-    pointers = root_files(lang, fields)
+    texts = root_files(lang, fields)
     tracked = [(rel, data) for rel, data in inner if not rel.startswith(WORK)]
-    tracked += [(f"{ROOT_PREFIX}{name}", pointers[name].encode("utf-8")) for name in ROOT_FILES]
+    tracked += [(f"{ROOT_PREFIX}{name}", texts[name].encode("utf-8")) for name in ROOT_FILES]
     plan.files = len(inner) + len(ROOT_FILES) + 1
     plan.fallback = [f"{KIT}/{rel}" for rel in fallback_files(lang, level)]
     previous = read_manifest(root)
-    old = previous.files if mode == "update" else {}
+    old = previous.files
     writes: list[tuple[str, bytes]] = []
+    records: dict[str, str] = {}
 
     for rel, data in inner:
         site_rel = f"{KIT}/{rel}"
@@ -491,62 +497,75 @@ def place(
 
     for rel, data in tracked:
         site_rel = _site_rel(rel)
+        fresh = sha256(data)
         if rel.startswith(ROOT_PREFIX) and _pointer_link(root, site_rel):
             continue
         current = _on_disk(root, site_rel)
         if current is None:
             writes.append((site_rel, data))
             plan.created.append(site_rel)
+            records[rel] = fresh
             continue
         if current == data:
+            records[rel] = fresh
             continue
         if current is _ODD:
             plan.skipped.append(site_rel)
             plan.edited.append(site_rel)
+            records[rel] = old.get(rel, fresh)
             continue
-        if mode == "create":
-            if force:
-                writes.append((site_rel, data))
-                plan.updated.append(site_rel)
-            else:
-                plan.skipped.append(site_rel)
-            continue
-        if force or (rel in old and sha256(current) == old[rel]):
+        untouched = rel in old and sha256(current) == old[rel]
+        how = pointers if (pointers and rel.startswith(ROOT_PREFIX)) else mode
+        if force or (how == "update" and untouched):
             writes.append((site_rel, data))
             plan.updated.append(site_rel)
-        else:
-            plan.skipped.append(site_rel)
-            plan.edited.append(site_rel)
-
-    known = {rel for rel, _ in tracked}
-    for rel in sorted(old):
-        if rel in known or rel.startswith(WORK):
+            if not untouched:
+                plan.forced.append(site_rel)
+            records[rel] = fresh
             continue
-        site_rel = _site_rel(rel)
-        try:
-            if _on_disk(root, site_rel) is not None:
-                plan.orphans.append(site_rel)
-        except HeronError:
-            continue  # ссылка наружу на месте лишнего файла: его и так не трогаем
+        plan.skipped.append(site_rel)
+        if how == "update":
+            plan.edited.append(site_rel)
+        records[rel] = old.get(rel, fresh)
+
+    if mode == "update":
+        known = {rel for rel, _ in tracked}
+        for rel in sorted(old):
+            if rel in known or rel.startswith(WORK):
+                continue
+            try:
+                if _on_disk(root, _site_rel(rel)) is not None:
+                    plan.orphans.append(_site_rel(rel))
+            except HeronError:
+                continue  # ссылка наружу на месте лишнего файла: его и так не трогаем
 
     if plan.edited:
         plan.found.append(_say(lang, "kit_skipped_edited", files=", ".join(plan.edited)))
     if plan.orphans:
         plan.found.append(_say(lang, "kit_orphan", files=", ".join(plan.orphans)))
     if mode == "update" and previous.damaged:
+        plan.damaged = True
         plan.found.append(_say(lang, "kit_manifest_damaged"))
 
     manifest_rel = f"{KIT}/{MANIFEST}"
-    text = manifest(tracked, lang, fallback=fallback_files(lang, level)).encode("utf-8")
+    fallback = fallback_files(lang, level)
     current = _on_disk(root, manifest_rel)
+    if mode == "update" or force or not previous.present:
+        text = _manifest_text(records, lang, fallback=fallback).encode("utf-8")
+    elif not previous.damaged:
+        # только недостающее: шапка (версия, язык, дата) прежняя, записи — прежние
+        # и тех файлов, что положены или заменены сейчас
+        merged = {**old, **records}
+        text = _manifest_text(merged, lang, previous.header, fallback).encode("utf-8")
+        if merged == old:
+            text = current if current is not None else text
+    else:
+        text = current if current is not None else b""
     if current is None:
         writes.append((manifest_rel, text))
         plan.created.append(manifest_rel)
-    elif mode == "update" or force:
-        if current != text:
-            writes.append((manifest_rel, text))
-            plan.updated.append(manifest_rel)
     elif current != text:
-        plan.skipped.append(manifest_rel)
+        writes.append((manifest_rel, text))
+        plan.updated.append(manifest_rel)
     write_files(root, writes)
     return plan

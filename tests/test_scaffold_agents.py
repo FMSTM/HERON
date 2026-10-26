@@ -778,3 +778,183 @@ def test_setup_checks_kit_targets_before_the_first_write(tmp_path):
     assert _snapshot(root) == before  # site.yaml прежний, резервной копии и темы нет
     assert not (root / ".heron-cache").exists()
     assert list(outside.iterdir()) == []
+
+
+# --- поведение adopt/init (E12.S2.T10) --------------------------------------------
+
+STUDIO = {
+    "site": {"name": "Studio", "domain": "studio.example.com", "languages": ["en", "ru"]},
+    "about": {
+        "type": "LocalBusiness",
+        "fields": {"name": "Studio", "about": {"en": "We make things.", "ru": "Мы делаем вещи."}},
+    },
+}
+
+
+def test_setup_refreshes_agents_md_from_the_answers(tmp_path):
+    from heron.scaffold import create
+    from heron.setup import apply
+    from heron.setup.answers import Answers
+
+    root = tmp_path / "s"
+    create(root, name="s", notes="ru")
+    assert "<о проекте: заполняет архитектор>" in (root / "AGENTS.md").read_text(encoding="utf-8")
+    apply(root, Answers.model_validate(STUDIO))
+    text = (root / "AGENTS.md").read_text(encoding="utf-8")
+    assert text.startswith("# Studio — для агентов\n")
+    assert "**Языки сайта:** en, ru, основной — en; домен — studio.example.com." in text
+    expected = agents.fields(root, None, "ru")["about"]
+    assert "заполняет архитектор" not in expected
+    assert f"**О проекте:** {expected}" in text
+    # манифест знает новый AGENTS.md: следующий init --agents считает его нетронутым
+    listed = {e["path"]: e["sha256"] for e in load_manifest(root)["files"]}
+    assert listed["root/AGENTS.md"] == hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def test_setup_keeps_an_edited_agents_md(tmp_path):
+    from heron.scaffold import create
+    from heron.setup import apply
+    from heron.setup.answers import Answers
+
+    root = tmp_path / "s"
+    create(root, name="s", notes="ru")
+    (root / "AGENTS.md").write_text("# our own\n", encoding="utf-8")
+    apply(root, Answers.model_validate(STUDIO))
+    assert (root / "AGENTS.md").read_text(encoding="utf-8") == "# our own\n"
+
+
+def test_plain_adopt_refreshes_only_pointers_and_keeps_manifest_header(tmp_path):
+    from heron.scaffold import adopt, create
+
+    root = tmp_path / "s"
+    create(root, name="s", notes="ru")
+    _age(root, "roles/designer.md", b"# old\n")
+    path = root / "agents/heron-kit.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["engine"] = "0.0.9"
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    text = (root / "site.yaml").read_text(encoding="utf-8").replace("s.example", "real.example")
+    (root / "site.yaml").write_text(text, encoding="utf-8")
+    plan = adopt(root)
+    assert "домен — real.example" in (root / "AGENTS.md").read_text(encoding="utf-8")
+    assert plan.kit.updated == ["AGENTS.md", "agents/heron-kit.yaml"]
+    assert (root / "agents/roles/designer.md").read_bytes() == b"# old\n"
+    after = load_manifest(root)
+    assert after["engine"] == "0.0.9"  # комплект не обновлён — версия в манифесте прежняя
+    listed = {e["path"]: e["sha256"] for e in after["files"]}
+    assert listed["roles/designer.md"] == hashlib.sha256(b"# old\n").hexdigest()
+    # init --agents потом обновит нетронутый старый файл
+    plan = adopt(root, agents_only=True, agents_flag="true")
+    assert "agents/roles/designer.md" in plan.kit.updated
+
+
+def test_plain_adopt_with_force_does_not_touch_edited_kit_files(tmp_path):
+    from heron.scaffold import adopt, create
+
+    root = tmp_path / "s"
+    create(root, name="s")
+    (root / "agents/roles/content.md").write_text("# edited\n", encoding="utf-8")
+    (root / "AGENTS.md").write_text("# edited pointer\n", encoding="utf-8")
+    (root / "theme/base.html").write_text("mine\n", encoding="utf-8")
+    plan = adopt(root, force=True)
+    assert (root / "theme/base.html").read_text(encoding="utf-8") != "mine\n"  # --force скелета
+    assert (root / "agents/roles/content.md").read_text(encoding="utf-8") == "# edited\n"
+    assert (root / "AGENTS.md").read_text(encoding="utf-8") == "# edited pointer\n"
+    assert plan.kit.edited == ["AGENTS.md"] and not plan.kit.forced
+    assert "agents/roles/content.md" not in plan.created
+
+
+def test_force_on_kit_names_overwritten_edited_files(tmp_path):
+    from heron.scaffold import adopt, create
+
+    root = tmp_path / "s"
+    create(root, name="s")
+    (root / "agents/roles/content.md").write_text("# edited\n", encoding="utf-8")
+    plan = adopt(root, agents_only=True, agents_flag="true", force=True)
+    assert plan.kit.forced == ["agents/roles/content.md"]
+    assert "agents/roles/content.md" in plan.kit.updated
+
+
+def test_agents_flag_true_keeps_level_kit(tmp_path):
+    from heron.scaffold import adopt, create
+
+    root = tmp_path / "s"
+    create(root, name="s", agents="kit")
+    before = (root / "site.yaml").read_bytes()
+    plan = adopt(root, agents_only=True, agents_flag="true")
+    assert plan.kit.level == "kit"
+    assert not (root / "agents/guide").exists() and not (root / "agents/spec").exists()
+    assert (root / "site.yaml").read_bytes() == before  # kit не переписан в true
+    # явное kit → true по API (не CLI) — пишется
+    adopt(root, agents_only=True, agents_flag="kit")
+    assert _agents_value(root) == "kit"
+
+
+@pytest.mark.parametrize(
+    ("line", "shown"),
+    [
+        ('  agents: "yes"', '"yes"'),
+        ("  agents:", "null"),
+        ("  agents: 1", "1"),
+        ("  agents: full", '"full"'),
+    ],
+)
+def test_unclear_agents_value_is_e011_in_init_and_check(tmp_path, line, shown):
+    from heron.contracts.site import load_site
+    from heron.scaffold import adopt, create
+
+    root = tmp_path / "s"
+    create(root, name="s", place_kit=False)
+    text = (root / "site.yaml").read_text(encoding="utf-8").replace("  agents: true", line)
+    (root / "site.yaml").write_text(text, encoding="utf-8")
+    before = _snapshot(root)
+    with pytest.raises(HeronError) as caught:
+        adopt(root)
+    assert caught.value.code == "E011"
+    assert f"build.agents: {shown}" in caught.value.message
+    assert "true, kit" in caught.value.hint
+    assert _snapshot(root) == before and not (root / "agents").exists()
+    with pytest.raises(HeronError) as checked:
+        load_site(root / "site.yaml")
+    assert checked.value.code == "E011"
+    # явный флаг чинит значение
+    adopt(root, agents_flag="false")
+    assert _agents_value(root) is False
+
+
+def test_unquoted_yes_is_true_everywhere(tmp_path):
+    from heron.contracts.site import load_site
+    from heron.scaffold import adopt, create
+
+    root = tmp_path / "s"
+    create(root, name="s", place_kit=False)
+    text = (root / "site.yaml").read_text(encoding="utf-8")
+    text = text.replace("  agents: true", "  agents: yes")
+    (root / "site.yaml").write_text(text, encoding="utf-8")
+    assert load_site(root / "site.yaml").build.agents is True
+    adopt(root)
+    assert (root / "agents/heron-kit.yaml").is_file()
+
+
+def test_pointer_link_to_agents_md_is_kept(tmp_path):
+    root = tmp_path / "s"
+    put(root, "ru")
+    (root / "CLAUDE.md").unlink()
+    (root / "CLAUDE.md").symlink_to("AGENTS.md")
+    plan = put(root, "ru", mode="update", force=True)
+    assert (root / "CLAUDE.md").is_symlink()
+    assert "CLAUDE.md" not in plan.edited and "CLAUDE.md" not in plan.updated
+
+
+def test_docs_export_pointers_match_the_kit(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERON_CHANNEL", "   ")
+    target = tmp_path / "out"
+    docs.export(target, "en")
+    text = (target / "AGENTS.md").read_text(encoding="utf-8")
+    assert "ghcr.io/fmstm/heron:prod docs --lang en" in text  # пустой канал — prod
+    assert "](agents/" not in text and "[agents/README.md](README.md)" in text
+    if not (docs.root() / "docs/en/README.md").is_file():
+        assert "[ru: перевода на en пока нет]" in text
+    for name in ("_Blank", "_DEFAULT_HEAD", "_pointer_head", "AGENTS_ROOT"):
+        assert not hasattr(docs, name), name
+    assert not hasattr(agents, "_TEXT")

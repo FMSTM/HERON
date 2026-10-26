@@ -19,7 +19,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from heron.scaffold.agents import KitPlan
 
 from heron import __version__
 from heron.core import paths
@@ -224,8 +227,8 @@ class Plan:
     skipped: list[str] = field(default_factory=list)
     found: list[str] = field(default_factory=list)
     notes: str = "en"
-    # что сделано с комплектом для агентов (scaffold.agents.KitPlan); None — не трогали
-    kit: Any = None
+    # что сделано с комплектом для агентов; None — не трогали
+    kit: KitPlan | None = None
 
 
 def slugify(name: str) -> str:
@@ -570,15 +573,21 @@ def agents_level(value: object) -> str:
 
 
 def _place_kit(
-    root: Path, notes: str, declared: dict | None, mode: str, force: bool, level: str
-) -> Any:
+    root: Path,
+    notes: str,
+    declared: dict[str, object] | None,
+    mode: Literal["create", "update"],
+    force: bool,
+    level: str,
+    pointers: Literal["create", "update"] | None = None,
+) -> KitPlan:
     from heron.scaffold import agents as kit
 
     fields = kit.fields(root, declared, notes)
-    return kit.place(root, notes, fields, mode=mode, force=force, level=level)  # type: ignore[arg-type]
+    return kit.place(root, notes, fields, mode=mode, force=force, level=level, pointers=pointers)
 
 
-def _merge_kit(plan: Plan, made: Any) -> None:
+def _merge_kit(plan: Plan, made: KitPlan) -> None:
     """Комплект — в общую сводку: положенное и заменённое — в created."""
     plan.created.extend(made.created)
     plan.created.extend(made.updated)
@@ -669,22 +678,41 @@ def adopt(
     Ничего не перезаписывает без `--force`: чужой файл важнее нашего образца.
 
     Комплект для агентов (20 §1): без флагов кладётся только недостающее, если
-    `build.agents` не `false`. `agents_flag="false"` (`init --no-agents`)
-    записывает `build.agents: false` и комплект не трогает; `"true"`/`"kit"`
-    (`init --agents`) записывает значение и обновляет комплект по манифесту.
+    `build.agents` не `false`, а корневые указатели (AGENTS.md: имя, языки,
+    домен, о проекте) обновляются по манифесту — правленый человеком не
+    трогается; `force` на комплект без флага не действует (21 §10).
+    `agents_flag="false"` (`init --no-agents`) записывает `build.agents: false`
+    и комплект не трогает; `"true"`/`"kit"` (`init --agents`) обновляет
+    комплект по манифесту (с `force` — и правленые). `"true"` на сайте с
+    `build.agents: kit` оставляет сокращённый комплект: спецификация включает
+    «обратно в true» только выключенный сайт (20 §1, 21 §10). Значение пишется,
+    только если оно меняется. Непонятное `build.agents` без флага — E011, как
+    у check: комплект не трогается и ничего не пишется.
     `agents_only` — только комплект, остальной скелет не трогается.
     """
     plan = Plan()
     notes = resolve_notes(notes, root / "site.yaml")
     declared = _declared(root / "site.yaml")
+    current = (declared or {}).get("agents")
     flag = agents_level(agents_flag) if agents_flag is not None else None
-    level = flag or (declared or {}).get("agents") or "true"
+    if flag is None and declared and declared.get("agents_error") is not None:
+        from heron.core.errors import HeronError
+
+        raise HeronError(
+            code="E011",
+            message=message(notes, "kit_bad_value", value=declared["agents_error"]),
+            path=str(root / "site.yaml"),
+            hint=message(notes, "kit_bad_value_hint"),
+        )
+    if flag == "true" and current == "kit":
+        flag = "kit"
+    level = flag or current or "true"
     if level != "false":
         # все цели комплекта — до первой записи, в том числе до правки build.agents
         from heron.scaffold import agents as kit
 
         kit.check_targets(root, level, notes)
-    if flag is not None:
+    if flag is not None and (flag != current or declared is None):
         set_build_agents(root, flag)
     if declared:
         plan.found.append(
@@ -730,10 +758,18 @@ def adopt(
         plan.created = made.created
         plan.skipped = made.skipped
     if level != "false":
-        # init --agents — по манифесту; без флага — только недостающее
-        manifest = root / "agents" / "heron-kit.yaml"
-        mode = "update" if flag is not None and manifest.is_file() else "create"
-        _merge_kit(plan, _place_kit(root, notes, None, mode, force, level))
+        from heron.scaffold import agents as kit
+
+        previous = kit.read_manifest(root)
+        if flag is not None:
+            # init --agents — по манифесту
+            mode: Literal["create", "update"] = "update" if previous.present else "create"
+            made = _place_kit(root, notes, None, mode, force, level)
+        else:
+            # без флага — только недостающее, указатели — по манифесту (20 §1)
+            pointers: Literal["update"] | None = "update" if previous.present else None
+            made = _place_kit(root, notes, None, "create", False, level, pointers)
+        _merge_kit(plan, made)
     plan.notes = notes
     return plan
 
@@ -762,23 +798,31 @@ def _declared(site_yaml: Path) -> dict | None:
         return None
     build_block = data.get("build") or {}
     notes = str(build_block.get("notes") or "") or None
+    agents, error = _declared_agents(build_block)
     return {
         "languages": languages,
         "theme": block.get("theme"),
         "notes": notes,
-        "agents": _declared_agents(build_block),
+        "agents": agents,
+        "agents_error": error,
     }
 
 
-def _declared_agents(build_block: object) -> str | None:
-    """`build.agents` мягко: нет ключа — None (по умолчанию комплект кладётся).
+def _declared_agents(build_block: object) -> tuple[str | None, str | None]:
+    """`build.agents` мягко: (значение, непонятое значение текстом).
 
-    Непонятное значение — `false`: класть то, о чём не просили явно, хуже, чем
-    не положить; ошибку E011 покажет сборка.
+    Нет ключа — (None, None): по умолчанию комплект кладётся. Пустое `agents:`,
+    «yes» строкой, число — как у валидатора BuildBlock: значение не понято
+    (None, его текст), комплект не трогается, init и check отвечают E011.
     """
-    if not isinstance(build_block, dict) or build_block.get("agents") is None:
-        return None
-    try:
-        return agents_level(build_block["agents"])
-    except ValueError:
-        return "false"
+    if not isinstance(build_block, dict) or "agents" not in build_block:
+        return None, None
+    raw = build_block["agents"]
+    if raw is not None:
+        try:
+            return agents_level(raw), None
+        except ValueError:
+            pass
+    import json
+
+    return None, json.dumps(raw, ensure_ascii=False)

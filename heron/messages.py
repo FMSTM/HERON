@@ -522,6 +522,10 @@ TEXT["ru"].update(
             "включить: heron init --agents"
         ),
         "kit_skipped_edited": "правлен вами, не тронут: {files}",
+        "kit_forced": "правлен вами — перезаписан (--force): {files}",
+        "kit_current": "инструкции для агентов уже актуальны ({code})",
+        "kit_bad_value": "build.agents: {value} — не понято, комплект не тронут",
+        "kit_bad_value_hint": "допустимо true, kit или false; heron check покажет ту же ошибку",
         "kit_orphan": "нет в новом комплекте, оставлен: {files}",
         "kit_fallback": "без перевода на {want}, положены на {have}: файлов {n}",
         "kit_about_placeholder": "<о проекте: заполняет архитектор>",
@@ -566,6 +570,10 @@ TEXT["en"].update(
             "agent instructions not placed (build.agents: false) — enable: heron init --agents"
         ),
         "kit_skipped_edited": "edited by you, left as is: {files}",
+        "kit_forced": "edited by you — overwritten (--force): {files}",
+        "kit_current": "agent instructions already up to date ({code})",
+        "kit_bad_value": "build.agents: {value} — not understood, the kit is left alone",
+        "kit_bad_value_hint": "allowed: true, kit or false; heron check shows the same error",
         "kit_orphan": "not in the new kit, left in place: {files}",
         "kit_fallback": "no {want} translation yet, placed in {have}: {n} files",
         "kit_about_placeholder": "<about the project: the architect fills this in>",

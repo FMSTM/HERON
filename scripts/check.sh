@@ -19,13 +19,21 @@ die()  { printf '\033[31m%s\033[0m\n' "$*" >&2; exit 1; }
 # uv, если он есть; иначе тот python, которым пользуются на этой машине.
 if command -v uv >/dev/null 2>&1; then
   run() { uv run "$@"; }
+  py()  { uv run python "$@"; }
 else
   run() { python3 -m "$@"; }
+  py()  { python3 "$@"; }
   note "uv не найден — гоню через python3 -m"
 fi
 
 note "граница ядра"
 git ls-files -z | xargs -0 bash scripts/check-boundaries.sh || die "граница ядра нарушена"
+
+note "сообщения коммитов"
+bash scripts/check_commit_messages.sh || die "сообщения коммитов: атрибуция помощника (spec/23 §9)"
+
+note "состояние перевода"
+py scripts/check_translation.py || die "docs/translation.yaml расходится с docs/ru (spec/23 §10)"
 
 if command -v uv >/dev/null 2>&1; then
   note "зависимости образа совпадают с uv.lock"

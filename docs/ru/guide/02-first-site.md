@@ -93,7 +93,7 @@ nav:
   main: ["/", about]          # ключи страниц: главная и about — на каждом языке свой адрес
 ```
 
-Все ключи с пояснениями — [`20` §5](../spec/20-data-contract.md#5-siteyaml) и образец [`templates/site.yaml`](../templates/site.yaml).
+Все ключи с пояснениями — [`20` §5](../spec/20-data-contract.md#site-yaml) и образец [`templates/site.yaml`](../templates/site.yaml).
 
 ## 3. Поменяли языки — догнать структуру
 

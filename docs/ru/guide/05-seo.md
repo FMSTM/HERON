@@ -8,15 +8,15 @@
 
 | Что | Откуда | Подробно |
 |---|---|---|
-| `<title>`, meta description, canonical | `title` + `seo.title_suffix`, `description`, адрес страницы | [`20` §4.2](../spec/20-data-contract.md#42-фронтматтер) |
-| Open Graph и Twitter | поля групп 3–4, иначе `title`/`description`/`seo.og_default_image` | [`20` §4.2](../spec/20-data-contract.md#42-фронтматтер) |
+| `<title>`, meta description, canonical | `title` + `seo.title_suffix`, `description`, адрес страницы | [`20` §4.2](../spec/20-data-contract.md#frontmatter) |
+| Open Graph и Twitter | поля групп 3–4, иначе `title`/`description`/`seo.og_default_image` | [`20` §4.2](../spec/20-data-contract.md#frontmatter) |
 | `sitemap.xml` | все опубликованные индексируемые страницы, `lastmod` из `updated` | [`21` §9](../spec/21-engine.md#sitemap) |
-| hreflang в `<head>` и в карте | переводы по имени файла, `x-default` — язык по умолчанию | [`20` §3](../spec/20-data-contract.md#3-языки) |
-| `robots.txt` | `seo.robots_extra` + строка `Sitemap:` | [`21` §9](../spec/21-engine.md#robotstxt) |
+| hreflang в `<head>` и в карте | переводы по имени файла, `x-default` — язык по умолчанию | [`20` §3](../spec/20-data-contract.md#languages) |
+| `robots.txt` | `seo.robots_extra` + строка `Sitemap:` | [`21` §9](../spec/21-engine.md#robots-txt) |
 | JSON-LD | тип от темы, данные от страницы и блока `schema` в `site.yaml`, крошки, FAQ | [`21` §9](../spec/21-engine.md#json-ld) |
-| `llms.txt`, `llms-full.txt` | дерево страниц, `description`, `seo.llms_note` | [`21` §9](../spec/21-engine.md#llmstxt) |
+| `llms.txt`, `llms-full.txt` | дерево страниц, `description`, `seo.llms_note` | [`21` §9](../spec/21-engine.md#llms-txt) |
 | 301 и 410 | `redirect_from` страниц и `gone` в `site.yaml`, сразу в конфиг nginx | [`21` §9](../spec/21-engine.md#redirects) |
-| закрытая дев-сборка | без `--env prod`: `noindex` на всём, `Disallow: /`, без счётчиков | [`23`, «Версия движка и окружение сайта»](../spec/23-distribution.md#версия-движка-и-окружение-сайта--разные-вещи) |
+| закрытая дев-сборка | без `--env prod`: `noindex` на всём, `Disallow: /`, без счётчиков | [`23`, «Версия движка и окружение сайта»](../spec/23-distribution.md#engine-version-vs-site-environment) |
 
 ## Что заполняете вы
 
@@ -57,7 +57,7 @@ analytics:
   ga4: G-XXXXXXX
 ```
 
-`{{ … }}` в `schema` — подстановки из того же `site.yaml`: адрес и телефон живут в одном месте и не расходятся между вёрсткой и разметкой. → [`20` §5, «Блок schema»](../spec/20-data-contract.md#блок-schema-разметка-без-дублирования-данных)
+`{{ … }}` в `schema` — подстановки из того же `site.yaml`: адрес и телефон живут в одном месте и не расходятся между вёрсткой и разметкой. → [`20` §5, «Блок schema»](../spec/20-data-contract.md#schema-block)
 
 **Цены в разметке** запрещены по умолчанию (`E020`): если сайт не показывает стоимость на страницах, она не должна утечь в JSON-LD. Разрешить — `seo.allow_prices: true`.
 
@@ -71,7 +71,7 @@ analytics:
 - Нет перевода — в отчёте предупреждение, в переключателе язык погашен; ссылки на такую страницу с других языков ведут на версию языка по умолчанию.
 - Основной язык пуст — боевая сборка остановится (`E021`).
 
-## Переезд со старого сайта
+## Переезд со старого сайта <a id="migrate-from-old-site"></a>
 
 Цель — ни один проиндексированный адрес не должен отдать 404.
 
@@ -97,7 +97,7 @@ analytics:
 4. **Соберите.** Движок проверит, что старый адрес не совпадает с живой страницей, не ведёт в два места и не образует цепочку (`E009`), а 410 не пересекается со страницами и редиректами (`E022`).
 5. **Проверьте на образе:** `scripts/site.sh <сайт> smoke prod` поднимает nginx и проверяет ответы 200, 404, каждый 301 и каждый 410 — [06 · Сборка и выкладка](06-deploy.md).
 
-Подробно: [`20` §2, «Старые адреса»](../spec/20-data-contract.md#старые-адреса-кириллица-и-percent-encoding), [`22` §6](../spec/22-deploy.md#6-переезд-с-существующего-сайта).
+Подробно: [`20` §2, «Старые адреса»](../spec/20-data-contract.md#old-addresses-cyrillic), [`22` §6](../spec/22-deploy.md#migrate-existing-site).
 
 ## Перед выкладкой
 

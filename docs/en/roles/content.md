@@ -57,7 +57,7 @@ Files go to `media/`, the path is from the site root: `media/services/roof.png`.
 - two or three old pages about the same thing - one new page, all addresses in its `redirect_from`;
 - addresses that no longer exist - in `gone` in `site.yaml`, not in a page.
 
-The migration order - guide [05](../guide/05-seo.md#переезд-со-старого-сайта).
+The migration order - guide [05](../guide/05-seo.md#migrate-from-old-site).
 
 ## 7. Languages
 

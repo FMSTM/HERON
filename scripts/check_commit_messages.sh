@@ -7,9 +7,16 @@
 #
 # Нарушение — строка атрибуции помощника или название компании-разработчика:
 #   co-authored-by:                  (любой регистр, любое имя)
-#   anthropic, openai                (в том числе noreply@anthropic.com)
-#   generated with|by … <помощник>   («Generated with Claude Code» и подобные)
-# Имена файлов CLAUDE.md, GEMINI.md нарушением не считаются.
+#   anthropic, openai                с начала слова (noreply@anthropic.com — да,
+#                                    philanthropic — нет)
+#   generated with|by … <помощник>   claude, chatgpt, copilot, codex, gemini
+#                                    отдельным словом («Generated with Claude Code»,
+#                                    «Generated with GitHub Copilot.», «generated
+#                                    by claude.ai»); cursor — только «Cursor AI»
+#                                    и «Cursor IDE» («cursor-based» — не подпись)
+# Имена файлов CLAUDE.md, GEMINI.md нарушением не считаются: после имени
+# помощника допустима любая точка, кроме «.md». Отдельное «Claude» без
+# «generated with|by» — тоже не нарушение.
 #
 # База: origin/prod, если есть, иначе prod. Нет ни той ни другой или нет
 # истории git (архив, копия без .git) — проверка пропускается с пометкой.
@@ -20,7 +27,11 @@ set -euo pipefail
 note() { printf '\033[36m%s\033[0m\n' "$*"; }
 bad()  { printf '\033[31m%s\033[0m\n' "$*" >&2; }
 
-PATTERN='co-authored-by:|anthropic|openai|generated (with|by) .*(claude|chatgpt|copilot|codex|gemini|cursor)([^.a-z0-9]|$)'
+# Классы с обоими регистрами: grep -i в BSD (macOS) и GNU одинаково.
+WORD_START='(^|[^a-zA-Z0-9])'
+TOOL='(claude|chatgpt|copilot|codex|gemini|cursor (ai|ide))'
+NOT_MD='([^.a-zA-Z0-9]|\.([^mM]|$)|\.[mM]([^dD]|$)|$)'
+PATTERN="co-authored-by:|${WORD_START}(anthropic|openai)|generated (with|by) (.*[^a-zA-Z0-9])?${TOOL}${NOT_MD}"
 
 if ! git rev-parse --git-dir >/dev/null 2>&1; then
   note "сообщения коммитов: истории git нет — пропуск"

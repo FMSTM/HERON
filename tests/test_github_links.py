@@ -143,3 +143,65 @@ def test_e033_hint_names_existing_spec() -> None:
     assert hints, "подсказка E033 не найдена в heron/core/render/pages.py"
     for path in hints:
         assert (ROOT / path).is_file(), path
+
+
+# Комментарии шаблонов скелета: кладутся в site.yaml и theme.yaml каждого
+# нового сайта. Пути docs/… в них — пути репозитория движка, темы `heron docs` —
+# темы этой версии движка. После переезда docs/ → docs/ru/ комментарий site.yaml
+# ещё ссылался на docs/spec/20-data-contract.md (E13.S1.T20, W2).
+TEXT = ROOT / "heron" / "scaffold" / "text"
+DOC_PATH = re.compile(r"(?<![\w./-])docs/[\w./-]*[\w/]")
+DOCS_TOPIC = re.compile(r"heron docs ([a-z@][\w@-]*)")
+
+
+def _template_refs(text_root: Path) -> list[tuple[str, int, str, str]]:
+    """(файл, строка, вид, значение) для путей docs/… и тем heron docs в комментариях."""
+    refs: list[tuple[str, int, str, str]] = []
+    for file in sorted(p for p in text_root.rglob("*") if p.is_file()):
+        rel = file.relative_to(ROOT).as_posix() if file.is_relative_to(ROOT) else file.name
+        for number, line in enumerate(file.read_text(encoding="utf-8").splitlines(), start=1):
+            if not line.lstrip().startswith("#"):
+                continue
+            refs.extend((rel, number, "path", m[0]) for m in DOC_PATH.finditer(line))
+            refs.extend((rel, number, "topic", m[1]) for m in DOCS_TOPIC.finditer(line))
+    return refs
+
+
+def _broken_template_refs(text_root: Path, root: Path) -> list[str]:
+    from heron import docs
+
+    problems: list[str] = []
+    for where, number, kind, value in _template_refs(text_root):
+        if kind == "path" and not (root / value).exists():
+            problems.append(f"{where}:{number}: {value} — такого пути нет в дереве")
+        if kind == "topic" and docs.topic(value) is None:
+            problems.append(f"{where}:{number}: heron docs {value} — такой темы нет")
+    return problems
+
+
+def test_scaffold_text_comments_point_to_existing_docs() -> None:
+    assert _broken_template_refs(TEXT, ROOT) == []
+
+
+def test_scaffold_text_scan_sees_site_yaml_refs() -> None:
+    found = {(where, kind, value) for where, _, kind, value in _template_refs(TEXT)}
+    for lang in ("ru", "en"):
+        where = f"heron/scaffold/text/{lang}/site.yaml"
+        assert (where, "path", "docs/ru/spec/20-data-contract.md") in found
+        assert (where, "topic", "contract") in found
+
+
+@pytest.mark.parametrize(
+    ("line", "needle"),
+    [
+        ("# Описание: docs/spec/20-data-contract.md, раздел 5.", "docs/spec/20-data-contract.md"),
+        ("# All keys: heron docs nosuchtopic, section 5", "heron docs nosuchtopic"),
+    ],
+)
+def test_broken_template_ref_is_reported(tmp_path: Path, line: str, needle: str) -> None:
+    (tmp_path / "ru").mkdir()
+    (tmp_path / "ru" / "site.yaml").write_text(f"{line}\nkey: docs/not/a/comment\n", "utf-8")
+    problems = _broken_template_refs(tmp_path, ROOT)
+    assert len(problems) == 1
+    assert problems[0].startswith("site.yaml:1: ")
+    assert needle in problems[0]

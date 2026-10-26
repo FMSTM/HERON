@@ -179,6 +179,31 @@ def test_heron_branch_wins_over_git(tmp_path: Path) -> None:
     assert _run(root, "prod").returncode == 1
 
 
+@pytest.mark.parametrize(("branch", "code"), [("refs/heads/prod", 1), ("refs/heads/dev", 0)])
+def test_heron_branch_as_full_ref(tmp_path: Path, branch: str, code: int) -> None:
+    root = _tree(tmp_path, "current")
+    (root / "docs/ru/README.md").write_text("# Правка\n", encoding="utf-8")
+    done = _run(root, branch)
+    assert done.returncode == code
+    assert f"на ветке {branch.removeprefix('refs/heads/')};" in done.stderr
+
+
+@pytest.mark.skipif(
+    not hasattr(os, "geteuid") or os.geteuid() == 0, reason="root читает файл и без прав"
+)
+def test_unreadable_ru_file_is_a_plain_error(tmp_path: Path) -> None:
+    root = _tree(tmp_path)
+    path = root / "docs/ru/spec/20.md"
+    path.chmod(0)
+    try:
+        done = _run(root, "dev")
+    finally:
+        path.chmod(0o644)
+    assert done.returncode == 1
+    assert "перевод: ошибка: не читается docs/ru/spec/20.md: " in done.stderr
+    assert "Traceback" not in done.stderr
+
+
 def test_repository_translation_yaml_is_current() -> None:
     """Сам репозиторий: проверка строгого режима проходит, как на prod."""
     done = _run(ROOT, "prod")

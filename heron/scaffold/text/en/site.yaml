@@ -1,7 +1,8 @@
 # The single source of truth about the site. Everything written here
 # drives both the build and the folder layout: languages and theme come from here.
 # Fill this file in, then run `heron init` — the folders will follow the config.
-# All keys are described in docs/spec/20-data-contract.md, section 5.
+# All keys are described in `heron docs contract`, section 5
+# (in the engine repository: docs/ru/spec/20-data-contract.md).
 
 # Engine version the site is built with. Required.
 heron: "{spec}"

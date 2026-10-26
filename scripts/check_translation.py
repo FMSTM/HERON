@@ -14,8 +14,9 @@
 сделан. Файл docs/ru без записи и запись без файла — тоже расхождение.
 
 На ветках beta и prod расхождение — ошибка (код 1), на остальных —
-предупреждение (код 0). Ветка — переменная HERON_BRANCH (её задаёт CI), иначе
-``git branch --show-current``. Повреждённый translation.yaml — ошибка всегда.
+предупреждение (код 0). Ветка — переменная HERON_BRANCH (её задаёт CI, вид
+``refs/heads/<ветка>`` тоже принимается), иначе ``git branch --show-current``.
+Повреждённый translation.yaml и нечитаемый файл docs/ru — ошибка всегда.
 """
 
 from __future__ import annotations
@@ -39,8 +40,12 @@ class Broken(Exception):
     """translation.yaml не читается или не по форме."""
 
 
+class Unreadable(Exception):
+    """Файл docs/ru не читается: без него хеш не сверить."""
+
+
 def branch(root: Path) -> str:
-    name = os.environ.get("HERON_BRANCH", "").strip()
+    name = os.environ.get("HERON_BRANCH", "").strip().removeprefix("refs/heads/")
     if name:
         return name
     try:
@@ -63,7 +68,11 @@ def ru_files(root: Path) -> dict[str, str]:
     for path in sorted(ru.rglob("*")):
         rel = path.relative_to(ru)
         if path.is_file() and not any(part.startswith(".") for part in rel.parts):
-            found[rel.as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+            try:
+                data = path.read_bytes()
+            except OSError as exc:
+                raise Unreadable(f"docs/ru/{rel.as_posix()}: {exc.strerror or exc}") from exc
+            found[rel.as_posix()] = hashlib.sha256(data).hexdigest()
     return found
 
 
@@ -127,6 +136,9 @@ def main(argv: list[str] | None = None) -> int:
         found = problems(root)
     except Broken as exc:
         print(f"перевод: ошибка: docs/translation.yaml повреждён: {exc}", file=sys.stderr)
+        return 1
+    except Unreadable as exc:
+        print(f"перевод: ошибка: не читается {exc}", file=sys.stderr)
         return 1
     name = branch(root) or "(ветка не определена)"
     if not found:

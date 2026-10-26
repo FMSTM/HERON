@@ -1,8 +1,12 @@
 """Инструкция для агентов не расходится с движком.
 
-Шаблоны из docs/agents/templates проходят валидацию, ссылки между
-документами ведут на существующие файлы, а сайт, собранный по шаблонам,
-собирается в прод без ошибок.
+Шаблоны из docs/<язык>/templates проходят валидацию моделей и JSON Schema из
+heron.contracts.schemas, ссылки между документами ведут на существующие файлы,
+README комплекта и корневой AGENTS.md называют все роли и образцы, тексты
+агент-нейтральны, а сайт, собранный по шаблонам, собирается в прод без ошибок.
+
+Спецификация: docs/ru/spec/23-distribution.md §4, §12; 20 §1; 21 §10.
+docs/en/ может ещё отсутствовать: проверки идут по языкам, чья папка есть.
 """
 
 from __future__ import annotations
@@ -12,9 +16,13 @@ import re
 import shutil
 from pathlib import Path
 
+import jsonschema
+import pytest
 import yaml
 from PIL import Image
 
+from heron import docs
+from heron.contracts import schemas
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core import build as pipeline
@@ -23,29 +31,71 @@ from heron.core.parser import blocks, frontmatter, markdown, sections
 from heron.scaffold import create
 
 ROOT = Path(__file__).resolve().parents[1]
-AGENTS = ROOT / "docs" / "agents"
-TEMPLATES = AGENTS / "templates"
-GUIDE = ROOT / "docs" / "guide"
+LANGS = [lang for lang in docs.LANGS if (ROOT / "docs" / lang / "README.md").is_file()]
+TEMPLATES = ROOT / "docs" / "ru" / "templates"  # сценарий сборки — на русском образце
+ROLES = ("architect", "content", "designer", "builder")
+TEMPLATE_FILES = ("structure.md", "site.yaml", "theme.yaml", "page.md", "report.md", "questions.md")
 
 
-def test_site_template_is_valid():
-    data = yaml.safe_load((TEMPLATES / "site.yaml").read_text(encoding="utf-8"))
-    config = SiteConfig.model_validate(data)
+def _templates(lang: str) -> Path:
+    return ROOT / "docs" / lang / "templates"
+
+
+class _Yaml12(yaml.SafeLoader):
+    """Как читает YAML редактор со схемой (YAML 1.2): булевы — только true/false.
+
+    Движок прощает YAML 1.1 (`on:` → true, theme.py); схема пишется для 1.2, и
+    образец проверяется так, как его увидит редактор.
+    """
+
+
+_Yaml12.yaml_implicit_resolvers = {
+    key: [(tag, rx) for tag, rx in value if tag != "tag:yaml.org,2002:bool"]
+    for key, value in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
+_Yaml12.add_implicit_resolver(
+    "tag:yaml.org,2002:bool", re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$"), list("tTfF")
+)
+
+
+def _schema_ok(schema: dict, text: str) -> None:
+    jsonschema.Draft202012Validator(schema).validate(yaml.load(text, Loader=_Yaml12))
+
+
+def test_russian_tree_is_present():
+    assert "ru" in LANGS
+
+
+# --- образцы проходят свои модели и схемы -------------------------------------
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_site_template_is_valid(lang):
+    text = (_templates(lang) / "site.yaml").read_text(encoding="utf-8")
+    config = SiteConfig.model_validate(yaml.safe_load(text))
     assert config.for_lang("ru").site.name != config.site.name
     assert config.gone
+    _schema_ok(schemas.site_schema(), text)
 
 
-def test_theme_template_is_valid():
-    data = yaml.safe_load((TEMPLATES / "theme.yaml").read_text(encoding="utf-8"))
-    theme = ThemeConfig.model_validate(data)
+@pytest.mark.parametrize("lang", LANGS)
+def test_theme_template_is_valid(lang):
+    text = (_templates(lang) / "theme.yaml").read_text(encoding="utf-8")
+    theme = ThemeConfig.model_validate(yaml.safe_load(text))
     assert {"home", "service", "article", "404"} <= set(theme.types)
+    _schema_ok(schemas.theme_schema(), text)
 
 
-def test_page_template_parses_into_expected_forms():
-    text = (TEMPLATES / "page.md").read_text(encoding="utf-8")
+@pytest.mark.parametrize("lang", LANGS)
+def test_page_template_parses_into_expected_forms(lang):
+    text = (_templates(lang) / "page.md").read_text(encoding="utf-8")
     data, body, line = frontmatter.split(text, "page.md")
+    _schema_ok(schemas.frontmatter_schema(), text.split("---\n", 2)[1])
     meta = frontmatter.parse_meta(data, "page.md")
-    assert meta.redirect_from == ["/старый-адрес/"]
+    if lang == "ru":
+        assert meta.redirect_from == ["/старый-адрес/"]
+    else:
+        assert meta.redirect_from and all(a.startswith("/") for a in meta.redirect_from)
     md = markdown.make()
     intro, found = sections.split(md, body, "page.md", offset=line)
     blocks.apply(md, found)
@@ -56,14 +106,73 @@ def test_page_template_parses_into_expected_forms():
     }
 
 
+@pytest.mark.parametrize("lang", LANGS)
+def test_report_template_has_every_section(lang):
+    """Отчёт: восемь пронумерованных разделов по порядку, команды проверки, ссылка на вопросы."""
+    text = (_templates(lang) / "report.md").read_text(encoding="utf-8")
+    numbers = [int(n) for n in re.findall(r"^## (\d+)\. \S", text, re.M)]
+    assert numbers == list(range(1, 9))
+    assert re.search(r"^# \S", text, re.M)
+    assert "heron check . --strict --json" in text
+    assert "heron build . --env prod --strict" in text
+    assert "work/questions.md" in text
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_questions_template_is_a_filled_table(lang):
+    """Вопросы: таблица в семь колонок, у каждой строки примера — все семь ячеек."""
+    text = (_templates(lang) / "questions.md").read_text(encoding="utf-8")
+    rows = [line for line in text.splitlines() if line.startswith("|")]
+    assert len(rows) >= 3, "заголовок, разделитель и хотя бы один пример"
+    cells = [row.strip("|").split("|") for row in rows]
+    assert all(len(c) == 7 for c in cells), [len(c) for c in cells]
+    assert set("".join(cells[1]).replace(" ", "")) <= {"-", ":"}
+
+
+# --- ссылки --------------------------------------------------------------------
+
+
+def _docs_to_check() -> list[Path]:
+    found = [ROOT / "AGENTS.md", ROOT / "README.md"]
+    for lang in LANGS:
+        found += sorted((ROOT / "docs" / lang).rglob("*.md"))
+    return found
+
+
+def _links(text: str) -> list[str]:
+    """Относительные ссылки; примеры адресов (/, media/, пробел) и внешние — мимо."""
+    text = re.sub(r"```.*?```", "", text, flags=re.S)
+    text = re.sub(r"`[^`\n]*`", "", text)  # пример разметки в коде — не ссылка
+    out = []
+    for link in re.findall(r"\]\(([^)]+)\)", text):
+        if link.startswith(("http:", "https:", "#", "/", "media/", "mailto:")) or " " in link:
+            continue
+        out.append(link.split("#", 1)[0])
+    return out
+
+
+def _untranslated(target: Path) -> bool:
+    """Ссылка в дерево языка, перевода на который ещё нет (docs/en до перевода)."""
+    try:
+        rel = target.resolve().relative_to(ROOT / "docs")
+    except ValueError:
+        return False
+    return rel.parts[0] in docs.LANGS and rel.parts[0] not in LANGS
+
+
 def test_links_between_agent_docs_resolve():
-    docs = [ROOT / "AGENTS.md", ROOT / "README.md", *AGENTS.glob("*.md"), *GUIDE.glob("*.md")]
-    for doc in docs:
-        text = re.sub(r"```.*?```", "", doc.read_text(encoding="utf-8"), flags=re.S)
-        for target in re.findall(r"\]\(([^)#\s]+)\)", text):
-            if target.startswith(("http", "/")):
-                continue  # внешние адреса и ссылки сайта в примерах
-            assert (doc.parent / target).exists(), f"{doc.name}: битая ссылка {target}"
+    checked = 0
+    for doc in _docs_to_check():
+        for target in _links(doc.read_text(encoding="utf-8")):
+            path = doc.parent / target
+            if _untranslated(path):
+                continue
+            checked += 1
+            assert path.exists(), f"{doc.relative_to(ROOT)}: битая ссылка {target}"
+    assert checked > 50
+
+
+# --- сборка по образцам ----------------------------------------------------------
 
 
 def _png(path: Path) -> None:
@@ -119,19 +228,85 @@ def test_site_built_from_templates_passes_prod_strict_checks(tmp_path):
     assert [p.url for p in design.related["related"]] == ["/services/planning/"]
 
 
-def test_page_template_has_the_same_seo_groups_as_scaffold():
+@pytest.mark.parametrize("lang", LANGS)
+def test_page_template_has_the_same_seo_groups_as_scaffold(lang):
     """Образец страницы и блок, который кладёт движок, — одни и те же восемь групп."""
     group = re.compile(r"^# =+ (.+?) =+$", re.M)
-    template = (TEMPLATES / "page.md").read_text(encoding="utf-8")
-    scaffold = (ROOT / "heron" / "scaffold" / "text" / "ru" / "seo-block.md").read_text(
+    template = (_templates(lang) / "page.md").read_text(encoding="utf-8")
+    scaffold = (ROOT / "heron" / "scaffold" / "text" / lang / "seo-block.md").read_text(
         encoding="utf-8"
     )
     assert group.findall(template) == group.findall(scaffold)
     assert len(group.findall(template)) == 8
 
 
-def test_agents_prompt_names_every_role_document():
+# --- точки входа называют роли и образцы -----------------------------------------
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_agents_prompt_names_every_role_document(lang):
+    """README комплекта ссылается на каждую роль и каждый образец; лишних файлов нет."""
+    base = ROOT / "docs" / lang
+    text = (base / "README.md").read_text(encoding="utf-8")
+    links = set(_links(text))
+    for role in (*ROLES, "capabilities"):
+        assert f"roles/{role}.md" in links, role
+        assert (base / "roles" / f"{role}.md").is_file(), role
+    assert {p.name for p in (base / "roles").glob("*.md")} == {
+        f"{r}.md" for r in (*ROLES, "capabilities")
+    }
+    for name in TEMPLATE_FILES:
+        assert f"`{name}`" in text, name
+        assert (base / "templates" / name).is_file(), name
+    assert {p.name for p in (base / "templates").iterdir() if not p.name.startswith(".")} == set(
+        TEMPLATE_FILES
+    )
+
+
+def test_repository_pointer_names_every_language_role_and_template():
     text = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-    for role in ("architect", "content", "designer", "builder"):
-        assert f"docs/agents/{role}.md" in text
-        assert (AGENTS / f"{role}.md").is_file()
+    for lang in docs.LANGS:
+        assert f"docs/{lang}/README.md" in text, lang
+    for word in ("архитектор", "контент и SEO", "дизайнер", "сборщик"):
+        assert word in text, word
+    for word in ("architect", "content and SEO", "designer", "builder"):
+        assert word in text, word
+    assert "docs/<lang>/roles/" in text
+    for name in TEMPLATE_FILES:
+        assert f"`{name}`" in text, name
+    for name in ("CLAUDE.md", "GEMINI.md"):
+        assert (ROOT / name).read_text(encoding="utf-8").strip() == "@AGENTS.md", name
+
+
+# --- агент-нейтральность (23 §12) -------------------------------------------------
+
+# Имя файла-указателя и папки инструмента — не упоминание инструмента.
+_FILE_NAMES = re.compile(r"CLAUDE\.md|\.claude/")
+_VENDOR = re.compile(r"claude|anthropic", re.I)
+
+
+def _neutral_sources() -> list[Path]:
+    found = _docs_to_check()
+    found += sorted((ROOT / "skills").glob("*/SKILL.md"))
+    found += sorted((ROOT / "heron" / "scaffold" / "agents-root").rglob("*.md"))
+    return found
+
+
+def test_texts_are_agent_neutral():
+    """Claude/Anthropic — только имя файла CLAUDE.md и строка «кто какой файл читает».
+
+    Белый список: «Claude Code» допустим лишь в строке, которая называет файл
+    `CLAUDE.md` (перечень «какой файл какой агент читает», 20 §1, README комплекта).
+    «Anthropic» не допускается нигде.
+    """
+    bad = []
+    for path in _neutral_sources():
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if not _VENDOR.search(line):
+                continue
+            rest = _FILE_NAMES.sub("", line)
+            if "CLAUDE.md" in line:
+                rest = rest.replace("Claude Code", "")
+            if _VENDOR.search(rest):
+                bad.append(f"{path.relative_to(ROOT)}:{number}: {line.strip()[:120]}")
+    assert not bad, "\n".join(bad)

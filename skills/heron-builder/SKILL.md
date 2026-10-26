@@ -5,7 +5,8 @@ description: Build, check and publish a HERON site - heron check, serve, build w
 
 # HERON builder
 
-Read first: `$H docs agents` (role «Builder»), `$H docs first-site`, `$H docs deploy`, error codes in `$H docs engine` §11.
+Read first: `$H docs --lang en kit` (role «Builder»), `$H docs first-site`, `$H docs deploy`, error codes in `$H docs engine` §11.
+Inside a HERON site the same documentation sits in `agents/` (start with `AGENTS.md`); your deliverables go to `agents/work/`.
 `H="docker run --rm -i -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"`
 
 **You may write:** anything the other roles may, when you lead them; plus `heron setup` answers for publishing.

@@ -4,6 +4,8 @@
 а документация в сети может быть новее или старее его образа. Поэтому
 текст документации едет в образе (без картинок) и читается командой
 `heron docs --lang ru|en` — ровно той версии, что и движок (21 §10).
+Печатается тот же текст, что ложится в комплект сайта: в канале не prod
+ссылки на ветку prod и образ prod ведут на канал образа (23 §12).
 
 Источник — `docs/<язык>/` репозитория движка: README комплекта, роли,
 образцы, гайды, спецификации, architecture.md. Нет файла на нужном языке —
@@ -406,8 +408,23 @@ def resolve(name: str, lang: str | None = None) -> Resolved:
     return found
 
 
+def _printed(path: str, lang: str) -> str:
+    """Файл по пути от root() так, как его печатает `heron docs`: с подстановкой канала.
+
+    Та же подстановка, что у комплекта и `--export` (`scaffold.agents.deliver`, 23 §12):
+    в канале не prod ссылки на ветку prod и образ prod ведут на канал образа;
+    в prod — текст файла байт в байт. Файл на диске не меняется.
+    """
+    from heron.scaffold.agents import deliver
+
+    return deliver(path, (root() / path).read_bytes(), lang).decode("utf-8")
+
+
 def read_topic(name: str, lang: str | None = None) -> str:
-    """Текст темы; при фолбэке или отстающем переводе — пометка первой строкой."""
+    """Текст темы; при фолбэке или отстающем переводе — пометка первой строкой.
+
+    Ссылки и команды — на канал образа, как в комплекте сайта (`_printed`).
+    """
     lang = _lang(lang)
     found = resolve(name, lang)
     if found.path == SKILLS:
@@ -415,7 +432,7 @@ def read_topic(name: str, lang: str | None = None) -> str:
     elif found.path == SCHEMAS:
         body = schemas_text(lang)
     else:
-        body = (root() / found.path).read_text(encoding="utf-8")
+        body = _printed(found.path, lang)
     return body if found.note is None else f"{found.note}\n\n{body}"
 
 
@@ -429,7 +446,8 @@ def templates(lang: str | None = None) -> list[str]:
 def read(rel: str, lang: str | None = None) -> str:
     """Файл документации по пути от root(); `{lang}` в пути — язык с фолбэком.
 
-    Путь темы (`Topic.path`) читается как тема — с пометкой языка.
+    Путь темы (`Topic.path`) читается как тема — с пометкой языка. Ссылки и команды —
+    на канал образа, как в комплекте сайта (`_printed`).
     """
     lang = _lang(lang)
     item = next((t for t in TOPICS if t.path == rel), None)
@@ -441,7 +459,7 @@ def read(rel: str, lang: str | None = None) -> str:
         if found is None:
             raise FileNotFoundError(root() / rel.format(lang=lang))
         rel = found.path
-    return (root() / rel).read_text(encoding="utf-8")
+    return _printed(rel, lang)
 
 
 # --- виртуальные темы ----------------------------------------------------------

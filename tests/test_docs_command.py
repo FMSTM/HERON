@@ -334,3 +334,90 @@ def test_cli_export(tmp_path):
     assert result.exit_code == 0, result.output
     assert (target / "README.md").is_file()
     assert (target / "AGENTS.md").is_file()
+
+
+# --- подстановка канала при печати (23 §12) ---------------------------------------
+
+PROD_IMAGE = "ghcr.io/fmstm/heron:prod"
+PROD_BLOB = "https://github.com/FMSTM/HERON/blob/prod/"
+
+
+def test_topic_in_beta_points_at_beta(monkeypatch):
+    """Из beta-образа тема ведёт на образ и ветку беты — как комплект и --export."""
+    source = (docs.root() / "docs" / "ru" / "README.md").read_text(encoding="utf-8")
+    assert PROD_IMAGE in source and PROD_BLOB in source  # иначе проверять нечего
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    text = docs.read_topic("kit", "ru")
+    assert PROD_IMAGE not in text and PROD_BLOB not in text
+    assert "ghcr.io/fmstm/heron:beta" in text
+    assert "https://github.com/FMSTM/HERON/blob/beta/" in text
+    result = run("docs", "--lang", "ru", "kit")
+    assert result.exit_code == 0, result.output
+    assert result.output == text
+    assert (docs.root() / "docs" / "ru" / "README.md").read_text(encoding="utf-8") == source
+
+
+def test_topic_in_beta_equals_export(tmp_path, monkeypatch):
+    """Печать темы и выгрузка папкой в одном канале дают один текст."""
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    docs.export(tmp_path / "out", "ru")
+    for name, rel in (("kit", "README.md"), ("deploy", "guide/06-deploy.md")):
+        exported = (tmp_path / "out" / rel).read_text(encoding="utf-8")
+        assert docs.read_topic(name, "ru") == exported, name
+
+
+def test_root_pointer_in_beta_points_at_beta(monkeypatch):
+    assert PROD_IMAGE in (docs.root() / "AGENTS.md").read_text(encoding="utf-8")
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    result = run("docs", "agents")
+    assert result.exit_code == 0, result.output
+    assert PROD_IMAGE not in result.output
+    assert "ghcr.io/fmstm/heron:beta docs --lang ru kit" in result.output
+
+
+@pytest.mark.parametrize("value", [None, "", "  ", "prod"])
+@pytest.mark.parametrize(("name", "path"), [("kit", "docs/ru/README.md"), ("agents", "AGENTS.md")])
+def test_topic_in_prod_is_the_file_byte_for_byte(monkeypatch, value, name, path):
+    if value is None:
+        monkeypatch.delenv("HERON_CHANNEL", raising=False)
+    else:
+        monkeypatch.setenv("HERON_CHANNEL", value)
+    result = CliRunner().invoke(main, ["docs", "--lang", "ru", name])
+    assert result.exit_code == 0, result.output
+    assert result.stdout_bytes == (docs.root() / path).read_bytes()
+
+
+def test_beta_keeps_the_fallback_note(tmp_path, monkeypatch):
+    root = fake_root(tmp_path, monkeypatch, en=True, status="stale")
+    (root / "docs" / "en" / "README.md").write_text(
+        f"# en kit\ndocker run --rm {PROD_IMAGE} docs\n{PROD_BLOB}docs/en/README.md\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    assert docs.read_topic("kit", "en") == (
+        "[en: перевод отстаёт от ru]\n\n# en kit\n"
+        "docker run --rm ghcr.io/fmstm/heron:beta docs\n"
+        "https://github.com/FMSTM/HERON/blob/beta/docs/en/README.md\n"
+    )
+
+
+def test_template_in_beta_points_at_beta(tmp_path, monkeypatch):
+    root = fake_root(tmp_path, monkeypatch, en=False)
+    sample = root / "docs" / "ru" / "templates" / "x.md"
+    sample.parent.mkdir()
+    body = f"`{PROD_IMAGE}` — тег\ndocker run --rm {PROD_IMAGE} build\n"
+    sample.write_text(body, encoding="utf-8")
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    result = run("docs", "--lang", "ru", "template", "x.md")
+    assert result.exit_code == 0, result.output
+    expected = f"`{PROD_IMAGE}` — тег\ndocker run --rm ghcr.io/fmstm/heron:beta build\n"
+    assert result.output == expected
+    assert sample.read_text(encoding="utf-8") == body
+    # фолбэк образца: пометка — в stderr, текст — с подстановкой
+    english = CliRunner().invoke(main, ["docs", "--lang", "en", "template", "x.md"])
+    assert english.exit_code == 0, english.output
+    assert english.stdout == expected
+    assert english.stderr.strip() == "[ru: перевода на en пока нет]"
+    monkeypatch.delenv("HERON_CHANNEL")
+    prod = CliRunner().invoke(main, ["docs", "--lang", "ru", "template", "x.md"])
+    assert prod.stdout_bytes == sample.read_bytes()

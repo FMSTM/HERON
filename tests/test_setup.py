@@ -340,3 +340,271 @@ def test_country_is_a_code(site: Path):
     answers.about.fields["country"] = "Austria"
     with pytest.raises(ValueError, match="two-letter"):
         apply(site, answers)
+
+
+# --- причины отказа на языке сайта (E15.S1.T5: F04) ---------------------------
+
+import ast  # noqa: E402
+import re  # noqa: E402
+
+from heron.setup import reasons  # noqa: E402
+from heron.setup.answers import PURPOSES, classifier, vocab  # noqa: E402
+from heron.setup.reasons import Reason, plain  # noqa: E402
+
+CYRILLIC = re.compile(r"[а-яА-ЯёЁ]")
+# латиница в русской причине — только токены: значения, ключи, имена сервисов
+RU_TOKENS = {
+    "Google", "Analytics", "Tag", "Manager", "Docker", "Hub", "NUL", "engine", "prod", "beta",
+    "helpers", "user", "host", "main", "release", "heron", "new", "true", "false", "https",
+    "digest", "sha", "you", "site", "example", "com", "pt", "br", "en", "de", "AT",
+}  # fmt: skip
+
+
+def _stray_latin(text: str, extra: tuple[str, ...] = ()) -> list[str]:
+    """Латинские слова вне токенов: путь поля, значение в кавычках, код, `extra`."""
+    plain_text = re.sub(r"'[^']*'|\"[^\"]*\"|<[^>]*>|\S*[./@:_+-]\S*|\b[A-Z]+-X+\b", " ", text)
+    allowed = RU_TOKENS | set(extra)
+    return [w for w in re.findall(r"[A-Za-z]{2,}", plain_text) if w not in allowed]
+
+
+def _values(data) -> tuple[str, ...]:
+    """Значения из ответов: их сообщение повторяет как есть, это токены."""
+    if isinstance(data, dict):
+        return tuple(w for v in data.values() for w in _values(v))
+    if isinstance(data, list):
+        return tuple(w for v in data for w in _values(v))
+    return tuple(re.findall(r"[A-Za-z]+", str(data)))
+
+
+def _keys(error: Exception) -> set[str]:
+    if isinstance(error, Reason):
+        return {error.key}
+    return {
+        item["ctx"]["error"].key
+        for item in error.errors()
+        if isinstance((item.get("ctx") or {}).get("error"), Reason)
+    }
+
+
+def _cases():
+    dirs = classifier()
+    other = dirs[1]["items"][0]["id"]
+    return {
+        "domain_bad": {"site": {"domain": "https://bad/"}},
+        "languages_none": {"site": {"languages": [" "]}},
+        "languages_bad": {"site": {"languages": ["english"]}},
+        "languages_repeat": {"site": {"languages": ["en", "en"]}},
+        "default_lang_missing": {"site": {"languages": ["en"], "default_lang": "de"}},
+        "preview_same": {"site": {"domain": "a.example.com", "preview_domain": "a.example.com"}},
+        "contact_empty": {"about": {"contacts": [{"type": "phone", "value": " "}]}},
+        "purpose_bad": {
+            "about": {"contacts": [{"type": "phone", "purpose": "party", "value": "+1 234 567"}]}
+        },
+        "phone_bad": {"about": {"contacts": [{"type": "phone", "value": "call me"}]}},
+        "email_bad": {"about": {"contacts": [{"type": "email", "value": "nope"}]}},
+        "link_needed": {"about": {"contacts": [{"type": "website", "value": "no link"}]}},
+        "direction_unknown": {"about": {"direction": "nowhere"}},
+        "spec_unknown": {"about": {"specialization": "nothing"}},
+        "spec_other": {"about": {"direction": dirs[0]["id"], "specialization": other}},
+        "type_unknown": {"about": {"type": "Spaceship"}},
+        "fields_unknown": {"about": {"type": "Person", "fields": {"opening_hours": ["x"]}}},
+        "ga4_bad": {"analytics": {"ga4": "UA-1"}},
+        "gtm_bad": {"analytics": {"gtm": "x"}},
+        "metrika_bad": {"analytics": {"metrika": "abc"}},
+        "control_chars": {"publish": {"repo": "a\nb"}},
+        "helpers_unknown": {"publish": {"helpers": {"x": True}}},
+        "engine_bad": {"publish": {"engine": "latest"}},
+        "repo_bad": {"publish": {"repo": "bad"}},
+        "docker_name_bad": {"publish": {"dockerhub_user": "Bad"}},
+        "dockerhub_needs": {"publish": {"way": "dockerhub"}},
+        "server_needed": {"publish": {"way": "static", "static_target": "server"}},
+        "server_bad": {"publish": {"server": "bad host"}},
+        "path_bad": {"publish": {"path": "relative"}},
+        "branch_bad": {"publish": {"branch": "a..b"}},
+        "note_lang": {"site": {"languages": ["en"]}, "search": {"llms_note": {"de": "x"}}},
+        "field_lang": {"site": {"languages": ["en"]}, "about": {"fields": {"name": {"de": "x"}}}},
+    }
+
+
+PYDANTIC_CASES = [
+    {"theme": {"source": "bogus"}},
+    {"site": {"bogus": 1}},
+    {"about": {"contacts": [{"type": "phone"}]}},
+    {"site": {"name": 5}},
+    {"publish": {"auto": "maybe"}},
+    {"site": {"languages": "en"}},
+    {"site": 5},
+]
+
+
+def test_reason_tables_match_and_cover_answers():
+    assert set(reasons.TEXT["ru"]) == set(reasons.TEXT["en"])
+    source = (Path(reasons.__file__).parent / "answers.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    raised = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call):
+            name = getattr(node.exc.func, "id", "")
+            assert name != "ValueError", f"answers.py:{node.lineno}: причина без ключа"
+            if name == "Reason":
+                raised.append(node.exc.args[0].value)
+    assert len(raised) >= 33
+    assert set(raised) <= set(reasons.TEXT["en"])
+    assert set(raised) == set(_cases()) | {"not_number", "country_bad"}
+
+
+@pytest.mark.parametrize("key", sorted(_cases()))
+def test_every_reason_speaks_the_language(key):
+    with pytest.raises(ValueError) as caught:
+        Answers.model_validate(_cases()[key])
+    assert key in _keys(caught.value)
+    ru, en = plain(caught.value, "ru"), plain(caught.value, "en")
+    # токены: введённые значения, коды назначений и типов schema.org
+    extra = _values(_cases()[key]) + tuple(PURPOSES) + tuple(vocab()["types"])
+    assert CYRILLIC.search(ru), ru
+    assert not _stray_latin(ru, extra), (ru, _stray_latin(ru, extra))
+    assert not CYRILLIC.search(en), en
+    # английский текст тот же, что до перевода: его же видит str() ошибки
+    for item in caught.value.errors():
+        found = (item.get("ctx") or {}).get("error")
+        if isinstance(found, Reason):
+            assert found.text("en") in en and str(found) == found.text("en")
+
+
+@pytest.mark.parametrize("patch", PYDANTIC_CASES)
+def test_pydantic_errors_are_translated(patch):
+    with pytest.raises(ValueError) as caught:
+        Answers.model_validate(patch)
+    ru, en = plain(caught.value, "ru"), plain(caught.value, "en")
+    assert CYRILLIC.search(ru) and not _stray_latin(ru), ru
+    assert not CYRILLIC.search(en), en
+    assert "Input should" not in ru and "Field required" not in ru
+
+
+def test_audit_example_is_unchanged_in_english():
+    with pytest.raises(ValueError) as caught:
+        Answers.model_validate({"site": {"domain": "https://bad/"}, "analytics": {"ga4": "UA-1"}})
+    assert plain(caught.value, "en") == (
+        "site.domain: 'https://bad/': domain without scheme and slashes, e.g. example.com; "
+        "analytics: Google Analytics 'UA-1': G-XXXXXXX"
+    )
+    assert plain(caught.value, "ru") == (
+        "site.domain: 'https://bad/': домен без схемы и слешей, например example.com; "
+        "analytics: Google Analytics 'UA-1': ожидается G-XXXXXXX"
+    )
+
+
+def test_apply_and_load_reasons(site: Path, tmp_path: Path):
+    answers = load_answers(ANSWERS)
+    answers.about.fields["country"] = "Austria"
+    with pytest.raises(Reason) as caught:
+        apply(site, answers)
+    assert caught.value.key == "country_bad"
+    assert plain(caught.value, "ru") == "страна 'AUSTRIA': двухбуквенный код, например AT"
+    answers.about.fields["country"] = "AT"
+    answers.about.fields["latitude"] = "north"
+    with pytest.raises(Reason) as caught:
+        apply(site, answers)
+    assert plain(caught.value, "ru") == "'north' — не число"
+    with pytest.raises(Reason) as caught:
+        load_answers("- a\n")
+    assert CYRILLIC.search(plain(caught.value, "ru"))
+    (tmp_path / "empty").mkdir()
+    with pytest.raises(Reason) as caught:
+        apply(tmp_path / "empty", Answers())
+    assert caught.value.key == "no_site" and CYRILLIC.search(plain(caught.value, "ru"))
+
+
+def _notes(root: Path, lang: str) -> None:
+    data = yaml.safe_load((root / "site.yaml").read_text(encoding="utf-8"))
+    data.setdefault("build", {})["notes"] = lang
+    (root / "site.yaml").write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+
+
+BAD = "site: {domain: 'https://bad/'}\nanalytics: {ga4: UA-1}\nabout: {contacts: [{type: phone}]}\n"
+
+
+@pytest.mark.parametrize(
+    "notes, flag, env, want",
+    [
+        ("ru", None, None, "ru"),
+        ("en", None, None, "en"),
+        ("ru", "en", None, "en"),
+        ("en", "ru", None, "ru"),
+        ("en", None, "ru", "ru"),
+    ],
+)
+def test_cli_reasons_follow_the_run_language(
+    site: Path, tmp_path: Path, monkeypatch, notes, flag, env, want
+):
+    if env:
+        monkeypatch.setenv("HERON_NOTES", env)
+    else:
+        monkeypatch.delenv("HERON_NOTES", raising=False)
+    _notes(site, notes)
+    bad = tmp_path / "bad.yaml"
+    bad.write_text(BAD, encoding="utf-8")
+    args = ["setup", str(site), "--answers", str(bad)] + (["--notes", flag] if flag else [])
+    failed = CliRunner().invoke(main, args)
+    assert failed.exit_code == 2, failed.output
+    text = failed.output
+    assert "site.domain" in text and "about.contacts.0.value" in text
+    if want == "ru":
+        assert "домен без схемы" in text and "обязательное поле" in text, text
+        assert not _stray_latin(text.split(":", 1)[1]), _stray_latin(text)
+    else:
+        assert not CYRILLIC.search(text), text
+        assert "domain without scheme" in text and "Field required" in text
+
+
+def test_server_reasons_follow_the_page_language(site: Path, monkeypatch):
+    from tests.test_setup_access import _call, _start, _stop
+
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    _notes(site, "ru")
+    port, token, thread = _start(site, "127.0.0.1")
+    base = f"http://127.0.0.1:{port}"
+    bad = {"answers": {"site": {"domain": "https://bad/"}, "analytics": {"ga4": "UA-1"}}}
+    try:
+        for lang, word in (("ru", "домен без схемы"), ("en", "domain without scheme")):
+            status, body = _call(base + "/api/save", data={**bad, "lang": lang}, token=token)
+            error = json.loads(body)["error"]
+            assert status == 400 and word in error, error
+            assert bool(CYRILLIC.search(error)) is (lang == "ru")
+        # язык не прислан — язык сайта (build.notes: ru)
+        status, body = _call(base + "/api/save", data=bad, token=token)
+        assert "домен без схемы" in json.loads(body)["error"]
+        # прочие ответы сервера — тоже на языке сайта
+        status, body = _call(base + "/api/state", token="wrong")
+        assert status == 403 and CYRILLIC.search(json.loads(body)["error"])
+        status, body = _call(base + "/api/nothing", token=token)
+        assert status == 404 and CYRILLIC.search(json.loads(body)["error"])
+    finally:
+        _stop(port, token, thread)
+
+
+def test_port_error_is_in_the_site_language(site: Path, monkeypatch):
+    import socket
+
+    from heron.core.errors import HeronError
+    from heron.setup import server
+
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    _notes(site, "ru")
+    with socket.socket() as busy:
+        busy.bind(("127.0.0.1", 0))
+        busy.listen()
+        port = busy.getsockname()[1]
+        monkeypatch.setattr(server._Server, "allow_reuse_address", False)
+        with pytest.raises(HeronError) as caught:
+            server.run(site, "127.0.0.1", port)
+    assert caught.value.code == "E031"
+    assert CYRILLIC.search(caught.value.message) and CYRILLIC.search(caught.value.hint)
+    assert f"--port {port + 1}" in caught.value.hint
+
+
+def test_page_sends_its_language_with_save():
+    """Переключатель языка страницы (L) уходит с сохранением: причины — на нём."""
+    page = (Path(reasons.__file__).parent / "page.html").read_text(encoding="utf-8")
+    call = next(line for line in page.splitlines() if 'fetch("/api/save"' in line)
+    assert re.search(r"JSON\.stringify\(\{[^}]*\blang: L\b", call), call

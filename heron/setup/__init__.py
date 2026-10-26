@@ -39,6 +39,7 @@ from heron.setup.answers import (
     read,
     vocab,
 )
+from heron.setup.reasons import Reason
 
 __all__ = ["Answers", "apply", "current_answers", "load_answers", "state"]
 
@@ -215,7 +216,7 @@ def apply(
     """Записать ответы: site.yaml, папки языков, тему, файлы публикации, ключи."""
     root = Path(root)
     if not (root / SITE_YAML).is_file():
-        raise ValueError(f"no {SITE_YAML} in {root}: create the site first (heron new)")
+        raise Reason("no_site", name=SITE_YAML, root=root)
     result = Result()
     old = raw_config(root)
     lang = notes_lang(old, lang)
@@ -324,7 +325,7 @@ def load_answers(text: str) -> Answers:
     """Ответы из YAML или JSON (`heron setup --answers файл`)."""
     data = yaml.safe_load(text) or {}
     if not isinstance(data, dict):
-        raise ValueError("answers: a mapping is expected")
+        raise Reason("answers_mapping")
     return Answers.model_validate(data)
 
 

@@ -33,6 +33,7 @@ from pydantic import (
 
 from heron.contracts.site import LANG_RE, NAME_RE
 from heron.contracts.site import domain as clean_domain
+from heron.setup.reasons import Reason
 
 HERE = Path(__file__).parent
 
@@ -122,7 +123,7 @@ class SiteAnswers(Model):
             return ""
         found = clean_domain(value)
         if found is None:
-            raise ValueError(f"{value!r}: domain without scheme and slashes, e.g. example.com")
+            raise Reason("domain_bad", value=repr(value))
         return found
 
     @field_validator("languages")
@@ -130,12 +131,12 @@ class SiteAnswers(Model):
     def _languages(cls, value: list[str]) -> list[str]:
         out = [item.strip().lower() for item in value if item and item.strip()]
         if not out:
-            raise ValueError("at least one language is needed")
+            raise Reason("languages_none")
         bad = [item for item in out if not LANG_RE.match(item)]
         if bad:
-            raise ValueError(f"not a language code: {', '.join(bad)} (expected en, de, pt-br)")
+            raise Reason("languages_bad", codes=", ".join(bad))
         if len(set(out)) != len(out):
-            raise ValueError("languages repeat")
+            raise Reason("languages_repeat")
         return out
 
     @model_validator(mode="after")
@@ -143,9 +144,9 @@ class SiteAnswers(Model):
         if not self.default_lang:
             self.default_lang = self.languages[0]
         if self.default_lang not in self.languages:
-            raise ValueError(f"main language {self.default_lang!r} is not in the list")
+            raise Reason("default_lang_missing", value=repr(self.default_lang))
         if self.preview_domain and self.preview_domain == self.domain:
-            raise ValueError("the service domain must differ from the working one")
+            raise Reason("preview_same")
         return self
 
 
@@ -232,7 +233,7 @@ class ContactAnswer(Model):
     def _value(cls, value: str) -> str:
         value = (value or "").strip()
         if not value:
-            raise ValueError("a contact needs a value")
+            raise Reason("contact_empty")
         return value
 
     @field_validator("purpose")
@@ -240,19 +241,19 @@ class ContactAnswer(Model):
     def _purpose(cls, value: str) -> str:
         value = (value or "").strip()
         if value and value not in PURPOSES:
-            raise ValueError(f"purpose {value!r}: one of {', '.join(PURPOSES)}")
+            raise Reason("purpose_bad", value=repr(value), names=", ".join(PURPOSES))
         return value
 
     @model_validator(mode="after")
     def _shape(self) -> ContactAnswer:
         if self.type == "phone" and not PHONE_RE.match(self.value):
-            raise ValueError(f"{self.value!r} does not look like a phone: +00 000 000 00 00")
+            raise Reason("phone_bad", value=repr(self.value))
         if self.type == "email" and not EMAIL_RE.match(self.value):
-            raise ValueError(f"{self.value!r} does not look like an email")
+            raise Reason("email_bad", value=repr(self.value))
         if self.type in ("website", "facebook", "linkedin") and not contact_url(
             self.type, self.value
         ):
-            raise ValueError(f"{self.type}: a link is expected, https://…")
+            raise Reason("link_needed", kind=self.type)
         return self
 
     @property
@@ -271,14 +272,16 @@ class AboutAnswers(Model):
     @model_validator(mode="after")
     def _classified(self) -> AboutAnswers:
         if self.direction and direction(self.direction) is None:
-            raise ValueError(f"field of work {self.direction!r} is not in the classifier")
+            raise Reason("direction_unknown", value=repr(self.direction))
         if self.specialization:
             found = specialization(self.specialization)
             if found is None:
-                raise ValueError(f"specialization {self.specialization!r} is not in the classifier")
+                raise Reason("spec_unknown", value=repr(self.specialization))
             if self.direction and found[0]["id"] != self.direction:
-                raise ValueError(
-                    f"specialization {self.specialization!r} is not in {self.direction!r}"
+                raise Reason(
+                    "spec_other",
+                    value=repr(self.specialization),
+                    direction=repr(self.direction),
                 )
             self.direction = found[0]["id"]
         return self
@@ -287,7 +290,7 @@ class AboutAnswers(Model):
     @classmethod
     def _type(cls, value: str) -> str:
         if value and value not in vocab()["types"]:
-            raise ValueError(f"type {value!r} is not in the list; take the nearest broader one")
+            raise Reason("type_unknown", value=repr(value))
         return value
 
     @model_validator(mode="after")
@@ -295,7 +298,7 @@ class AboutAnswers(Model):
         allowed = set(fields_of(self.type)) if self.type else set(vocab()["common"])
         unknown = sorted(set(self.fields) - allowed)
         if unknown:
-            raise ValueError(f"fields not asked for type {self.type or '—'}: {', '.join(unknown)}")
+            raise Reason("fields_unknown", kind=self.type or "—", names=", ".join(unknown))
         return self
 
 
@@ -345,11 +348,11 @@ class AnalyticsAnswers(Model):
     @model_validator(mode="after")
     def _shape(self) -> AnalyticsAnswers:
         if self.ga4 and not re.match(r"^G-[A-Z0-9]{4,}$", self.ga4):
-            raise ValueError(f"Google Analytics {self.ga4!r}: G-XXXXXXX")
+            raise Reason("ga4_bad", value=repr(self.ga4))
         if self.gtm and not re.match(r"^GTM-[A-Z0-9]{4,}$", self.gtm):
-            raise ValueError(f"Tag Manager {self.gtm!r}: GTM-XXXXXX")
+            raise Reason("gtm_bad", value=repr(self.gtm))
         if self.metrika and not self.metrika.isdigit():
-            raise ValueError(f"Yandex Metrica {self.metrika!r}: digits only")
+            raise Reason("metrika_bad", value=repr(self.metrika))
         return self
 
 
@@ -382,9 +385,7 @@ class PublishAnswers(Model):
         if isinstance(value, str):
             text = value.strip() if info.field_name in ("branch", "engine") else value
             if any(unicodedata.category(c) == "Cc" for c in text):
-                raise ValueError(
-                    f"{info.field_name}: control characters (newline, NUL, ...) are not allowed"
-                )
+                raise Reason("control_chars", field=info.field_name)
         return value
 
     @field_validator("helpers", mode="before")
@@ -394,7 +395,7 @@ class PublishAnswers(Model):
         if isinstance(value, dict):
             unknown = sorted(set(value) - set(base))
             if unknown:
-                raise ValueError(f"helpers: unknown {', '.join(unknown)}")
+                raise Reason("helpers_unknown", names=", ".join(unknown))
             base.update({k: bool(v) for k, v in value.items()})
         return base
 
@@ -408,30 +409,24 @@ class PublishAnswers(Model):
     def _engine(cls, value: str) -> str:
         value = (value or "prod").strip()
         if not ENGINE_RE.match(value):
-            raise ValueError(
-                f"engine {value!r}: prod, beta, a version like 0.1.0, "
-                "optionally pinned: prod@sha256:<digest>"
-            )
+            raise Reason("engine_bad", value=repr(value))
         return value
 
     @model_validator(mode="after")
     def _needed(self) -> PublishAnswers:
         if self.repo and not REPO_RE.match(self.repo):
-            raise ValueError(f"repository {self.repo!r}: owner/name, e.g. you/my-site")
+            raise Reason("repo_bad", value=repr(self.repo))
         for value in (self.dockerhub_user, self.image):
             if value and not DOCKER_NAME_RE.match(value):
-                raise ValueError(f"{value!r}: lowercase letters, digits, dots, dashes")
+                raise Reason("docker_name_bad", value=repr(value))
         if self.way == "dockerhub" and not (self.dockerhub_user and self.image):
-            raise ValueError("Docker Hub needs your user name and the image name")
+            raise Reason("dockerhub_needs")
         if self.way == "static" and self.static_target == "server" and not self.server:
-            raise ValueError("static files to a server need the server address")
+            raise Reason("server_needed")
         if self.server and not SERVER_RE.match(self.server):
-            raise ValueError(f"server {self.server!r}: user@host or host")
+            raise Reason("server_bad", value=repr(self.server))
         if self.path and (".." in self.path.split("/") or not SERVER_PATH_RE.match(self.path)):
-            raise ValueError(
-                "the folder on the server is an absolute path without .. — "
-                "letters, digits and . _ - + ~ @"
-            )
+            raise Reason("path_bad")
         return self
 
     @field_validator("branch")
@@ -445,9 +440,7 @@ class PublishAnswers(Model):
             or "/." in value
         )
         if bad:
-            raise ValueError(
-                f"branch {value!r}: letters, digits and . _ - + /, like main or release/v1"
-            )
+            raise Reason("branch_bad", value=repr(value))
         return value
 
 
@@ -463,14 +456,12 @@ class Answers(Model):
     def _languages_of_notes(self) -> Answers:
         stray = sorted(set(self.search.llms_note) - set(self.site.languages))
         if stray:
-            raise ValueError(
-                f"note for AI in a language the site does not have: {', '.join(stray)}"
-            )
+            raise Reason("note_lang", codes=", ".join(stray))
         for name, value in self.about.fields.items():
             if isinstance(value, dict):
                 extra = sorted(set(value) - set(self.site.languages))
                 if extra:
-                    raise ValueError(f"{name}: language not on the site: {', '.join(extra)}")
+                    raise Reason("field_lang", name=name, codes=", ".join(extra))
         return self
 
 
@@ -774,11 +765,11 @@ def _clean_value(spec: dict[str, Any], value: Any) -> Any:
         try:
             return float(value)
         except (TypeError, ValueError):
-            raise ValueError(f"{value!r} is not a number") from None
+            raise Reason("not_number", value=repr(value)) from None
     if kind == "country" and isinstance(value, str):
         value = value.strip().upper()
         if value and not re.fullmatch(r"[A-Z]{2}", value):
-            raise ValueError(f"country {value!r}: a two-letter code, e.g. AT")
+            raise Reason("country_bad", value=repr(value))
         return value
     if kind == "media" and isinstance(value, str):
         return value.strip().removeprefix("./").removeprefix("/")

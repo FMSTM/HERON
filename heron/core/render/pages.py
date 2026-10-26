@@ -99,7 +99,7 @@ def render_page(
             code="E033",
             message=f"шаблон {name} обращается к закрытому: {exc}",
             path=page.source,
-            hint="шаблону доступны поля и вызовы из docs/spec/21-engine.md §7; "
+            hint="шаблону доступны поля и вызовы из docs/ru/spec/21-engine.md §7; "
             "служебные атрибуты Python и изменение данных сайта закрыты",
         ) from exc
     except JinjaUndefined as exc:

@@ -48,7 +48,7 @@ docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD":/site -w /site --user $(id 
 
 ## Где читать {#where}
 
-- **В репозитории.** [Гайды по порядку](https://github.com/FMSTM/HERON/tree/beta/docs/guide): понятия, первый сайт, страницы, тема, поиск, публикация.
+- **В репозитории.** [Гайды по порядку](https://github.com/FMSTM/HERON/tree/beta/docs/ru/guide): понятия, первый сайт, страницы, тема, поиск, публикация.
 - **Для ИИ-агентов.** [AGENTS.md](https://github.com/FMSTM/HERON/blob/beta/AGENTS.md): роли, правила и карта документации.
 - **В терминале.** Без интернета, той же версии, что и движок:
 

@@ -326,3 +326,128 @@ def test_site_name_in_container_is_not_the_mount_point(here, monkeypatch):
     folder = here / "site"
     folder.mkdir()
     assert cli.site_name_guess(folder) == "my-site"
+
+
+# --- язык рамки, когда site.yaml не разбирается (F05, E15.S1.T6) -----------------
+
+
+def broken(here: Path, name: str, notes: str) -> Path:
+    """Сайт с build.notes и испорченным в конце site.yaml: YAML не разбирается."""
+    assert run("new", name, "--notes", notes, "-y").exit_code == 0
+    site_yaml = here / name / "site.yaml"
+    with site_yaml.open("a", encoding="utf-8") as handle:
+        handle.write("site: [\n")
+    return here / name
+
+
+FRAME = {
+    "ru": ("Ошибка E011: site.yaml не проходит валидацию", "  где: ", "  подробно: "),
+    "en": ("Error E011: site.yaml is not valid", "  where: ", "  details: "),
+}
+
+
+def frame_lines(output: str) -> list[str]:
+    """Строки рамки ошибки: заголовок и подписи «где», «подробно», «что сделать»."""
+    labels = ("Ошибка ", "Error ", "  где:", "  where:", "  подробно:", "  details:")
+    labels += ("  что сделать:", "  what to do:")
+    return [line for line in output.splitlines() if line.startswith(labels)]
+
+
+@pytest.mark.parametrize(
+    "args",
+    [["check"], ["build"], ["page", "page", "about"]],
+    ids=["check", "build", "page"],
+)
+def test_broken_site_yaml_of_a_russian_site_gives_a_russian_frame(here, args):
+    root = broken(here, "s", "ru")
+    result = run(*args, str(root))
+    assert result.exit_code == 1, result.output
+    head, where, details = FRAME["ru"]
+    assert head in result.output and where in result.output and details in result.output
+    assert "  что сделать: " in result.output
+    lines = frame_lines(result.output)
+    assert len(lines) == 4, result.output
+    # ни одной английской подписи в рамке
+    for label in ("Error", "where:", "details:", "what to do:"):
+        assert label not in result.output, result.output
+
+
+def test_broken_site_yaml_of_an_english_site_keeps_an_english_frame(here):
+    root = broken(here, "s", "en")
+    result = run("check", str(root))
+    assert result.exit_code == 1
+    head, where, details = FRAME["en"]
+    assert head in result.output and where in result.output and details in result.output
+    assert "  what to do: " in result.output
+    for label in ("Ошибка", "где:", "подробно:", "что сделать:"):
+        assert label not in result.output
+
+
+def test_flag_and_env_beat_the_notes_line_of_a_broken_file(here, monkeypatch):
+    root = broken(here, "s", "ru")
+    flag = run("check", str(root), "--notes", "en")
+    assert FRAME["en"][0] in flag.output and "подробно:" not in flag.output
+    monkeypatch.setenv("HERON_NOTES", "en")
+    env = run("build", str(root))
+    assert FRAME["en"][0] in env.output
+    both = run("check", str(root), "--notes", "ru")
+    assert FRAME["ru"][0] in both.output
+
+
+def test_broken_site_yaml_also_sets_the_help_language(here, monkeypatch):
+    broken(here, "s", "ru")
+    assert run("check", "--help").output.startswith("Usage:")  # здесь site.yaml нет
+    monkeypatch.chdir(here / "s")
+    assert run("--help").output.startswith("Использование: ")
+    assert run("check", "--help").output.startswith("Использование: ")
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("build:\n  notes: ru\nsite: [\n", "ru"),
+        ('build:\n  notes: "ru"  # язык пояснений\nsite: [\n', "ru"),
+        ("build:\n  notes: 'RU'\nsite: [\n", "ru"),  # регистр как у YAML: RU = ru
+        ("build:\n\tnotes: ru\n  oops: [\n", "ru"),  # табуляция ломает YAML, строка видна
+        ("# notes: ru\nsite: [\n", "en"),  # закомментированная строка не считается
+        ("build:\n  notes: de\nsite: [\n", "en"),  # чужой язык — по умолчанию
+        ("build:\n  footnotes: ru\nsite: [\n", "en"),  # другой ключ
+        ("site: [\n", "en"),
+        ("", "en"),
+    ],
+)
+def test_notes_of_a_broken_file_from_its_text(tmp_path, monkeypatch, text, expected):
+    from heron.scaffold import resolve_notes
+
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    site_yaml = tmp_path / "site.yaml"
+    site_yaml.write_text(text, encoding="utf-8")
+    assert resolve_notes(None, site_yaml) == expected
+    assert resolve_notes("en", site_yaml) == "en"
+    assert cli._lang(None, tmp_path) == expected
+
+
+def test_notes_of_a_valid_file_come_from_yaml_not_from_text(tmp_path, monkeypatch):
+    """Разобранный конфиг — источник правды: строка в другом блоке не перебивает его."""
+    from heron.scaffold import resolve_notes
+
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    site_yaml = tmp_path / "site.yaml"
+    site_yaml.write_text(
+        "site:\n  name: S\n  languages: [en]\nbuild:\n  notes: en\nextra:\n  notes: ru\n",
+        encoding="utf-8",
+    )
+    assert resolve_notes(None, site_yaml) == "en"
+    missing = tmp_path / "nothing.yaml"
+    assert resolve_notes(None, missing) == "en"
+    folder = tmp_path / "dir"
+    (folder / "site.yaml").mkdir(parents=True)
+    assert resolve_notes(None, folder / "site.yaml") == "en"
+
+
+def test_init_of_a_broken_russian_site_speaks_russian(here):
+    root = broken(here, "s", "ru")
+    result = run("init", str(root))
+    assert result.exit_code == 0, result.output
+    assert "Папка" in result.output and "дополнена по site.yaml" in result.output
+    assert "build.notes is en" not in result.output and "Already in the folder" not in result.output

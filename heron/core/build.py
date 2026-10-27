@@ -454,12 +454,31 @@ def _roots(site: Site, config: SiteConfig, collector: Collector, prod: bool) -> 
 TEXT_SUFFIXES = {".css", ".js", ".html", ".svg", ".json", ".xml", ".txt", ".webmanifest"}
 
 
+def _local_theme(site_root: Path, theme_dir: Path) -> bool:
+    """Тема лежит в папке сайта (`theme/`), а не в установленном пакете."""
+    return theme_dir.name == resolver.LOCAL_THEME and (
+        theme_dir.parent.resolve() == site_root.resolve()
+    )
+
+
 def rooted(site_root: Path, theme_dir: Path) -> None:
-    """Папки исходников и папки темы — не ссылки наружу (E024)."""
+    """Папки исходников и папки темы — не ссылки наружу (E024).
+
+    Одна проверка и для `check`, и для `build`: они не расходятся. Сама `theme/`
+    сверяется с корнем сайта, как `content/` и `static/`; файл-ссылка наружу в
+    `static/` и в теме (шаблон, стиль, строки) — E024 до сборки, а не только при
+    копировании или рендере. Тема из установленного пакета лежит вне сайта
+    законно, поэтому корень сверяется только у локальной.
+    """
     names = ("content", "data", media.MEDIA, media.LEGACY, STATIC, "plugins")
     paths.rooted(site_root, [site_root / name for name in names])
+    if _local_theme(site_root, theme_dir):
+        paths.rooted(site_root, [theme_dir])
     paths.rooted(theme_dir, [theme_dir / name for name in (ASSETS, "i18n", "templates", "modules")])
     paths.readable([*(site_root / name for name in names), theme_dir])
+    for folder in (site_root / STATIC, theme_dir):
+        for _ in paths.files(folder, where=str(folder)):
+            pass  # ссылка наружу внутри папки - E024
 
 
 def sources(site_root: Path, theme_dir: Path) -> list[Path]:

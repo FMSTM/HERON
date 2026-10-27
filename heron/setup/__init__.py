@@ -41,9 +41,10 @@ from heron.setup.answers import (
 )
 from heron.setup.reasons import Reason
 
-__all__ = ["Answers", "apply", "current_answers", "load_answers", "state"]
+__all__ = ["Answers", "apply", "current_answers", "load_answers", "page", "state"]
 
 SITE_YAML = "site.yaml"
+PAGE = Path(__file__).parent / "page.html"
 BACKUPS = ".heron-cache/setup"
 
 HEADER = {
@@ -342,3 +343,15 @@ def current_answers(root: Path) -> str:
     answers = read(raw_config(root))
     data = json.loads(answers.model_dump_json())
     return yaml.dump(data, Dumper=_Dumper, sort_keys=False, allow_unicode=True, width=100)
+
+
+def page() -> bytes:
+    """Страница анкеты так, как её отдаёт сервер: ссылки на документацию - на ветку канала образа.
+
+    В исходнике страницы адрес ведёт на ветку prod; в образе канала beta
+    (`HERON_CHANNEL`) его заменяет та же подстановка, что у комплекта и демо
+    (`scaffold.agents.channel_links`, 23 §12). В prod текст байт в байт как исходник.
+    """
+    from heron.scaffold.agents import channel_links
+
+    return channel_links(PAGE.read_bytes().decode("utf-8")).encode("utf-8")

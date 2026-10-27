@@ -90,7 +90,7 @@ def test_scan_sees_the_known_links() -> None:
     found = {(where, kind, branch, path) for where, _, kind, branch, path in _links(ROOT)}
     assert ("heron/scaffold/demo/ru/docs.md", "tree", "prod", "docs/ru/guide") in found
     assert ("heron/scaffold/demo/en/docs.md", "tree", "prod", "docs/ru/guide") in found
-    assert ("heron/setup/page.html", "blob", "beta", "docs/ru/guide/06-deploy.md") in found
+    assert ("heron/setup/page.html", "blob", "prod", "docs/ru/guide/06-deploy.md") in found
     assert ("docs/ru/README.md", "blob", "prod", "AGENTS.md") in found
     assert ("docs/ru/guide/06-deploy.md", "blob", "prod", "env/.env.example") in found
     assert ("docs/ru/spec/20-data-contract.md", "blob", "prod", "docs/ru/") in found

@@ -92,7 +92,7 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
                 self._json(403, {"error": say(lang, "srv_local_only")})
                 return
             if self.path in ("/", "/index.html"):
-                self._send(200, PAGE.read_bytes(), "text/html; charset=utf-8")
+                self._send(200, setup.page(), "text/html; charset=utf-8")
             elif not self._allowed():
                 self._json(403, {"error": say(lang, "srv_token")})
             elif self.path == "/api/state":

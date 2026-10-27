@@ -4,10 +4,10 @@
 docs/ru/spec/23-distribution.md §10 («Два языка документации»):
 
 - у каждого docs/ru/** есть docs/en/** с тем же путём и наоборот; исключения —
-  docs/en/GLOSSARY.md (рабочий файл переводчиков, пары нет) и ещё не
-  переведённые файлы: запись docs/translation.yaml со статусом ``missing``
-  (до S7 — только под guide/, spec/ и README.md); список читается из
-  translation.yaml, а не хардкодится;
+  docs/en/GLOSSARY.md (рабочий файл переводчиков, пары нет); статус ``missing``
+  в docs/translation.yaml не допускается нигде: перевод закончен (E12.S7), beta
+  и prod требуют ``current``; список читается из translation.yaml, а не
+  хардкодится;
 - у пары .md совпадают число строк, заголовки по уровням, последовательность
   явных якорей ``<a id="…"></a>`` в конце строки заголовка (``{#…}`` — разметка
   секций страницы сайта, не якорь документации: в заголовках образца страницы
@@ -20,7 +20,9 @@ docs/ru/spec/23-distribution.md §10 («Два языка документаци
   примеров) переводится и не сравнивается;
 - у образцов .yaml и фронтматтера — те же ключи и значения не-строковых полей;
 - page.md несёт восемь групп SEO-блока своего языка (heron/scaffold/text/<язык>/seo-block.md);
-- в docs/en нет кириллицы вне разрешённых мест (ALLOWED_CYRILLIC).
+- в docs/en нет кириллицы вне разрешённых мест (ALLOWED_CYRILLIC): правило либо
+  общее (имена второго языка примера), либо привязано к файлу и разделу, где
+  русский литерал нужен по смыслу (адрес, строка интерфейса, строка отчёта).
 
 Статус ``stale`` значит «ru уже изменился, перевод догоняет»: пара обязана
 существовать, но структура не сверяется — расхождение тогда ожидаемо, а сам
@@ -48,26 +50,84 @@ SEO_BLOCK = ROOT / "heron" / "scaffold" / "text"
 # docs/en без пары в docs/ru: словарь терминов для переводчиков (23 §10, 20 §1).
 EN_ONLY = frozenset({"GLOSSARY.md"})
 
-# Где до S7 допустим статус missing: остальное уже переведено и обязано иметь пару.
-MISSING_ALLOWED = ("guide/", "spec/", "README.md")
+
+@dataclass(frozen=True)
+class Allowed:
+    """Одно разрешение кириллицы: фрагмент строки, который можно оставить русским.
+
+    ``file`` (путь от docs/en) и ``section`` сужают правило: без них оно действует во
+    всех файлах и разделах. ``section`` — якорь ``<a id>`` заголовка или, если у
+    заголовка якоря нет, его текст; правило действует во всём разделе, включая
+    подзаголовки, но не за его пределами.
+    """
+
+    pattern: str
+    reason: str
+    file: str | None = None
+    section: str | None = None
+
 
 # Кириллица в docs/en допустима только здесь. Каждое правило вырезает из строки
 # разрешённый фрагмент; если после этого кириллица осталась — это непереведённый
 # текст. Значения для второго языка примера (llms_note.ru) многострочные и
 # разрешаются отдельно — см. _llms_note_ru_lines. Каждое правило обязано где-то
-# срабатывать (test_allowed_cyrillic_rules_are_used).
-ALLOWED_CYRILLIC: tuple[tuple[str, str], ...] = (
-    (
+# срабатывать в своём файле и разделе (test_allowed_cyrillic_rules_are_used).
+# Правила 20 и 21 — дословные литералы, которые перевод оставляет как есть: адреса
+# и строки интерфейса и отчёта, которые движок печатает по-русски (heron/messages.py).
+ALLOWED_CYRILLIC: tuple[Allowed, ...] = (
+    Allowed(
         r"\bname_ru:\s*[^#\n]*",
         "name_ru — имя сайта на втором языке примера, оно русское по смыслу (23 §10)",
     ),
-    (
+    Allowed(
         r"\btitle_suffix_ru:\s*\"[^\"\n]*\"",
         "title_suffix_ru — суффикс <title> русских страниц примера (23 §10)",
     ),
-    (
+    Allowed(
         r"\"Читать далее\"",
         "пример ru-строки интерфейса темы рядом с английской в roles/capabilities.md",
+    ),
+    Allowed(
+        r"`/(?:новости|кредит)/?`",
+        "20 §2, старые адреса: кириллические адреса-примеры в обратных кавычках",
+        "spec/20-data-contract.md",
+        "old-addresses-cyrillic",
+    ),
+    Allowed(
+        r"^\s*- /новости-компании/",
+        "20 §2, старые адреса: строка yaml-примера redirect_from с кириллическим адресом",
+        "spec/20-data-contract.md",
+        "old-addresses-cyrillic",
+    ),
+    Allowed(
+        r"\"й\"",
+        "20 §2, старые адреса: символ «й» — пример того, что нормализует NFC",
+        "spec/20-data-contract.md",
+        "old-addresses-cyrillic",
+    ),
+    Allowed(
+        r"\"Записаться\"",
+        "21 §7: ru-строка интерфейса темы рядом с английской",
+        "spec/21-engine.md",
+        "rendering",
+    ),
+    Allowed(
+        r"`/кредит/(?:  /credits/;)?`",
+        "21 §9: кириллический адрес-пример и строка карты редиректов",
+        "spec/21-engine.md",
+        "redirects",
+    ),
+    Allowed(
+        r"\"(?:Страниц — N|Предупреждений — N|… и ещё N|что сделать|Использование|Ошибка)\"",
+        "21 §10: ru-строки отчёта, рамки предупреждений и разбора флагов (heron/messages.py)",
+        "spec/21-engine.md",
+        "10. CLI",
+    ),
+    Allowed(
+        r"`\[en: перевода на ru пока нет\]`|`\(откроется на en\)`",
+        "21 §10: пометки `heron docs` на русском (docs_fallback, docs_toc_other)",
+        "spec/21-engine.md",
+        "10. CLI",
     ),
 )
 LLMS_NOTE_RU = "llms_note.ru — текст llms*.txt для русской версии сайта примера (23 §10)"
@@ -76,6 +136,7 @@ CYRILLIC = re.compile(r"[Ѐ-ӿ]")
 FENCE_OPEN = re.compile(r"^(\s*)(`{3,})\s*([^`\s]*)[^`]*$")
 HEADING = re.compile(r"^(#{1,6})\s")
 ANCHOR = re.compile(r"^#{1,6} .*<a id=\"([^\"]+)\"></a>\s*$")
+HEADING_LINE = re.compile(r"^(#{1,6})\s+(.*?)\s*(?:<a id=\"([^\"]+)\"></a>)?\s*$")
 SECTION_ID = re.compile(r"\{#([^}\s]+)")
 LINK = re.compile(r"\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 LIST_ITEM = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s")
@@ -377,16 +438,55 @@ def _llms_note_ru_lines(lines: list[str]) -> set[int]:
     return allowed
 
 
-def _cyrillic_problems(rel: str) -> list[str]:
-    lines = (EN / rel).read_text(encoding="utf-8").splitlines()
+def _sections(lines: list[str]) -> list[frozenset[str]]:
+    """Для каждой строки — разделы, в которых она лежит: якорь или текст каждого заголовка выше.
+
+    Раздел охватывает свои подзаголовки: строка под `### Old addresses` лежит и в нём,
+    и в объемлющем `## 2. …`. Заголовки в блоках кода не в счёт (там «#» — комментарий).
+    """
+    stack: list[tuple[int, str]] = []
+    out: list[frozenset[str]] = []
+    fence = ""
+    for line in lines:
+        match = FENCE_OPEN.match(line)
+        if not fence and match:
+            fence = match.group(2)
+        elif fence and line.lstrip().startswith(fence):
+            fence = ""
+        heading = None if fence else HEADING_LINE.match(line)
+        if heading:
+            level = len(heading.group(1))
+            while stack and stack[-1][0] >= level:
+                stack.pop()
+            stack.append((level, heading.group(3) or heading.group(2)))
+        out.append(frozenset(name for _, name in stack))
+    return out
+
+
+def _applies(rule: Allowed, rel: str, sections: frozenset[str]) -> bool:
+    if rule.file is not None and rule.file != rel:
+        return False
+    return rule.section is None or rule.section in sections
+
+
+def _cyrillic_problems(
+    rel: str, text: str | None = None, rules: tuple[Allowed, ...] | None = None
+) -> list[str]:
+    """Строки docs/en/<rel> с кириллицей вне разрешённых мест; text и rules — для проверки."""
+    if text is None:
+        text = (EN / rel).read_text(encoding="utf-8")
+    rules = ALLOWED_CYRILLIC if rules is None else rules
+    lines = text.splitlines()
     note = _llms_note_ru_lines(lines)
+    sections = _sections(lines)
     problems = []
     for number, line in enumerate(lines):
         if number in note or not CYRILLIC.search(line):
             continue
         rest = line
-        for pattern, _reason in ALLOWED_CYRILLIC:
-            rest = re.sub(pattern, "", rest)
+        for rule in rules:
+            if _applies(rule, rel, sections[number]):
+                rest = re.sub(rule.pattern, "", rest)
         if CYRILLIC.search(rest):
             problems.append(f"docs/en/{rel}:{number + 1}: {line.strip()}")
     return problems
@@ -421,10 +521,10 @@ def test_every_ru_file_has_en_pair() -> None:
     for rel in sorted(RU_FILES):
         status = ENTRIES.get(rel, {}).get("en_status")
         if status == "missing":
-            if not rel.startswith(MISSING_ALLOWED):
-                problems.append(f"docs/ru/{rel}: missing допустим только под {MISSING_ALLOWED}")
-            if rel in EN_FILES:
-                problems.append(f"docs/en/{rel} есть, а translation.yaml говорит missing")
+            problems.append(
+                f"docs/ru/{rel}: en_status missing — перевод закончен, beta и prod требуют "
+                f"current; переведите файл и поставьте current"
+            )
         elif rel not in EN_FILES:
             problems.append(f"docs/ru/{rel} ({status}): нет перевода docs/en/{rel}")
     assert not problems, "\n".join(problems)
@@ -473,7 +573,7 @@ def test_page_template_has_seo_groups(lang: str) -> None:
 
 def test_no_cyrillic_in_en_outside_allowed() -> None:
     problems = [line for rel in sorted(EN_FILES - EN_ONLY) for line in _cyrillic_problems(rel)]
-    allowed = "; ".join([*(reason for _, reason in ALLOWED_CYRILLIC), LLMS_NOTE_RU])
+    allowed = "; ".join([*(rule.reason for rule in ALLOWED_CYRILLIC), LLMS_NOTE_RU])
     assert not problems, (
         f"русский текст в docs/en вне разрешённых мест (разрешено: {allowed}):\n"
         + "\n".join(problems)
@@ -481,7 +581,99 @@ def test_no_cyrillic_in_en_outside_allowed() -> None:
 
 
 def test_allowed_cyrillic_rules_are_used() -> None:
-    """Каждое разрешение кому-то нужно: лишнее правило — дыра в проверке."""
-    text = "\n".join((EN / rel).read_text(encoding="utf-8") for rel in sorted(EN_FILES - EN_ONLY))
-    unused = [reason for pattern, reason in ALLOWED_CYRILLIC if not re.search(pattern, text)]
+    """Каждое разрешение кому-то нужно в своём файле и разделе: лишнее — дыра в проверке."""
+    unused = []
+    for rule in ALLOWED_CYRILLIC:
+        names = [rule.file] if rule.file else sorted(EN_FILES - EN_ONLY)
+        hit = False
+        for rel in names:
+            lines = (EN / rel).read_text(encoding="utf-8").splitlines()
+            sections = _sections(lines)
+            hit = hit or any(
+                _applies(rule, rel, sections[n])
+                and any(CYRILLIC.search(m.group(0)) for m in re.finditer(rule.pattern, line))
+                for n, line in enumerate(lines)
+            )
+        if not hit:
+            unused.append(rule.reason)
     assert not unused, f"разрешения кириллицы, которые нигде не применяются: {unused}"
+
+
+# --- сами правила кириллицы: узкие по файлу и разделу ---------------------------
+
+SPEC20 = "spec/20-data-contract.md"
+SPEC21 = "spec/21-engine.md"
+
+
+def _scoped_rules() -> list[Allowed]:
+    return [rule for rule in ALLOWED_CYRILLIC if rule.file is not None]
+
+
+def test_scoped_rules_name_a_file_and_a_section() -> None:
+    """Узкое правило задаёт и файл, и раздел; файл и раздел существуют в docs/en."""
+    for rule in _scoped_rules():
+        assert rule.section, rule.reason
+        assert rule.file in EN_FILES, rule.reason
+        lines = (EN / rule.file).read_text(encoding="utf-8").splitlines()
+        assert any(rule.section in names for names in _sections(lines)), rule.reason
+
+
+def test_sections_nest_by_heading_level_and_skip_code() -> None:
+    lines = [
+        '## 2. Tree <a id="tree"></a>',
+        '### Old <a id="old"></a>',
+        "text",
+        "```bash",
+        "# comment in code",
+        "```",
+        "### Next",
+        "after",
+        "## 3. Other",
+        "last",
+    ]
+    names = _sections(lines)
+    assert names[2] == {"tree", "old"}
+    assert names[4] == {"tree", "old"}  # «#» в блоке кода — не заголовок
+    assert names[7] == {"tree", "Next"}
+    assert names[9] == {"3. Other"}
+
+
+OLD = '## Old <a id="old-addresses-cyrillic"></a>'
+RENDERING = '## 7. R <a id="rendering"></a>'
+REDIRECTS = '### redirects <a id="redirects"></a>'
+
+
+@pytest.mark.parametrize(
+    ("rel", "text"),
+    [
+        (SPEC20, f'{OLD}\nThe address `/кредит/` and "й".\n'),
+        (SPEC20, f"{OLD}\n```yaml\n  - /новости-компании/\n```\n"),
+        (SPEC21, f'{RENDERING}\n("Book now" / "Записаться")\n'),
+        (SPEC21, f"{REDIRECTS}\nmap `/кредит/  /credits/;`\n"),
+        (SPEC21, '## 10. CLI\n- "Pages — N" / "Страниц — N", `Error`/"Ошибка"\n'),
+        (SPEC21, "## 10. CLI\n`[en: перевода на ru пока нет]`, `(откроется на en)`\n"),
+    ],
+)
+def test_scoped_rules_allow_their_literals(rel: str, text: str) -> None:
+    assert _cyrillic_problems(rel, text) == []
+
+
+@pytest.mark.parametrize(
+    ("rel", "text"),
+    [
+        # тот же литерал в другом разделе того же файла
+        (SPEC20, '## 3. Languages <a id="languages"></a>\nThe address `/кредит/`.\n'),
+        (SPEC21, f"{RENDERING}\n`/кредит/  /credits/;`\n"),
+        (SPEC21, f'{REDIRECTS}\n"Записаться"\n'),
+        (SPEC21, '## 11. Errors\n"Страниц — N" and `(откроется на en)`\n'),
+        # тот же литерал в другом файле, но под тем же якорем
+        ("guide/03-content.md", f"{OLD}\n`/кредит/`\n"),
+        ("roles/builder.md", f'{RENDERING}\n"Записаться"\n'),
+        # соседняя кириллица в разрешённом разделе остаётся ошибкой
+        (SPEC20, f"{OLD}\nThe address `/скидки/`.\n"),
+        (SPEC21, '## 10. CLI\n"Страниц — N" and "Готово"\n'),
+        (SPEC21, "## 10. CLI\nПереведите это слово.\n"),
+    ],
+)
+def test_scoped_rules_do_not_open_cyrillic_wider(rel: str, text: str) -> None:
+    assert _cyrillic_problems(rel, text), (rel, text)

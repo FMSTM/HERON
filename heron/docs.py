@@ -10,12 +10,14 @@
 Источник — `docs/<язык>/` репозитория движка: README комплекта, роли,
 образцы, гайды, спецификации, architecture.md. Нет файла на нужном языке —
 отдаётся файл другого языка с пометкой первой строкой; отстающий перевод
-(`docs/translation.yaml`, 23 §10) помечается так же.
+(`docs/translation.yaml`, 23 §10) помечается так же. README репозитория лежит
+в корне на двух языках: `README.md` английский, `README.ru.md` русский; тема
+`readme` отдаёт файл языка запроса (23 §10).
 
 В установленном пакете файлы лежат в `heron/_docs/` (их кладёт сборка
 колеса, см. pyproject.toml): `_docs/docs/<язык>/…`, `_docs/docs/translation.yaml`,
-`_docs/skills/`, `_docs/AGENTS.md`, `_docs/README.md`. Из исходников — прямо
-из репозитория.
+`_docs/skills/`, `_docs/AGENTS.md`, `_docs/README.md`, `_docs/README.ru.md`.
+Из исходников — прямо из репозитория.
 """
 
 from __future__ import annotations
@@ -31,6 +33,9 @@ SOURCE = Path(__file__).resolve().parent.parent
 LANGS = ("ru", "en")
 # Язык по умолчанию, если вызывающий его не назвал (21 §10: «иначе en»).
 DEFAULT_LANG = "en"
+
+# README репозитория: английский — README.md (путь темы `readme`), русский — рядом.
+README_RU = "README.ru.md"
 
 # Виртуальные темы: собираются из файлов, своего markdown у них нет.
 SKILLS = "@skills"
@@ -86,7 +91,6 @@ TOPICS: tuple[Topic, ...] = (
         "что такое HERON, быстрый старт, несколько сайтов",
         "what HERON is, quick start, several sites",
         "start",
-        per_lang=False,
     ),
     _t(
         "architect",
@@ -397,6 +401,49 @@ def _tree_rel(path: str) -> str | None:
     return path[len(prefix) :] if path.startswith(prefix) else None
 
 
+def root_translation() -> str:
+    """`en_status` пары README.ru.md → README.md из `root_files`; нет записи — пустая строка."""
+    path = root() / "docs" / "translation.yaml"
+    try:
+        import yaml
+
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:  # noqa: BLE001 — нет файла или он битый: просто без пометок
+        return ""
+    pairs = data.get("root_files") if isinstance(data, dict) else None
+    for entry in pairs if isinstance(pairs, list) else []:
+        if isinstance(entry, dict) and entry.get("ru") == README_RU:
+            return str(entry.get("en_status") or "")
+    return ""
+
+
+def _root_readme(lang: str) -> Resolved:
+    """README репозитория на языке `lang`: ru — README.ru.md, en — README.md.
+
+    Нет файла нужного языка — отдаётся другой с пометкой (как в дереве docs/<язык>/);
+    английский, который отстаёт от русского (`root_files`), помечается так же.
+    """
+    for have in (lang, _other(lang)):
+        path = README_RU if have == "ru" else "README.md"
+        if (root() / path).is_file():
+            if have != lang:
+                note: str | None = _text(lang, "docs_fallback", have=have, want=lang)
+            elif lang == "en" and root_translation() == "stale":
+                note = _text(lang, "docs_stale", have="ru", want="en")
+            else:
+                note = None
+            return Resolved(path, have, note)
+    raise FileNotFoundError(root() / "README.md")
+
+
+def _readme_lang(lang: str) -> str:
+    """На каком языке откроется README репозитория; нет ни одного файла — язык запроса."""
+    try:
+        return _root_readme(lang).lang_used
+    except FileNotFoundError:
+        return lang
+
+
 def resolve(name: str, lang: str | None = None) -> Resolved:
     """Тема → файл. Неизвестная тема — KeyError; файла нет ни на одном языке — FileNotFoundError."""
     lang = _lang(lang)
@@ -407,9 +454,9 @@ def resolve(name: str, lang: str | None = None) -> Resolved:
         return Resolved(item.path, lang, None)
     rel = _tree_rel(item.path)
     if rel is None:
+        if name == "readme":
+            return _root_readme(lang)
         path = item.path
-        if name == "readme" and lang == "ru" and (root() / "README.ru.md").is_file():
-            path = "README.ru.md"
         if not (root() / path).is_file():
             raise FileNotFoundError(root() / path)
         return Resolved(path, lang, None)
@@ -552,6 +599,8 @@ def contents(lang: str | None = None) -> str:
             rel = _tree_rel(item.path)
             if rel is not None and have.get(rel, lang) != lang:
                 line += " " + _text(lang, "docs_toc_other", have=have[rel])
+            elif item.name == "readme" and _readme_lang(lang) != lang:
+                line += " " + _text(lang, "docs_toc_other", have=_other(lang))
             lines.append(line)
         lines.append("")
     lines.append(_text(lang, "samples", names=", ".join(templates(lang))))
@@ -562,17 +611,18 @@ def contents(lang: str | None = None) -> str:
 
 
 def _search_files(lang: str) -> list[tuple[str, str]]:
-    """(имя для вывода, путь от root()) — дерево на языке с фолбэком + AGENTS.md + README.md."""
+    """(имя для вывода, путь от root()): дерево на языке с фолбэком, AGENTS.md и README корня."""
     names = {rel: t.name for t in TOPICS if (rel := _tree_rel(t.path)) is not None}
     out = []
     for rel, have in tree(lang).items():
         path = f"docs/{have}/{rel}"
         out.append((names.get(rel, path), path))
     for name in ("agents", "readme"):
-        item = topic(name)
-        assert item is not None
-        if (root() / item.path).is_file():
-            out.append((name, item.path))
+        try:
+            path = resolve(name, lang).path
+        except FileNotFoundError:
+            continue
+        out.append((name, path))
     return out
 
 

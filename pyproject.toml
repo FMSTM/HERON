@@ -48,6 +48,8 @@ packages = ["heron"]
 # рецепт образа сайта: `heron recipe` отдаёт его ровно этой версии
 "Dockerfile.site" = "heron/_recipe/Dockerfile.site"
 "README.md" = "heron/_docs/README.md"
+# русский README рядом: `heron docs readme --lang ru`
+"README.ru.md" = "heron/_docs/README.ru.md"
 "docs/ru" = "heron/_docs/docs/ru"
 # tests/test_packaging.py и test_docs_command.py требуют, чтобы каждый файл
 # docs/<язык>/** был покрыт force-include.

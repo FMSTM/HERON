@@ -27,7 +27,7 @@ def run(*args):
 
 def repo_docs() -> set[str]:
     """Текст документации в репозитории: всё, кроме картинок бренда и скрытых файлов (.DS_Store)."""
-    found = {"AGENTS.md", "README.md"}
+    found = {"AGENTS.md", "README.md", "README.ru.md"}
     for path in (ROOT / "docs").rglob("*"):
         rel = path.relative_to(ROOT).as_posix()
         hidden = any(part.startswith(".") for part in path.relative_to(ROOT).parts)
@@ -169,6 +169,91 @@ def test_broken_translation_file_is_ignored(tmp_path, monkeypatch):
     (tmp_path / "docs" / "translation.yaml").write_text("files: [oops", encoding="utf-8")
     assert docs.translation() == {}
     assert docs.resolve("kit", "en").note is None
+
+
+# --- README репозитория: README.md (en) и README.ru.md (ru) ----------------------
+
+
+def put_readmes(root: Path, *, ru: bool = True, en: bool = True) -> None:
+    if en:
+        (root / "README.md").write_text("# English readme\nneedle-en\n", encoding="utf-8")
+    if ru:
+        (root / "README.ru.md").write_text("# Русский readme\nneedle-ru\n", encoding="utf-8")
+
+
+def test_readme_topic_follows_the_language(tmp_path, monkeypatch):
+    fake_root(tmp_path, monkeypatch, en=True)
+    put_readmes(tmp_path)
+    assert docs.resolve("readme", "en") == docs.Resolved("README.md", "en", None)
+    assert docs.resolve("readme", "ru") == docs.Resolved("README.ru.md", "ru", None)
+    assert docs.read_topic("readme", "en") == "# English readme\nneedle-en\n"
+    assert docs.read_topic("readme", "ru") == "# Русский readme\nneedle-ru\n"
+
+
+def test_readme_without_russian_file_falls_back_with_a_note(tmp_path, monkeypatch):
+    fake_root(tmp_path, monkeypatch, en=True)
+    put_readmes(tmp_path, ru=False)
+    found = docs.resolve("readme", "ru")
+    assert found == docs.Resolved("README.md", "en", "[en: перевода на ru пока нет]")
+    assert docs.read_topic("readme", "ru").startswith("[en: перевода на ru пока нет]\n\n# English")
+    line = next(row for row in docs.contents("ru").splitlines() if row.startswith("  readme "))
+    assert line.endswith("(откроется на en)")
+
+
+def test_readme_without_english_file_falls_back_to_russian(tmp_path, monkeypatch):
+    fake_root(tmp_path, monkeypatch, en=True)
+    put_readmes(tmp_path, en=False)
+    found = docs.resolve("readme", "en")
+    assert found == docs.Resolved("README.ru.md", "ru", "[ru: no English translation yet]")
+    line = next(row for row in docs.contents("en").splitlines() if row.startswith("  readme "))
+    assert line.endswith("(opens in ru)")
+
+
+def test_readme_english_lag_is_marked_from_root_files(tmp_path, monkeypatch):
+    fake_root(tmp_path, monkeypatch, en=True)
+    put_readmes(tmp_path)
+    (tmp_path / "docs" / "translation.yaml").write_text(
+        "files: []\n"
+        "root_files:\n"
+        "  - ru: README.ru.md\n"
+        "    en: README.md\n"
+        '    ru_sha256: "0"\n'
+        "    en_status: stale\n",
+        encoding="utf-8",
+    )
+    assert docs.root_translation() == "stale"
+    assert docs.resolve("readme", "en").note == "[en: the translation lags behind ru]"
+    assert docs.resolve("readme", "ru").note is None
+
+
+def test_readme_search_reads_the_file_of_the_language(tmp_path, monkeypatch):
+    fake_root(tmp_path, monkeypatch, en=True)
+    put_readmes(tmp_path)
+    assert any("readme · README.ru.md:2" in row for row in docs.search("needle-ru", "ru"))
+    assert not docs.search("needle-en", "ru")
+    assert any("readme · README.md:2" in row for row in docs.search("needle-en", "en"))
+    assert not docs.search("needle-ru", "en")
+
+
+def test_real_readme_topic_is_per_language_and_packed():
+    en, ru = docs.resolve("readme", "en"), docs.resolve("readme", "ru")
+    assert (en.path, en.lang_used, en.note) == ("README.md", "en", None)
+    assert (ru.path, ru.lang_used, ru.note) == ("README.ru.md", "ru", None)
+    assert "### With HERON" in docs.read_topic("readme", "en")
+    assert "### С HERON" in docs.read_topic("readme", "ru")
+    config = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    packed = config["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
+    assert packed["README.ru.md"] == "heron/_docs/README.ru.md"
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert re.search(r"^COPY .*\bREADME\.ru\.md\b.* \./$", dockerfile, re.M)
+
+
+def test_cli_readme_per_language():
+    for lang, head in (("ru", "### С HERON"), ("en", "### With HERON")):
+        result = run("docs", "readme", "--lang", lang)
+        assert result.exit_code == 0, result.output
+        assert head in result.output, lang
+        assert not result.output.startswith("["), lang
 
 
 def test_unknown_topic_and_language():

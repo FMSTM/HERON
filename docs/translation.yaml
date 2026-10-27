@@ -1,6 +1,7 @@
 # Состояние перевода документации: docs/ru — исходник, docs/en — перевод.
 # ru_sha256 — хеш русского файла, с которого сделан английский; en_status: current | stale | missing.
 # Проверяет scripts/check.sh (предупреждение на dev, ошибка на beta/prod). Описание — docs/ru/spec/23-distribution.md, раздел 10.
+# files — файлы docs/ru; root_files — пара README репозитория: русский README.ru.md — исходник, английский README.md — перевод.
 files:
   - path: README.md
     ru_sha256: "1b5acc92074b4eb22005a8b32151a125ea04f1b870f89acf5416f51c4444920b"
@@ -70,4 +71,9 @@ files:
     en_status: current
   - path: templates/theme.yaml
     ru_sha256: "0efabd8d3f9c52fba3d7224d6af34616977fa1905a877f41995b9d5bb8e816ef"
+    en_status: current
+root_files:
+  - ru: README.ru.md
+    en: README.md
+    ru_sha256: "79cb7cb6413618e8f0b7eeec94c243388a782675d9e4e3478e724c842d716411"
     en_status: current

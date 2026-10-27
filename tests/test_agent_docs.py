@@ -424,7 +424,12 @@ NEUTRAL_WHITELIST: dict[str, tuple[str, ...]] = {
     # перечень «Кто какой файл читает» README комплекта
     "README.md": ("- **Кто какой файл читает.**", "- **Who reads which file.**"),
     # описание корневых указателей в 20 §1: строки дерева и абзац
-    "spec/20-data-contract.md": ("├── CLAUDE.md", "├── GEMINI.md", "**Корневые указатели.**"),
+    "spec/20-data-contract.md": (
+        "├── CLAUDE.md",
+        "├── GEMINI.md",
+        "**Корневые указатели.**",
+        "**Root pointers.**",
+    ),
 }
 
 
@@ -486,12 +491,17 @@ def test_texts_are_agent_neutral():
         # в README — только перечень, в 20 — только дерево и абзац
         ("README.md", "`GEMINI.md` читает Gemini CLI"),
         ("spec/20-data-contract.md", "`CLAUDE.md` — для Claude Code"),
+        ("spec/20-data-contract.md", "The `CLAUDE.md` pointer is for Claude Code"),
+        # английское начало разрешено только в 20, не в README и не в других файлах
+        ("README.md", "**Root pointers.** Claude Code"),
+        ("guide/01-concepts.md", "**Root pointers.** Claude Code"),
         ("spec/20-data-contract.md", "│   ├── CLAUDE.md   для Claude Code"),
         # вне комплекта белого списка нет
         (None, "- **Кто какой файл читает.** `CLAUDE.md` — Claude Code"),
         # разработчиков нет нигде, в том числе в разрешённых строках
         ("README.md", "- **Кто какой файл читает.** `CLAUDE.md` — Claude Code (Anthropic)"),
         ("spec/20-data-contract.md", "**Корневые указатели.** Codex от OpenAI"),
+        ("spec/20-data-contract.md", "**Root pointers.** Codex from OpenAI"),
         ("guide/04-theme.md", "Copilot и Cursor"),
     ],
 )
@@ -507,6 +517,7 @@ def test_neutrality_whitelist_is_exactly_23_12(kit_path, line):
         ("spec/20-data-contract.md", "├── CLAUDE.md      одна строка — для Claude Code"),
         ("spec/20-data-contract.md", "├── GEMINI.md      одна строка — для Gemini CLI"),
         ("spec/20-data-contract.md", "**Корневые указатели.** Cursor, Copilot; Claude Code"),
+        ("spec/20-data-contract.md", "**Root pointers.** Cursor, Copilot; Claude Code"),
         # не упоминание — где угодно
         ("guide/01-concepts.md", "`CLAUDE.md` и `GEMINI.md` — по строке"),
         ("guide/01-concepts.md", "@AGENTS.md"),

@@ -20,7 +20,7 @@ RUN python -m pip install --no-cache-dir --require-hashes --no-deps \
       --target /install -r requirements.lock \
  && python -m pip install --no-cache-dir --require-hashes -r requirements-build.lock
 # Dockerfile.site едет в пакет: `heron recipe` отдаёт рецепт образа сайта этой версии
-COPY pyproject.toml README.md AGENTS.md Dockerfile.site ./
+COPY pyproject.toml README.md README.ru.md AGENTS.md Dockerfile.site ./
 COPY heron ./heron
 # текст документации для `heron docs` (docs/ru, docs/en, docs/translation.yaml)
 # и навыки — их пакует force-include. Папка docs целиком: docs/en может ещё не

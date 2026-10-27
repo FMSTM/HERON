@@ -22,10 +22,10 @@ files:
     en_status: current
   - path: guide/05-seo.md
     ru_sha256: "85f2bfd79710ec294d1756d6a162a59ec9fb044be2682137f3c8a736d2c1054f"
-    en_status: missing
+    en_status: current
   - path: guide/06-deploy.md
     ru_sha256: "faedec211f8d1dd3839fdbd2769f54d3f5f9a41350d77a61f12b6d3d1b13aa4a"
-    en_status: missing
+    en_status: current
   - path: roles/architect.md
     ru_sha256: "c2118c8ad6d40ee65b95dcab7cad5bb4a09f9ac0101666e9023ca33ca7ad0486"
     en_status: current

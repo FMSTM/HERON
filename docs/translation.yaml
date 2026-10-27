@@ -10,22 +10,22 @@ files:
     en_status: current
   - path: guide/01-concepts.md
     ru_sha256: "c86378c57e9d5ed0039fe5920e9f6a3ebbc05cc31077ab132a8bbdd67ecc0fb5"
-    en_status: missing
+    en_status: current
   - path: guide/02-first-site.md
     ru_sha256: "f5dc942108fd63e6cc8942cb6ce7571e2643126b54a0de8c6b0813fe47a619be"
-    en_status: missing
+    en_status: current
   - path: guide/03-content.md
     ru_sha256: "6b4a171ed6bcd8657ea5a6c057afde7b4406f46da7ecec122f88122bab3c48d4"
-    en_status: missing
+    en_status: current
   - path: guide/04-theme.md
     ru_sha256: "c5dc531bd647fed941aae4164c1c479990b2a6e726d272dc930b77a7b0442cbe"
-    en_status: missing
+    en_status: current
   - path: guide/05-seo.md
     ru_sha256: "85f2bfd79710ec294d1756d6a162a59ec9fb044be2682137f3c8a736d2c1054f"
-    en_status: missing
+    en_status: current
   - path: guide/06-deploy.md
     ru_sha256: "faedec211f8d1dd3839fdbd2769f54d3f5f9a41350d77a61f12b6d3d1b13aa4a"
-    en_status: missing
+    en_status: current
   - path: roles/architect.md
     ru_sha256: "c2118c8ad6d40ee65b95dcab7cad5bb4a09f9ac0101666e9023ca33ca7ad0486"
     en_status: current

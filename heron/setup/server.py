@@ -130,7 +130,7 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
                     shown = data["lang"]
                 answers = setup.Answers.model_validate(data.get("answers") or {})
                 upload = uploads.get(str(data.get("upload") or ""))
-                result = setup.apply(root, answers, upload=upload)
+                result = setup.apply(root, answers, lang=lang, upload=upload)
             except HeronError as error:
                 self._json(400, {"ok": False, "error": error.message, "hint": error.hint or ""})
                 return

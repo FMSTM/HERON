@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 from heron import __version__
 from heron.core import paths
+from heron.core.errors import HeronError
 from heron.core.notes import NOTE
 
 HERE = Path(__file__).parent
@@ -216,6 +217,84 @@ def resolve_notes(flag: str | None = None, site_yaml: Path | None = None) -> str
     if value not in NOTE_LANGS:
         raise ValueError(message("en", "bad_notes", value=value))
     return value
+
+
+def ctx_notes() -> str | None:
+    """`--notes` текущей команды click или объемлющей группы (`heron --notes ru build`).
+
+    Единственное место, где язык запуска ищется в контексте click: им пользуются
+    CLI, анкета (`setup.reasons.run_lang`) и установка темы. Вне команды click
+    или без флага - None.
+    """
+    import click
+
+    ctx = click.get_current_context(silent=True)
+    while ctx is not None:
+        value = (ctx.params or {}).get("notes")
+        if value:
+            return str(value)
+        ctx = ctx.parent
+    return None
+
+
+def notes_error(flag: str | None, site_yaml: Path, error: ValueError) -> HeronError:
+    """E011 вместо рамки «engine bug»: язык пояснений задан неверно (ru и en)."""
+    import os
+
+    if flag:
+        where, key = "--notes", "bad_notes_flag_hint"
+    elif os.environ.get(ENV_NOTES, "").strip():
+        where, key = ENV_NOTES, "bad_notes_env_hint"
+    else:
+        where, key = str(site_yaml), "bad_notes_site_hint"
+    return HeronError(code="E011", message=str(error), path=where, hint=message("en", key))
+
+
+def site_yaml_problem(site_yaml: Path, lang: str) -> HeronError | None:
+    """Что в site.yaml не даёт `init` и `theme get` честно работать: E011 или None.
+
+    Не UTF-8, корень не блок ключей, `site.languages` не список - то, на чём
+    команды раньше падали рамкой «engine bug» или молча делали вид, что всё
+    в порядке. Сырой, но читаемый конфиг (опечатки, пустой файл, битый YAML)
+    не проблема: `init` зовут именно чтобы его достроить.
+    """
+    if not site_yaml.is_file():
+        return None
+    try:
+        text = site_yaml.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return HeronError(
+            code="E011",
+            message=message(lang, "site_not_utf8"),
+            path=str(site_yaml),
+            hint=message(lang, "site_not_utf8_hint"),
+        )
+    except OSError:
+        return None
+    import yaml
+
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError:
+        return None
+    if data is not None and not isinstance(data, dict):
+        return HeronError(
+            code="E011",
+            message=message(lang, "site_not_block", value=_short(data)),
+            path=str(site_yaml),
+            hint=message(lang, "site_not_block_hint"),
+        )
+    block = data.get("site") if isinstance(data, dict) else None
+    if isinstance(block, dict) and "languages" in block:
+        raw = block["languages"]
+        if raw is not None and not isinstance(raw, list):
+            return HeronError(
+                code="E011",
+                message=message(lang, "site_languages_not_list", value=_short(raw)),
+                path=str(site_yaml),
+                hint=message(lang, "site_languages_not_list_hint"),
+            )
+    return None
 
 
 # `notes: ru` в начале строки (с отступом, в кавычках или без, с комментарием
@@ -659,13 +738,14 @@ def _merge_kit(plan: Plan, made: KitPlan) -> None:
     plan.kit = made
 
 
-def set_build_agents(root: Path, value: str) -> bool:
+def set_build_agents(root: Path, value: str, notes: str = "en") -> bool:
     """Записать `build.agents: <value>` в site.yaml точечно, не переформатируя файл.
 
     Строка `agents:` в блоке `build` есть — заменяется значение (комментарий
     в конце строки остаётся); нет — строка добавляется после `notes` (и его
     комментария), иначе сразу после `build:`; нет блока — он дописывается
-    в конец. Нет site.yaml — ничего не пишется (False).
+    в конец. Нет site.yaml — ничего не пишется (False). Сообщение об ошибке - на
+    языке `notes`.
     """
     import yaml
 
@@ -712,13 +792,11 @@ def set_build_agents(root: Path, value: str) -> bool:
     except Exception:  # noqa: BLE001 — правка не удалась: файл не трогаем
         written = None
     if written != value:
-        from heron.core.errors import HeronError
-
         raise HeronError(
             code="E011",
-            message=f"не удалось записать build.agents: {value} в site.yaml",
+            message=message(notes, "build_agents_write_failed", value=value),
             path=str(path),
-            hint=f"впишите в блок build строку `agents: {value}` вручную",
+            hint=message(notes, "build_agents_write_failed_hint", value=value),
         )
     if updated != text:
         paths.in_site(root, "site.yaml").write_text(updated, encoding="utf-8")
@@ -757,13 +835,18 @@ def adopt(
     `agents_only` — только комплект, остальной скелет не трогается.
     """
     plan = Plan()
-    notes = resolve_notes(notes, root / "site.yaml")
+    try:
+        resolved = resolve_notes(notes, root / "site.yaml")
+    except ValueError as error:
+        raise notes_error(notes, root / "site.yaml", error) from error
+    problem = site_yaml_problem(root / "site.yaml", resolved)
+    if problem is not None:
+        raise problem
+    notes = resolved
     declared = _declared(root / "site.yaml")
     current = (declared or {}).get("agents")
     flag = agents_level(agents_flag) if agents_flag is not None else None
     if declared and declared.get("build_error") is not None:
-        from heron.core.errors import HeronError
-
         # с любым флагом: set_build_agents дописал бы второй блок build
         raise HeronError(
             code="E011",
@@ -772,8 +855,6 @@ def adopt(
             hint=message(notes, "build_not_block_hint"),
         )
     if flag is None and declared and declared.get("agents_error") is not None:
-        from heron.core.errors import HeronError
-
         raise HeronError(
             code="E011",
             message=message(notes, "kit_bad_value", value=declared["agents_error"]),
@@ -794,7 +875,7 @@ def adopt(
             kit_lang = kit.kept_lang(previous, notes)
         kit.check_targets(root, level, kit_lang)
     if flag is not None and (flag != current or declared is None):
-        set_build_agents(root, flag)
+        set_build_agents(root, flag, notes)
     if declared:
         plan.found.append(
             message(

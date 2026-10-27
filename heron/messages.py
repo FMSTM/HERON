@@ -23,6 +23,21 @@ TEXT: dict[str, dict[str, str]] = {
         "created": "создал",
         "skipped": "оставил как есть: {count} {count:файл|файла|файлов}",
         "bad_notes": "язык пояснений {value!r}: есть ru и en",
+        "bad_notes_flag_hint": "в --notes нужно ru или en",
+        "bad_notes_env_hint": "в переменной HERON_NOTES нужно ru или en; уберите её или поправьте",
+        "bad_notes_site_hint": "в build.notes из site.yaml нужно ru или en",
+        "site_not_utf8": "site.yaml не в кодировке UTF-8, папка не тронута",
+        "site_not_utf8_hint": "пересохраните site.yaml в UTF-8; heron check покажет ту же ошибку",
+        "site_not_block": "site.yaml: {value} — не блок ключей, папка не тронута",
+        "site_not_block_hint": (
+            "site.yaml - набор ключей (site:, theme:, build:); heron check покажет ту же ошибку"
+        ),
+        "site_languages_not_list": "site.languages: {value} — не список, папка не тронута",
+        "site_languages_not_list_hint": (
+            "языки списком, например languages: [ru, en]; heron check покажет ту же ошибку"
+        ),
+        "build_agents_write_failed": "не удалось записать build.agents: {value} в site.yaml",
+        "build_agents_write_failed_hint": "впишите в блок build строку `agents: {value}` вручную",
         # --- сводка того, что разложено ---
         "plan_found": "В папке уже есть:",
         "plan_made": "Создано:",
@@ -199,6 +214,23 @@ TEXT: dict[str, dict[str, str]] = {
         "created": "created",
         "skipped": "left as is: {count} {count:file|files}",
         "bad_notes": "notes language {value!r}: ru and en are available",
+        "bad_notes_flag_hint": "--notes takes ru or en",
+        "bad_notes_env_hint": "HERON_NOTES takes ru or en; unset it or fix it",
+        "bad_notes_site_hint": "build.notes in site.yaml takes ru or en",
+        "site_not_utf8": "site.yaml is not UTF-8, the folder is left alone",
+        "site_not_utf8_hint": "save site.yaml as UTF-8; heron check shows the same error",
+        "site_not_block": "site.yaml: {value} — not a block of keys, the folder is left alone",
+        "site_not_block_hint": (
+            "site.yaml is a set of keys (site:, theme:, build:); heron check shows the same error"
+        ),
+        "site_languages_not_list": "site.languages: {value} — not a list, the folder is left alone",
+        "site_languages_not_list_hint": (
+            "languages go in a list, e.g. languages: [ru, en]; heron check shows the same error"
+        ),
+        "build_agents_write_failed": "could not write build.agents: {value} to site.yaml",
+        "build_agents_write_failed_hint": (
+            "add the line `agents: {value}` to the build block by hand"
+        ),
         "plan_found": "Already in the folder:",
         "plan_made": "Created:",
         "plan_config": "config: {files}",
@@ -332,7 +364,7 @@ TEXT: dict[str, dict[str, str]] = {
         "check_head": "HERON {version} · checking {path}",
         "build_failed": (
             "Build failed: {count} {count:error|errors}. The output folder is untouched. "
-            "Fix them and build again."
+            "Fix {count:it|them} and build again."
         ),
         "check_failed": (
             "Check found {count} {count:error|errors}. A build would fail on {count:it|them}."
@@ -611,7 +643,7 @@ TEXT["ru"].update(
 )
 TEXT["en"].update(
     {
-        "kit_created": "agent instructions: agents/, AGENTS.md — {code}, {n} files",
+        "kit_created": "agent instructions: agents/, AGENTS.md — {code}, {n} {n:file|files}",
         "kit_updated": "agent instructions updated ({code}): {updated} replaced, {created} added",
         "kit_in_place": "agent instructions already in place — update: heron init --agents",
         "kit_off": (
@@ -628,7 +660,7 @@ TEXT["en"].update(
             "heron check shows the same error"
         ),
         "kit_orphan": "not in the new kit, left in place: {files}",
-        "kit_fallback": "no {want} translation yet, placed in {have}: {n} files",
+        "kit_fallback": "no {want} translation yet, placed in {have}: {n} {n:file|files}",
         "kit_about_placeholder": "<about the project: the architect fills this in>",
         "kit_manifest_head": "# Agent kit manifest. Written by the engine, not edited by hand.",
         "kit_manifest_damaged": "agents/heron-kit.yaml could not be read — written anew",
@@ -649,7 +681,7 @@ TEXT["en"].update(
         "docs_group_guide": "Guides in order",
         "docs_group_spec": "Reference",
         "docs_group_machine": "For machines",
-        "docs_exported": "Documentation written to {target}: {n} files",
+        "docs_exported": "Documentation written to {target}: {n} {n:file|files}",
         "docs_not_found": "“{query}” is not in the documentation.",
         "docs_no_template": "There is no sample {file!r}. Available: {names}",
         "docs_no_topic": "There is no topic {name!r}. Contents: heron docs",

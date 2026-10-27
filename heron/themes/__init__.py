@@ -251,19 +251,13 @@ def _check_theme(theme_dir: Path, manifest: dict[str, Any]) -> str:
 def _site_notes(root: Path) -> str:
     """Язык пояснений сайта: --notes команды (`heron theme get --notes ru` или
     `heron theme --notes ru get`), затем HERON_NOTES, затем build.notes из
-    site.yaml, иначе en. Порядок тот же, что у сообщений командной строки.
+    site.yaml, иначе en. Порядок тот же, что у сообщений командной строки;
+    флаг ищет общая функция `scaffold.ctx_notes`.
     """
-    import click
+    from heron.scaffold import ctx_notes, resolve_notes
 
-    from heron.scaffold import resolve_notes
-
-    flag = None
-    ctx = click.get_current_context(silent=True)
-    while ctx is not None and flag is None:
-        flag = (ctx.params or {}).get("notes") or None
-        ctx = ctx.parent
     try:
-        return resolve_notes(flag, root / "site.yaml")
+        return resolve_notes(ctx_notes(), root / "site.yaml")
     except ValueError:
         return "en"
 

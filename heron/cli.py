@@ -40,9 +40,11 @@ from heron.scaffold import (
     Plan,
     adopt,
     create,
+    ctx_notes,
     foreign_files,
     placeholder_domain,
     resolve_notes,
+    site_yaml_problem,
 )
 
 DIST = "dist"
@@ -150,9 +152,10 @@ def _notes_in(args: list[str]) -> str | None:
     return found
 
 
-# Справке и `--version` site.yaml больше мегабайта не читается: разбор такого
-# файла занял бы минуты, а `heron --version` разбирают скрипты и CI.
-HELP_SITE_LIMIT = 1 << 20
+# Справке site.yaml больше 64 КБ не читается: настоящий файл весит килобайты, а
+# разбор тяжёлого занял бы секунды и десятки секунд. `--version` site.yaml не
+# читает вовсе: её строка одна на оба языка, язык ей не нужен.
+HELP_SITE_LIMIT = 1 << 16
 
 
 def _help_site_yaml() -> Path | None:
@@ -163,6 +166,16 @@ def _help_site_yaml() -> Path | None:
     return site_yaml
 
 
+def _only_version(args: list[str]) -> bool:
+    """В аргументах `--version` или `-V`, а справки (`-h`, `--help`) рядом нет."""
+    seen: set[str] = set()
+    for arg in args:
+        if arg == "--":
+            break
+        seen.add(arg)
+    return bool(seen & {"--version", "-V"}) and not seen & {"--help", "-h"}
+
+
 def _help_lang(args: list[str]) -> str:
     """Язык справки до разбора аргументов: --notes, HERON_NOTES, ./site.yaml, en.
 
@@ -171,6 +184,8 @@ def _help_lang(args: list[str]) -> str:
     `--version` на английском лучше трейсбека, а ошибку конфига check и build
     покажут по форме.
     """
+    if _only_version(args):
+        return "en"
     try:
         return resolve_notes(_notes_in(args), _help_site_yaml())
     except Exception:  # noqa: BLE001 — до рамки ошибок: только язык справки
@@ -393,17 +408,6 @@ CONTAINER_ENV = "HERON_IN_CONTAINER"
 # --- язык и окружение ---------------------------------------------------------
 
 
-def _ctx_notes() -> str | None:
-    """`--notes` этой команды или объемлющей группы (`heron --notes ru build`)."""
-    ctx = click.get_current_context(silent=True)
-    while ctx is not None:
-        value = (ctx.params or {}).get("notes")
-        if value:
-            return str(value)
-        ctx = ctx.parent
-    return None
-
-
 def _lang(flag: str | None = None, root: Path | None = None) -> str:
     """Язык сообщений: тот же, что язык пояснений сайта. Не разобрался — en.
 
@@ -411,7 +415,7 @@ def _lang(flag: str | None = None, root: Path | None = None) -> str:
     """
     site_yaml = root / "site.yaml" if root is not None else None
     try:
-        lang = resolve_notes(flag or _ctx_notes(), site_yaml)
+        lang = resolve_notes(flag or ctx_notes(), site_yaml)
     except ValueError:
         lang = "en"
     _UI.lang = lang
@@ -455,7 +459,8 @@ def _err(text: str, color: str | None = "red") -> None:
 def _fail(error: HeronError, lang: str = "en") -> None:
     """Ошибка движка по форме: что, где, подробно, что сделать."""
     # Ошибка переменной окружения — не про site.yaml: заголовок по имени переменной.
-    head = error.path if error.path == pipeline.WORKERS_ENV else title(lang, error.code)
+    named = (pipeline.WORKERS_ENV, ENV_NOTES, "--notes")
+    head = error.path if error.path in named else title(lang, error.code)
     _err(say(lang, "error_head", code=error.code, title=head))
     if error.path:
         where = error.path if error.line is None else f"{error.path}:{error.line}"
@@ -1056,7 +1061,7 @@ def new(
     no_agents: bool,
 ) -> None:
     """Создать сайт с нуля. Справка для человека — help_new в heron/messages.py."""
-    notes = notes or _ctx_notes()
+    notes = notes or ctx_notes()
     if (path / "site.yaml").is_file():
         _existing_site(path, notes)
 
@@ -1107,7 +1112,7 @@ def init(
     no_agents: bool,
 ) -> None:
     """Дополнить папку по site.yaml. Справка — help_init в heron/messages.py."""
-    notes = notes or _ctx_notes()
+    notes = notes or ctx_notes()
     if with_agents and no_agents:
         raise click.UsageError(say(_lang(notes, path), "agents_conflict"))
     _need_dir(path, _lang(notes, path))
@@ -1320,7 +1325,7 @@ def setup(
     """Конфигуратор-анкета. Справка — help_setup в heron/messages.py."""
     from heron import setup as configurator
 
-    notes = notes or _ctx_notes()
+    notes = notes or ctx_notes()
     lang = _lang(notes, path)
     _need_dir(path, lang)
     if not (path / "site.yaml").is_file():
@@ -1391,18 +1396,19 @@ SCHEMA_KINDS = {
 }
 
 
-def _write_schemas(target: Path) -> list[str]:
+def _write_schemas(target: Path, lang: str = "en", schema_lang: str | None = None) -> list[str]:
     """Пять файлов схем в папку `target` — общим безопасным писателем (E024).
 
     Папку называет человек, и она может быть ссылкой. А вот ссылка или папка
     на месте файла схемы — ошибка до первой записи: `--export` не пишет туда,
-    куда указывает чужая ссылка.
+    куда указывает чужая ссылка. Ошибка - на языке пояснений `lang`, описания в
+    схемах - на `schema_lang` (по умолчанию тот же).
     """
     from heron.contracts.schemas import all_schemas
     from heron.scaffold.agents import write_files
 
-    texts = all_schemas()
-    return write_files(target, [(name, text.encode("utf-8")) for name, text in texts.items()])
+    texts = all_schemas(schema_lang or lang)
+    return write_files(target, [(name, text.encode("utf-8")) for name, text in texts.items()], lang)
 
 
 @main.command(help="help_schema")
@@ -1419,6 +1425,14 @@ def _write_schemas(target: Path) -> list[str]:
     metavar="help_mv_folder",
     help="help_opt_schema_export",
 )
+@_option(
+    "--lang",
+    "lang_flag",
+    type=click.Choice(["ru", "en"]),
+    default=None,
+    metavar="help_mv_code",
+    help="help_opt_schema_lang",
+)
 @NOTES_OPTION
 def schema(
     of_site: bool,
@@ -1427,12 +1441,19 @@ def schema(
     of_setup: bool,
     of_errors: bool,
     target: Path | None,
+    lang_flag: str | None,
     notes: str | None,
 ) -> None:
-    """JSON Schema контрактов этой версии: для редактора, агента и CI (21 §10)."""
+    """JSON Schema контрактов этой версии: для редактора, агента и CI (21 §10).
+
+    Описания и названия ошибок - на языке `--lang`, иначе на языке пояснений
+    (`--notes`, `HERON_NOTES`, `build.notes`, иначе en). Структура, ключи и `$id`
+    от языка не зависят.
+    """
     from heron.contracts import schemas
 
     lang = _lang(notes, Path.cwd())
+    text_lang = lang_flag or lang
     chosen = [
         kind
         for kind, flag in (
@@ -1449,7 +1470,7 @@ def schema(
         raise click.UsageError(say(lang, "schema_one_kind", flags=flags))
     if target is not None:
         try:
-            written = _write_schemas(target)
+            written = _write_schemas(target, lang, text_lang)
         except HeronError as error:
             _fail(error, lang)
         for name in written:
@@ -1461,7 +1482,7 @@ def schema(
         )
         return
     kind = chosen[0] if chosen else "site"
-    click.echo(schemas.all_schemas()[SCHEMA_KINDS[kind]], nl=False)
+    click.echo(schemas.all_schemas(text_lang)[SCHEMA_KINDS[kind]], nl=False)
 
 
 @main.command(help="help_recipe")
@@ -1514,6 +1535,9 @@ def theme_get(source: str, path: Path, notes: str | None) -> None:
         kind, value, archive = "file", "", (path / source).resolve()
     else:
         kind, value = "name", source
+    problem = site_yaml_problem(path / "site.yaml", lang)
+    if problem is not None:
+        _fail(problem, lang)
     declared = _declared(path / "site.yaml") or {}
     try:
         from heron.core import paths
@@ -1521,7 +1545,12 @@ def theme_get(source: str, path: Path, notes: str | None) -> None:
         if (path / "site.yaml").exists() or (path / "site.yaml").is_symlink():
             paths.in_site(path, "site.yaml")  # E024 до установки, а не после
         installed = themes.install(
-            path, kind, value, languages=declared.get("languages") or ["en"], archive=archive
+            path,
+            kind,
+            value,
+            languages=declared.get("languages") or ["en"],
+            archive=archive,
+            notes=lang,
         )
     except HeronError as error:
         _fail(error, lang)
@@ -1606,7 +1635,7 @@ def page(
     try:
         # Комментарии заготовки write_page берёт из HERON_NOTES или build.notes:
         # --notes этого запуска передаётся ей тем же путём, на время записи.
-        with _notes_env(notes or _ctx_notes()):
+        with _notes_env(notes or ctx_notes()):
             created = write_page(path, page_type=page_type, slug=slug, lang=lang, folder=folder)
     except HeronError as error:
         _fail(error, language)

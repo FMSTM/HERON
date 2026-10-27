@@ -288,7 +288,7 @@ def test_schema_export_writes_five_files_deterministically(here):
     assert sorted(p.name for p in (here / "a").iterdir()) == sorted(SCHEMA_FILES)
     for name in SCHEMA_FILES:
         assert (here / "a" / name).read_bytes() == (here / "b" / name).read_bytes()
-        assert (here / "a" / name).read_text(encoding="utf-8") == all_schemas()[name]
+        assert (here / "a" / name).read_text(encoding="utf-8") == all_schemas("en")[name]
     assert str(Path("a") / "site.schema.json") in first.output
 
 
@@ -306,7 +306,7 @@ def test_schema_export_writes_five_files_deterministically(here):
 def test_schema_prints_one_document(here, flag, name):
     result = run("schema", *([flag] if flag else []))
     assert result.exit_code == 0, result.output
-    assert result.output == all_schemas()[name]
+    assert result.output == all_schemas("en")[name]  # без конфига и флагов - en
     major, minor, *_ = heron.__version__.split(".")
     assert json.loads(result.output)["$id"] == (
         f"https://sitebuilder.heron.software/schema/{major}.{minor}/{name}"

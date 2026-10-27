@@ -1200,12 +1200,12 @@ def test_setup_keeps_kit_language_of_the_snapshot(tmp_path):
 # --- E13.S1.T17: висячая ссылка или файл на месте папки выгрузки — E024 ------------
 
 
-def _export(kind: str, target: Path):
+def _export(kind: str, target: Path, *flags: str, env: dict[str, str] | None = None):
     from click.testing import CliRunner
 
     from heron.cli import main
 
-    return CliRunner().invoke(main, [kind, "--export", str(target)])
+    return CliRunner().invoke(main, [kind, "--export", str(target), *flags], env=env)
 
 
 def _occupy(tmp_path: Path, how: str) -> Path:
@@ -1225,14 +1225,14 @@ def _occupy(tmp_path: Path, how: str) -> Path:
 def test_export_into_dangling_link_is_e024_not_a_crash(tmp_path, kind):
     target = _occupy(tmp_path, "dangling")
     before = _snapshot(tmp_path)
-    result = _export(kind, target)
+    result = _export(kind, target, "--notes", "ru")
     assert result.exit_code == 1
     assert "E024" in result.output
     assert "unexpected error" not in result.output and "engine bug" not in result.output
     assert "FileExistsError" not in result.output
     assert "out: на месте папки символическая ссылка, которая никуда не ведёт" in result.output
-    assert "a symbolic link that leads nowhere" in result.output
     assert "уберите ссылку или файл" in result.output
+    assert "a symbolic link that leads nowhere" not in result.output  # один язык (T19)
     assert not (tmp_path / "nowhere").exists()  # по висячей ссылке ничего не создано
     assert _snapshot(tmp_path) == before
 
@@ -1249,10 +1249,10 @@ def test_export_into_file_is_e024(tmp_path, kind, how):
         if kind == "docs":
             docs.export(target, "ru")
         else:
-            _write_schemas(target)
+            _write_schemas(target, "ru")
     assert caught.value.code == "E024"
     assert "файл или ссылка не на папку" in caught.value.message
-    assert "a file or a link to something other" in caught.value.message
+    assert "a file or a link to something other" not in caught.value.message  # один язык (T19)
     assert _snapshot(tmp_path) == before
 
 
@@ -1307,9 +1307,183 @@ def test_export_through_link_to_existing_folder_works(tmp_path, kind):
     assert (real / name).is_file()
 
 
+# --- E13.S1.T19: подробность E024 из write_files - на одном языке ---------------------
+
+
+def _error_text(error: HeronError) -> str:
+    return f"{error.message}\n{error.hint}"
+
+
+def _has_cyrillic(text: str) -> bool:
+    return any("а" <= ch.lower() <= "я" or ch in "ёЁ" for ch in text)
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+@pytest.mark.parametrize("how", ["dangling", "file"])
+def test_write_files_folder_error_is_in_one_language(tmp_path, lang, how):
+    out = _occupy(tmp_path, how)
+    with pytest.raises(HeronError) as caught:
+        agents.write_files(out, [("a.txt", b"a")], lang)
+    text = _error_text(caught.value)
+    assert caught.value.code == "E024"
+    assert _has_cyrillic(text) is (lang == "ru")
+    assert "·" not in caught.value.message
+    key = "write_dangling" if how == "dangling" else "write_not_folder"
+    from heron.messages import say
+
+    assert say(lang, key) in caught.value.message
+    assert say(lang, "write_folder_hint") == caught.value.hint
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_write_files_file_error_is_in_one_language(tmp_path, lang):
+    target = tmp_path / "out"
+    target.mkdir()
+    (target / "a.txt").mkdir()  # на месте файла папка
+    with pytest.raises(HeronError) as caught:
+        agents.write_files(target, [("a.txt", b"a")], lang)
+    assert caught.value.code == "E024"
+    assert caught.value.message.startswith("a.txt: ")
+    assert _has_cyrillic(_error_text(caught.value)) is (lang == "ru")
+
+
+def test_write_files_without_language_speaks_english(tmp_path):
+    out = _occupy(tmp_path, "file")
+    with pytest.raises(HeronError) as caught:
+        agents.write_files(out, [("a.txt", b"a")])
+    assert not _has_cyrillic(_error_text(caught.value))
+
+
+def _detail_only_in(output: str, lang: str) -> bool:
+    """Подробность E024 (висячая ссылка) в выводе - ровно на языке `lang`.
+
+    Название ошибки в рамке тоже локализовано, поэтому проверяется сама фраза писателя.
+    """
+    from heron.messages import say
+
+    other = "en" if lang == "ru" else "ru"
+    return say(lang, "write_dangling") in output and say(other, "write_dangling") not in output
+
+
+@pytest.mark.parametrize("kind", ["docs", "schema"])
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_export_error_follows_notes_flag(tmp_path, kind, lang):
+    target = _occupy(tmp_path, "dangling")
+    result = _export(kind, target, "--notes", lang)
+    assert result.exit_code == 1 and "E024" in result.output
+    assert _detail_only_in(result.output, lang), result.output
+    assert "·" not in result.output
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_export_error_follows_heron_notes(tmp_path, lang):
+    target = _occupy(tmp_path, "dangling")
+    result = _export("schema", target, env={"HERON_NOTES": lang})
+    assert _detail_only_in(result.output, lang), result.output
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_export_error_follows_build_notes_of_the_site(tmp_path, monkeypatch, lang):
+    from heron.scaffold import create
+
+    site = tmp_path / "site"
+    create(site, name="Demo", notes=lang)
+    monkeypatch.chdir(site)
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    target = site / "out"
+    target.symlink_to(tmp_path / "nowhere", target_is_directory=True)
+    result = _export("schema", target)
+    assert result.exit_code == 1 and "E024" in result.output
+    assert _detail_only_in(result.output, lang), result.output
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_kit_placement_error_is_in_the_notes_language(tmp_path, lang):
+    from heron.scaffold import adopt, create
+
+    root = tmp_path / "site"
+    create(root, name="Demo", place_kit=False)
+    adopt(root, notes=lang)
+    (root / "agents" / "roles").rename(root / "agents" / "roles-old")
+    (root / "agents" / "roles").write_text("not a folder\n", encoding="utf-8")
+    with pytest.raises(HeronError) as caught:
+        adopt(root, notes=lang, agents_flag="true", force=True)
+    assert caught.value.code == "E024"
+    assert _has_cyrillic(_error_text(caught.value)) is (lang == "ru")
+    assert "·" not in caught.value.message
+
+
 def test_write_dangling_texts_on_both_languages():
     from heron.messages import TEXT
 
     for key in ("write_dangling", "write_not_folder", "write_folder_hint"):
         assert TEXT["ru"][key] and TEXT["en"][key]
         assert TEXT["ru"][key] != TEXT["en"][key]
+
+
+# --- E15.S1.T2: схемы комплекта - на языке комплекта -------------------------------
+
+
+def _cyrillic(text: str) -> bool:
+    return any("а" <= ch.lower() <= "я" or ch in "ёЁ" for ch in text)
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_kit_schemas_are_in_the_kit_language(tmp_path, lang):
+    root = tmp_path / "site"
+    put(root, lang)
+    for name, text in all_schemas(lang).items():
+        written = (root / "agents" / "schemas" / name).read_text(encoding="utf-8")
+        assert written == text
+        assert _cyrillic(written) is (lang == "ru"), name
+    # манифест считает эти же байты: обновление не принимает схемы за правку человека
+    recorded = load_manifest(root)["files"]
+    sums = {entry["path"]: entry["sha256"] for entry in recorded}
+    for name, text in all_schemas(lang).items():
+        assert sums[f"schemas/{name}"] == hashlib.sha256(text.encode()).hexdigest()
+    again = put(root, lang, mode="update")
+    assert not again.edited
+    assert not [f for f in again.updated if "schemas/" in f]  # манифест перезаписан, схемы нет
+
+
+def test_kit_language_switch_replaces_the_schemas_too(tmp_path):
+    root = tmp_path / "site"
+    put(root, "ru")
+    plan = put(root, "en", mode="update")
+    assert not plan.edited
+    text = (root / "agents" / "schemas" / "errors.json").read_text(encoding="utf-8")
+    assert text == all_schemas("en")["errors.json"] and not _cyrillic(text)
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_docs_export_writes_schemas_in_its_language(tmp_path, lang):
+    docs.export(tmp_path / "d", lang)
+    for name, text in all_schemas(lang).items():
+        assert (tmp_path / "d" / "schemas" / name).read_text(encoding="utf-8") == text
+    # то же самое лежит и в комплекте нового сайта
+    root = tmp_path / "site"
+    put(root, lang)
+    for name in SCHEMA_FILES:
+        assert (root / "agents" / "schemas" / name).read_bytes() == (
+            tmp_path / "d" / "schemas" / name
+        ).read_bytes()
+
+
+def test_docs_export_all_langs_still_has_no_schemas(tmp_path):
+    written = docs.export(tmp_path / "d", all_langs=True)
+    assert not any("schemas/" in rel for rel in written)
+
+
+def test_new_english_site_gets_english_schemas(tmp_path, monkeypatch):
+    from heron.scaffold import create
+
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    root = tmp_path / "s"
+    root.mkdir()
+    create(root, name="Demo", languages=["en"], notes="en")
+    for name in SCHEMA_FILES:
+        assert not _cyrillic((root / "agents" / "schemas" / name).read_text(encoding="utf-8"))
+    ru = tmp_path / "r"
+    ru.mkdir()
+    create(ru, name="Demo", languages=["en"], notes="ru")
+    assert _cyrillic((ru / "agents" / "schemas" / "errors.json").read_text(encoding="utf-8"))

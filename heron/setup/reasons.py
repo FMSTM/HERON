@@ -195,18 +195,14 @@ def run_lang(root: Path | str | None = None, flag: str | None = None) -> str:
     HERON_NOTES, затем `build.notes` из `site.yaml`; иначе en. Тот же порядок,
     что у `resolve_notes` для сообщений терминала.
     """
-    from heron.scaffold import resolve_notes
+    import click
 
-    try:
-        import click
+    from heron.scaffold import ctx_notes, resolve_notes
 
-        ctx = click.get_current_context(silent=True)
-    except ImportError:  # pragma: no cover - click всегда рядом с движком
-        ctx = None
-    if ctx is not None:
-        flag = flag or ctx.params.get("notes")
-        if root is None and ctx.params.get("path") is not None:
-            root = ctx.params["path"]
+    flag = flag or ctx_notes()
+    ctx = click.get_current_context(silent=True)
+    if ctx is not None and root is None and ctx.params.get("path") is not None:
+        root = ctx.params["path"]
     site_yaml = Path(root) / "site.yaml" if root is not None else None
     try:
         return resolve_notes(flag, site_yaml)

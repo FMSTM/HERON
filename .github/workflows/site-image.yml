@@ -17,8 +17,9 @@
 #
 # export_docs: true — перед сборкой тем же образом движка выкладывает в static/
 # сайта сырые файлы документации этой версии: agents/{ru,en}/** (`docs --export
-# --all-langs`), schema/<major.minor>/*.json (`schema --export`) и AGENTS.md
-# (`docs agents`). Произвольной команды вход не принимает — белый список (О10).
+# --all-langs`), schema/<major.minor>/*.json - описания по-английски - и
+# schema/<major.minor>/ru/*.json - те же схемы по-русски (`schema --export --lang`),
+# и AGENTS.md (`docs agents`). Произвольной команды вход не принимает — белый список (О10).
 #
 # Документация: docs/ru/guide/06-deploy.md, «Образ из репозитория сайта»;
 # шаг export_docs - docs/ru/spec/22-deploy.md, раздел 4.
@@ -64,7 +65,8 @@ on:
       export_docs:
         description: >-
           Перед сборкой выложить в static/ сырые файлы документации движка:
-          agents/{ru,en}/**, schema/<major.minor>/*.json, AGENTS.md (22 §4, 23 §12).
+          agents/{ru,en}/**, schema/<major.minor>/*.json (en) и schema/<major.minor>/ru/*.json,
+          AGENTS.md (22 §4, 23 §12).
           Нужно сайту движка; обычному сайту — нет.
         type: boolean
         default: false
@@ -187,11 +189,14 @@ jobs:
           [[ "$version" =~ ^[0-9]+\.[0-9]+$ ]] \
             || { echo "::error::не удалось прочитать версию движка"; exit 1; }
           engine docs --export /out/agents --all-langs
-          engine schema --export "/out/schema/$version"
+          # схемы: английские описания основные, русские рядом в ru/ ($id у них общий)
+          engine schema --export "/out/schema/$version" --lang en
+          engine schema --export "/out/schema/$version/ru" --lang ru
           # тема agents — AGENTS.md репозитория движка этой версии, байт в байт
           engine docs agents > "$static/AGENTS.md"
           for f in agents/ru/README.md agents/en/README.md \
-                   "schema/$version/site.schema.json" AGENTS.md; do
+                   "schema/$version/site.schema.json" \
+                   "schema/$version/ru/site.schema.json" AGENTS.md; do
             [ -s "$site/static/$f" ] || { echo "::error::нет static/$f"; exit 1; }
           done
 

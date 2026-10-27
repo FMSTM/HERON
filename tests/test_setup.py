@@ -689,3 +689,67 @@ def test_notes_lang_survives_build_that_is_not_a_block():
     assert notes_lang({"build": [1]}) == "en"
     assert notes_lang({"build": {"notes": "ru"}}) == "ru"
     assert notes_lang({"build": "x"}, "ru") == "ru"
+
+
+# --- ссылка анкеты на документацию - на ветку канала образа (E13.S1.T23) ------------
+
+DOCS_LINK = re.compile(r'const DOCS = "(https://github\.com/FMSTM/HERON/blob/([^/]+)/([^"]+))"')
+
+
+def _docs_link(page: str) -> tuple[str, str, str]:
+    found = DOCS_LINK.search(page)
+    assert found, "в странице анкеты нет const DOCS"
+    return found[1], found[2], found[3]
+
+
+def test_page_source_does_not_hardcode_beta():
+    source = (Path(reasons.__file__).parent / "page.html").read_text(encoding="utf-8")
+    assert "/beta/" not in source
+    assert _docs_link(source)[1] == "prod"
+
+
+@pytest.mark.parametrize("channel", [None, "", "prod", "beta"])
+def test_served_page_links_to_the_branch_of_the_channel(monkeypatch, channel):
+    from heron import setup as setup_module
+
+    if channel is None:
+        monkeypatch.delenv("HERON_CHANNEL", raising=False)
+    else:
+        monkeypatch.setenv("HERON_CHANNEL", channel)
+    want = channel or "prod"
+    url, branch, path = _docs_link(setup_module.page().decode("utf-8"))
+    assert branch == want
+    assert url == f"https://github.com/FMSTM/HERON/blob/{want}/docs/ru/guide/06-deploy.md"
+    repo = Path(reasons.__file__).resolve().parents[2]
+    assert (repo / path).is_file()  # ссылка ведёт на существующий файл
+
+
+def test_prod_page_is_the_source_byte_for_byte(monkeypatch):
+    from heron import setup as setup_module
+
+    monkeypatch.setenv("HERON_CHANNEL", "prod")
+    source = Path(reasons.__file__).parent / "page.html"
+    assert setup_module.page() == source.read_bytes()
+
+
+def test_beta_page_changes_nothing_but_the_branch(monkeypatch):
+    from heron import setup as setup_module
+
+    source = (Path(reasons.__file__).parent / "page.html").read_text(encoding="utf-8")
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    served = setup_module.page().decode("utf-8")
+    assert served == source.replace("/blob/prod/", "/blob/beta/")
+
+
+@pytest.mark.parametrize("channel", ["prod", "beta"])
+def test_server_gives_out_the_page_of_its_channel(site: Path, monkeypatch, channel):
+    from tests.test_setup_access import _call, _start, _stop
+
+    monkeypatch.setenv("HERON_CHANNEL", channel)
+    port, token, thread = _start(site, "127.0.0.1")
+    try:
+        status, page = _call(f"http://127.0.0.1:{port}/")
+        assert status == 200
+        assert _docs_link(page)[1] == channel
+    finally:
+        _stop(port, token, thread)

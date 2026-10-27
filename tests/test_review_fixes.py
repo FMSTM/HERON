@@ -10,6 +10,7 @@ import yaml
 
 from heron.core import build as pipeline
 from heron.core import media, watch
+from heron.core.errors import HeronError
 from heron.scaffold import create
 from tests.nginx_server import needs_nginx, serve
 
@@ -136,8 +137,10 @@ def test_theme_template_symlink_out_is_e024(tmp_path):
         encoding="utf-8",
     )
     write(root, "en/a.md", PAGE.format(t="A", extra=""))
-    result = pipeline.run(root)
-    assert "E024" in codes(result)
+    # ссылка наружу в теме - E024 до сборки (E15.S1.T14), как у static/
+    with pytest.raises(HeronError) as raised:
+        pipeline.run(root)
+    assert raised.value.code == "E024"
     if (root / "dist").exists():
         assert not any(
             b"SECRET-OUTSIDE" in p.read_bytes() for p in (root / "dist").rglob("*") if p.is_file()

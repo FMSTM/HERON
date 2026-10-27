@@ -20,7 +20,7 @@ from jinja2 import sandbox
 from heron.cli import main
 from heron.core import build as pipeline
 from heron.core import check as lint
-from heron.core.errors import Collector
+from heron.core.errors import Collector, HeronError
 from heron.core.hooks import Hooks
 from heron.core.render import env as envmod
 from heron.scaffold import create
@@ -346,7 +346,11 @@ def test_link_out_of_the_theme_is_not_read(tmp_path):
     outside.write_text("{{ [].append(1) }}\n", encoding="utf-8")
     (root / "theme" / "partials").mkdir(exist_ok=True)
     (root / "theme" / "partials" / "away.html").symlink_to(outside)
-    assert _lint(pipeline.check(root)) == []
+    # ссылка наружу в теме - E024 до чтения (E15.S1.T14): чужой файл не читается и не линтуется
+    with pytest.raises(HeronError) as raised:
+        pipeline.check(root)
+    assert raised.value.code == "E024"
+    assert "away.html" in raised.value.message
 
 
 # --- глобальные значения плагина: тип известен ---------------------------------------

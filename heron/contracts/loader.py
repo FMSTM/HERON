@@ -26,6 +26,13 @@ def read_yaml(path: Path, code: str = "E011") -> dict[str, Any]:
         raise HeronError(code=code, message="файл не найден", path=str(path))
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except UnicodeDecodeError as exc:
+        raise HeronError(
+            code=code,
+            message="файл не в кодировке UTF-8",
+            path=str(path),
+            hint="пересохраните файл в UTF-8: двоичный файл или другая кодировка читаться не будут",
+        ) from exc
     except yaml.YAMLError as exc:
         mark = getattr(exc, "problem_mark", None)
         raise HeronError(

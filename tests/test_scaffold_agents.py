@@ -1420,3 +1420,70 @@ def test_write_dangling_texts_on_both_languages():
         assert TEXT["ru"][key] and TEXT["en"][key]
         assert TEXT["ru"][key] != TEXT["en"][key]
 
+
+# --- E15.S1.T2: схемы комплекта - на языке комплекта -------------------------------
+
+
+def _cyrillic(text: str) -> bool:
+    return any("а" <= ch.lower() <= "я" or ch in "ёЁ" for ch in text)
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_kit_schemas_are_in_the_kit_language(tmp_path, lang):
+    root = tmp_path / "site"
+    put(root, lang)
+    for name, text in all_schemas(lang).items():
+        written = (root / "agents" / "schemas" / name).read_text(encoding="utf-8")
+        assert written == text
+        assert _cyrillic(written) is (lang == "ru"), name
+    # манифест считает эти же байты: обновление не принимает схемы за правку человека
+    recorded = load_manifest(root)["files"]
+    sums = {entry["path"]: entry["sha256"] for entry in recorded}
+    for name, text in all_schemas(lang).items():
+        assert sums[f"schemas/{name}"] == hashlib.sha256(text.encode()).hexdigest()
+    again = put(root, lang, mode="update")
+    assert not again.edited
+    assert not [f for f in again.updated if "schemas/" in f]  # манифест перезаписан, схемы нет
+
+
+def test_kit_language_switch_replaces_the_schemas_too(tmp_path):
+    root = tmp_path / "site"
+    put(root, "ru")
+    plan = put(root, "en", mode="update")
+    assert not plan.edited
+    text = (root / "agents" / "schemas" / "errors.json").read_text(encoding="utf-8")
+    assert text == all_schemas("en")["errors.json"] and not _cyrillic(text)
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_docs_export_writes_schemas_in_its_language(tmp_path, lang):
+    docs.export(tmp_path / "d", lang)
+    for name, text in all_schemas(lang).items():
+        assert (tmp_path / "d" / "schemas" / name).read_text(encoding="utf-8") == text
+    # то же самое лежит и в комплекте нового сайта
+    root = tmp_path / "site"
+    put(root, lang)
+    for name in SCHEMA_FILES:
+        assert (root / "agents" / "schemas" / name).read_bytes() == (
+            tmp_path / "d" / "schemas" / name
+        ).read_bytes()
+
+
+def test_docs_export_all_langs_still_has_no_schemas(tmp_path):
+    written = docs.export(tmp_path / "d", all_langs=True)
+    assert not any("schemas/" in rel for rel in written)
+
+
+def test_new_english_site_gets_english_schemas(tmp_path, monkeypatch):
+    from heron.scaffold import create
+
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    root = tmp_path / "s"
+    root.mkdir()
+    create(root, name="Demo", languages=["en"], notes="en")
+    for name in SCHEMA_FILES:
+        assert not _cyrillic((root / "agents" / "schemas" / name).read_text(encoding="utf-8"))
+    ru = tmp_path / "r"
+    ru.mkdir()
+    create(ru, name="Demo", languages=["en"], notes="ru")
+    assert _cyrillic((ru / "agents" / "schemas" / "errors.json").read_text(encoding="utf-8"))

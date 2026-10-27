@@ -1045,6 +1045,10 @@ TEXT["ru"].update(
         "help_opt_schema_setup": "Ответы анкеты heron setup.",
         "help_opt_schema_errors": "Реестр кодов ошибок.",
         "help_opt_schema_export": "Записать все пять файлов в папку.",
+        "help_opt_schema_lang": (
+            "Язык описаний в схемах. Иначе --notes, HERON_NOTES, build.notes из site.yaml "
+            "текущей папки, иначе en."
+        ),
         "help_opt_pack_out": "Файл архива; по умолчанию dist/theme.tar.gz.",
         "help_opt_page_lang": "Язык страницы. По умолчанию основной язык сайта.",
         "help_opt_folder": "Папка внутри языкового дерева.",
@@ -1205,6 +1209,10 @@ TEXT["en"].update(
         "help_opt_schema_setup": "Answers of the heron setup questionnaire.",
         "help_opt_schema_errors": "Error code registry.",
         "help_opt_schema_export": "Write all five files into a folder.",
+        "help_opt_schema_lang": (
+            "Language of the descriptions in the schemas. Else --notes, HERON_NOTES, "
+            "build.notes from site.yaml in the current folder, else en."
+        ),
         "help_opt_pack_out": "Archive file; dist/theme.tar.gz by default.",
         "help_opt_page_lang": "Page language. The site's main language by default.",
         "help_opt_folder": "A folder inside the language tree.",

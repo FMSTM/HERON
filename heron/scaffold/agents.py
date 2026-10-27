@@ -190,7 +190,8 @@ def kit_files(lang: str, level: str = "true") -> list[tuple[str, bytes]]:
     """Файлы `agents/` на языке `lang`: путь внутри agents/ → байты, по алфавиту.
 
     `docs/<lang>/**` (нет файла на языке — тот же файл другого языка),
-    `schemas/` той же версии движка, `work/.gitkeep` и записка `work/`.
+    `schemas/` той же версии движка и на том же языке (описания и названия ошибок),
+    `work/.gitkeep` и записка `work/`.
     `level == "kit"` — без `guide/` и `spec/`, ссылки на них — абсолютные (`deliver`).
     """
     from heron import docs
@@ -203,7 +204,7 @@ def kit_files(lang: str, level: str = "true") -> list[tuple[str, bytes]]:
             continue
         data = (docs.root() / "docs" / have / rel).read_bytes()
         out.append((rel, deliver(rel, data, lang, level)))
-    for name, text in all_schemas().items():
+    for name, text in all_schemas(lang).items():
         out.append((f"schemas/{name}", text.encode("utf-8")))
     out.append((f"{WORK}.gitkeep", b""))
     out.append((f"{WORK}{NOTE}", _work_note(lang)))

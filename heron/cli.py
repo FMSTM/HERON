@@ -1396,20 +1396,19 @@ SCHEMA_KINDS = {
 }
 
 
-def _write_schemas(target: Path, lang: str = "en") -> list[str]:
+def _write_schemas(target: Path, lang: str = "en", schema_lang: str | None = None) -> list[str]:
     """Пять файлов схем в папку `target` — общим безопасным писателем (E024).
 
     Папку называет человек, и она может быть ссылкой. А вот ссылка или папка
     на месте файла схемы — ошибка до первой записи: `--export` не пишет туда,
-    куда указывает чужая ссылка. Ошибка - на языке пояснений `lang`.
+    куда указывает чужая ссылка. Ошибка - на языке пояснений `lang`, описания в
+    схемах - на `schema_lang` (по умолчанию тот же).
     """
     from heron.contracts.schemas import all_schemas
     from heron.scaffold.agents import write_files
 
-    texts = all_schemas()
-    return write_files(
-        target, [(name, text.encode("utf-8")) for name, text in texts.items()], lang
-    )
+    texts = all_schemas(schema_lang or lang)
+    return write_files(target, [(name, text.encode("utf-8")) for name, text in texts.items()], lang)
 
 
 @main.command(help="help_schema")
@@ -1426,6 +1425,14 @@ def _write_schemas(target: Path, lang: str = "en") -> list[str]:
     metavar="help_mv_folder",
     help="help_opt_schema_export",
 )
+@_option(
+    "--lang",
+    "lang_flag",
+    type=click.Choice(["ru", "en"]),
+    default=None,
+    metavar="help_mv_code",
+    help="help_opt_schema_lang",
+)
 @NOTES_OPTION
 def schema(
     of_site: bool,
@@ -1434,12 +1441,19 @@ def schema(
     of_setup: bool,
     of_errors: bool,
     target: Path | None,
+    lang_flag: str | None,
     notes: str | None,
 ) -> None:
-    """JSON Schema контрактов этой версии: для редактора, агента и CI (21 §10)."""
+    """JSON Schema контрактов этой версии: для редактора, агента и CI (21 §10).
+
+    Описания и названия ошибок - на языке `--lang`, иначе на языке пояснений
+    (`--notes`, `HERON_NOTES`, `build.notes`, иначе en). Структура, ключи и `$id`
+    от языка не зависят.
+    """
     from heron.contracts import schemas
 
     lang = _lang(notes, Path.cwd())
+    text_lang = lang_flag or lang
     chosen = [
         kind
         for kind, flag in (
@@ -1456,7 +1470,7 @@ def schema(
         raise click.UsageError(say(lang, "schema_one_kind", flags=flags))
     if target is not None:
         try:
-            written = _write_schemas(target, lang)
+            written = _write_schemas(target, lang, text_lang)
         except HeronError as error:
             _fail(error, lang)
         for name in written:
@@ -1468,7 +1482,7 @@ def schema(
         )
         return
     kind = chosen[0] if chosen else "site"
-    click.echo(schemas.all_schemas()[SCHEMA_KINDS[kind]], nl=False)
+    click.echo(schemas.all_schemas(text_lang)[SCHEMA_KINDS[kind]], nl=False)
 
 
 @main.command(help="help_recipe")

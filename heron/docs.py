@@ -246,8 +246,11 @@ _TEXT: dict[str, dict[str, str]] = {
             "Машиночитаемые схемы контрактов этой версии движка (JSON Schema draft 2020-12) "
             "и реестр кодов ошибок:"
         ),
-        "schemas_export": "Получить файлами: heron schema --export <папка>",
-        "schemas_url": "В сети, версия контракта {contract}: {url}",
+        "schemas_export": "Получить файлами: heron schema --export <папка> [--lang ru|en]",
+        "schemas_url": (
+            "В сети, версия контракта {contract}: {url} (описания по-английски), "
+            "{url}ru/ (по-русски)"
+        ),
         "schemas_kit": "В сайте они лежат в agents/schemas/ (heron new, heron init --agents).",
     },
     "en": {
@@ -267,8 +270,11 @@ _TEXT: dict[str, dict[str, str]] = {
             "Machine-readable schemas of the contracts of this engine version "
             "(JSON Schema draft 2020-12) and the error code registry:"
         ),
-        "schemas_export": "As files: heron schema --export <folder>",
-        "schemas_url": "Online, contract version {contract}: {url}",
+        "schemas_export": "As files: heron schema --export <folder> [--lang ru|en]",
+        "schemas_url": (
+            "Online, contract version {contract}: {url} (descriptions in English), "
+            "{url}ru/ (in Russian)"
+        ),
         "schemas_kit": "In a site they sit in agents/schemas/ (heron new, heron init --agents).",
     },
 }
@@ -632,7 +638,8 @@ def export(target: Path, lang: str | None = None, all_langs: bool = False) -> li
 
     `docs/<lang>/**` → `target/**` (байт в байт, с фолбэком по файлу; в канале
     не prod — ссылки на ветку и образ канала, как в комплекте сайта), корневые
-    указатели AGENTS.md, CLAUDE.md, GEMINI.md → `target/`, схемы → `target/schemas/`.
+    указатели AGENTS.md, CLAUDE.md, GEMINI.md → `target/`, схемы → `target/schemas/`
+    (описания схем - на том же языке `lang`).
     `all_langs` — для сайта движка: `target/ru/**` и `target/en/**`, без указателей и схем.
     Запись — общим безопасным писателем: все цели проверяются до первой записи,
     ссылка или папка на месте файла и ссылка наружу — E024 (21 §4).
@@ -652,7 +659,7 @@ def export(target: Path, lang: str | None = None, all_langs: bool = False) -> li
 
     from heron.contracts.schemas import all_schemas
 
-    items += [(f"schemas/{name}", text.encode("utf-8")) for name, text in all_schemas().items()]
+    items += [(f"schemas/{name}", text.encode("utf-8")) for name, text in all_schemas(lang).items()]
     return write_files(target, items, lang)
 
 

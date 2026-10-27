@@ -16,10 +16,10 @@ files:
     en_status: current
   - path: guide/03-content.md
     ru_sha256: "6b4a171ed6bcd8657ea5a6c057afde7b4406f46da7ecec122f88122bab3c48d4"
-    en_status: missing
+    en_status: current
   - path: guide/04-theme.md
     ru_sha256: "c5dc531bd647fed941aae4164c1c479990b2a6e726d272dc930b77a7b0442cbe"
-    en_status: missing
+    en_status: current
   - path: guide/05-seo.md
     ru_sha256: "85f2bfd79710ec294d1756d6a162a59ec9fb044be2682137f3c8a736d2c1054f"
     en_status: missing

@@ -10,7 +10,7 @@ Terms of the HERON documentation and their English equivalents. The source is `d
 - **Only literal tokens are byte-equal**, in code blocks too: commands, flags, keys, error codes, paths, file names, values of non-string fields. Everything else in a block is translated: diagrams and forms in blocks without a language and in `markdown` blocks, placeholders, comments and captions, example values (`мой-сайт` → `my-site`, `"Название"` → `"Site name"`). The kit language in ready commands equals the file language (`--notes en`, `heron docs --lang en`); site languages in examples (`--lang en,ru`, a translation with `--lang ru`) stay.
 - **Samples** (`templates/*.yaml`, `templates/page.md`): comments and hints are translated; string placeholder values are translated by meaning; values for the `ru` language (`name_ru`, `*_ru`, `llms_note.ru`) stay Russian because they are the Russian variant of the site. `build.notes` equals the language of the kit.
 - **Explicit anchors.** A heading that other files link to (`file.md#anchor`) carries an explicit anchor `<a id="anchor"></a>` at the end of the heading line, ASCII kebab-case, the same in both languages; links use it. The anchor is copied byte for byte, the heading text is translated.
-- **Placeholders in inline code** are translated: `<язык>` → `<lang>`, `<канал>` → `<channel>`, `<тема>` → `<topic>`, `<сайт>` → `<site>`, `<папка>` → `<folder>`, `<тип>` → `<type>`, `<ключ>` → `<key>`, `<имя>` → `<name>`, `<текст>` → `<text>`, `<якорь>` → `<anchor>`, `<модуль>` → `<module>`, `<файл>` → `<file>`.
+- **Placeholders in inline code** are translated: `<язык>` → `<lang>`, `<канал>` → `<channel>`, `<тема>` → `<topic>`, `<сайт>` → `<site>`, `<папка>` → `<folder>`, `<тип>` → `<type>`, `<ключ>` → `<key>`, `<имя>` → `<name>`, `<текст>` → `<text>`, `<якорь>` → `<anchor>`, `<модуль>` → `<module>`, `<файл>` → `<file>`, `<владелец>` → `<owner>`, `<репозиторий>` → `<repository>`, `<окружение>` → `<environment>`.
 - **Neutrality.** Tool names appear only where the Russian text has them (the "Who reads which file" list of the kit `README.md`, the root pointers in `spec/20-data-contract.md` §1). Company names appear nowhere.
 - **Typography and tone.** Short sentences, "you" for instructions to the agent, no marketing. A plain hyphen is preferred to a long dash. American spelling throughout (behavior, catalog, license, organization), as in the engine messages.
 
@@ -96,6 +96,18 @@ Terms of the HERON documentation and their English equivalents. The source is `d
 | белая тема | the white starter theme | `roles/designer.md` |
 | заготовка (страницы, секции) | stub | `roles/content.md` |
 | нарезка (картинок) | renditions | `templates/site.yaml` |
+| нарезка (один файл варианта) | rendition | `guide/04-theme.md` |
+| кэш нарезок | rendition cache | `spec/23-distribution.md` |
+| мастер (исходная картинка в `media/`) | master | `spec/20-data-contract.md` |
+| пул (процессов нарезки) | pool | `spec/20-data-contract.md` |
+| рендер, рендеринг | rendering | `guide/04-theme.md` |
+| песочница (Jinja, macOS) | sandbox | `guide/04-theme.md` |
+| блокировка (файла, кэша) | lock | `spec/21-engine.md` |
+| карты (301/410, языковые) | maps | `guide/01-concepts.md` |
+| карты (среди генераторов), карты сайта | sitemaps | `spec/21-engine.md` |
+| развёртывание (сайта) | deployment | `spec/22-deploy.md` |
+| поставка (движка) | distribution | `spec/23-distribution.md` |
+| приёмник (заявок формы) | sink | `spec/23-distribution.md` |
 | метка сборки | build stamp | `roles/designer.md` |
 | хлебные крошки | breadcrumbs | `templates/page.md` |
 | выдача (поисковая) | search results | `templates/page.md` |

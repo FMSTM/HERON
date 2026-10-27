@@ -828,8 +828,9 @@ TEXT["en"].update(
     }
 )
 
-# E024 общего писателя (write_files): на месте папки не папка. Писатель не знает
-# языка вызывающего, поэтому печатает оба текста подряд (E13.S1.T17).
+# E024 общего писателя (write_files): на месте папки не папка, на месте файла
+# ссылка или папка. Язык - от вызывающего (--notes, HERON_NOTES, build.notes),
+# текст целиком на одном языке (E13.S1.T17, E13.S1.T19).
 TEXT["ru"].update(
     {
         "write_dangling": (
@@ -837,6 +838,8 @@ TEXT["ru"].update(
         ),
         "write_not_folder": "на месте папки файл или ссылка не на папку — записать в неё нельзя",
         "write_folder_hint": "уберите ссылку или файл либо назовите другую папку",
+        "write_not_file": "на месте файла ссылка или папка — запись через неё не делается",
+        "write_not_file_hint": "уберите или переименуйте её и повторите команду",
     }
 )
 TEXT["en"].update(
@@ -850,6 +853,10 @@ TEXT["en"].update(
             "should be — nothing can be written into it"
         ),
         "write_folder_hint": "remove the link or the file, or name another folder",
+        "write_not_file": (
+            "a link or a folder stands where a file should be — nothing is written through it"
+        ),
+        "write_not_file_hint": "remove or rename it and run the command again",
     }
 )
 

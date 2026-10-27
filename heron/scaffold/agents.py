@@ -448,28 +448,24 @@ def _site_rel(rel: str) -> str:
     return rel.removeprefix(ROOT_PREFIX) if rel.startswith(ROOT_PREFIX) else f"{KIT}/{rel}"
 
 
-def _not_a_file(rel: str, path: Path) -> HeronError:
+def _not_a_file(rel: str, path: Path, lang: str) -> HeronError:
+    """На месте файла ссылка или папка: текст целиком на языке вызывающего."""
     return HeronError(
         code=paths.CODE,
-        message=f"{rel}: на месте файла ссылка или папка — запись через неё не делается",
+        message=f"{rel}: {_say(lang, 'write_not_file')}",
         path=str(path),
-        hint="уберите или переименуйте её и повторите команду",
+        hint=_say(lang, "write_not_file_hint"),
     )
 
 
-def _both(key: str) -> str:
-    """Текст на обоих языках: писатель общий, языка сообщений вызывающего он не знает."""
-    return f"{_say('ru', key)} · {_say('en', key)}"
-
-
-def _not_a_folder(shown: str, path: Path) -> HeronError:
-    """На месте папки — висячая ссылка, файл или ссылка не на папку: mkdir упал бы."""
+def _not_a_folder(shown: str, path: Path, lang: str) -> HeronError:
+    """На месте папки - висячая ссылка, файл или ссылка не на папку: mkdir упал бы."""
     key = "write_dangling" if path.is_symlink() and not path.exists() else "write_not_folder"
     return HeronError(
         code=paths.CODE,
-        message=f"{shown}: {_both(key)}",
+        message=f"{shown}: {_say(lang, key)}",
         path=str(path),
-        hint=_both("write_folder_hint"),
+        hint=_say(lang, "write_folder_hint"),
     )
 
 
@@ -478,7 +474,7 @@ def _blocked(path: Path) -> bool:
     return (path.exists() or path.is_symlink()) and not path.is_dir()
 
 
-def _check_folders(root: Path, items: list[tuple[str, bytes]]) -> None:
+def _check_folders(root: Path, items: list[tuple[str, bytes]], lang: str) -> None:
     """E024 до записи: папка, которую пришлось бы создать, занята не папкой.
 
     Сама `root` и папки над ней, которых ещё нет (их создаст mkdir), и папки
@@ -488,7 +484,7 @@ def _check_folders(root: Path, items: list[tuple[str, bytes]]) -> None:
     for folder in (root, *root.parents):
         if _blocked(folder):
             shown = str(folder) if folder != root else root.name or str(root)
-            raise _not_a_folder(shown, folder)
+            raise _not_a_folder(shown, folder, lang)
         if folder.exists():
             break
     for rel, _ in items:
@@ -496,10 +492,10 @@ def _check_folders(root: Path, items: list[tuple[str, bytes]]) -> None:
         for depth in range(1, len(parts) + 1):
             folder = root.joinpath(*parts[:depth])
             if _blocked(folder):
-                raise _not_a_folder("/".join(parts[:depth]), folder)
+                raise _not_a_folder("/".join(parts[:depth]), folder, lang)
 
 
-def write_files(root: Path, items: list[tuple[str, bytes]]) -> list[str]:
+def write_files(root: Path, items: list[tuple[str, bytes]], lang: str = "en") -> list[str]:
     """Безопасная запись файлов в папку `root`: сначала проверка всех целей, потом запись.
 
     Цель, ведущая ссылкой за пределы `root` (сам файл или папка по пути к нему), —
@@ -508,21 +504,23 @@ def write_files(root: Path, items: list[tuple[str, bytes]]) -> list[str]:
     `root` или папка по пути к файлу) — E024, а не падение mkdir. Всё проверяется
     до первой записи, сама запись — с O_NOFOLLOW (ссылка, подложенная после
     проверки, — ошибка, а не запись мимо). Сама `root` может быть ссылкой на
-    папку: её назвал человек. Возвращает записанные пути.
+    папку: её назвал человек. Подробность E024 - на одном языке `lang` (язык
+    пояснений вызывающего: `--notes`, `HERON_NOTES`, `build.notes`; без него - en).
+    Возвращает записанные пути.
     """
     root = Path(root)
     for rel, _ in items:
         path = paths.in_site(root, rel)
         if path.is_symlink() or (path.exists() and not path.is_file()):
-            raise _not_a_file(rel, path)
-    _check_folders(root, items)
+            raise _not_a_file(rel, path, lang)
+    _check_folders(root, items, lang)
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
     for rel, data in items:
         path = paths.in_site(root, rel)
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
         except (FileExistsError, NotADirectoryError) as exc:  # подложили после проверки
-            raise _not_a_folder(rel, path.parent) from exc
+            raise _not_a_folder(rel, path.parent, lang) from exc
         path = paths.in_site(root, rel)  # папки созданы — проверить ещё раз
         fd = os.open(path, flags, 0o644)
         with os.fdopen(fd, "wb") as out:
@@ -703,5 +701,5 @@ def place(
     elif current != text:
         writes.append((manifest_rel, text))
         plan.updated.append(manifest_rel)
-    write_files(root, writes)
+    write_files(root, writes, lang)
     return plan

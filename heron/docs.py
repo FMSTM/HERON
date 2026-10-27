@@ -646,14 +646,14 @@ def export(target: Path, lang: str | None = None, all_langs: bool = False) -> li
         items: list[tuple[str, bytes]] = []
         for each in LANGS:
             items += _tree_items(each, f"{each}/")
-        return write_files(target, items)
+        return write_files(target, items, lang)
     items = _tree_items(lang)
     items += [(name, text.encode("utf-8")) for name, text in _pointers(lang).items()]
 
     from heron.contracts.schemas import all_schemas
 
     items += [(f"schemas/{name}", text.encode("utf-8")) for name, text in all_schemas().items()]
-    return write_files(target, items)
+    return write_files(target, items, lang)
 
 
 def start_hint(target: Path, lang: str | None = None) -> str:

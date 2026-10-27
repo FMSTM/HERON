@@ -1391,18 +1391,20 @@ SCHEMA_KINDS = {
 }
 
 
-def _write_schemas(target: Path) -> list[str]:
+def _write_schemas(target: Path, lang: str = "en") -> list[str]:
     """Пять файлов схем в папку `target` — общим безопасным писателем (E024).
 
     Папку называет человек, и она может быть ссылкой. А вот ссылка или папка
     на месте файла схемы — ошибка до первой записи: `--export` не пишет туда,
-    куда указывает чужая ссылка.
+    куда указывает чужая ссылка. Ошибка - на языке пояснений `lang`.
     """
     from heron.contracts.schemas import all_schemas
     from heron.scaffold.agents import write_files
 
     texts = all_schemas()
-    return write_files(target, [(name, text.encode("utf-8")) for name, text in texts.items()])
+    return write_files(
+        target, [(name, text.encode("utf-8")) for name, text in texts.items()], lang
+    )
 
 
 @main.command(help="help_schema")
@@ -1449,7 +1451,7 @@ def schema(
         raise click.UsageError(say(lang, "schema_one_kind", flags=flags))
     if target is not None:
         try:
-            written = _write_schemas(target)
+            written = _write_schemas(target, lang)
         except HeronError as error:
             _fail(error, lang)
         for name in written:

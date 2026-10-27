@@ -153,6 +153,84 @@ def test_demo_page_points_at_the_channel_branch(tmp_path, monkeypatch, lang):
             assert body == expected.replace("heron:prod serve", f"heron:{want} serve")
 
 
+# --- записка корня сайта: образ как основной путь, комплект agents (E12.S1.T2) --------
+
+NOTES_SOURCE = Path(scaffold.__file__).parent / "notes"
+H_LINE = (
+    'H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"'
+)
+
+
+def _root_note(tmp_path, lang):
+    root = tmp_path / f"s-{lang}"
+    root.mkdir()
+    create(root, name="My Site", languages=["en"], notes=lang, agents="false")
+    return (root / "heron-readme.md").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_root_note_names_the_kit_and_the_pointers(tmp_path, lang):
+    text = _root_note(tmp_path, lang)
+    rows = [line for line in text.splitlines() if line.startswith("|")]
+    assert any(line.startswith("| `agents/` |") and "agents/work/" in line for line in rows)
+    assert any(
+        all(name in line.split("|")[1] for name in ("AGENTS.md", "CLAUDE.md", "GEMINI.md"))
+        for line in rows
+    )
+    last = text.split("\n## ")[-1]  # последний раздел - про агента
+    assert "AGENTS.md" in last and "`agents/work/`" in last
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_root_note_works_through_the_image(tmp_path, lang):
+    text = _root_note(tmp_path, lang)
+    assert H_LINE in text
+    for command in ("$H init .", "$H check .", "$H serve .", "$H build . --env prod --strict"):
+        assert command in text, command
+    # путь через клон движка - одной строкой, не основной порядок работы
+    assert text.count("scripts/site.sh") == 1
+    assert "./scripts/site.sh my-site <" in text
+    assert "site.sh my-site init" not in text  # старый порядок через клон ушёл
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_root_note_has_no_unfilled_placeholders(tmp_path, lang):
+    text = _root_note(tmp_path, lang)
+    assert "{" not in text and "}" not in text  # ни {name}, ни {slug}, ни фигурных скобок
+    assert text.startswith("# My Site\n")
+    assert "my-site" in text  # {slug} подставлен
+
+
+def test_root_note_has_the_same_structure_in_both_languages():
+    """ru и en: те же заголовки, строки таблицы, блоки кода и плейсхолдеры."""
+
+    def shape(lang):
+        text = (NOTES_SOURCE / lang / "root.md").read_text(encoding="utf-8")
+        lines = text.splitlines()
+        return (
+            len([line for line in lines if line.startswith("#")]),
+            [line.count("|") for line in lines if line.startswith("|")],
+            text.count("```"),
+            sorted(re.findall(r"\{\w+\}", text)),
+            len([line for line in lines if line.startswith("$H ")]),
+        )
+
+    assert shape("ru") == shape("en")
+    en = (NOTES_SOURCE / "en" / "root.md").read_text(encoding="utf-8")
+    assert not CYRILLIC.search(en)
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_demo_docs_page_mentions_the_agent_kit_once(lang):
+    text = (DEMO_SOURCE / lang / "docs.md").read_text(encoding="utf-8")
+    assert text.count("agents/") == 1 and text.count("`AGENTS.md`") == 1
+    commands, where = text.split("{#where}")[0], text.split("{#where}")[1]
+    line = next(row for row in commands.splitlines() if "`agents/`" in row)
+    assert commands.index("heron build . --env prod --strict") < commands.index(line)
+    assert bool(CYRILLIC.search(line)) is (lang == "ru")
+    assert "agents/" not in where
+
+
 # --- комментарии стартовой темы и шапка site.yaml (E15.S1.T4: F07, F24) ---------
 
 from heron import docs as library  # noqa: E402

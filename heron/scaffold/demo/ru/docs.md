@@ -46,6 +46,8 @@ docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD":/site -w /site --user $(id 
    heron build . --env prod --strict
    ```
 
+Инструкции для AI-агента лежат в корне сайта: файл `AGENTS.md` и папка `agents/`.
+
 ## Где читать {#where}
 
 - **В репозитории.** [Гайды по порядку](https://github.com/FMSTM/HERON/tree/prod/docs/ru/guide): понятия, первый сайт, страницы, тема, поиск, публикация.

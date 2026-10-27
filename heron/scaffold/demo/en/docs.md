@@ -46,6 +46,8 @@ docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD":/site -w /site --user $(id 
    heron build . --env prod --strict
    ```
 
+Instructions for an AI agent sit in the site root: the `AGENTS.md` file and the `agents/` folder.
+
 ## Where to read {#where}
 
 - **In the repository.** [The guides in order](https://github.com/FMSTM/HERON/tree/prod/docs/ru/guide): concepts, first site, pages, theme, search, publishing.

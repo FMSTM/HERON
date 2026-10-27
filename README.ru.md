@@ -13,6 +13,8 @@
 [![образ](https://img.shields.io/badge/ghcr.io-heron-2563eb)](https://github.com/FMSTM/HERON/pkgs/container/heron)
 [![python](https://img.shields.io/badge/python-3.12-blue)](https://www.python.org/)
 
+[English](README.md) | Русский
+
 </div>
 
 ---

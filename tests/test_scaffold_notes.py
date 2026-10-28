@@ -348,3 +348,22 @@ def test_setup_header_names_an_existing_docs_topic():
         for name in names:
             assert library.topic(name) is not None, (lang, name)
         assert bool(CYRILLIC.search(text)) is (lang == "ru")
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_root_note_image_follows_the_channel(tmp_path, monkeypatch, lang):
+    """Записка root.md: в beta образ канала, в prod - байт в байт как в шаблоне."""
+    source = (scaffold.NOTES / lang / "root.md").read_text(encoding="utf-8")
+    fields = {"name": "demo", "slug": "demo"}
+    for channel in ("prod", "beta"):
+        monkeypatch.setenv("HERON_CHANNEL", channel)
+        root = tmp_path / f"{lang}-{channel}"
+        root.mkdir()
+        create(root, name="demo", languages=["en"], notes=lang)
+        note = (root / scaffold.NOTE).read_text(encoding="utf-8")
+        if channel == "prod":
+            assert note == source.format(**fields)
+            assert "heron:prod" in note
+        else:
+            assert "heron:beta" in note
+            assert "heron:prod" not in note

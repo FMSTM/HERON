@@ -604,7 +604,11 @@ def _note(
     if not source.is_file():
         return
     rel = f"{folder}/{NOTE}" if folder else NOTE
-    _copy(root, source, rel, plan, force, **fields)
+    # Команда в записке зашита на образ prod; у сайта beta-образа — на канал (23 §12).
+    text = _demo_links(source.read_text(encoding="utf-8"))
+    if fields:
+        text = text.format(**fields)
+    _put(root, rel, text, plan, force)
 
 
 def create(

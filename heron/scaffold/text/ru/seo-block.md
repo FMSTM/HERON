@@ -22,6 +22,7 @@ description: {description}
 # og_description:            # пусто — берётся description
 # og_image:                  # пусто — seo.og_default_image из site.yaml
 # og_image_alt:
+# ↑ обложка страницы: og_image, затем image, затем первая картинка текста, затем картинка героя, затем seo.og_default_image. Делайте обложку непрозрачной, от 1200 px по ширине
 
 # ================= 4. TWITTER / X =================
 # twitter_title:             # пусто — из Open Graph

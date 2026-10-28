@@ -64,8 +64,25 @@ TEXT: dict[str, dict[str, str]] = {
         "field_lang": "{name}: языка нет у сайта: {codes}",
         "not_number": "{value} — не число",
         "country_bad": "страна {value}: двухбуквенный код, например AT",
+        "hours_bad": (
+            "часы {value}: ожидается 'Пн-Пт 09:00-18:00' в форме schema.org: Mo-Fr 09:00-18:00"
+        ),
+        "enum_bad": "значение {value} не из списка {enum}",
+        "subtype_bad": "тип {value} не подходит: нужен подвид {of} из списка",
+        "bool_bad": "{value}: ожидается да или нет (true или false)",
         "answers_mapping": "ответы: ожидается словарь «ключ: значение»",
         "no_site": "в {root} нет {name}: сначала создайте сайт (heron new)",
+        # проверка разметки при сохранении
+        "reason_required": "для исключения нужна причина: коротко, почему оставляете как есть",
+        "type_not_dropped": "тип не удаляется, исправьте его: выберите другой тип сайта",
+        "schema_findings": "разметка не пройдёт проверку: {keys}",
+        "schema_mode_bad": "режим {value}: check, drop или except",
+        "drop_field": "{label}: {value}",
+        "drop_contacts": "Связь: {value}",
+        "drop_direction": "Сфера деятельности: {value}",
+        "drop_specialization": "Специализация: {value}",
+        "drop_type": "Тип сайта: {value}",
+        "drop_path": "site.yaml: {path}",
         # ошибки pydantic по type
         "py_missing": "обязательное поле не заполнено",
         "py_extra_forbidden": "неизвестный ключ",
@@ -127,8 +144,22 @@ TEXT: dict[str, dict[str, str]] = {
         "field_lang": "{name}: language not on the site: {codes}",
         "not_number": "{value} is not a number",
         "country_bad": "country {value}: a two-letter code, e.g. AT",
+        "hours_bad": "hours {value}: expected 'Mo-Fr 09:00-18:00' in schema.org form",
+        "enum_bad": "value {value} is not in the list {enum}",
+        "subtype_bad": "type {value} does not fit: a subtype of {of} from the list is required",
+        "bool_bad": "{value}: expected true or false",
         "answers_mapping": "answers: a mapping is expected",
         "no_site": "no {name} in {root}: create the site first (heron new)",
+        "reason_required": "an exception needs a reason: briefly, why you keep it as it is",
+        "type_not_dropped": "the type cannot be removed, please fix it: pick another site type",
+        "schema_findings": "the markup will not pass the check: {keys}",
+        "schema_mode_bad": "mode {value}: check, drop or except",
+        "drop_field": "{label}: {value}",
+        "drop_contacts": "Contact: {value}",
+        "drop_direction": "Field of work: {value}",
+        "drop_specialization": "Specialization: {value}",
+        "drop_type": "Site type: {value}",
+        "drop_path": "site.yaml: {path}",
         "py_missing": "Field required",
         "py_extra_forbidden": "Extra inputs are not permitted",
         "py_literal_error": "Input should be {expected}",
@@ -231,6 +262,10 @@ def plain(error: ValueError, lang: str | None = None) -> str:
     lang = lang if lang in LANGS else run_lang()
     if isinstance(error, Reason):
         return error.text(lang)
+    found = getattr(error, "findings", None)
+    if isinstance(found, list):
+        keys = ", ".join(str(f.get("key")) for f in found)
+        return say(lang, "schema_findings", keys=keys)
     errors = getattr(error, "errors", None)
     if callable(errors):
         parts = []

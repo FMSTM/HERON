@@ -16,6 +16,20 @@
 #
 # Добавить тип — дописать его в `types` (родитель — `parent`). Добавить поле —
 # в `fields` и в список `fields` типа. Код конфигуратора менять не нужно.
+#
+# Виды полей (`kind`), кроме простого текста:
+# - `enum` — выбор из перечисления schema.org (`enum`); `multiple: true` — несколько
+#   значений списком; `emit: url` — в разметку идёт полный адрес https://schema.org/<значение>.
+#   Подписи значений — в `labels.<перечисление>`.
+# - `subtype` — выбор подтипа schema.org: `of` — общий тип, `options` — допустимые подтипы.
+#   Подписи — в `labels.<общий тип>`.
+# - `bool` — да или нет; пустой ответ — ключа нет.
+# - `hours` — часы работы: анкета собирает их из дней и времени, форму schema.org
+#   строит сама.
+# `fallback` — ключ site.yaml, из которого берётся значение, если поле пустое
+# (адрес места работы — как у сайта). `person_name: true` у типа — поле `name`
+# подписано как имя человека (`label_person`), хотя тип — организация.
+# `labels` — подписи значений перечислений и подтипов, ru и en.
 
 fields:
   name:
@@ -105,9 +119,9 @@ fields:
   opening_hours:
     to: contact.hours
     prop: openingHours
-    kind: lines
+    kind: hours
     label: {en: "Opening hours", ru: "Часы работы"}
-    hint: {en: "One line per rule, schema.org form: Mo-Fr 08:00-18:00", ru: "По строке на правило, в форме schema.org: Mo-Fr 08:00-18:00"}
+    hint: {en: "Choose the days and the time; add a rule for each different schedule.", ru: "Выберите дни и время; для другого расписания добавьте ещё правило."}
   area_served:
     to: organization.area_served
     prop: areaServed
@@ -145,6 +159,74 @@ fields:
     money: true
     label: {en: "Price range", ru: "Уровень цен"}
     hint: {en: "Goes into the markup only if prices are allowed in the Search group.", ru: "Попадает в разметку, только если цены разрешены в группе «Поиск»."}
+  medical_specialty:
+    to: organization.medical_specialty
+    prop: medicalSpecialty
+    kind: enum
+    enum: MedicalSpecialty
+    multiple: true
+    emit: url
+    label: {en: "Medical specialty", ru: "Медицинская специальность"}
+    hint: {en: "Only schema.org values. If your narrow specialty is missing, choose a few closest ones and keep the word in the description.", ru: "Только значения schema.org. Узкой специальности нет - выберите несколько ближайших, а слово специальности оставьте в описании."}
+  practices_at_type:
+    to: organization.works_for_type
+    prop: practicesAt.@type
+    kind: subtype
+    of: MedicalOrganization
+    options: [Hospital, MedicalClinic, PhysiciansOffice, Physician, Dentist, DiagnosticLab]
+    label: {en: "Type of workplace", ru: "Тип места работы"}
+    hint: {en: "", ru: ""}
+  practices_at:
+    to: organization.works_for
+    prop: practicesAt.name
+    localized: true
+    label: {en: "Workplace", ru: "Место работы"}
+    hint: {en: "The clinic or hospital where you see patients.", ru: "Клиника или больница, где вы принимаете."}
+  practices_at_street:
+    to: organization.works_for_street
+    prop: practicesAt.address.streetAddress
+    localized: true
+    label: {en: "Workplace address: street and number", ru: "Адрес места работы: улица и дом"}
+    hint: {en: "Empty - same as the site.", ru: "Пусто - как у сайта."}
+  practices_at_city:
+    to: organization.works_for_city
+    prop: practicesAt.address.addressLocality
+    fallback: contact.city
+    localized: true
+    label: {en: "Workplace city", ru: "Город места работы"}
+    hint: {en: "Empty - same as the site.", ru: "Пусто - как у сайта."}
+  practices_at_region:
+    to: organization.works_for_region
+    prop: practicesAt.address.addressRegion
+    fallback: contact.region
+    localized: true
+    label: {en: "Workplace region", ru: "Регион места работы"}
+    hint: {en: "Empty - same as the site.", ru: "Пусто - как у сайта."}
+  practices_at_postal_code:
+    to: organization.works_for_postal_code
+    prop: practicesAt.address.postalCode
+    fallback: contact.postal_code
+    label: {en: "Workplace postal code", ru: "Индекс места работы"}
+    hint: {en: "Empty - same as the site.", ru: "Пусто - как у сайта."}
+  practices_at_country:
+    to: organization.works_for_country
+    prop: practicesAt.address.addressCountry
+    fallback: contact.country
+    kind: country
+    label: {en: "Workplace country", ru: "Страна места работы"}
+    hint: {en: "Empty - same as the site.", ru: "Пусто - как у сайта."}
+  hospital_affiliation:
+    to: organization.hospital_affiliation
+    prop: hospitalAffiliation.name
+    localized: true
+    label: {en: "Affiliated hospital", ru: "Больница, с которой связаны"}
+    hint: {en: "Only if it differs from the workplace.", ru: "Только если это не место работы."}
+  accepts_new_patients:
+    to: organization.accepts_new_patients
+    prop: isAcceptingNewPatients
+    kind: bool
+    label: {en: "Accepting new patients", ru: "Принимает новых пациентов"}
+    hint: {en: "", ru: ""}
 
 # Поля, общие для всех типов, идут первыми; у частного типа добавляются свои.
 common: [name]
@@ -160,6 +242,13 @@ types:
     parent: Organization
     label: {en: "Local business", ru: "Местный бизнес"}
     fields: [image, latitude, longitude, opening_hours, area_served, price_range]
+  IndividualPhysician:
+    parent: LocalBusiness
+    person_name: true
+    label: {en: "Doctor practising at a clinic or hospital", ru: "Врач, принимает в клинике или больнице"}
+    fields: [medical_specialty, practices_at_type, practices_at, practices_at_street, practices_at_city,
+      practices_at_region, practices_at_postal_code, practices_at_country, hospital_affiliation,
+      accepts_new_patients]
   NGO:
     parent: Organization
     label: {en: "Non-profit", ru: "Некоммерческая организация"}
@@ -170,3 +259,55 @@ types:
     label: {en: "Person", ru: "Человек"}
     fields: [job_title, works_for, about, image, country, city]
 
+# Подписи значений перечислений и подтипов schema.org для анкеты.
+labels:
+  MedicalSpecialty:
+    Anesthesia: {en: "Anesthesiology", ru: "Анестезиология"}
+    Cardiovascular: {en: "Cardiology", ru: "Кардиология"}
+    CommunityHealth: {en: "Community health", ru: "Общественное здоровье"}
+    Dentistry: {en: "Dentistry", ru: "Стоматология"}
+    Dermatologic: {en: "Dermatologic conditions", ru: "Дерматологические болезни"}
+    Dermatology: {en: "Dermatology", ru: "Дерматология"}
+    DietNutrition: {en: "Diet and nutrition", ru: "Диетология"}
+    Emergency: {en: "Emergency medicine", ru: "Неотложная медицина"}
+    Endocrine: {en: "Endocrinology", ru: "Эндокринология"}
+    Gastroenterologic: {en: "Gastroenterology", ru: "Гастроэнтерология"}
+    Genetic: {en: "Medical genetics", ru: "Медицинская генетика"}
+    Geriatric: {en: "Geriatrics", ru: "Гериатрия"}
+    Gynecologic: {en: "Gynecology", ru: "Гинекология"}
+    Hematologic: {en: "Hematology", ru: "Гематология"}
+    Infectious: {en: "Infectious diseases", ru: "Инфекционные болезни"}
+    LaboratoryScience: {en: "Laboratory science", ru: "Лабораторная диагностика"}
+    Midwifery: {en: "Midwifery", ru: "Акушерский уход"}
+    Musculoskeletal: {en: "Musculoskeletal", ru: "Опорно-двигательный аппарат"}
+    Neurologic: {en: "Neurology", ru: "Неврология"}
+    Nursing: {en: "Nursing", ru: "Сестринское дело"}
+    Obstetric: {en: "Obstetrics", ru: "Акушерство"}
+    Oncologic: {en: "Oncology", ru: "Онкология"}
+    Optometric: {en: "Optometry", ru: "Оптометрия"}
+    Otolaryngologic: {en: "Otolaryngology", ru: "Оториноларингология"}
+    Pathology: {en: "Pathology", ru: "Патология"}
+    Pediatric: {en: "Pediatrics", ru: "Педиатрия"}
+    PharmacySpecialty: {en: "Pharmacy", ru: "Фармация"}
+    Physiotherapy: {en: "Physiotherapy", ru: "Физиотерапия"}
+    PlasticSurgery: {en: "Plastic surgery", ru: "Пластическая хирургия"}
+    Podiatric: {en: "Podiatry", ru: "Подология"}
+    PrimaryCare: {en: "Primary care", ru: "Первичная медицинская помощь"}
+    Psychiatric: {en: "Psychiatry", ru: "Психиатрия"}
+    PublicHealth: {en: "Public health", ru: "Здравоохранение"}
+    Pulmonary: {en: "Pulmonology", ru: "Пульмонология"}
+    Radiography: {en: "Radiography", ru: "Рентгенология"}
+    Renal: {en: "Nephrology", ru: "Нефрология"}
+    RespiratoryTherapy: {en: "Respiratory therapy", ru: "Респираторная терапия"}
+    Rheumatologic: {en: "Rheumatology", ru: "Ревматология"}
+    SpeechPathology: {en: "Speech pathology", ru: "Логопедия"}
+    Surgical: {en: "Surgery", ru: "Хирургия"}
+    Toxicologic: {en: "Toxicology", ru: "Токсикология"}
+    Urologic: {en: "Urology", ru: "Урология"}
+  MedicalOrganization:
+    Hospital: {en: "Hospital", ru: "Больница"}
+    MedicalClinic: {en: "Medical clinic", ru: "Клиника"}
+    PhysiciansOffice: {en: "Physician's office", ru: "Частный кабинет врача"}
+    Physician: {en: "Physician practice", ru: "Врачебная практика"}
+    Dentist: {en: "Dental practice", ru: "Стоматологическая клиника"}
+    DiagnosticLab: {en: "Diagnostic lab", ru: "Диагностическая лаборатория"}

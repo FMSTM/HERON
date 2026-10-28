@@ -576,7 +576,9 @@ def _finish(
         sys.exit(1)
 
 
-def _check_json(path: Path, strict: bool, drafts: bool) -> None:
+def _check_json(
+    path: Path, strict: bool, drafts: bool, env: BuildEnv, allow_schema: tuple[str, ...] = ()
+) -> None:
     """`heron check --json`: коды, файлы и строки — разбирать, а не читать.
 
     Агенту текст отчёта на языке человека не нужен: ему нужны код ошибки,
@@ -594,9 +596,14 @@ def _check_json(path: Path, strict: bool, drafts: bool) -> None:
         }
 
     kit = None
+    schema = None
     try:
-        result = pipeline.check(path, drafts=drafts, strict=strict)
+        result = pipeline.check(
+            path, drafts=drafts, strict=strict, env=env, allow_schema=list(allow_schema)
+        )
         kit = result.report.kit if result.report is not None else None
+        section = result.report.schema if result.report is not None else None
+        schema = section.as_json() if section is not None else None
         errors = [error(item) for item in result.collector.errors]
         warnings = [
             {"kind": w.kind, "path": w.path, "line": w.line, "message": w.message}
@@ -622,6 +629,7 @@ def _check_json(path: Path, strict: bool, drafts: bool) -> None:
                 "errors": errors,
                 "warnings": warnings,
                 "kit": kit.as_json(),
+                "schema": schema,
             },
             ensure_ascii=False,
             indent=2,
@@ -1021,6 +1029,26 @@ def site_options(func):
 NO_AGENTS_OPTION = _option("--no-agents", "no_agents", is_flag=True, help="help_opt_no_agents")
 STRICT_OPTION = _option("--strict", is_flag=True, help="help_opt_strict")
 DRAFTS_OPTION = _option("--drafts", is_flag=True, help="help_opt_drafts")
+
+
+def _schema_key(ctx: click.Context, param: click.Parameter, values: tuple[str, ...]) -> tuple[str, ...]:
+    """Ключ `--allow-schema` проверяется тем же валидатором, что `schema_exceptions[].key`."""
+    for value in values:
+        try:
+            site_contract.SchemaException(key=value, reason="-")
+        except ValueError:
+            raise click.UsageError(say(_lang(None, None), "schema_key_bad", finding=value)) from None
+    return values
+
+
+ALLOW_SCHEMA_OPTION = _option(
+    "--allow-schema",
+    "allow_schema",
+    multiple=True,
+    callback=_schema_key,
+    metavar="help_mv_key",
+    help="help_opt_allow_schema",
+)
 WORKERS_OPTION = _option(
     "--workers",
     type=click.IntRange(0, 64),
@@ -1169,21 +1197,34 @@ def init(
 @main.command(help="help_check")
 @STRICT_OPTION
 @DRAFTS_OPTION
+@_option("--env", "env_name", default=None, metavar="help_mv_env", help="help_opt_env_check")
+@ALLOW_SCHEMA_OPTION
 @_option("--json", "as_json", is_flag=True, help="help_opt_json")
 @NOTES_OPTION
 @_path_argument
-def check(path: Path, strict: bool, drafts: bool, as_json: bool, notes: str | None) -> None:
+def check(
+    path: Path,
+    strict: bool,
+    drafts: bool,
+    env_name: str | None,
+    allow_schema: tuple[str, ...],
+    as_json: bool,
+    notes: str | None,
+) -> None:
     """Проверить контент и конфиг, ничего не собирая."""
     lang = _lang(notes, path)
     _need_site(path, lang)
+    env = BuildEnv.resolve(env_name)
     if as_json:
-        _check_json(path, strict, drafts)
+        _check_json(path, strict, drafts, env, allow_schema)
         return
     click.secho(
         say(lang, "check_head", version=__version__, path=_shown(path)), bold=True, err=True
     )
     try:
-        result = pipeline.check(path, drafts=drafts, strict=strict)
+        result = pipeline.check(
+            path, drafts=drafts, strict=strict, env=env, allow_schema=list(allow_schema)
+        )
     except HeronError as error:
         _fail(error, lang)
     _finish(result, result.strict, lang, "check")
@@ -1201,6 +1242,7 @@ def check(path: Path, strict: bool, drafts: bool, as_json: bool, notes: str | No
     help="help_opt_out",
 )
 @_option("--env", "env_name", default=None, metavar="help_mv_env", help="help_opt_env")
+@ALLOW_SCHEMA_OPTION
 @WORKERS_OPTION
 @NOTES_OPTION
 @_path_argument
@@ -1210,6 +1252,7 @@ def build(
     drafts: bool,
     out: Path | None,
     env_name: str | None,
+    allow_schema: tuple[str, ...],
     workers: int | None,
     notes: str | None,
 ) -> None:
@@ -1231,6 +1274,7 @@ def build(
             env=env,
             progress=_Terminal(lang),
             workers=workers,
+            allow_schema=list(allow_schema),
         )
     except HeronError as error:
         _fail(error, lang)

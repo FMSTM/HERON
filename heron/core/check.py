@@ -84,7 +84,7 @@ NOT_TEMPLATES = {"assets", "i18n"}
 # (`data`, `nav`, `languages`, `hreflang`) сюда не входят: их изменение
 # песочница закрывает. Совпадение с `env.context` сверяет тест.
 CONTEXT_OBJECTS: frozenset[str] = frozenset(
-    {"mod", "t", "env", "page_of", "picture", "media_url", "jsonld"}
+    {"mod", "t", "env", "page_of", "picture", "media_url", "jsonld", "cover_url", "robots_meta"}
 )
 
 

@@ -343,6 +343,7 @@ def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list
     # WebSite — это сайт, а не страница: его имя — название сайта на языке
     # страницы, а не h1 главной. Иначе поисковик подписывает сайт слоганом.
     site_name = config.for_lang(page.lang).site.name or config.site.domain
+    alternate_names = config.for_lang(page.lang).site.alternate_names
     for kind in declared:
         node: dict[str, Any] = {
             "@type": kind,
@@ -351,6 +352,8 @@ def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list
             "url": absolute(config, page.url),
             "inLanguage": page.lang,
         }
+        if kind == "WebSite" and alternate_names:
+            node["alternateName"] = list(alternate_names)
         if page.date:
             node["datePublished"] = stamp(page.date_at)
         if page.updated:
@@ -438,7 +441,9 @@ def _keys(node: Any) -> list[str]:
     return []
 
 
-def verify(page: Page, config: SiteConfig, theme: ThemeConfig, collector, site=None) -> list[str]:
+def verify(
+    page: Page, config: SiteConfig, theme: ThemeConfig, collector, site=None, schema_check=None
+) -> list[str]:
     """Проверить разметку страницы. Возвращает типы узлов для отчёта.
 
     Разметку не видно глазами: она либо есть и верна, либо её нет, и узнают
@@ -506,5 +511,8 @@ def verify(page: Page, config: SiteConfig, theme: ThemeConfig, collector, site=N
                 hint="сайт не публикует цены (seo.allow_prices: false) — уберите эти поля "
                 "из блока schema или разрешите цены в site.yaml",
             )
+
+    if schema_check is not None:
+        schema_check.page(page, graph, config, theme)
 
     return kinds

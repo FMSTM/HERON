@@ -15,6 +15,7 @@ import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 from urllib.parse import unquote
 
 import yaml
@@ -24,7 +25,7 @@ from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core import links as links_module
 from heron.core import media, notes
-from heron.core.errors import Collector
+from heron.core.errors import Collector, Warning_
 from heron.core.models import Site
 
 LINK = re.compile(r'href="(/[^"#?]*)')
@@ -128,6 +129,51 @@ def kit_status(site_root: Path | None, config: SiteConfig) -> KitStatus:
     return status
 
 
+def schema_lines(section, lang: str) -> list[str]:
+    """Строки раздела проверки разметки: находки, исключения, лишние, pending."""
+    from heron.messages import say
+
+    if not (section.nodes or section.findings or section.excepted or section.unused):
+        return []
+    count = len(section.findings)
+    prod = section.env_prod
+    lines = [
+        say(
+            lang,
+            "schema_head",
+            release=section.release,
+            nodes=section.nodes,
+            n=count,
+            errors=count if prod else 0,
+            warnings=0 if prod else count,
+        )
+    ]
+    if section.excepted:
+        lines.append(say(lang, "schema_exceptions_head", n=len(section.excepted)))
+        for entry in section.excepted:
+            if entry.source == "flag":
+                lines.append("  " + say(lang, "schema_exception_flag", finding=entry.key))
+            else:
+                until = entry.until.isoformat() if entry.until else "-"
+                lines.append(
+                    say(
+                        lang,
+                        "schema_exception_site",
+                        finding=entry.key,
+                        reason=entry.reason,
+                        until=until,
+                        source="site.yaml",
+                    )
+                )
+    lines.extend(say(lang, "schema_unused", finding=key) for key in section.unused)
+    lines.extend(
+        say(lang, "schema_expired", finding=e.key, until=e.until) for e in section.expired
+    )
+    if section.pending:
+        lines.append(say(lang, "schema_pending", props=", ".join(section.pending)))
+    return lines
+
+
 @dataclass(slots=True)
 class Report:
     """Что движок знает о сайте после обхода."""
@@ -147,6 +193,8 @@ class Report:
     notes_missing: list[str] = field(default_factory=list)
     uneven_keys: list[tuple[str, str, str, int, int]] = field(default_factory=list)
     schema_nodes: Counter = field(default_factory=Counter)
+    # итог проверки разметки по словарю schema.org (heron.schemaorg.policy.SchemaSection)
+    schema: Any = None
     # (страниц с ручной датой, всего страниц, источник дат из site.yaml)
     manual_dates: tuple[int, int, str] | None = None
     # размеры хэшей карт nginx и кто их задаёт: движок (auto) или хост (off)
@@ -259,6 +307,8 @@ class Report:
             )
             lines.append("")
             lines.append(say(lang, "report_schema", by_kind=by_kind))
+        if self.schema is not None:
+            lines.extend(schema_lines(self.schema, lang))
 
         if self.unused_media:
             lines.append("")
@@ -410,6 +460,91 @@ def build(
         report.notes_missing = _without_notes(site_root)
 
     return report
+
+
+_SEO_TEXTS = {
+    "ru": {
+        "nav_empty": "навигация nav.main пуста: поисковик не увидит разделов сайта",
+        "nav_html": "ссылок навигации нет в HTML главной ({lang}): меню строится скриптом, "
+        "краулер его не видит",
+        "titles": "одинаковый title у {n} страниц ({lang}): {pages}",
+    },
+    "en": {
+        "nav_empty": "nav.main is empty: search engines will not see the site sections",
+        "nav_html": "the home page HTML ({lang}) has no navigation links: the menu is built "
+        "by a script, crawlers do not see it",
+        "titles": "{n} pages share the same title ({lang}): {pages}",
+    },
+}
+
+_HREF = re.compile(r"""<a\b[^>]*?\bhref\s*=\s*["']([^"']*)["']""", re.IGNORECASE)
+
+
+def _seo_text(config: SiteConfig, key: str, **values) -> str:
+    table = _SEO_TEXTS.get(config.build.notes, _SEO_TEXTS["en"])
+    return table[key].format(**values)
+
+
+def _norm_href(href: str, domain: str = "") -> str:
+    href = unquote(href.strip()).split("#", 1)[0].split("?", 1)[0]
+    if domain and href.startswith(domain):
+        href = href[len(domain) :]
+    href = re.sub(r"^https?://[^/]+", "", href)
+    if not href.startswith("/"):
+        href = "/" + href
+    return href.rstrip("/") + "/" if href != "/" else "/"
+
+
+def nav_empty(site: Site, config: SiteConfig) -> list[Warning_]:
+    """nav.main пуст: поисковик не увидит разделов сайта."""
+    if config.nav.main:
+        return []
+    return [Warning_(_seo_text(config, "nav_empty"), path="site.yaml", kind="seo")]
+
+
+def duplicate_titles(site: Site, config: SiteConfig) -> list[Warning_]:
+    """Одинаковый title (заголовок + суффикс) у индексируемых страниц одного языка."""
+    result: list[Warning_] = []
+    for lang in config.site.languages:
+        # суффикс по языкам: title_suffix_ru -> seo.i18n["title_suffix"]["ru"]
+        suffix = config.seo.i18n.get("title_suffix", {}).get(lang, config.seo.title_suffix)
+        groups: dict[str, list[str]] = defaultdict(list)
+        for page in site.of_lang(lang):
+            if page.meta.noindex:
+                continue
+            groups[f"{page.title}{suffix}".strip()].append(page.source)
+        for pages in groups.values():
+            if len(pages) > 1:
+                shown = ", ".join(sorted(pages))
+                result.append(
+                    Warning_(
+                        _seo_text(config, "titles", n=len(pages), lang=lang, pages=shown),
+                        kind="seo",
+                    )
+                )
+    return result
+
+
+def nav_in_html(out: dict[str, str], site: Site, config: SiteConfig) -> list[Warning_]:
+    """Ссылки nav.main есть в HTML главной каждого языка.
+
+    `out` - путь файла сборки -> HTML. Меню, вставленное скриптом, в HTML
+    главной не видно, и краулер его не получает.
+    """
+    result: list[Warning_] = []
+    default = config.site.default_lang
+    for lang in config.site.languages:
+        pages = site.nav.get(lang, {}).get("main", [])
+        if not pages:
+            continue
+        home = "index.html" if lang == default else f"{lang}/index.html"
+        html = out.get(home)
+        if html is None:
+            continue
+        found = {_norm_href(h) for h in _HREF.findall(html)}
+        if not any(_norm_href(page.url) in found for page in pages):
+            result.append(Warning_(_seo_text(config, "nav_html", lang=lang), path=home, kind="seo"))
+    return result
 
 
 def _uneven(owner: str, where: str, node) -> list[tuple[str, str, str, int, int]]:

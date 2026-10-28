@@ -30,10 +30,14 @@ from heron.core import paths
 from heron.setup import files as files_module
 from heron.setup.answers import (
     CONTACT_TYPES,
+    DAYS,
     PURPOSES,
     Answers,
+    SchemaFindings,
     classifier,
+    drop,
     fields_of,
+    findings_payload,
     merge,
     ordered,
     read,
@@ -41,7 +45,7 @@ from heron.setup.answers import (
 )
 from heron.setup.reasons import Reason
 
-__all__ = ["Answers", "apply", "current_answers", "load_answers", "page", "state"]
+__all__ = ["Answers", "SchemaFindings", "apply", "current_answers", "load_answers", "page", "state"]
 
 SITE_YAML = "site.yaml"
 PAGE = Path(__file__).parent / "page.html"
@@ -102,6 +106,8 @@ class Result:
     theme: str = ""
     backup: str = ""
     warnings: list[str] = field(default_factory=list)
+    dropped: list[str] = field(default_factory=list)
+    excepted: list[str] = field(default_factory=list)
 
 
 def raw_config(root: Path) -> dict[str, Any]:
@@ -145,10 +151,44 @@ def state(root: Path) -> dict[str, Any]:
         "themes": themes,
         "site_theme": str((data.get("site") or {}).get("theme") or ""),
         "notes": notes_lang(data),
+        "schema": schema_state(notes_lang(data)),
         "engine": build_info.label(),
         "version": __version__,
         "exists": bool(data),
     }
+
+
+DAY_LABELS = {
+    "ru": ("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"),
+    "en": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
+}
+
+
+def schema_state(lang: str) -> dict[str, Any]:
+    """Списки для полей анкеты: версия schema.org, значения перечислений, дни недели."""
+    from heron.schemaorg import RELEASE
+    from heron.schemaorg import vocab as schema_vocab
+
+    labels = vocab().get("labels") or {}
+
+    def label(enum: str, value: str) -> str:
+        item = (labels.get(enum) or {}).get(value) or {}
+        return str(item.get(lang) or value)
+
+    lists: dict[str, list[dict[str, str]]] = {}
+    for name, spec in vocab()["fields"].items():
+        if spec.get("kind") == "enum":
+            enum = spec["enum"]
+            values = schema_vocab().members(enum)
+            values.sort(key=lambda v: label(enum, v).casefold())
+            lists[name] = [{"value": v, "label": label(enum, v)} for v in values]
+        elif spec.get("kind") == "subtype":
+            lists[name] = [
+                {"value": v, "label": label(spec["of"], v)} for v in spec.get("options", [])
+            ]
+    names = DAY_LABELS.get(lang) or DAY_LABELS["en"]
+    days = [{"value": d, "label": n} for d, n in zip(DAYS, names, strict=True)]
+    return {"release": RELEASE, "lists": lists, "days": days}
 
 
 def countries() -> list[list[str]]:
@@ -187,6 +227,67 @@ def _check(data: dict[str, Any], path: Path) -> None:
     build(SiteConfig, data, path)
 
 
+def _decide(
+    root: Path,
+    old: dict[str, Any],
+    new: dict[str, Any],
+    answers: Answers,
+    schema: dict[str, Any] | None,
+    lang: str,
+    result: Result,
+) -> dict[str, Any]:
+    """Находки разметки в будущем site.yaml: check - отказ, drop - убрать, except - исключить."""
+    from heron.contracts.site import SiteConfig
+    from heron.schemaorg.policy import site_findings
+    from heron.setup.answers import _drop
+
+    schema = schema or {}
+    mode = str(schema.get("mode") or "check")
+    if mode not in ("check", "drop", "except"):
+        raise Reason("schema_mode_bad", value=repr(mode))
+    reason = str(schema.get("reason") or "").strip()
+    if mode == "except" and not reason:
+        raise Reason("reason_required")
+    path = root / SITE_YAML
+
+    def active(data: dict[str, Any]) -> list[Any]:
+        return site_findings(SiteConfig(**data)).active
+
+    entries = active(new)
+    if not entries:
+        return new
+    payload = findings_payload(entries, answers, lang)
+    if mode == "check":
+        raise SchemaFindings(payload)
+    if mode == "drop":
+        chosen = schema.get("drop")
+        if chosen is not None:
+            chosen = {str(key) for key in chosen}
+            payload = [f for f in payload if f["key"] in chosen]
+        kept, new, labels = drop(answers, new, payload)
+        rebuilt = ordered(merge(old, kept, _version_spec()))
+        for item in payload:
+            _drop(rebuilt, item["path"])
+        _check(rebuilt, path)
+        left = active(rebuilt)
+        if left:
+            raise SchemaFindings(findings_payload(left, kept, lang))
+        result.dropped = labels
+        return rebuilt
+    exceptions = [dict(x) for x in (new.get("schema_exceptions") or []) if isinstance(x, dict)]
+    for entry in entries:
+        found = next((x for x in exceptions if x.get("key") == entry.key), None)
+        if found is not None:
+            found["reason"] = reason
+            found.pop("until", None)
+        else:
+            exceptions.append({"key": entry.key, "reason": reason})
+        result.excepted.append(entry.key)
+    new["schema_exceptions"] = exceptions
+    _check(new, path)
+    return new
+
+
 def backup(root: Path, name: str, data: bytes) -> Path:
     """Резервная копия в `.heron-cache/setup/<name>.<время>` — всегда новым файлом.
 
@@ -216,8 +317,14 @@ def apply(
     answers: Answers,
     lang: str | None = None,
     upload: Path | None = None,
+    schema: dict[str, Any] | None = None,
 ) -> Result:
-    """Записать ответы: site.yaml, папки языков, тему, файлы публикации, ключи."""
+    """Записать ответы: site.yaml, папки языков, тему, файлы публикации, ключи.
+
+    `schema` - решение по находкам проверки разметки: `mode` check (по
+    умолчанию), drop или except, `drop` - ключи находок, `reason` - причина
+    исключения. Нет аргумента - берётся ключ `schema` из файла ответов.
+    """
     root = Path(root)
     if not (root / SITE_YAML).is_file():
         raise Reason("no_site", name=SITE_YAML, root=root)
@@ -232,6 +339,9 @@ def apply(
     if answers.theme.source in ("starter", "name", "url", "file", "later") and not old:
         new["site"]["theme"] = new["site"].get("theme") or "main"
     _check(new, root / SITE_YAML)
+    if schema is None:
+        schema = answers._schema
+    new = _decide(root, old, new, answers, schema, lang, result)
 
     # Всё, что анкета запишет, зарезервирует или удалит, — внутри папки сайта.
     # Проверяется до первой записи: ссылка наружу (site.yaml, content/,
@@ -331,11 +441,19 @@ def apply(
 
 
 def load_answers(text: str) -> Answers:
-    """Ответы из YAML или JSON (`heron setup --answers файл`)."""
+    """Ответы из YAML или JSON (`heron setup --answers файл`).
+
+    Ключ `schema` (mode, drop, reason) - решение по находкам разметки, не ответ.
+    """
     data = yaml.safe_load(text) or {}
     if not isinstance(data, dict):
         raise Reason("answers_mapping")
-    return Answers.model_validate(data)
+    data = dict(data)
+    decision = data.pop("schema", None)
+    answers = Answers.model_validate(data)
+    if isinstance(decision, dict):
+        answers._schema = decision
+    return answers
 
 
 def current_answers(root: Path) -> str:

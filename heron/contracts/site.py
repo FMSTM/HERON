@@ -52,7 +52,7 @@ RESERVED = {
 # Остальные поля ядра от языка не зависят. Блоки сайта (`contact`,
 # `organization`) переводятся тем же суффиксом, но разбирает их тема и
 # подстановки schema, а не ядро.
-LOCALIZED = {"site": ("name",), "seo": ("title_suffix", "og_default_image")}
+LOCALIZED = {"site": ("name", "alternate_names"), "seo": ("title_suffix", "og_default_image")}
 SUFFIX_RE = re.compile(r"^(?P<key>[a-z_]+?)_(?P<lang>[a-z]{2}(?:-[a-z]{2})?)\Z")
 
 
@@ -124,6 +124,9 @@ class SiteBlock(Strict):
     # не должно. Блока нет — поведение прежнее.
     domains: dict[str, str] = Field(default_factory=dict)
     name: str | None = None
+    # Другие написания названия: уходят в WebSite.alternateName. По языкам:
+    # alternate_names_ru.
+    alternate_names: list[str] = Field(default_factory=list)
     theme: str
     default_lang: str = "en"
     languages: list[str] = Field(default_factory=lambda: ["en"])

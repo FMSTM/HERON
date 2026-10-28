@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -36,11 +37,14 @@ from heron.core import (
 from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError
 from heron.core.hooks import Hooks
-from heron.core.models import Site
+from heron.core.models import Page, Site
 from heron.core.parser import markdown
 from heron.core.progress import Progress, Silent
+from heron.core.render import env as render_env
 from heron.core.render import pages as renderer
 from heron.modules import feed, jsonld, llms, nginx, redirects, robots, sitemap
+from heron.schemaorg import policy
+from heron.schemaorg.images import source_exists
 
 SITE_YAML = "site.yaml"
 CACHE = ".heron-cache"
@@ -158,6 +162,55 @@ def env_workers() -> int | None:
     return value
 
 
+SITEMAP_IMAGES = 20
+
+
+def sitemap_images(config: SiteConfig, manifest: media.Manifest) -> Callable[[Page], list[str]]:
+    """Картинки страницы для карты сайта: обложка первой, затем картинки текста.
+
+    Только абсолютные адреса домена окружения, без дублей, не больше
+    `SITEMAP_IMAGES` на страницу.
+    """
+    cover_url = render_env.cover_url(manifest, config)
+    prefix = urls.absolute(config, "/")
+
+    def collect(page: Page) -> list[str]:
+        found: list[str] = []
+        candidates = [cover_url(page)]
+        chunks = [page.intro.raw if page.intro else "", *(s.raw for s in page.sections.values())]
+        for chunk in chunks:
+            for match in media.REFERENCE.finditer(markdown.without_code(chunk)):
+                src = paths.normalize(match.group(1))
+                if src.lower().endswith(tuple(media.KEEP)):
+                    candidates.append(urls.absolute(config, f"/{src}"))
+        for href in candidates:
+            if href.startswith(prefix) and href not in found:
+                found.append(href)
+        return found[:SITEMAP_IMAGES]
+
+    return collect
+
+
+
+def _homes(outputs: output.Outputs, config: SiteConfig) -> dict[str, str]:
+    """HTML главных страниц языков - только то, что смотрит nav_in_html.
+
+    Остальные index.html сборки не читаются: статика вроде static/old/index.html
+    в cp1251 этой проверке не нужна и ронять сборку не должна. Главная, которую
+    нельзя прочитать (E034), просто не проверяется: это предупреждение, а не
+    повод забраковать сборку.
+    """
+    homes: dict[str, str] = {}
+    for lang in config.site.languages:
+        rel = urls.home_url(config, lang).lstrip("/") + "index.html"
+        try:
+            html = outputs.text_of(rel)
+        except HeronError:
+            continue
+        if html is not None:
+            homes[rel] = html
+    return homes
+
 def run(
     site_root: Path,
     dist: Path | None = None,
@@ -167,6 +220,7 @@ def run(
     env: BuildEnv | None = None,
     progress: Progress | None = None,
     workers: int | None = None,
+    allow_schema: Sequence[str] = (),
 ) -> Result:
     """Собрать сайт целиком.
 
@@ -293,7 +347,13 @@ def run(
         not_found = html.get("/404/")
         if not_found:
             claim({"404.html": not_found}, "page", "страница 404")
-        claim(sitemap.generate(site, config), "generator", "генератор sitemap")
+        claim(
+            sitemap.generate(
+                site, config, sitemap_images(config, manifest) if env.indexable else None
+            ),
+            "generator",
+            "генератор sitemap",
+        )
         claim(robots.generate(config, env), "generator", "генератор robots.txt")
         claim(llms.generate(site, config), "generator", "генератор llms.txt")
         moves = redirects.collect(site, collector, config)
@@ -346,6 +406,9 @@ def run(
         # Всё, что может забраковать сборку, — до записи: отчёт, разметка,
         # nginx -t. Строгая сборка с предупреждением не трогает прошлую версию.
         result.report = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
+        collector.warnings.extend(report.nav_empty(site, config))
+        collector.warnings.extend(report.duplicate_titles(site, config))
+        collector.warnings.extend(report.nav_in_html(_homes(outputs, config), site, config))
         # Проверяется то, что действительно ляжет в сборку: конфиг, подменённый
         # статикой через build.overrides, — его байты, а не сгенерированный.
         # Конфиг, который нельзя прочитать или который пуст, — ошибка до записи:
@@ -366,7 +429,10 @@ def run(
                 )
                 conf = None
         result.report.nginx_test = nginx.check(conf, collector)
-        _schema(site, config, theme, collector, result.report)
+        _schema(
+            site, config, theme, collector, result.report, env, allow_schema,
+            exists=(lambda rel: rel in outputs.entries) if with_media else None,
+        )
         if result.failed:
             return result
 
@@ -499,18 +565,34 @@ def _texts(folder: Path) -> list[str]:
     return out
 
 
-def _schema(site, config, theme, collector, built) -> None:
+def _schema(site, config, theme, collector, built, env, allow=(), exists=None) -> None:
     """Проверить разметку каждой страницы и посчитать узлы для отчёта.
 
     Разметку не видно глазами: она либо есть и верна, либо её нет, и узнают
     об этом из чужой панели вебмастера через месяц.
     """
+    check_ = policy.SchemaCheck(
+        env_prod=env.is_prod,
+        allow=list(allow),
+        exceptions=list(config.schema_exceptions),
+        today=policy.today_for_build(),
+    )
     for page in site.pages:
-        for kind in jsonld.verify(page, config, theme, collector, site):
+        for kind in jsonld.verify(page, config, theme, collector, site, check_):
             built.schema_nodes[kind] += 1
+    if exists is not None:
+        for page, graph in check_.graphs:
+            check_.images(page, graph, config, exists, theme)
+    built.schema = check_.finish(collector, built.notes_lang)
 
 
-def check(site_root: Path, drafts: bool = False, strict: bool = False) -> Result:
+def check(
+    site_root: Path,
+    drafts: bool = False,
+    strict: bool = False,
+    env: BuildEnv | None = None,
+    allow_schema: Sequence[str] = (),
+) -> Result:
     """Обойти и проверить, ничего не собирая.
 
     Строгий режим тот же, что у сборки: `strict` или `build.fail_on_warning`.
@@ -535,8 +617,13 @@ def check(site_root: Path, drafts: bool = False, strict: bool = False) -> Result
     redirects.generate(site, collector, config)
 
     built = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
+    collector.warnings.extend(report.nav_empty(site, config))
+    collector.warnings.extend(report.duplicate_titles(site, config))
     built.kit = report.kit_status(site_root, config)
-    _schema(site, config, theme, collector, built)
+    _schema(
+        site, config, theme, collector, built, env or BuildEnv.resolve(None), allow_schema,
+        exists=lambda rel: source_exists(site_root, rel),
+    )
     return Result(
         config=config,
         theme=theme,

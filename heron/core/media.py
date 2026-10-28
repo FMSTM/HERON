@@ -35,6 +35,7 @@ from heron.core import notes, paths
 from heron.core.errors import Collector, HeronError
 from heron.core.models import EXTERNAL_URL, Site
 from heron.core.parser import markdown
+from heron.core.urls import absolute
 
 # Папка ресурсов сайта. Имя `img` обещало только изображения, и видео класть
 # было некуда — оно оседало в `static/` и ехало в сборку без обработки.
@@ -331,7 +332,34 @@ def raw_references(site: Site, config=None) -> set[str]:
         ]:
             if isinstance(value, str) and value and not EXTERNAL.match(value):
                 found.add(paths.normalize(value))
+        shared = config.extras.get("schema")
+        if isinstance(shared, dict):
+            data = {"site": {"base": absolute(config, "/")}}
+            _schema_media(shared, found, data)
+    for page in site.pages:
+        own = page.meta.extra.get("schema")
+        if isinstance(own, dict):
+            _schema_media(own, found, None, config)
     return found
+
+
+def _schema_media(value, found: set[str], data=None, config=None, depth: int = 0) -> None:
+    """Пути media/ из строк блока schema: и `media/x.jpg`, и `{{ site.base }}media/x.jpg`."""
+    if depth > MAX_DEPTH:
+        return
+    if isinstance(value, str):
+        base = absolute(config, "/") if config is not None else (data or {}).get("site", {}).get("base", "")
+        text = re.sub(r"\{\{\s*site\.base\s*\}\}", base, value.strip())
+        if base and text.startswith(base):
+            text = text[len(base) - 1 :]
+        if not EXTERNAL.match(text) and MEDIA_FIELD.match(text):
+            found.add(paths.normalize(text))
+    elif isinstance(value, dict):
+        for item in value.values():
+            _schema_media(item, found, data, config, depth + 1)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            _schema_media(item, found, data, config, depth + 1)
 
 
 def references(site: Site, config=None) -> set[str]:

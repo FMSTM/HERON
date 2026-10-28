@@ -174,6 +174,7 @@ const LANGS = [
 ];
 const T = {
   ru: {
+    not_set: "не указано", filter: "Фильтр по названию", add_rule: "Добавить правило", remove: "Убрать строку", hours_preview: "В разметке будет", hours_order: "Закрытие должно быть позже открытия", not_in_vocab: "нет в словаре", remove_value: "Убрать", day_from: "С дня", day_to: "По день", opens: "Открытие", closes: "Закрытие", yes: "Да", no: "Нет", hours_bad: "не удалось разобрать, в разметку не попадёт", delete: "Удалить", hours_complex: "сложное правило, правится в site.yaml",
     bot: "Нужна помощь или есть вопросы?", bot_off: "Скоро здесь будет связь с нами.",
     dir: "Сфера деятельности", dir_none: "— сфера деятельности —", spec_none: "— специализация (необязательно) —", kind_none: "— вид (необязательно) —",
     sep: "Разделитель", suffix_text: "Текст после разделителя",
@@ -230,6 +231,7 @@ const T = {
     saved: "Сохранено", nothing: "Ничего не изменилось.", written: "Записано", removed: "Убрано", kept: "Оставлено, файл не наш", created: "Создано", backup: "Прежняя версия", next: "Дальше: heron serve . — посмотреть сайт.", error: "Не сохранено",
   },
   en: {
+    not_set: "not set", filter: "Filter by name", add_rule: "Add rule", remove: "Remove row", hours_preview: "Markup will contain", hours_order: "Closing must be later than opening", not_in_vocab: "not in vocabulary", remove_value: "Remove", day_from: "From day", day_to: "To day", opens: "Opens", closes: "Closes", yes: "Yes", no: "No", hours_bad: "could not be parsed, will not reach the markup", delete: "Delete", hours_complex: "complex rule, edit it in site.yaml",
     bot: "Need help or have questions?", bot_off: "A way to reach us will be here soon.",
     dir: "Field of work", dir_none: "— field of work —", spec_none: "— specialization (optional) —", kind_none: "— kind (optional) —",
     sep: "Separator", suffix_text: "Text after the separator",
@@ -296,6 +298,9 @@ const PU = {
 };
 const PLACEHOLDER = { phone: "+00 000 000 00 00", email: "hello@example.com", website: "https://example.com", whatsapp: "+00 000 000 00 00", telegram: "@name или https://t.me/name", viber: "+00 000 000 00 00", signal: "+00 000 000 00 00", instagram: "@name", facebook: "https://facebook.com/name", linkedin: "https://linkedin.com/in/name", youtube: "@name", tiktok: "@name", x: "@name", other: "" };
 
+const HOURS_RE = new RegExp(String.raw`^(?:Mo|Tu|We|Th|Fr|Sa|Su)(?:-(?:Mo|Tu|We|Th|Fr|Sa|Su))?(?:,(?:Mo|Tu|We|Th|Fr|Sa|Su)(?:-(?:Mo|Tu|We|Th|Fr|Sa|Su))?)* (?:(?:[01]\d|2[0-3]):[0-5]\d|24:00)-(?:(?:[01]\d|2[0-3]):[0-5]\d|24:00)(?:,(?:(?:[01]\d|2[0-3]):[0-5]\d|24:00)-(?:(?:[01]\d|2[0-3]):[0-5]\d|24:00))*$`);
+const HOURS_SIMPLE = /^(Mo|Tu|We|Th|Fr|Sa|Su)(?:-(Mo|Tu|We|Th|Fr|Sa|Su))? (\d\d:\d\d)-(\d\d:\d\d)$/;
+const HOURS_ROWS = {};
 let L = "ru", ST = null, A = null, BASE = null, UPLOAD = "", NOTE_TAB = "";
 const TRACKS = [];
 const $ = (s, el = document) => el.querySelector(s);
@@ -476,6 +481,116 @@ function prune() {
   const allowed = new Set(A.about.type ? ST.fields_by_type[A.about.type] : ST.vocab.common);
   for (const k of Object.keys(A.about.fields)) if (!allowed.has(k)) delete A.about.fields[k];
 }
+function schemaList(name) { return (ST.schema && ST.schema.lists && ST.schema.lists[name]) || null; }
+function enumBox(name, spec, path, put) {
+  const items = schemaList(name) || [];
+  const known = new Set(items.map((i) => i.value));
+  const cur = spec.multiple ? [...(Array.isArray(get(path)) ? get(path) : [])] : (get(path) ? [get(path)] : []);
+  const commit = (list) => { if (spec.multiple) put(list.length ? [...list] : ""); else put(list[0] || ""); };
+  if (!spec.multiple) {
+    const sel = h("select", { id: "f-" + name }, h("option", { value: "" }, t("not_set")),
+      ...items.map((i) => h("option", { value: i.value, selected: cur[0] === i.value }, i.label)));
+    sel.addEventListener("change", () => commit(sel.value ? [sel.value] : []));
+    const wrap = h("div", {}, sel);
+    for (const v of cur.filter((x) => !known.has(x))) wrap.append(h("div", { class: "was" }, h("span", {}, v + " (" + t("not_in_vocab") + ")"), h("button", { type: "button", onclick: () => { commit([]); render(); } }, t("remove_value"))));
+    return wrap;
+  }
+  const filter = h("input", { type: "text", id: "f-" + name, placeholder: t("filter"), "aria-label": t("filter") });
+  const list = h("div", { class: "enum-list", style: "max-height:14rem;overflow:auto;display:flex;flex-direction:column;gap:.2rem" });
+  const draw = () => {
+    const q = filter.value.trim().toLowerCase();
+    const chosen = new Set(cur);
+    const rows = [...items].sort((a, b) => Number(chosen.has(b.value)) - Number(chosen.has(a.value)));
+    list.replaceChildren(
+      ...cur.filter((v) => !known.has(v)).map((v) => h("div", { class: "was" }, h("span", {}, v + " (" + t("not_in_vocab") + ")"),
+        h("button", { type: "button", onclick: () => { cur.splice(cur.indexOf(v), 1); commit(cur); draw(); } }, t("remove_value")))),
+      ...rows.filter((i) => chosen.has(i.value) || !q || i.label.toLowerCase().includes(q)).map((i) => {
+        const cb = h("input", { type: "checkbox", checked: chosen.has(i.value) });
+        cb.addEventListener("change", () => { if (cb.checked) cur.push(i.value); else cur.splice(cur.indexOf(i.value), 1); commit(cur); draw(); });
+        return h("label", { style: "font-weight:400;display:flex;gap:.5rem;align-items:center" }, cb, i.label);
+      }));
+  };
+  filter.addEventListener("input", draw);
+  draw();
+  return h("div", {}, filter, list);
+}
+function subtypeSelect(name, path, put) {
+  const items = schemaList(name) || [];
+  const now = get(path);
+  const sel = h("select", { id: "f-" + name }, h("option", { value: "" }, t("not_set")),
+    ...items.map((i) => h("option", { value: i.value, selected: now === i.value }, i.label)));
+  sel.addEventListener("change", () => put(sel.value));
+  return sel;
+}
+function boolButtons(path) {
+  const now = get(path);
+  const wrap = h("div", { class: "bool-row", role: "group", style: "display:flex;gap:.4rem" });
+  for (const [val, key] of [[true, "yes"], [false, "no"], [undefined, "not_set"]]) {
+    const on = now === val || (val === undefined && now !== true && now !== false);
+    wrap.append(h("button", { type: "button", "aria-pressed": String(on), class: on ? "on" : null, style: on ? "background:var(--accent-soft);border-color:var(--accent)" : null,
+      onclick: () => { set(path, val); render(); } }, t(key)));
+  }
+  return wrap;
+}
+function hoursTimes() {
+  const out = [];
+  for (let m = 0; m <= 1440; m += 15) out.push(String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"));
+  return out;
+}
+function hoursLine(r) {
+  if (r.state !== "rule" || r.close <= r.open) return null;
+  return (r.to && r.to !== r.from ? r.from + "-" + r.to : r.from) + " " + r.open + "-" + r.close;
+}
+function hoursBuilder(name, path, put) {
+  if (!HOURS_ROWS[name]) {
+    HOURS_ROWS[name] = (Array.isArray(get(path)) ? get(path) : []).map((line) => {
+      const m = HOURS_SIMPLE.exec(line);
+      if (m && HOURS_RE.test(line)) return { state: "rule", from: m[1], to: m[2] || "", open: m[3], close: m[4], line };
+      return { state: HOURS_RE.test(line) ? "complex" : "bad", line };
+    });
+  }
+  const rows = HOURS_ROWS[name];
+  const days = (ST.schema && ST.schema.days) || [];
+  const times = hoursTimes();
+  const wrap = h("div", { class: "hours-builder", style: "display:flex;flex-direction:column;gap:.4rem" });
+  const commit = () => { const lines = rows.map((r) => (r.state === "rule" ? hoursLine(r) : r.state === "complex" ? r.line : null)).filter(Boolean); put(lines.length ? lines : ""); };
+  const sel = (label, options, value, onchange) => {
+    const el = h("select", { "aria-label": label }, ...options.map(([v, text]) => h("option", { value: v, selected: v === value }, text)));
+    el.addEventListener("change", () => onchange(el.value));
+    return el;
+  };
+  const draw = () => {
+    const preview = h("div", { class: "hint" });
+    const lines = [];
+    wrap.replaceChildren();
+    rows.forEach((r, i) => {
+      if (r.state !== "rule") {
+        const red = r.state === "bad";
+        wrap.append(h("div", { class: "hours-row", style: "display:flex;gap:.5rem;align-items:center;flex-wrap:wrap" },
+          h("span", { style: red ? "color:var(--bad)" : "" }, r.line + (red ? " - " + t("hours_bad") : " - " + t("hours_complex"))),
+          h("button", { type: "button", onclick: () => { rows.splice(i, 1); commit(); draw(); } }, red ? t("delete") : t("remove"))));
+        if (!red) lines.push(r.line);
+        return;
+      }
+      const dayOpts = days.map((d) => [d.value, d.label]);
+      const bad = r.close <= r.open;
+      const row = h("div", { class: "hours-row", style: "display:flex;gap:.4rem;align-items:center;flex-wrap:wrap" + (bad ? ";outline:1px solid var(--bad);border-radius:6px;padding:.2rem" : "") },
+        sel(t("day_from"), dayOpts, r.from, (v) => { r.from = v; commit(); draw(); }),
+        sel(t("day_to"), [["", t("not_set")], ...dayOpts], r.to, (v) => { r.to = v; commit(); draw(); }),
+        sel(t("opens"), times.map((x) => [x, x]), r.open, (v) => { r.open = v; commit(); draw(); }),
+        sel(t("closes"), times.map((x) => [x, x]), r.close, (v) => { r.close = v; commit(); draw(); }),
+        h("button", { type: "button", onclick: () => { rows.splice(i, 1); commit(); draw(); } }, t("remove")));
+      if (bad) row.append(h("span", { style: "color:var(--bad)" }, t("hours_order")));
+      wrap.append(row);
+      const line = hoursLine(r); if (line) lines.push(line);
+    });
+    wrap.append(h("button", { type: "button", onclick: () => { rows.push({ state: "rule", from: days.length ? days[0].value : "Mo", to: "", open: "09:00", close: "18:00" }); commit(); draw(); } }, t("add_rule")));
+    preview.textContent = t("hours_preview") + ": " + (lines.length ? lines.join("; ") : t("empty"));
+    wrap.append(preview);
+  };
+  draw();
+  return wrap;
+}
 function aboutField(name, spec, person) {
   const kind = spec.kind || "text";
   const langs = A.site.languages || ["en"];
@@ -506,6 +621,14 @@ function aboutField(name, spec, person) {
   };
   const box = h("div", { class: "field" + (wide ? " wide" : "") }, h("label", { for: "f-" + name }, label(spec, person)));
   const current = A.about.fields[name];
+  if (kind === "enum" || kind === "subtype" || kind === "bool" || kind === "hours") {
+    if ((kind === "enum" || kind === "subtype") && !schemaList(name)) return document.createDocumentFragment();
+    box.append(kind === "enum" ? enumBox(name, spec, path, put) : kind === "subtype" ? subtypeSelect(name, path, put) : kind === "bool" ? boolButtons(path) : hoursBuilder(name, path, put));
+    const tip = spec.hint && (spec.hint[L] || spec.hint.en);
+    if (tip) box.append(hint(tip));
+    box.append(track(path));
+    return box;
+  }
   if (spec.localized && langs.length > 1 && wide) {
     // длинный текст — вкладками по языкам сайта, как заметка для ИИ
     const values = typeof current === "object" && current && !Array.isArray(current) ? { ...current } : { [mainLang]: current ?? "" };
@@ -712,7 +835,7 @@ function toast(kind, title, lines) {
   el.replaceChildren(h("button", { type: "button", "aria-label": "close", onclick: () => (el.style.display = "none") }, "×"), h("b", {}, title), lines && lines.length ? h("ul", {}, ...lines.map((x) => h("li", {}, x))) : null);
   el.style.display = "block";
 }
-function load(state) { ST = state; A = clone(state.answers); BASE = clone(state.answers); UPLOAD = ""; }
+function load(state) { ST = state; A = clone(state.answers); BASE = clone(state.answers); UPLOAD = ""; for (const k of Object.keys(HOURS_ROWS)) delete HOURS_ROWS[k]; }
 async function save() {
   const btn = $("#save"); btn.disabled = true; btn.textContent = t("saving");
   try {

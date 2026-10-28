@@ -1073,6 +1073,14 @@ TEXT["ru"].update(
         "help_mv_folder": "ПАПКА",
         "help_mv_file": "ФАЙЛ",
         "help_mv_env": "ИМЯ",
+        "help_opt_env_check": (
+            "Окружение проверки: `prod` включает строгость prod (находки разметки - ошибки). "
+            "Без флага - SITE_ENV, затем dev."
+        ),
+        "help_opt_allow_schema": (
+            "Разово пропустить находку разметки, ключ SCH00N:<файл>:<путь>; можно повторять."
+        ),
+        "help_mv_key": "КЛЮЧ",
         "help_mv_n": "N",
         "help_mv_port": "ПОРТ",
         "help_mv_host": "АДРЕС",
@@ -1238,6 +1246,14 @@ TEXT["en"].update(
         "help_mv_folder": "FOLDER",
         "help_mv_file": "FILE",
         "help_mv_env": "NAME",
+        "help_opt_env_check": (
+            "Check environment: `prod` applies prod strictness (markup findings are errors). "
+            "Without the flag - SITE_ENV, then dev."
+        ),
+        "help_opt_allow_schema": (
+            "Skip a markup finding once, key SCH00N:<file>:<path>; may be repeated."
+        ),
+        "help_mv_key": "KEY",
         "help_mv_n": "N",
         "help_mv_port": "PORT",
         "help_mv_host": "HOST",

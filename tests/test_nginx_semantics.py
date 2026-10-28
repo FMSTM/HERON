@@ -166,3 +166,27 @@ def test_both_languages_pass_nginx(tmp_path):
             assert get("/Page/") == (301, "/page/")
             assert get("/Gone/")[0] == 410
             assert get("/old/x/")[0] == 410
+
+
+def test_config_has_security_headers_and_healthz(tmp_path):
+    root = make(tmp_path)
+    assert not pipeline.run(root).failed
+    conf = (root / "dist" / nginx.NAME).read_text(encoding="utf-8")
+    assert "server_tokens off;" in conf
+    assert 'add_header X-Content-Type-Options "nosniff" always;' in conf
+    assert "add_header Referrer-Policy" in conf
+    assert "add_header Content-Security-Policy" in conf
+    assert "script-src 'self';" in conf
+    assert "add_header Strict-Transport-Security" in conf
+    assert "location = /healthz {" in conf
+    # add_header в location заменяет server-уровень: заголовки повторены везде,
+    # где задан свой add_header (healthz, media, assets)
+    assert conf.count("add_header X-Content-Type-Options") == 4
+
+
+@needs_nginx
+def test_security_headers_and_healthz_are_served(tmp_path):
+    root = make(tmp_path)
+    assert not pipeline.run(root).failed
+    with serve(root / "dist", tmp_path / "nginx") as get:  # serve сам делает nginx -t
+        assert get("/healthz")[0] == 200

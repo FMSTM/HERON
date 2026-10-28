@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from xml.sax.saxutils import escape
 
 from heron.contracts.site import SiteConfig
@@ -21,6 +22,10 @@ from heron.core.urls import absolute
 
 XMLNS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 XHTML = "http://www.w3.org/1999/xhtml"
+IMAGE = "http://www.google.com/schemas/sitemap-image/1.1"
+
+# Картинки страницы: функция отдаёт абсолютные адреса, а карта их только выводит.
+Images = Callable[[Page], list[str]]
 
 
 # Страница «не найдено» — служебная по своей природе: её адрес не
@@ -56,7 +61,7 @@ def alternates(page: Page, config: SiteConfig) -> list[tuple[str, str]]:
     return out
 
 
-def _entry(page: Page, config: SiteConfig) -> str:
+def _entry(page: Page, config: SiteConfig, images: Images | None = None) -> str:
     lines = ["  <url>", f"    <loc>{escape(absolute(config, page.url))}</loc>"]
     if page.updated:
         lines.append(f"    <lastmod>{stamp(page.updated_at)}</lastmod>")
@@ -66,19 +71,24 @@ def _entry(page: Page, config: SiteConfig) -> str:
             lines.append(
                 f'    <xhtml:link rel="alternate" hreflang="{lang}" href="{escape(href)}"/>'
             )
+    for href in images(page) if images is not None else []:
+        lines.append(f"    <image:image><image:loc>{escape(href)}</image:loc></image:image>")
     lines.append("  </url>")
     return "\n".join(lines)
 
 
-def _urlset(pages: list[Page], config: SiteConfig) -> str:
-    body = "\n".join(_entry(p, config) for p in sorted(pages, key=lambda p: p.url))
+def _urlset(pages: list[Page], config: SiteConfig, images: Images | None = None) -> str:
+    ordered = sorted(pages, key=lambda p: p.url)
+    body = "\n".join(_entry(p, config, images) for p in ordered)
+    # Пространство имён объявляется, только если в наборе есть хотя бы одна картинка.
+    image_ns = f' xmlns:image="{IMAGE}"' if "<image:image>" in body else ""
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
-        f'<urlset xmlns="{XMLNS}" xmlns:xhtml="{XHTML}">\n{body}\n</urlset>\n'
+        f'<urlset xmlns="{XMLNS}" xmlns:xhtml="{XHTML}"{image_ns}>\n{body}\n</urlset>\n'
     )
 
 
-def generate(site: Site, config: SiteConfig) -> dict[str, str]:
+def generate(site: Site, config: SiteConfig, images: Images | None = None) -> dict[str, str]:
     """Карта сайта.
 
     Один язык — один `sitemap.xml` со списком адресов: индекс над
@@ -91,7 +101,9 @@ def generate(site: Site, config: SiteConfig) -> dict[str, str]:
 
     if len(config.site.languages) == 1:
         lang = config.site.languages[0]
-        files["sitemap.xml"] = _urlset([p for p in site.of_lang(lang) if indexable(p)], config)
+        files["sitemap.xml"] = _urlset(
+            [p for p in site.of_lang(lang) if indexable(p)], config, images
+        )
         return files
 
     for lang in config.site.languages:
@@ -99,7 +111,7 @@ def generate(site: Site, config: SiteConfig) -> dict[str, str]:
         if not pages:
             continue
         name = f"sitemap-{lang}.xml"
-        files[name] = _urlset(pages, config)
+        files[name] = _urlset(pages, config, images)
         names.append(name)
 
     index = "\n".join(

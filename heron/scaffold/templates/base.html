@@ -9,12 +9,25 @@
 <meta property="og:title" content="{{ page.meta.og_title or page.title }}">
 <meta property="og:description" content="{{ page.meta.og_description or page.meta.description }}">
 <meta property="og:url" content="{{ absolute(page.url) }}">
-{% set og_image = page.meta.og_image or site.seo.og_default_image %}
-{% if og_image %}<meta property="og:image" content="{{ absolute(media_url(og_image)) }}">{% endif %}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ site.site.name }}">
+<meta property="og:locale" content="{{ {'ru': 'ru_RU', 'uk': 'uk_UA', 'en': 'en_US'}.get(lang, lang) }}">
+{% set cover = page.cover %}
+{% set cover_src = cover_url(page) if cover else "" %}
+{% if cover_src %}
+<meta property="og:image" content="{{ cover_src }}">
+{% if cover.width %}<meta property="og:image:width" content="{{ cover.width }}">{% endif %}
+{% if cover.height %}<meta property="og:image:height" content="{{ cover.height }}">{% endif %}
+{% if cover.alt %}<meta property="og:image:alt" content="{{ cover.alt }}">{% endif %}
+{% endif %}
+<meta name="twitter:card" content="{{ site.seo.twitter_card }}">
+<meta name="twitter:title" content="{{ page.meta.extra.get('twitter_title') or page.meta.og_title or page.title }}">
+<meta name="twitter:description" content="{{ page.meta.extra.get('twitter_description') or page.meta.og_description or page.meta.description }}">
+{% if cover_src %}<meta name="twitter:image" content="{{ cover_src }}">{% endif %}
 {% for code, href in hreflang %}
 <link rel="alternate" hreflang="{{ code }}" href="{{ href }}">
 {% endfor %}
-{% if page.meta.noindex or not env.indexable %}<meta name="robots" content="noindex, nofollow">{% endif %}
+<meta name="robots" content="{{ robots_meta }}">
 <meta name="color-scheme" content="light dark">
 <script>
   {# heron:note base.scheme #}

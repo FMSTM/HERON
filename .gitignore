@@ -16,3 +16,5 @@ env/.env.*
 
 # локальные образцы границы ядра — с именами, в репозиторий не едут
 scripts/boundary-patterns.local.txt
+docker-compose.test.override.yml
+_ai/logs/

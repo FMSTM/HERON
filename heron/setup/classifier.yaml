@@ -9,6 +9,113 @@
 # Подписи — на русском и английском; другие языки берут английскую.
 # Добавить сферу или специализацию — дописать строку, код анкеты не меняется.
 # Номера `id` не переиспользуются: по ним анкета узнаёт записанный ответ.
+#
+# Поле `type` - строка или список типов schema.org (первый - основной). Необязательное
+# поле `specialty` - имя значения MedicalSpecialty (уходит в разметку как medicalSpecialty).
+# Ключ `non_local` обязан перечислять каждую специализацию, итоговый тип которой не наследует
+# LocalBusiness (это проверяет tests/test_classifier_data.py), и ещё те, у кого тип места
+# добавлен вторым элементом списка (decision: add_type).
+
+# Специализации, у которых исходный тип не наследует LocalBusiness: решение по каждой.
+# decision: keep - тип оставлен, add_type - к типу добавлен второй, replace - тип заменён.
+# Правка типов health-07 (MedicalBusiness) и transport-02 (LocalBusiness) убрала их из таблицы.
+non_local:
+- id: health-06
+  type:
+  - DiagnosticLab
+  - MedicalBusiness
+  decision: add_type
+  reason: "лаборатория принимает людей по часам, добавлен тип места"
+- id: education-01
+  type: School
+  decision: keep
+  reason: "тип без изменений, школа - подтип EducationalOrganization"
+- id: education-02
+  type: Preschool
+  decision: keep
+  reason: "тип без изменений, подтип EducationalOrganization"
+- id: education-03
+  type: CollegeOrUniversity
+  decision: keep
+  reason: "тип без изменений, подтип EducationalOrganization"
+- id: education-04
+  type: EducationalOrganization
+  decision: keep
+  reason: "тип без изменений"
+- id: education-05
+  type: EducationalOrganization
+  decision: keep
+  reason: "тип без изменений"
+- id: education-06
+  type: EducationalOrganization
+  decision: keep
+  reason: "тип без изменений"
+- id: education-07
+  type: EducationalOrganization
+  decision: replace
+  reason: "MusicSchool в schema.org нет, взят общий тип"
+- id: education-08
+  type: EducationalOrganization
+  decision: keep
+  reason: "тип без изменений"
+- id: education-09
+  type: EducationalOrganization
+  decision: keep
+  reason: "тип без изменений"
+- id: retail-01
+  type: OnlineStore
+  decision: keep
+  reason: "интернет-магазин не имеет адреса и часов"
+- id: arts-01
+  type:
+  - Museum
+  - Organization
+  decision: add_type
+  reason: "тип места не наследует LocalBusiness, добавлена организация"
+- id: arts-03
+  type:
+  - PerformingArtsTheater
+  - Organization
+  decision: add_type
+  reason: "тип места не наследует LocalBusiness, добавлена организация"
+- id: arts-05
+  type:
+  - MusicVenue
+  - Organization
+  decision: add_type
+  reason: "тип места не наследует LocalBusiness, добавлена организация"
+- id: media-02
+  type: NewsMediaOrganization
+  decision: keep
+  reason: "редакция - организация, не место"
+- id: science-01
+  type: ResearchOrganization
+  decision: keep
+  reason: "исследовательская организация, не место"
+- id: science-02
+  type: ResearchOrganization
+  decision: keep
+  reason: "исследовательская организация, не место"
+- id: science-03
+  type: ResearchProject
+  decision: keep
+  reason: "проект, а не организация, тип без изменений"
+- id: animals-01
+  type:
+  - VeterinaryCare
+  - LocalBusiness
+  decision: add_type
+  reason: "VeterinaryCare не наследует LocalBusiness, добавлен он сам"
+- id: public-04
+  type: GovernmentOrganization
+  decision: keep
+  reason: "госорган - организация, не коммерческое место"
+- id: religion-01
+  type:
+  - PlaceOfWorship
+  - Organization
+  decision: add_type
+  reason: "PlaceOfWorship - место, добавлена организация"
 
 directions:
 - id: health
@@ -56,14 +163,17 @@ directions:
     person:
       ru: Лаборант
       en: Lab specialist
-    type: DiagnosticLab
+    type:
+    - DiagnosticLab
+    - MedicalBusiness
   - id: health-07
     ru: Физиотерапия и реабилитация
     en: Physiotherapy and rehabilitation
     person:
       ru: Физиотерапевт
       en: Physiotherapist
-    type: Physiotherapy
+    type: MedicalBusiness
+    specialty: Physiotherapy
   - id: health-08
     ru: Оптика
     en: Optician
@@ -687,7 +797,7 @@ directions:
     person:
       ru: Преподаватель музыки
       en: Music teacher
-    type: MusicSchool
+    type: EducationalOrganization
   - id: education-08
     ru: Автошкола
     en: Driving school
@@ -933,7 +1043,7 @@ directions:
     person:
       ru: Водитель такси
       en: Taxi driver
-    type: TaxiService
+    type: LocalBusiness
   - id: transport-03
     ru: Курьерская доставка
     en: Courier delivery
@@ -1090,7 +1200,9 @@ directions:
     person:
       ru: Музейный работник
       en: Museum curator
-    type: Museum
+    type:
+    - Museum
+    - Organization
   - id: arts-02
     ru: Галерея
     en: Art gallery
@@ -1104,7 +1216,9 @@ directions:
     person:
       ru: Актёр
       en: Actor
-    type: PerformingArtsTheater
+    type:
+    - PerformingArtsTheater
+    - Organization
   - id: arts-04
     ru: Кинотеатр
     en: Cinema
@@ -1118,7 +1232,9 @@ directions:
     person:
       ru: Музыкант
       en: Musician
-    type: MusicVenue
+    type:
+    - MusicVenue
+    - Organization
   - id: arts-06
     ru: Художник
     en: Artist
@@ -1397,7 +1513,9 @@ directions:
     person:
       ru: Ветеринар
       en: Veterinarian
-    type: VeterinaryCare
+    type:
+    - VeterinaryCare
+    - LocalBusiness
   - id: animals-02
     ru: Груминг
     en: Pet grooming
@@ -1466,7 +1584,9 @@ directions:
     person:
       ru: Священнослужитель
       en: Clergy
-    type: PlaceOfWorship
+    type:
+    - PlaceOfWorship
+    - Organization
 - id: other
   ru: Другое
   en: Other

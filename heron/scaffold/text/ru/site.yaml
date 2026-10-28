@@ -10,6 +10,9 @@ heron: "{spec}"
 site:
   domain: {domain}
   name: {name_yaml}
+  # alternate_names: []
+  # ↑ другие названия сайта для поисковиков (WebSite.alternateName), например [Site, Сайт.ua].
+  #   Для отдельного языка: alternate_names_<язык>, например alternate_names_ru
   theme: {theme}
   default_lang: {default_lang}
   languages: [{languages}]

@@ -26,6 +26,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    PrivateAttr,
     ValidationInfo,
     field_validator,
     model_validator,
@@ -52,6 +53,13 @@ SERVER_PATH_RE = re.compile(r"^/[A-Za-z0-9._+~@/-]*\Z")
 SERVER_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.@-]*\Z")
 ENGINE_RE = re.compile(r"^(?:prod|beta|dev|\d+\.\d+\.\d+)(?:@sha256:[0-9a-f]{64})?\Z")
 ENTITY_ID = "#entity"
+DAYS = ("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
+_DAY = "(?:Mo|Tu|We|Th|Fr|Sa|Su)"
+_TIME = r"(?:[01]\d|2[0-3]):[0-5]\d|24:00"
+_SPAN = rf"(?:{_TIME})-(?:{_TIME})"
+# schema.org openingHours: «Mo-Fr 08:30-15:00», «Mo,We,Fr 09:00-13:00»;
+# несколько промежутков через запятую
+HOURS_RE = re.compile(rf"^{_DAY}(?:-{_DAY})?(?:,{_DAY}(?:-{_DAY})?)* {_SPAN}(?:,{_SPAN})*\Z")
 
 
 @cache
@@ -451,6 +459,8 @@ class Answers(Model):
     search: SearchAnswers = Field(default_factory=SearchAnswers)
     analytics: AnalyticsAnswers = Field(default_factory=AnalyticsAnswers)
     publish: PublishAnswers = Field(default_factory=PublishAnswers)
+    # решение по находкам разметки из файла ответов (ключ schema); в site.yaml не пишется
+    _schema: dict[str, Any] | None = PrivateAttr(default=None)
 
     @model_validator(mode="after")
     def _languages_of_notes(self) -> Answers:
@@ -755,6 +765,78 @@ def _entity_contacts(node: dict[str, Any], contacts: list[ContactAnswer]) -> Non
         node["sameAs"] = list(dict.fromkeys(urls))
 
 
+def _clean_hours(value: Any) -> list[str]:
+    if isinstance(value, str):
+        value = value.splitlines()
+    out: list[str] = []
+    for item in value or []:
+        line = str(item).strip()
+        if not line:
+            continue
+        if not HOURS_RE.match(line) or not _spans_ordered(line):
+            raise Reason("hours_bad", value=repr(line))
+        out.append(line)
+    return out
+
+
+def _minutes(clock: str) -> int:
+    hours, _, minutes = clock.partition(":")
+    return int(hours) * 60 + int(minutes)
+
+
+def _spans_ordered(line: str) -> bool:
+    """Закрытие позже открытия; 24:00 и 00:00 как конец допустимы."""
+    for opens, closes in re.findall(rf"({_TIME})-({_TIME})", line.partition(" ")[2]):
+        end = _minutes(closes) or 24 * 60
+        if end <= _minutes(opens):
+            return False
+    return True
+
+
+def _clean_enum(spec: dict[str, Any], value: Any) -> Any:
+    from heron.schemaorg import short
+    from heron.schemaorg import vocab as schema_vocab
+
+    enum = spec["enum"]
+    if spec.get("multiple"):
+        items = [value] if isinstance(value, str) else list(value or [])
+    else:
+        items = [value] if value not in (None, "") else []
+    seen: list[str] = []
+    for item in items:
+        text = short(str(item))
+        if not text:
+            continue
+        if not schema_vocab().is_member(enum, text):
+            raise Reason("enum_bad", value=repr(text), enum=enum)
+        if text not in seen:
+            seen.append(text)
+    if spec.get("multiple"):
+        return seen
+    return seen[0] if seen else ""
+
+
+def _clean_subtype(spec: dict[str, Any], value: Any) -> Any:
+    from heron.schemaorg import vocab as schema_vocab
+
+    if value in (None, ""):
+        return ""
+    text = str(value).strip()
+    if text not in spec.get("options", []) or not schema_vocab().is_subtype(text, spec["of"]):
+        raise Reason("subtype_bad", value=repr(text), of=spec["of"])
+    return text
+
+
+def _clean_bool(value: Any) -> Any:
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str) and value.strip().lower() in ("true", "false"):
+        return value.strip().lower() == "true"
+    raise Reason("bool_bad", value=repr(value))
+
+
 def _clean_value(spec: dict[str, Any], value: Any) -> Any:
     kind = spec.get("kind")
     if kind == "lines":
@@ -773,6 +855,14 @@ def _clean_value(spec: dict[str, Any], value: Any) -> Any:
         return value
     if kind == "media" and isinstance(value, str):
         return value.strip().removeprefix("./").removeprefix("/")
+    if kind == "hours":
+        return _clean_hours(value)
+    if kind == "enum":
+        return _clean_enum(spec, value)
+    if kind == "subtype":
+        return _clean_subtype(spec, value)
+    if kind == "bool":
+        return _clean_bool(value)
     return value.strip() if isinstance(value, str) else value
 
 
@@ -1041,3 +1131,120 @@ def ordered(data: dict[str, Any]) -> dict[str, Any]:
     out = {key: data[key] for key in ORDER if key in data}
     out.update({key: value for key, value in data.items() if key not in out})
     return out
+
+
+# --- находки проверки разметки при сохранении --------------------------------------
+
+SCHEMA_MODES = ("check", "drop", "except")
+# свойство разметки -> поле анкеты, которое не лежит в vocab.yaml по prop
+_PROP_FIELD = {
+    "telephone": "contacts",
+    "email": "contacts",
+    "contactPoint": "contacts",
+    "sameAs": "contacts",
+    "knowsAbout": "direction",
+    "hasOccupation": "specialization",
+    "@type": "type",
+}
+_ENTITY_PREFIX = "schema.entity."
+
+
+class SchemaFindings(ValueError):
+    """Итоговый site.yaml не пройдёт проверку разметки: список находок по контракту 409."""
+
+    def __init__(self, findings: list[dict[str, Any]]) -> None:
+        self.findings = findings
+        keys = ", ".join(str(f.get("key")) for f in findings)
+        super().__init__(f"markup will not pass the check: {keys}")
+
+
+def field_for(path: str) -> str | None:
+    """Поле анкеты, которому принадлежит находка по пути `schema.entity.<свойство>`."""
+    if not path.startswith(_ENTITY_PREFIX):
+        return None
+    prop = path[len(_ENTITY_PREFIX) :]
+    head = prop.split(".", 1)[0]
+    if head in _PROP_FIELD:
+        return _PROP_FIELD[head]
+    for name, spec in vocab()["fields"].items():
+        own = str(spec.get("prop") or "")
+        if own and (prop == own or prop.startswith(own + ".")):
+            return name
+    return None
+
+
+def findings_payload(entries: list[Any], answers: Answers, lang: str) -> list[dict[str, Any]]:
+    """Находки в виде записи ответа 409 (с привязкой к полям и текстом drop_label)."""
+    from heron.setup.reasons import say
+
+    out = []
+    for entry in entries:
+        field_name = field_for(entry.path)
+        value = str(entry.value or "")
+        if field_name in vocab()["fields"]:
+            spec = vocab()["fields"][field_name]
+            shown = answers.about.fields.get(field_name, value)
+            if isinstance(shown, dict):
+                shown = next(iter(shown.values()), value)
+            if isinstance(shown, list):
+                shown = ", ".join(str(x) for x in shown)
+            drop_label = say(lang, "drop_field", label=label_for(spec["label"], lang), value=shown)
+        elif field_name is not None:
+            drop_label = say(lang, "drop_" + field_name, value=value)
+        else:
+            drop_label = say(lang, "drop_path", path=entry.path)
+        out.append(
+            {
+                "key": entry.key,
+                "code": entry.code,
+                "title": entry.title(lang),
+                "detail": entry.detail(lang),
+                "hint": entry.hint(lang),
+                "field": field_name,
+                "path": entry.path,
+                "value": value,
+                "drop_label": drop_label,
+            }
+        )
+    return out
+
+
+def drop(
+    answers: Answers, data: dict[str, Any], findings: list[dict[str, Any]]
+) -> tuple[Answers, dict[str, Any], list[str]]:
+    """Убрать значения, на которые указали находки: из ответов, а без поля - из data по пути.
+
+    Возвращает копию ответов, data и drop_label убранного. Тип узла не удаляется.
+    """
+    kept = answers.model_copy(deep=True)
+    labels = []
+    for item in findings:
+        name = item.get("field")
+        if name == "type":
+            raise Reason("type_not_dropped")
+        if name == "contacts":
+            value = str(item.get("value") or "")
+            prop = str(item["path"]).rsplit(".", 1)[-1]
+            kinds = {"telephone": {"phone"}, "email": {"email"}}.get(prop)
+            kept.about.contacts = [
+                c
+                for c in kept.about.contacts
+                if not (
+                    (value and c.value == value)
+                    or (
+                        not value
+                        and (c.type in kinds if kinds else c.type not in ("phone", "email"))
+                    )
+                )
+            ]
+        elif name == "direction":
+            kept.about.direction = ""
+            kept.about.specialization = ""
+        elif name == "specialization":
+            kept.about.specialization = ""
+        elif name in vocab()["fields"]:
+            kept.about.fields.pop(name, None)
+        else:
+            _drop(data, str(item["path"]))
+        labels.append(str(item["drop_label"]))
+    return kept, data, labels

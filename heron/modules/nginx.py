@@ -58,6 +58,11 @@ COMMENTS = {
             "разложить и руками на чужой сервер. Проверку домена оставляем."
         ),
         "root": "Корень — основной язык сайта, его 404 лежит рядом с index.html.",
+        "security": (
+            "Безопасность: версия nginx не показывается, заголовки ставит образ сайта.\n"
+            "add_header в location заменяет заголовки server, поэтому там они повторены."
+        ),
+        "health": "Проверка живости для healthcheck: отвечает без обращения к файлам.",
         "exact": "301 и 410: точные адреса, регистр важен",
     },
     "en": {
@@ -92,6 +97,11 @@ COMMENTS = {
             "folder can also be laid out by hand on another server. Domain checks stay."
         ),
         "root": "The root is the main language of the site, its 404 lies next to index.html.",
+        "security": (
+            "Security: the nginx version is hidden, the site image sets the headers.\n"
+            "add_header in a location replaces the server ones, so they are repeated there."
+        ),
+        "health": "Liveness check for healthcheck: answers without touching files.",
         "exact": "301 and 410: exact addresses, case matters",
     },
 }
@@ -106,6 +116,24 @@ def _comments(text: str, lang: str) -> str:
     )
 
 
+# Заголовки безопасности (спецификация 22, раздел 5). CSP строгий: скрипты
+# только свои, внешних нет. HSTS на http-ответе браузер игнорирует, а за
+# TLS-прокси он нужен, поэтому ставится всегда.
+SECURITY = (
+    'add_header X-Content-Type-Options "nosniff" always;\n'
+    'add_header Referrer-Policy "strict-origin-when-cross-origin" always;\n'
+    "add_header Content-Security-Policy \"default-src 'self'; script-src 'self'; "
+    "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; "
+    "object-src 'none'; base-uri 'self'; frame-ancestors 'self'\" always;\n"
+    'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;\n'
+)
+
+
+def _security(indent: int) -> str:
+    pad = " " * indent
+    return "".join(f"{pad}{line}\n" for line in SECURITY.splitlines())
+
+
 HEAD = """#@built
 server {
     listen       8080;
@@ -116,6 +144,17 @@ server {
 
     charset utf-8;
     absolute_redirect off;
+    server_tokens off;
+
+    #@security
+@SECURITY@
+    #@health
+    location = /healthz {
+        access_log off;
+@SECURITY8@
+        default_type text/plain;
+        return 200 "ok";
+    }
 
     #@types
     include /etc/nginx/mime.types;
@@ -141,11 +180,13 @@ server {
     #@assets
     location ^~ /media/ {
         add_header Cache-Control "public, max-age=86400" always;
+@SECURITY8@
         location ~ /\\. { return 404; }
         try_files $uri =404;
     }
     location ^~ /assets/ {
         add_header Cache-Control "public, max-age=86400" always;
+@SECURITY8@
         location ~ /\\. { return 404; }
         try_files $uri =404;
     }
@@ -310,7 +351,12 @@ def generate(config: SiteConfig, plan: Plan | None = None) -> dict[str, str]:
     # же конфиг на любой машине. Метки раскрываются в шаблоне до вставки
     # адресов: строка сайта меткой не станет.
     notes = config.build.notes
-    head = _comments(HEAD, notes).replace(
+    head = (
+        _comments(HEAD, notes)
+        .replace("@SECURITY8@\n", _security(8))
+        .replace("@SECURITY@\n", _security(4))
+    )
+    head = head.replace(
         "    absolute_redirect off;\n",
         "    absolute_redirect off;\n" + checks + _locations(plan, notes),
     )

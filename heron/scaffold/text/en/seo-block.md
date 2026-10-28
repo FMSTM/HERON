@@ -22,6 +22,7 @@ description: {description}
 # og_description:            # empty — description is used
 # og_image:                  # empty — seo.og_default_image from site.yaml
 # og_image_alt:
+# ↑ page cover: og_image, then image, then the first picture in the text, then the hero picture, then seo.og_default_image. Make the cover opaque, 1200 px wide or more
 
 # ================= 4. TWITTER / X =================
 # twitter_title:             # empty — taken from Open Graph

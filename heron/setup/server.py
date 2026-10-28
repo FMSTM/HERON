@@ -130,7 +130,22 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
                     shown = data["lang"]
                 answers = setup.Answers.model_validate(data.get("answers") or {})
                 upload = uploads.get(str(data.get("upload") or ""))
-                result = setup.apply(root, answers, lang=lang, upload=upload)
+                decision = data.get("schema") if isinstance(data, dict) else None
+                result = setup.apply(
+                    root,
+                    answers,
+                    lang=lang,
+                    upload=upload,
+                    schema=decision if isinstance(decision, dict) else None,
+                )
+            except setup.SchemaFindings as error:
+                from heron.schemaorg import RELEASE
+
+                self._json(
+                    409,
+                    {"ok": False, "schema": {"release": RELEASE, "findings": error.findings}},
+                )
+                return
             except HeronError as error:
                 self._json(400, {"ok": False, "error": error.message, "hint": error.hint or ""})
                 return
@@ -148,6 +163,8 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
                     "theme": result.theme,
                     "backup": result.backup,
                     "warnings": result.warnings,
+                    "dropped": result.dropped,
+                    "excepted": result.excepted,
                     "state": setup.state(root),
                 },
             )

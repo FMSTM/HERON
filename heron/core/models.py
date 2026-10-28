@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time
 from typing import Any
@@ -19,6 +20,12 @@ from heron.core import paths
 
 # Чужой адрес: своя схема или протокол-относительная ссылка.
 EXTERNAL_URL = re.compile(r"^(?:[a-z][a-z0-9+.\-]*:)?//", re.I)
+
+# Картинка в markdown: `![alt](src)` или `![alt](<src> "title")`. Нужна только
+# ради alt: сам путь находит `media.REFERENCE`, как у сборки.
+MARKDOWN_IMAGE = re.compile(r"!\[([^\]]*)\]\(\s*<?([^)\s>]+)")
+# Что из путей текста годится в обложку: картинка, а не pdf и не ролик.
+COVER_SUFFIXES = (".jpg", ".jpeg", ".png", ".webp", ".avif", ".gif")
 
 
 class Pair(str):
@@ -130,6 +137,13 @@ class Page:
     breadcrumbs: list[Page] = field(default_factory=list)
     related: dict[str, list[Page]] = field(default_factory=dict)
 
+    # Как узнать обложку: ставит окружение шаблонов (`env.context`), потому
+    # что размеры и варианты есть только в плане нарезки. Не поставили —
+    # обложки нет.
+    cover_of: Callable[[Page], dict[str, Any] | None] | None = field(
+        default=None, repr=False, compare=False
+    )
+
     @property
     def title(self) -> str:
         return self.meta.title
@@ -195,6 +209,46 @@ class Page:
             title=(self.meta.video_title or "").strip(),
             external=external,
         )
+
+    @property
+    def cover(self) -> dict[str, Any] | None:
+        """Обложка страницы: src, url, width, height, alt. Нет — None.
+
+        Одна картинка питает og:image, twitter:image, primaryImageOfPage и
+        карту сайта: разойдясь, эти места дают поисковику разные ответы.
+        """
+        return self.cover_of(self) if self.cover_of is not None else None
+
+    def cover_source(self, config: Any) -> tuple[str, str] | None:
+        """Источник обложки и её alt — по порядку, без чтения файлов.
+
+        og_image, затем image фронтматтера, затем первая картинка в intro и
+        в секции hero (по исходному тексту, до рендера), затем
+        `seo.og_default_image` языка страницы. `config` — конфиг сайта;
+        модель берёт из него только картинку по умолчанию и название.
+        """
+        meta = self.meta
+        og_image = (meta.og_image or "").strip()
+        if og_image:
+            alt = meta.extra.get("og_image_alt") or meta.image_alt or ""
+            return self._cover_path(og_image), str(alt)
+        image = (meta.image or "").strip()
+        if image:
+            return self._cover_path(image), meta.image_alt or ""
+        hero = self.sections.get("hero")
+        for chunk in (self.intro.raw if self.intro else "", hero.raw if hero else ""):
+            found = _text_image(chunk)
+            if found is not None:
+                return found
+        local = config.for_lang(self.lang)
+        default = (local.seo.og_default_image or "").strip()
+        if default:
+            return self._cover_path(default), local.site.name or ""
+        return None
+
+    @staticmethod
+    def _cover_path(src: str) -> str:
+        return src if EXTERNAL_URL.match(src) else paths.normalize(src)
 
     def section(self, section_id: str) -> Section | None:
         """Секция по идентификатору.
@@ -272,6 +326,31 @@ class Site:
 
     def of_type(self, page_type: str, lang: str | None = None) -> list[Page]:
         return [p for p in self.pages if p.type == page_type and (lang is None or p.lang == lang)]
+
+
+def _text_image(chunk: str) -> tuple[str, str] | None:
+    """Первая картинка исходного текста секции и её alt из `![alt](src)`."""
+    if not chunk:
+        return None
+    # media импортирует модели: импорт здесь, а не наверху модуля.
+    from heron.core import media
+    from heron.core.parser import markdown
+
+    text = markdown.without_code(chunk)
+    for match in media.REFERENCE.finditer(text):
+        src = paths.normalize(match.group(1))
+        if not src.lower().endswith(COVER_SUFFIXES):
+            continue
+        alt = next(
+            (
+                found.group(1).strip()
+                for found in MARKDOWN_IMAGE.finditer(text)
+                if paths.normalize(found.group(2)) == src
+            ),
+            "",
+        )
+        return src, alt
+    return None
 
 
 def moment(value: date | datetime | None) -> datetime | None:

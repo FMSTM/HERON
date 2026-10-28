@@ -309,7 +309,14 @@ files:
   - path: spec/20-data-contract.md
     ru_sha256: "…"          # hash of the Russian file the translation was made from
     en_status: current      # current - the translation is up to date; stale - ru changed; missing - no translation
+root_files:                 # the README pair of the repository: it is not in docs/ru, it lies in the root
+  - ru: README.ru.md        # source
+    en: README.md           # translation
+    ru_sha256: "…"          # hash of README.ru.md the README.md was made from
+    en_status: current
 ```
+
+The `files` key lists the files of `docs/ru/`; the README pair is kept by a separate list, `root_files`, by the same rules: a hash, a status, a mismatch is a warning on `dev` and an error on `beta` and `prod`.
 
 `scripts/check.sh` recomputes the hashes (`scripts/check_translation.py`): the Russian file changed while the entry says `current` - the translation is stale. A `missing` entry also has a hash that matches the file - the same commit that changes the Russian text updates it; for `stale` the hash is not checked. A file without an entry and an entry without a file are the same kind of mismatch. On `dev` this is a warning, on `beta` and `prod` (the branch comes from `HERON_BRANCH`, otherwise `git branch --show-current`) it is an error: documentation that says one thing in one language and another in the other does not go to beta. Whoever translates updates the entry in the same commit. For a file with the status `stale` or `missing`, `heron docs --lang en` prints a notice as the first line and gives the Russian text if there is no English one (`21` §10).
 
@@ -335,7 +342,7 @@ The human gives the agent one link - to the site repository, to the engine repos
 **Links out of the site kit** are absolute, to GitHub, to the channel branch of the image that laid out the kit (`HERON_CHANNEL`; outside the image - `prod`): `https://github.com/FMSTM/HERON/blob/<channel>/docs/<lang>/spec/20-data-contract.md`. The same topic from the image is `docker run --rm ghcr.io/fmstm/heron:<channel> docs --lang <lang> <topic>`; the header of the site `AGENTS.md` names this command, it is not repeated at every link. Inside the kit the links are relative and the same in all four channels - because the channels hand out one tree, not four editions. Delivery makes two exceptions (`20` §1); they do not change `docs/<lang>/` itself:
 
 - **the `build.agents: kit` mode.** The short kit has no `guide/` and `spec/`, so relative markdown links whose target (from the file's folder) leads there are replaced at delivery with absolute addresses `https://github.com/FMSTM/HERON/blob/<channel>/docs/<lang>/<path>#anchor`: the channel is the same `HERON_CHANNEL`, the language is that of the file that would go into the full kit (no translation - the fallback language), the anchor is kept. Other links do not change; paths in YAML comments and in the text are not markdown links and do not change either;
-- **channel substitution.** In a channel other than `prod` (for example, `beta`), in the kit `.md` files and in the body of `AGENTS.md`, links to the `prod` branch (`…/FMSTM/HERON/blob/prod/`) are replaced with `blob/<channel>/`, and the image `ghcr.io/fmstm/heron:prod` in ready commands (before a quote or a space) with `heron:<channel>`. A tag in backticks in the tag table describes the channels and does not change. `heron docs --export` (and `--all-langs`) delivers the same bytes as the full kit; `heron docs <topic>` and `heron docs template <file>` print the text with the same substitution (the file in the image does not change; the notice of a fallback or a lagging translation goes as the first line for a topic and to stderr for a sample).
+- **channel substitution.** In a channel other than `prod` (for example, `beta`), in the kit `.md` files and in the body of `AGENTS.md`, links to the `prod` branch (`…/FMSTM/HERON/blob/prod/`) are replaced with `blob/<channel>/`, and the image `ghcr.io/fmstm/heron:prod` in ready commands (before a quote or a space) with `heron:<channel>`. A tag in backticks in the tag table describes the channels and does not change. `heron docs --export` (and `--all-langs`) delivers the same bytes as the full kit; `heron docs <topic>`, `heron docs template <file>` and `heron docs --search` print the text with the same substitution (the file in the image does not change; the notice of a fallback or a lagging translation goes as the first line for a topic and to stderr for a sample).
 
 For `prod` the full kit is `docs/<lang>/` byte for byte. The manifest stores the sha256 of the delivered bytes, so the substitution does not count as a human edit.
 

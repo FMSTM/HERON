@@ -976,7 +976,7 @@ Clarification of 2026-09-14, after implementing the contracts.
 
 The core strictly validates only its own keys: `heron`, `site`, `seo`, `nav`, `build`, `analytics`, `plugins`, `forms`, `sinks`, `gone`. A typo inside them is a stop with `E011`.
 
-Blocks the engine does not know - `contact`, `organization`, `analytics`, any of your own - **pass through** and reach the templates as they are. The core does not go into their meaning: otherwise it would start knowing the subject area of each site separately, and the boundary everything was started for would disappear.
+Blocks the engine does not know - `contact`, `organization`, any of your own - **pass through** and reach the templates as they are. The core does not go into their meaning: otherwise it would start knowing the subject area of each site separately, and the boundary everything was started for would disappear.
 
 We do not lose the presence check, though. The theme declares what it needs in `theme.yaml`:
 

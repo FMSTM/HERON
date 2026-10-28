@@ -25,11 +25,11 @@ from pydantic import BaseModel
 
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
-from heron.core import paths
+from heron.core import paths, urls
 from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError
 from heron.core.media import Manifest
-from heron.core.models import Page, Site
+from heron.core.models import EXTERNAL_URL, Page, Site
 from heron.modules import jsonld, sitemap
 
 MODULES = "modules"
@@ -272,6 +272,93 @@ def media_url(
     return render
 
 
+# Обложку берут краулеры соцсетей и мессенджеров: avif и webp понимают не все.
+CRAWLER_FORMATS = ("jpg", "jpeg", "png")
+# Пропорция карточки ссылки в соцсетях (1200x630): из вариантов берём ближайший.
+CARD_RATIO = 1200 / 630
+COVER_WIDTH = 1200
+
+
+def _cover_variant(
+    manifest: Manifest, src: str, min_width: int
+) -> tuple[str, int | None, int | None]:
+    """Путь варианта обложки и его размеры; подходящего нет — мастер без размеров.
+
+    Вариант — не уже `min_width` и в формате, который понимают все краулеры.
+    Из пропорций берётся ближайшая к карточке ссылки, из ширин — самая узкая
+    из подходящих: крупнее нужного краулер всё равно ужмёт.
+    """
+    origin = PurePath(src).suffix.lstrip(".").lower()
+    found: list[tuple[float, int, str, int]] = []
+    for rendition in manifest.items.get(src, {}).values():
+        if not rendition.width or not rendition.height:
+            continue
+        for fmt, variants in rendition.sources.items():
+            if (origin if fmt == "origin" else fmt.lower()) not in CRAWLER_FORMATS:
+                continue
+            wide = [(w, rel) for w, rel in variants if w >= min_width]
+            if not wide:
+                continue
+            width, rel = min(wide)
+            height = round(width * rendition.height / rendition.width)
+            distance = abs(rendition.width / rendition.height - CARD_RATIO)
+            found.append((distance, width, rel, height))
+    if not found:
+        return src, None, None
+    _, width, rel, height = min(found)
+    return rel, width, height
+
+
+def _known(manifest: Manifest, src: str) -> bool:
+    """Мастер есть в плане сборки. Нет — его нет на диске (E007 от media.verify)."""
+    return src in manifest.items or src in manifest.raw or src in manifest.copies
+
+
+def cover_of(manifest: Manifest, config: SiteConfig) -> Any:
+    """Обложка страницы для `page.cover`: src, url, width, height, alt или None."""
+
+    def resolve(page: Page) -> dict[str, Any] | None:
+        source = page.cover_source(config)
+        if source is None:
+            return None
+        src, alt = source
+        if EXTERNAL_URL.match(src):
+            return {"src": src, "url": src, "width": None, "height": None, "alt": alt}
+        if not _known(manifest, src):
+            return None
+        rel, width, height = _cover_variant(manifest, src, COVER_WIDTH)
+        return {
+            "src": src,
+            "url": urls.absolute(config, f"/{rel}"),
+            "width": width,
+            "height": height,
+            "alt": alt,
+        }
+
+    return resolve
+
+
+def cover_url(manifest: Manifest, config: SiteConfig) -> Any:
+    """Абсолютный адрес обложки страницы в JPEG/PNG. Обложки нет — пустая строка.
+
+    Шаблон по пустой строке не выводит og:image: битая ссылка хуже никакой.
+    """
+
+    def render(page: Page, min_width: int = COVER_WIDTH) -> str:
+        source = page.cover_source(config)
+        if source is None:
+            return ""
+        src = source[0]
+        if EXTERNAL_URL.match(src):
+            return src
+        if not _known(manifest, src):
+            return ""
+        rel, _, _ = _cover_variant(manifest, src, min_width)
+        return urls.absolute(config, f"/{rel}")
+
+    return render
+
+
 def picture(
     manifest: Manifest,
     collector: Collector,
@@ -373,4 +460,21 @@ def context(
     # `{{ src|media_url }}`, чем вызов функции, и заставлять выбирать
     # одну из двух форм ради устройства движка незачем.
     env.filters["media_url"] = shared["media_url"]
+    # Обложка — одна на все потребители (og:image, twitter:image, разметка,
+    # карта сайта). Ставится всем страницам сразу: тема берёт `page.cover`
+    # и у соседей — `page_of('services').cover`.
+    resolve = cover_of(media or Manifest(), config)
+    if page.cover_of is None:
+        for each in [page, *site.pages]:
+            each.cover_of = resolve
+    shared["cover_url"] = cover_url(media or Manifest(), config)
+    # Строка для <meta name="robots">: крупные превью разрешены только
+    # индексируемым страницам прод-сборки, остальные закрыты целиком.
+    indexable = shared["env"].indexable and not page.meta.noindex
+    shared["robots_meta"] = (
+        "max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+        if indexable
+        else "noindex, nofollow"
+    )
+    env.filters["cover_url"] = shared["cover_url"]
     return shared

@@ -128,3 +128,28 @@ def test_wheel_contains_docs_and_skills(tmp_path):
     assert not any("/brand/" in name for name in infos)
     text = sum(i.file_size for name, i in infos.items() if name.startswith("heron/_docs/"))
     assert text < 2 * 1024 * 1024, text
+
+
+@pytest.mark.skipif(shutil.which("uv") is None, reason="нет uv: колесо собрать нечем")
+def test_wheel_contains_schemaorg_index(tmp_path):
+    """Словарь schema.org и его NOTICE едут в колесе без правок pyproject.toml."""
+    work = tmp_path / "src"
+    shutil.copytree(
+        ROOT,
+        work,
+        ignore=shutil.ignore_patterns(
+            ".git", ".venv", ".uvcache", "out", "dist", "__pycache__", ".*cache", "node_modules"
+        ),
+    )
+    done = subprocess.run(
+        ["uv", "build", "--wheel", "--offline", "-q", "-o", str(tmp_path / "dist")],
+        cwd=work,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert done.returncode == 0, done.stderr
+    (wheel,) = (tmp_path / "dist").glob("heron-*.whl")
+    names = set(zipfile.ZipFile(wheel).namelist())
+    assert "heron/schemaorg/schemaorg-29.3.json" in names
+    assert "heron/schemaorg/NOTICE.md" in names

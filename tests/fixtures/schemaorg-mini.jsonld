@@ -1,0 +1,20 @@
+{
+  "@context": {"schema": "https://schema.org/", "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#", "rdfs": "http://www.w3.org/2000/01/rdf-schema#"},
+  "@graph": [
+    {"@id": "schema:Thing", "@type": "rdfs:Class", "rdfs:label": "Thing"},
+    {"@id": "schema:Place", "@type": "rdfs:Class", "rdfs:subClassOf": {"@id": "schema:Thing"}},
+    {"@id": "schema:Enumeration", "@type": "rdfs:Class", "rdfs:subClassOf": {"@id": "schema:Thing"}},
+    {"@id": "schema:Color", "@type": "rdfs:Class", "rdfs:subClassOf": {"@id": "schema:Enumeration"}},
+    {"@id": "schema:Shade", "@type": "rdfs:Class", "rdfs:subClassOf": {"@id": "schema:Enumeration"}, "schema:isPartOf": {"@id": "https://pending.schema.org"}},
+    {"@id": "schema:Red", "@type": "schema:Color"},
+    {"@id": "schema:Blue", "@type": ["schema:Color", "schema:Shade"], "rdfs:subClassOf": {"@id": "schema:Place"}},
+    {"@id": "schema:Grey", "@type": "schema:Color", "schema:isPartOf": {"@id": "https://attic.schema.org"}, "schema:supersededBy": {"@id": "schema:Red"}},
+    {"@id": "schema:DataType", "@type": "rdfs:Class", "rdfs:subClassOf": {"@id": "rdfs:Class"}},
+    {"@id": "schema:Text", "@type": ["schema:DataType", "rdfs:Class"]},
+    {"@id": "schema:URL", "@type": "rdfs:Class", "rdfs:subClassOf": {"@id": "schema:Text"}},
+    {"@id": "schema:name", "@type": "rdf:Property", "schema:domainIncludes": {"@id": "schema:Thing"}, "schema:rangeIncludes": [{"@id": "schema:Text"}, {"@id": "schema:URL"}]},
+    {"@id": "schema:title", "@type": "rdf:Property", "schema:domainIncludes": {"@id": "schema:Thing"}, "schema:rangeIncludes": {"@id": "schema:Text"}, "schema:supersededBy": {"@id": "schema:name"}},
+    {"@id": "schema:nearby", "@type": "rdf:Property", "schema:domainIncludes": {"@id": "schema:Place"}, "schema:rangeIncludes": {"@id": "schema:Place"}, "schema:isPartOf": {"@id": "https://pending.schema.org"}, "schema:inverseOf": {"@id": "schema:nearby"}},
+    {"@id": "schema:oldColor", "@type": "rdf:Property", "schema:domainIncludes": {"@id": "schema:Thing"}, "schema:rangeIncludes": {"@id": "schema:Color"}, "schema:isPartOf": {"@id": "https://attic.schema.org"}}
+  ]
+}

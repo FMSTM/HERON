@@ -83,19 +83,37 @@ def links(root: Path) -> set[str]:
     return found
 
 
+def cover_variants(root: Path, src: str, fallback_width: int = 800) -> set[str]:
+    """Файлы запасного формата, которые план обложки добавляет к запрошенным шаблоном.
+
+    Имя считается через `plan_master(cover=True)`, а не строкой наугад.
+    """
+    data = yaml.safe_load((root / "theme" / "theme.yaml").read_text(encoding="utf-8"))
+    spec = ImagesSpec(**{**data["images"], "fallback_width": fallback_width})
+    plan = media.plan_master(src, root / src, spec, cover=True)
+    return {f"{path}" for r in plan.values() for _, path in r.sources["origin"]}
+
+
 def test_only_the_requested_ratio_lands_in_the_build(site):
     result = pipeline.run(site)
     assert not result.failed, [str(e) for e in result.collector.errors]
     files = built(site)
-    assert files and all("-16x9-" in name for name in files), files
-    # мастер целиком не нужен: на него никто не ссылается
-    assert "media/card.png" not in files
+    # card.md - обложка страницы /card/: мастер едет в сборку целиком (E16.S1.T2)
+    assert "media/card.png" in files
+    # прочее: либо запрошенное шаблоном 16:9, либо вариант обложки (E16.S2.T3)
+    cover = cover_variants(site, "media/card.png") & {n for n in files if n.endswith(".png")}
+    extra = {n for n in files if "-16x9-" not in n} - {"media/card.png"}
+    assert extra <= cover, extra
+    # пропорций, на которые никто не ссылается, нет
+    assert not any(n for n in files if re.search(r"-(1x1|4x3)-", n) and n not in cover), files
 
 
 def test_one_fallback_per_ratio_and_not_wider_than_fallback_width(site):
     pipeline.run(site)
-    fallbacks = [name for name in built(site) if name.endswith(".png")]
-    assert fallbacks == ["media/card-16x9-800.png"]
+    pngs = {name for name in built(site) if name.endswith(".png")}
+    assert "media/card-16x9-800.png" in pngs
+    # кроме запасного файла в <img> - мастер обложки и её вариант шириной cover_width
+    assert pngs == {"media/card.png", "media/card-16x9-800.png", "media/card-16x9-1200.png"}, pngs
     html = (site / "dist" / "card" / "index.html").read_text(encoding="utf-8")
     assert 'src="/media/card-16x9-800.png"' in html
     with Image.open(site / "dist" / "media" / "card-16x9-800.png") as out:
@@ -115,7 +133,11 @@ def test_fallback_width_comes_from_the_theme(site):
     data["images"]["fallback_width"] = 400
     theme.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
     pipeline.run(site)
-    assert [n for n in built(site) if n.endswith(".png")] == ["media/card-16x9-400.png"]
+    pngs = {n for n in built(site) if n.endswith(".png")}
+    html = (site / "dist" / "card" / "index.html").read_text(encoding="utf-8")
+    assert 'src="/media/card-16x9-400.png"' in html
+    # прочие .png - мастер обложки и её вариант шириной max(fallback_width, cover_width)
+    assert pngs == {"media/card.png", "media/card-16x9-400.png", "media/card-16x9-1200.png"}, pngs
 
 
 def test_fallback_width_defaults_to_800():
@@ -150,8 +172,12 @@ def test_raw_references_bring_the_master(site):
     files = built(site)
     assert "media/inline.jpg" in files
     assert "media/og.jpg" in files
-    # и ни одной нарезки им: шаблон их не режет
-    assert not any(name.startswith(("media/inline-", "media/og-")) for name in files)
+    # inline.jpg не обложка и шаблон его не режет; у og.jpg (обложка /inline/)
+    # допустим только вариант шириной cover_width
+    assert not any(name.startswith("media/inline-") for name in files)
+    og = {n for n in files if n.startswith("media/og-")}
+    assert og <= cover_variants(site, "media/og.jpg"), og
+    assert all(n.endswith("-1200.jpg") for n in og), og
 
 
 def test_cache_keeps_what_the_build_did_not_take(site, tmp_path):
@@ -166,7 +192,11 @@ def test_cache_keeps_what_the_build_did_not_take(site, tmp_path):
     slices = site / ".heron-cache" / media.SLICES
     cached = {p.name for p in slices.rglob("*") if p.is_file()}
     assert any("-16x9-" in name for name in cached)
-    assert all("-1x1-" in name for name in built(site))
+    # нарезки карточки - 1:1; исключение - мастер и вариант обложки
+    cover = cover_variants(site, "media/card.png")
+    assert all(
+        "-1x1-" in name or name == "media/card.png" or name in cover for name in built(site)
+    ), built(site)
 
 
 def test_build_without_templates_still_cuts_everything(tmp_path):

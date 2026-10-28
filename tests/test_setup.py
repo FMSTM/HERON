@@ -720,13 +720,13 @@ def test_notes_lang_survives_build_that_is_not_a_block():
 
 # --- ссылка анкеты на документацию - на ветку канала образа (E13.S1.T23) ------------
 
-DOCS_LINK = re.compile(r'const DOCS = "(https://github\.com/FMSTM/HERON/blob/([^/]+)/([^"]+))"')
+DOCS_LINK = re.compile(r'\b(ru|en): "(https://github\.com/FMSTM/HERON/blob/([^/]+)/([^"]+))"')
 
 
-def _docs_link(page: str) -> tuple[str, str, str]:
-    found = DOCS_LINK.search(page)
-    assert found, "в странице анкеты нет const DOCS"
-    return found[1], found[2], found[3]
+def _docs_link(page: str, lang: str = "ru") -> tuple[str, str, str]:
+    found = {m[1]: m for m in DOCS_LINK.finditer(page)}.get(lang)
+    assert found, f"в странице анкеты нет ссылки помощи на языке {lang}"
+    return found[2], found[3], found[4]
 
 
 def test_page_source_does_not_hardcode_beta():
@@ -780,3 +780,22 @@ def test_server_gives_out_the_page_of_its_channel(site: Path, monkeypatch, chann
         assert _docs_link(page)[1] == channel
     finally:
         _stop(port, token, thread)
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_help_link_follows_interface_language(monkeypatch, lang):
+    from heron import setup as setup_module
+
+    monkeypatch.delenv("HERON_CHANNEL", raising=False)
+    page = setup_module.page().decode("utf-8")
+    url, _branch, path = _docs_link(page, lang)
+    assert path == f"docs/{lang}/guide/06-deploy.md"
+    repo = Path(reasons.__file__).resolve().parents[2]
+    assert (repo / path).is_file()
+    assert "const docsUrl = () => DOCS_BY_LANG[L]" in page
+
+
+def test_server_has_no_unused_page_constant():
+    from heron.setup import server
+
+    assert not hasattr(server, "PAGE")

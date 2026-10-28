@@ -33,7 +33,6 @@ from heron.core.errors import HeronError
 from heron.messages import rendered
 from heron.setup.reasons import plain, run_lang, say
 
-PAGE = Path(__file__).parent / "page.html"
 MAX_BODY = 210 * 1024 * 1024
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "[::1]", "::1"}
 

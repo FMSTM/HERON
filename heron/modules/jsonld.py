@@ -183,6 +183,46 @@ def faq(page: Page) -> dict[str, Any] | None:
     }
 
 
+# Типы-наследники WebPage: им добавляется primaryImageOfPage. До словаря
+# schema.org в движке — списком; потом это проверка подтипа.
+WEBPAGE_TYPES = frozenset(
+    {
+        "WebPage",
+        "AboutPage",
+        "CheckoutPage",
+        "CollectionPage",
+        "MediaGallery",
+        "ImageGallery",
+        "VideoGallery",
+        "ContactPage",
+        "FAQPage",
+        "ItemPage",
+        "MedicalWebPage",
+        "ProfilePage",
+        "QAPage",
+        "RealEstateListing",
+        "SearchResultsPage",
+    }
+)
+
+
+def _cover(page: Page) -> dict[str, Any] | None:
+    """Обложка страницы — та же, что у og:image (`page.cover`); нет — None.
+
+    `page.cover` окружение шаблонов выставляет всем страницам сайта сразу,
+    поэтому обложка соседа не зависит от порядка рендеринга.
+    """
+    got = getattr(page, "cover", None)
+    return got if isinstance(got, dict) and got.get("url") else None
+
+
+def _cover_data(cover: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Что из обложки доступно подстановкам: адрес и размеры."""
+    if not cover:
+        return None
+    return {k: cover.get(k) for k in ("url", "width", "height")}
+
+
 def _data(config: SiteConfig, lang: str, site=None) -> dict[str, Any]:
     """Что доступно подстановкам.
 
@@ -206,6 +246,9 @@ def _data(config: SiteConfig, lang: str, site=None) -> dict[str, Any]:
             }
             if page.meta.image:
                 entry["image"] = absolute(config, "/" + paths.normalize(page.meta.image))
+            cover_data = _cover_data(_cover(page))
+            if cover_data:
+                entry["cover"] = cover_data
             pages[key] = entry
         # В подстановке путь пишется через точки, и `/` в нём не напишешь,
         # поэтому главная доступна как `pages.home`. Это имя всегда за
@@ -295,6 +338,7 @@ def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list
         if kind != "entity" and isinstance(own[kind], dict) and kind not in declared:
             declared.append(kind)
 
+    cover = _cover(page)
     graph: list[dict[str, Any]] = []
     # WebSite — это сайт, а не страница: его имя — название сайта на языке
     # страницы, а не h1 главной. Иначе поисковик подписывает сайт слоганом.
@@ -313,11 +357,21 @@ def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list
             node["dateModified"] = stamp(page.updated_at)
         node = _merge(node, shared.get(kind, {}) if isinstance(shared.get(kind), dict) else {})
         node = _merge(node, own.get(kind, {}) if isinstance(own.get(kind), dict) else {})
+        # Картинка страницы для поисковика — та же обложка, что og:image.
+        # Заданное сайтом или темой главнее; пустые размеры выбросит _fill.
+        if kind in WEBPAGE_TYPES and cover and "primaryImageOfPage" not in node:
+            node["primaryImageOfPage"] = {
+                "@type": "ImageObject",
+                "url": cover["url"],
+                "width": cover.get("width"),
+                "height": cover.get("height"),
+                "caption": cover.get("alt"),
+            }
         node = _fill(
             node,
             {
                 **_data(config, page.lang, site),
-                "page": page.meta.model_dump(),
+                "page": {**page.meta.model_dump(), "cover": _cover_data(cover)},
                 "related": _related(page, config),
             },
             page.lang,

@@ -316,6 +316,13 @@ def run(
             if with_media
             else media.Manifest()
         )
+        if with_media:
+            # Мастер, на который ссылается только разметка, едет в сборку целиком:
+            # план его не знает, а краулер просит именно этот адрес.
+            for src in sorted(media.schema_references(site, config)):
+                source = paths.source(site_root, src)
+                if src not in manifest.masters and source.is_file():
+                    manifest.copies.setdefault(src, source)
         say.done("done_masters", count=len(manifest.items))
         if collector.failed:
             return result

@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date
 from pathlib import Path
 from typing import Any, Literal
 
@@ -43,6 +44,7 @@ RESERVED = {
     "analytics",
     "gone",
     "nginx",
+    "schema_exceptions",
 }
 
 
@@ -345,6 +347,29 @@ def parse_gone(entry: str) -> tuple[str, str, str, str | None]:
     return "exact", path, "", None
 
 
+class SchemaException(Strict):
+    """Осознанное решение человека оставить находку проверки разметки на prod."""
+
+    key: str
+    reason: str
+    until: date | None = None
+
+    @field_validator("key")
+    @classmethod
+    def _key(cls, v: str) -> str:
+        if not re.fullmatch(r"SCH00[1-6]:[^:\s]+:\S+", v):
+            raise ValueError("ключ исключения: ожидается SCH00N:<файл>:<путь>")
+        return v
+
+    @field_validator("reason")
+    @classmethod
+    def _reason(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("у исключения нет причины")
+        return v
+
+
 class SiteConfig(BaseModel):
     """Весь `site.yaml`. Неизвестные блоки верхнего уровня сохраняются как есть."""
 
@@ -365,6 +390,7 @@ class SiteConfig(BaseModel):
     # адрес с параметром `/?p=*`. Страницы у них нет и не будет — поэтому
     # они живут здесь, а не во фронтматтере.
     gone: list[str] = Field(default_factory=list)
+    schema_exceptions: list[SchemaException] = Field(default_factory=list)
 
     @field_validator("plugins")
     @classmethod
@@ -383,6 +409,15 @@ class SiteConfig(BaseModel):
         for entry in v:
             parse_gone(entry)
         return v
+
+    @model_validator(mode="after")
+    def _exceptions_unique(self) -> SiteConfig:
+        seen: set[str] = set()
+        for exc in self.schema_exceptions:
+            if exc.key in seen:
+                raise ValueError(f"исключение задано дважды: {exc.key}")
+            seen.add(exc.key)
+        return self
 
     _by_lang: dict[str, SiteConfig] = PrivateAttr(default_factory=dict)
 

@@ -321,6 +321,17 @@ def _absolute_ids(node: Any, config: SiteConfig) -> Any:
     return node
 
 
+def _may_have(kind: str, prop: str) -> bool:
+    """Движок выводит базовое свойство, только если словарь разрешает его типу.
+
+    Тип вне словаря не фильтруем: на него скажет SCH001 валидатор.
+    """
+    from heron.schemaorg import vocab  # внутри: heron.schemaorg тянет heron.core
+
+    v = vocab()
+    return v.allows(kind, prop) if v.is_type(kind) else True
+
+
 def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list[dict[str, Any]]:
     """Собрать граф разметки для страницы."""
     spec = theme.types.get(page.type)
@@ -350,13 +361,14 @@ def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list
             "name": site_name if kind == "WebSite" else page.h1,
             "description": page.meta.description,
             "url": absolute(config, page.url),
-            "inLanguage": page.lang,
         }
+        if _may_have(kind, "inLanguage"):
+            node["inLanguage"] = page.lang
         if kind == "WebSite" and alternate_names:
             node["alternateName"] = list(alternate_names)
-        if page.date:
+        if page.date and _may_have(kind, "datePublished"):
             node["datePublished"] = stamp(page.date_at)
-        if page.updated:
+        if page.updated and _may_have(kind, "dateModified"):
             node["dateModified"] = stamp(page.updated_at)
         node = _merge(node, shared.get(kind, {}) if isinstance(shared.get(kind), dict) else {})
         node = _merge(node, own.get(kind, {}) if isinstance(own.get(kind), dict) else {})

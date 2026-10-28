@@ -68,7 +68,7 @@ In detail: [concepts](docs/en/guide/01-concepts.md) · [first site](docs/en/guid
 
 ## Commands
 
-Six working commands and help. The path to the site defaults to the current folder.
+Eleven commands. The path to the site defaults to the current folder.
 
 | Command | What it does |
 |---|---|
@@ -79,6 +79,10 @@ Six working commands and help. The path to the site defaults to the current fold
 | `heron build <folder>` | builds `dist/`: HTML, sitemap, markup, redirects, nginx config; `--env prod` for a production build |
 | `heron serve <folder>` | local preview with rebuild, the port is set by `--port` |
 | `heron docs [topic]` | documentation of the same version as the engine; `--search <text>`, `--export <folder>` |
+| `heron setup <folder>` | questionnaire in the browser: domains, languages, schema.org, publishing, theme; `--answers file` without a browser, `--dump` - current answers |
+| `heron theme get\|list\|pack` | install a theme (starter, from the catalog, by link, from an archive), list, pack your own |
+| `heron schema` | JSON Schema of the contracts of this version; `--export <folder>` |
+| `heron recipe` | Dockerfile of the nginx image for the built `dist/` |
 
 In a container it is the same call through `$H` from "Quick start". Error codes (`E002`, `E006`, `E012`...) and their causes are in [`docs/en/spec/21-engine.md`](docs/en/spec/21-engine.md).
 
@@ -103,7 +107,7 @@ A theme is the `theme/` folder inside the site: `theme.yaml` (which page types a
 
 ## Plugins
 
-Plugins extend the **build**: your own section types, links between pages, Jinja filters, generators. They are ordinary pip packages (entry point group `heron.plugins`) installed into the site image with one Dockerfile line. For one-off needs of a single site, use the `plugins/<name>/` folder next to the content. A plugin from `site.yaml` that is not installed or failed on loading gives error `E014`. The engine has no runtime: form intake lives in a separate image, `heron-relay`. How themes and plugins are resolved: [`docs/en/spec/23-distribution.md`](docs/en/spec/23-distribution.md).
+Plugins extend the **build**: your own section types, links between pages, Jinja filters, generators. They are ordinary pip packages (entry point group `heron.plugins`) installed into the site image with one Dockerfile line. For one-off needs of a single site, use the `plugins/<name>/` folder next to the content. A plugin from `site.yaml` that is not installed or failed on loading gives error `E014`. The engine has no runtime: form intake lives in a separate image, `heron-relay`. How themes and plugins are resolved: [`docs/en/spec/23-distribution.md`](docs/en/spec/23-distribution.md#theme-plugin-resolver).
 
 ## Safe run
 
@@ -119,7 +123,7 @@ docker run --rm \
   ghcr.io/fmstm/heron:prod build . --strict
 ```
 
-No network, a read-only root, no privileges, your own user, no `.env` and no docker socket. Raw HTML in markdown is off by default (`E015`). The finished site is served by `nginx-unprivileged` on port 8080. Full model: [`docs/en/spec/23-distribution.md`](docs/en/spec/23-distribution.md).
+No network, a read-only root, no privileges, your own user, no `.env` and no docker socket. Raw HTML in markdown is off by default (`E015`). The finished site is served by `nginx-unprivileged` on port 8080. Full model: [`docs/en/spec/23-distribution.md`](docs/en/spec/23-distribution.md#security-model).
 
 ## What HERON does by itself and what you do
 
@@ -167,7 +171,7 @@ docker run --rm -p 127.0.0.1:8080:8080 -v "$PWD/my-site/dist:/usr/share/nginx/ht
 
 Then write pages and build again. The dev build is closed to search engines and does not insert counters; the production one is `$H build my-site --env prod --strict`. Image resizing runs in several processes; where cores are shared with other tasks or processes are forbidden, set `--workers N` (`1` means no pool) or `HERON_WORKERS=N`. If the process pool is unavailable, the engine falls back to sequential resizing with the same result.
 
-Step by step, with every step explained: [`docs/en/guide/02-first-site.md`](docs/en/guide/02-first-site.md). Without docker: `pip install git+https://github.com/FMSTM/HERON.git@prod`, then the same commands through `heron`.
+Step by step, with every step explained: [`docs/en/guide/02-first-site.md`](docs/en/guide/02-first-site.md). Without docker: `pip install git+https://github.com/FMSTM/HERON.git@prod`, then the same commands through `heron`. The package is not published to PyPI yet.
 
 ## Several sites and engine versions
 
@@ -181,6 +185,9 @@ git clone https://github.com/FMSTM/HERON.git && cd HERON
 ./scripts/site.sh mysite image prod              # pack into an nginx image
 ./scripts/site.sh mysite smoke prod              # start the image and check the answers: 200, 404, 301, 410
 ./scripts/site.sh mysite push prod               # push the image to the registry
+./scripts/site.sh mysite init                    # complete the folder for site.yaml
+./scripts/site.sh mysite stop dev                # stop the preview
+./scripts/site.sh mysite check dev               # check the content without building
 ```
 
 How it differs from one site:
@@ -188,7 +195,7 @@ How it differs from one site:
 | | One site | Several sites |
 |---|---|---|
 | What to run | `docker run … heron:prod` or `heron` from pip | `scripts/site.sh` from a repository clone |
-| Where the build settings are | command flags | `env/.env.<site>.<environment>`: path to the content, environment, engine, image, registry |
+| Where the build settings are | command flags | `env/.env.<site>.<environment>`: path to the content, environment, engine, image and tag, strictness, port, registry |
 | Where it builds | `dist/` inside the site folder | `out/<site>-<environment>`, the site folder is not touched |
 | Which engine | the one you started | `ENGINE` in env: an exact version, `:prod` or sources next to it |
 | Site image | build by hand | `site.sh image`, check with `site.sh smoke` |
@@ -245,3 +252,7 @@ Branches: `dev` is development, each feature in its own branch; `beta` is trying
 Version 0.1. Until 1.0 the contract of `site.yaml` and `theme.yaml` may change in minor versions; a site pins a version range in `site.yaml` and moves deliberately.
 
 The license has not been chosen yet: until it appears, all rights are reserved.
+
+## Third-party data
+
+The markup check uses the schema.org vocabulary, release 29.3 (a compact index in `heron/schemaorg/schemaorg-29.3.json`). Source: https://schema.org. License: [Creative Commons Attribution-ShareAlike 3.0](https://creativecommons.org/licenses/by-sa/3.0/) (CC BY-SA 3.0). The data keeps this license and is not covered by the license of the engine.

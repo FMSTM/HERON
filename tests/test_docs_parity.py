@@ -85,7 +85,8 @@ ALLOWED_CYRILLIC: tuple[Allowed, ...] = (
     ),
     Allowed(
         r"\"Читать далее\"",
-        "пример ru-строки интерфейса темы рядом с английской в roles/capabilities.md",
+        "пример ru-строки интерфейса темы рядом с английской: roles/capabilities.md, guide/04-theme.md, "
+        "spec/21-engine.md §7",
     ),
     Allowed(
         r"`/(?:новости|кредит)/?`",
@@ -104,6 +105,18 @@ ALLOWED_CYRILLIC: tuple[Allowed, ...] = (
         "20 §2, старые адреса: символ «й» — пример того, что нормализует NFC",
         "spec/20-data-contract.md",
         "old-addresses-cyrillic",
+    ),
+    Allowed(
+        r"^\s*- /старая-страница/",
+        "guide/05: кириллический старый адрес - суть примера нормализации (percent-форма рядом без кириллицы)",
+        "guide/05-seo.md",
+        "migrate-from-old-site",
+    ),
+    Allowed(
+        r"^На каком языке вам удобнее работать: подсказки, сообщения, комментарии в файлах$",
+        "guide/02: дословная ru-строка подсказки `new` (движок печатает её второй строкой, cli.py)",
+        "guide/02-first-site.md",
+        "1. Create a site",
     ),
     Allowed(
         r"\"Записаться\"",
@@ -134,6 +147,7 @@ LLMS_NOTE_RU = "llms_note.ru — текст llms*.txt для русской ве
 
 CYRILLIC = re.compile(r"[Ѐ-ӿ]")
 FENCE_OPEN = re.compile(r"^(\s*)(`{3,})\s*([^`\s]*)[^`]*$")
+FENCE_CLOSE = re.compile(r"^\s*(`{3,})\s*$")  # CommonMark: закрывает только чистая ограда
 HEADING = re.compile(r"^(#{1,6})\s")
 ANCHOR = re.compile(r"^#{1,6} .*<a id=\"([^\"]+)\"></a>\s*$")
 HEADING_LINE = re.compile(r"^(#{1,6})\s+(.*?)\s*(?:<a id=\"([^\"]+)\"></a>)?\s*$")
@@ -191,6 +205,12 @@ class Doc:
     blocks: list[Block] = field(default_factory=list)
 
 
+def _closes(line: str, fence: str) -> bool:
+    """Закрывает ли строка блок, открытый оградой fence: чистая ограда не короче открывающей."""
+    match = FENCE_CLOSE.match(line)
+    return bool(match) and len(match.group(1)) >= len(fence)
+
+
 def _parse(text: str) -> Doc:
     """Делит Markdown на прозу и блоки кода (ограды ``` и длиннее, с отступом тоже)."""
     doc = Doc(lines=text.splitlines())
@@ -204,7 +224,7 @@ def _parse(text: str) -> Doc:
                 current = Block(lang=match.group(3), lines=[], start=number)
             else:
                 doc.prose.append(line)
-        elif line.lstrip().startswith(fence):
+        elif _closes(line, fence):
             doc.blocks.append(current)
             current = None
         else:
@@ -451,7 +471,7 @@ def _sections(lines: list[str]) -> list[frozenset[str]]:
         match = FENCE_OPEN.match(line)
         if not fence and match:
             fence = match.group(2)
-        elif fence and line.lstrip().startswith(fence):
+        elif fence and _closes(line, fence):
             fence = ""
         heading = None if fence else HEADING_LINE.match(line)
         if heading:
@@ -639,6 +659,11 @@ def test_sections_nest_by_heading_level_and_skip_code() -> None:
 
 
 OLD = '## Old <a id="old-addresses-cyrillic"></a>'
+SEO05 = "guide/05-seo.md"
+FIRST02 = "guide/02-first-site.md"
+MIGRATE = '## Moving <a id="migrate-from-old-site"></a>'
+CREATE = "## 1. Create a site"
+PROMPT_RU = "На каком языке вам удобнее работать: подсказки, сообщения, комментарии в файлах"
 RENDERING = '## 7. R <a id="rendering"></a>'
 REDIRECTS = '### redirects <a id="redirects"></a>'
 
@@ -652,6 +677,8 @@ REDIRECTS = '### redirects <a id="redirects"></a>'
         (SPEC21, f"{REDIRECTS}\nmap `/кредит/  /credits/;`\n"),
         (SPEC21, '## 10. CLI\n- "Pages — N" / "Страниц — N", `Error`/"Ошибка"\n'),
         (SPEC21, "## 10. CLI\n`[en: перевода на ru пока нет]`, `(откроется на en)`\n"),
+        (SEO05, f"{MIGRATE}\n```yaml\nredirect_from:\n  - /старая-страница/\n```\n"),
+        (FIRST02, f"{CREATE}\n```\n{PROMPT_RU}\n```\n"),
     ],
 )
 def test_scoped_rules_allow_their_literals(rel: str, text: str) -> None:
@@ -673,7 +700,64 @@ def test_scoped_rules_allow_their_literals(rel: str, text: str) -> None:
         (SPEC20, f"{OLD}\nThe address `/скидки/`.\n"),
         (SPEC21, '## 10. CLI\n"Страниц — N" and "Готово"\n'),
         (SPEC21, "## 10. CLI\nПереведите это слово.\n"),
+        # guide/05: адрес только в migrate-from-old-site и только строкой списка yaml
+        (SEO05, "## Languages\n  - /старая-страница/\n"),
+        (SEO05, f"{MIGRATE}\nThe address /старая-страница/ moved.\n"),
+        (SEO05, f"{MIGRATE}\n  - /новая-страница/\n"),
+        ("guide/03-content.md", f"{MIGRATE}\n  - /старая-страница/\n"),
+        # guide/02: строка подсказки только целиком, только в разделе 1 и только в 02
+        (FIRST02, f"## 2. Describe the site\n{PROMPT_RU}\n"),
+        (FIRST02, f"{CREATE}\n{PROMPT_RU} и ещё\n"),
+        (FIRST02, f"{CREATE}\nНа каком языке вам удобнее работать\n"),
+        ("guide/01-install.md", f"{CREATE}\n{PROMPT_RU}\n"),
     ],
 )
 def test_scoped_rules_do_not_open_cyrillic_wider(rel: str, text: str) -> None:
     assert _cyrillic_problems(rel, text), (rel, text)
+
+
+# --- закрытие блока кода по CommonMark ---------------------------------------------
+
+
+def test_fence_closes_only_with_clean_fence() -> None:
+    """Строка с текстом после фенса блок не закрывает; короткая ограда тоже."""
+    text = "````md\nline\n```` текст\n```\n````\nprose\n"
+    doc = _parse(text)
+    assert len(doc.blocks) == 1
+    assert doc.blocks[0].lines == ["line", "```` текст", "```"]
+    assert doc.prose == ["prose"]
+
+
+def test_fence_text_after_fence_does_not_hide_heading_section() -> None:
+    lines = ["## A", "```", "x", "``` text", "# not heading", "```", "## B", "y"]
+    names = _sections(lines)
+    assert names[4] == {"A"}  # блок ещё открыт: «#» в нём не заголовок
+    assert names[7] == {"B"}
+
+
+# --- пара README.ru.md / README.md --------------------------------------------------
+
+
+def _readme_pairs() -> list[tuple[str, str]]:
+    data = yaml.safe_load(TRANSLATION.read_text(encoding="utf-8"))
+    return [(e["ru"], e["en"]) for e in data.get("root_files", [])]
+
+
+def test_readme_pair_is_listed() -> None:
+    assert ("README.ru.md", "README.md") in _readme_pairs()
+
+
+def test_readme_pair_has_same_structure() -> None:
+    ru_text = (ROOT / "README.ru.md").read_text(encoding="utf-8")
+    en_text = (ROOT / "README.md").read_text(encoding="utf-8")
+    problems = _md_problems(ru_text, en_text)
+    assert not problems, "README.ru.md и README.md расходятся:\n" + "\n".join(problems)
+
+
+def test_readme_pair_structure_catches_missing_heading() -> None:
+    ru_text = (ROOT / "README.ru.md").read_text(encoding="utf-8")
+    en_text = (ROOT / "README.md").read_text(encoding="utf-8")
+    lines = en_text.splitlines()
+    index = next(i for i, line in enumerate(lines) if HEADING.match(line) and not line.startswith("# "))
+    mutated = "\n".join(lines[:index] + lines[index + 1 :])
+    assert _md_problems(ru_text, mutated)

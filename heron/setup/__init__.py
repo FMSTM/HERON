@@ -36,6 +36,7 @@ from heron.setup.answers import (
     SchemaFindings,
     classifier,
     drop,
+    field_for,
     fields_of,
     findings_payload,
     merge,
@@ -131,7 +132,11 @@ def state(root: Path) -> dict[str, Any]:
     from heron import __version__, build_info
 
     data = raw_config(root)
-    answers = read(data)
+    site = data.get("site")
+    try:
+        answers = read(data)
+    except (AttributeError, TypeError, ValueError):  # site.yaml не по контракту — анкета с нуля
+        answers = read({})
     themes = []
     try:
         from heron.themes import catalog
@@ -149,13 +154,44 @@ def state(root: Path) -> dict[str, Any]:
         "countries": countries(),
         "classifier": classifier(),
         "themes": themes,
-        "site_theme": str((data.get("site") or {}).get("theme") or ""),
+        "site_theme": str((site.get("theme") if isinstance(site, dict) else "") or ""),
         "notes": notes_lang(data),
-        "schema": schema_state(notes_lang(data)),
+        "schema": {**schema_state(notes_lang(data)), "findings": _state_findings(data, answers)},
         "engine": build_info.label(),
         "version": __version__,
         "exists": bool(data),
     }
+
+
+def _state_findings(data: dict[str, Any], answers: Answers) -> dict[str, list[dict[str, Any]]]:
+    """Находки разметки в текущем site.yaml: действующие, исключённые, просроченные исключения."""
+    from heron.contracts.site import SiteConfig
+    from heron.core.errors import HeronError
+    from heron.schemaorg.policy import site_findings
+
+    out: dict[str, list[dict[str, Any]]] = {"active": [], "excepted": [], "expired": []}
+    if not data:
+        return out
+    try:
+        found = site_findings(SiteConfig(**data))
+    except (ValueError, TypeError, HeronError):  # ошибку конфига страница показывает сама
+        return out
+    lang = notes_lang(data)
+
+    def brief(entry: Any) -> dict[str, Any]:
+        return {
+            "key": entry.key,
+            "code": entry.code,
+            "path": entry.path,
+            "field": field_for(entry.path),
+            "reason": entry.reason,
+            "until": entry.until.isoformat() if entry.until else None,
+        }
+
+    out["active"] = findings_payload(found.active, answers, lang)
+    out["excepted"] = [brief(e) for e in found.excepted]
+    out["expired"] = [brief(e) for e in found.expired]
+    return out
 
 
 DAY_LABELS = {

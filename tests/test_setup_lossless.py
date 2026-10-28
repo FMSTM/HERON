@@ -7,11 +7,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 from heron import setup
 from heron.scaffold import create
-from heron.setup.answers import read
+from heron.setup.answers import SchemaFindings, read
 
 ENTITY = {
     "@type": ["Organization", "LocalBusiness"],
@@ -21,8 +22,8 @@ ENTITY = {
     "geo": {"@type": "GeoCoordinates", "latitude": 1.5, "longitude": 2.5},
     "openingHours": ["Mo-Fr 09:00-18:00"],
     "sameAs": ["https://profile.example.test/x"],
-    "medicalSpecialty": "MARKER-specialty",
-    "worksFor": {"@type": "Organization", "name": "Org"},
+    "slogan": "MARKER-slogan",
+    "parentOrganization": {"@type": "Organization", "name": "Org"},
     "areaServed": "Somewhere",
     "founder": {"@type": "Person", "name": "F"},
     "foundingDate": "2001",
@@ -81,13 +82,13 @@ def test_intended_change_of_type_keeps_unmanaged_fields(tmp_path):
     root = _site(tmp_path)
 
     def to_person(data):
-        data["about"]["type"] = "Person"
+        data["about"]["type"] = "IndividualPhysician"
         data["about"]["direction"] = ""
         data["about"]["specialization"] = ""
 
     entity = _resave(root, to_person)["schema"]["entity"]
-    assert entity["@type"] == "Person"
-    for key in ("geo", "openingHours", "medicalSpecialty", "founder", "foundingDate"):
+    assert entity["@type"] == "IndividualPhysician"
+    for key in ("geo", "openingHours", "slogan", "founder", "foundingDate"):
         assert entity[key] == ENTITY[key]
     assert entity["@id"] == ENTITY["@id"]
 
@@ -181,3 +182,16 @@ def test_branch_survives_pages(tmp_path):
     _resave(root)
     text = (root / ".github" / "workflows" / "pages.yml").read_text("utf-8")
     assert 'branches: ["site-src"]' in text
+
+
+def test_wrong_property_without_decision_is_refused_and_file_untouched(tmp_path):
+    root = _site(tmp_path)
+    data = _config(root)
+    data["schema"]["entity"]["worksFor"] = {"@type": "Organization", "name": "Org"}
+    (root / "site.yaml").write_text(
+        yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8"
+    )
+    before = (root / "site.yaml").read_bytes()
+    with pytest.raises(SchemaFindings):
+        setup.apply(root, read(setup.raw_config(root)))
+    assert (root / "site.yaml").read_bytes() == before

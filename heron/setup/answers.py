@@ -1170,6 +1170,11 @@ def field_for(path: str) -> str | None:
         own = str(spec.get("prop") or "")
         if own and (prop == own or prop.startswith(own + ".")):
             return name
+    # находка на самом объекте (worksFor) - поле его вложенного свойства (worksFor.name)
+    for name, spec in vocab()["fields"].items():
+        own = str(spec.get("prop") or "")
+        if own.startswith(prop + "."):
+            return name
     return None
 
 

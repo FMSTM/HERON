@@ -15,7 +15,7 @@ from heron.cli import main
 from heron.contracts.site import load_site
 from heron.scaffold import create
 from heron.setup import apply, current_answers, load_answers
-from heron.setup.answers import Answers, fields_of, read
+from heron.setup.answers import Answers, fields_of, merge, read
 
 ANSWERS = """
 site:
@@ -426,6 +426,16 @@ def _cases():
     }
 
 
+def _merge_cases():
+    """Причины, которые бросает merge() при записи ответа, а не разбор модели."""
+    return {
+        "hours_bad": ("LocalBusiness", {"opening_hours": ["whenever"]}),
+        "enum_bad": ("IndividualPhysician", {"medical_specialty": ["Nonsense"]}),
+        "subtype_bad": ("IndividualPhysician", {"practices_at_type": "Person"}),
+        "bool_bad": ("IndividualPhysician", {"accepts_new_patients": "maybe"}),
+    }
+
+
 PYDANTIC_CASES = [
     {"theme": {"source": "bogus"}},
     {"site": {"bogus": 1}},
@@ -450,7 +460,8 @@ def test_reason_tables_match_and_cover_answers():
                 raised.append(node.exc.args[0].value)
     assert len(raised) >= 33
     assert set(raised) <= set(reasons.TEXT["en"])
-    assert set(raised) == set(_cases()) | {"not_number", "country_bad"}
+    outside = {"not_number", "country_bad", "type_not_dropped"}
+    assert set(raised) == set(_cases()) | set(_merge_cases()) | outside
 
 
 @pytest.mark.parametrize("key", sorted(_cases()))
@@ -469,6 +480,22 @@ def test_every_reason_speaks_the_language(key):
         found = (item.get("ctx") or {}).get("error")
         if isinstance(found, Reason):
             assert found.text("en") in en and str(found) == found.text("en")
+
+
+@pytest.mark.parametrize("key", sorted(_merge_cases()))
+def test_merge_reason_speaks_the_language(key):
+    kind, fields = _merge_cases()[key]
+    answers = Answers.model_validate({"about": {"type": kind, "fields": fields}})
+    with pytest.raises(Reason) as caught:
+        merge({}, answers, "x")
+    assert caught.value.key == key
+    ru, en = caught.value.text("ru"), caught.value.text("en")
+    # имена перечисления и типа schema.org в тексте - токены
+    extra = _values(fields) + tuple(vocab()["types"]) + ("MedicalSpecialty", "MedicalOrganization")
+    assert CYRILLIC.search(ru), ru
+    assert not _stray_latin(ru, extra), (ru, _stray_latin(ru, extra))
+    assert not CYRILLIC.search(en), en
+    assert str(caught.value) == en
 
 
 @pytest.mark.parametrize("patch", PYDANTIC_CASES)

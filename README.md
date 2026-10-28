@@ -66,6 +66,61 @@ site:
 
 In detail: [concepts](docs/en/guide/01-concepts.md) · [first site](docs/en/guide/02-first-site.md) · [pages and content](docs/en/guide/03-content.md) · all `site.yaml` keys are in [`20` §5](docs/en/spec/20-data-contract.md#site-yaml).
 
+## Commands
+
+Six working commands and help. The path to the site defaults to the current folder.
+
+| Command | What it does |
+|---|---|
+| `heron new <folder>` | creates a site: asks for the notes language, name, domain, languages and lays out the folder |
+| `heron init <folder>` | builds the missing folders after the languages in `site.yaml` changed |
+| `heron page <type> <slug>` | adds a page with a ready SEO block |
+| `heron check <folder>` | checks the site against the contract without building; `--strict` turns warnings into errors |
+| `heron build <folder>` | builds `dist/`: HTML, sitemap, markup, redirects, nginx config; `--env prod` for a production build |
+| `heron serve <folder>` | local preview with rebuild, the port is set by `--port` |
+| `heron docs [topic]` | documentation of the same version as the engine; `--search <text>`, `--export <folder>` |
+
+In a container it is the same call through `$H` from "Quick start". Error codes (`E002`, `E006`, `E012`...) and their causes are in [`docs/en/spec/21-engine.md`](docs/en/spec/21-engine.md).
+
+## The site folder contract
+
+```
+my-site/
+├── site.yaml       config: domain, languages, theme, menu, SEO settings; the first line is heron: ">=0.1,<0.2"
+├── content/<lang>/ pages in markdown, one folder per language
+├── media/          images, video, documents
+├── data/           yaml reference data: reviews, team, requisites
+├── static/         files at an exact address: favicon, .well-known
+├── theme/          theme: Jinja2 templates, styles, interface strings
+└── plugins/        your own plugins, usually empty
+```
+
+The engine reads only these folders and writes only to `dist/` and `.heron-cache/`. What is allowed in each file is listed in the [data contract](docs/en/spec/20-data-contract.md).
+
+## Theme
+
+A theme is the `theme/` folder inside the site: `theme.yaml` (which page types and modules exist), Jinja2 templates, styles and interface strings. A template receives already parsed page data; you do not parse markdown yourself. The theme is developed right in the site; a finished one can be moved into a `heron-theme-<name>` package without changing the content. A local `theme/` always wins over an installed one. In detail: [04 · Theme and design](docs/en/guide/04-theme.md).
+
+## Plugins
+
+Plugins extend the **build**: your own section types, links between pages, Jinja filters, generators. They are ordinary pip packages (entry point group `heron.plugins`) installed into the site image with one Dockerfile line. For one-off needs of a single site, use the `plugins/<name>/` folder next to the content. A plugin from `site.yaml` that is not installed or failed on loading gives error `E014`. The engine has no runtime: form intake lives in a separate image, `heron-relay`. How themes and plugins are resolved: [`docs/en/spec/23-distribution.md`](docs/en/spec/23-distribution.md).
+
+## Safe run
+
+A build needs nothing but the site folder, so everything else can be taken away from it:
+
+```bash
+docker run --rm \
+  --network=none \
+  --read-only --tmpfs /tmp \
+  --cap-drop=ALL --security-opt=no-new-privileges \
+  --user "$(id -u):$(id -g)" \
+  -v "$PWD:/site" -w /site \
+  ghcr.io/fmstm/heron:prod build . --strict
+```
+
+No network, a read-only root, no privileges, your own user, no `.env` and no docker socket. Raw HTML in markdown is off by default (`E015`). The finished site is served by `nginx-unprivileged` on port 8080. Full model: [`docs/en/spec/23-distribution.md`](docs/en/spec/23-distribution.md).
+
 ## What HERON does by itself and what you do
 
 | By itself, without a single line | By hand, once or as you go |

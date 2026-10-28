@@ -387,8 +387,7 @@ def test_errors_registry_lists_e_then_sch() -> None:
     from heron.core.errors import ERRORS, SCHEMA_CODES
 
     codes = list(schemas.errors_registry()["errors"])
-    assert {c for c in codes if c.startswith("SCH")} == set(SCHEMA_CODES)
-    assert set(codes) == set(ERRORS) | set(SCHEMA_CODES)
+    assert codes == [*ERRORS, *SCHEMA_CODES]
 
 
 @pytest.mark.parametrize("lang", ["ru", "en"])

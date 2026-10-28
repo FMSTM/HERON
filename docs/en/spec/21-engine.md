@@ -648,6 +648,17 @@ The split is strict: an error stops the build, a warning goes into the report.
 | `E034` | a build file the engine must check before writing is empty, unreadable or not UTF-8: a replacement of `.heron-nginx.conf` from `static/` via `build.overrides`. An error even without `--strict`, `dist/` is not changed |
 | `E035` | `.heron-cache` or the lock file `.<dist>.heron-lock` cannot be created next to the build folder: the folder above `--out` is not writable. `dist/` is not touched; the engine names the path and the system's reason, not a generic "no permission" |
 
+**schema.org markup** (a separate code series; on `prod` - an error, otherwise a warning; exception - `schema_exceptions` in `site.yaml` or `--allow-schema`):
+
+| Code | Condition |
+|---|---|
+| `SCH001` | the schema.org type is not in the vocabulary. `prod` - an error, otherwise a warning; exception - `schema_exceptions` or `--allow-schema` |
+| `SCH002` | the property does not belong to this type. `prod` - an error, otherwise a warning; exception - `schema_exceptions` or `--allow-schema` |
+| `SCH003` | the value is not from the enumeration. `prod` - an error, otherwise a warning; exception - `schema_exceptions` or `--allow-schema` |
+| `SCH004` | the value type does not fit the property. `prod` - an error, otherwise a warning; exception - `schema_exceptions` or `--allow-schema` |
+| `SCH005` | a deprecated type or property. `prod` - an error, otherwise a warning; exception - `schema_exceptions` or `--allow-schema` |
+| `SCH006` | the image from the markup is not in the build. `prod` - an error, otherwise a warning; exception - `schema_exceptions` or `--allow-schema` |
+
 An error message must contain the file path, the line number, what is wrong and what to do. `Error in template` without an address is not a message.
 
 **Warnings:**

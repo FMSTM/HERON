@@ -1473,13 +1473,13 @@ TEXT["ru"].update(
         "schema_key": "    ключ исключения: {finding}",
         "schema_exceptions_head": "Исключения разметки: {n}",
         "schema_exception_site": "  {finding} - причина: «{reason}», до {until} ({source})",
-        "schema_exception_flag": "  {finding} - разово (--allow-schema)",
+        "schema_exception_flag": "Исключение из проверки разметки задано флагом --allow-schema: {finding}",
         "schema_unused": "Лишнее исключение: {finding} - ничего не ловит, уберите из schema_exceptions",
         "schema_expired": "Исключение просрочено: {finding} - срок {until} истёк, находка снова в силе",
         "schema_pending": "Свойства из раздела pending: {props} (сведение)",
-        "schema_reason_missing": "у исключения нет причины",
-        "schema_exception_twice": "исключение задано дважды",
-        "schema_key_bad": "ключ исключения: ожидается SCH00N:<файл>:<путь>",
+        "schema_reason_missing": "Для исключения из проверки разметки нужна причина",
+        "schema_exception_twice": "Одно и то же исключение перечислено дважды: {finding}",
+        "schema_key_bad": "Неверный ключ исключения: {finding} (ожидается SCH00N:<файл>:<путь>)",
     }
 )
 
@@ -1509,12 +1509,12 @@ TEXT["en"].update(
         "schema_key": "    exception key: {finding}",
         "schema_exceptions_head": "Markup exceptions: {n}",
         "schema_exception_site": '  {finding} - reason: "{reason}", until {until} ({source})',
-        "schema_exception_flag": "  {finding} - one-off (--allow-schema)",
+        "schema_exception_flag": "Schema check exception set by the --allow-schema flag: {finding}",
         "schema_unused": "Unused exception: {finding} - matches nothing, remove it from schema_exceptions",
         "schema_expired": "Expired exception: {finding} - {until} has passed, the finding applies again",
         "schema_pending": "Properties from the pending area: {props} (info)",
-        "schema_reason_missing": "the exception has no reason",
-        "schema_exception_twice": "the exception is given twice",
-        "schema_key_bad": "exception key: expected SCH00N:<file>:<path>",
+        "schema_reason_missing": "A schema exception needs a reason",
+        "schema_exception_twice": "The same schema exception is listed twice: {finding}",
+        "schema_key_bad": "Invalid schema exception key: {finding} (expected SCH00N:<file>:<path>)",
     }
 )

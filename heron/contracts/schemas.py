@@ -79,6 +79,10 @@ EN: dict[str, tuple[str, str]] = {
         "map_hash_bucket_size and map_hash_max_size were sized for are no longer built.\n"
         "The key is accepted so that existing site.yaml files build without changes.",
     ),
+    "site.schema.json#/$defs/SchemaException/description": (
+        "a8589520d1",
+        "A deliberate human decision to keep a schema markup check finding on prod.",
+    ),
     "site.schema.json#/$defs/SiteBlock/description": (
         "b900fe3389",
         "Who we are and in how many languages.",

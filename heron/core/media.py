@@ -332,6 +332,14 @@ def raw_references(site: Site, config=None) -> set[str]:
         ]:
             if isinstance(value, str) and value and not EXTERNAL.match(value):
                 found.add(paths.normalize(value))
+    found |= schema_references(site, config)
+    return found
+
+
+def schema_references(site: Site, config=None) -> set[str]:
+    """Пути media/ из блоков schema: site.yaml (shared, entity) и фронтматтер страниц."""
+    found: set[str] = set()
+    if config is not None:
         shared = config.extras.get("schema")
         if isinstance(shared, dict):
             data = {"site": {"base": absolute(config, "/")}}
@@ -517,6 +525,11 @@ def verify(site: Site, site_root: Path, collector: Collector, config=None) -> No
     узнать, что сайт не готов.
     """
     declared = declared_by(site, config)
+    # Мастер, на который ссылается только разметка, тоже нужен сборке; нет
+    # файла - это уже находка SCH006, а не падение плана.
+    for src in sorted(schema_references(site, config)):
+        if src not in declared and paths.source(site_root, src).is_file():
+            declared[src] = ["site.yaml (schema)"]
     for src in sorted(declared):
         source = locate(site_root, src, declared, collector)
         if source is None:
@@ -954,6 +967,10 @@ def plan(
                 covers.add(chosen[0].lstrip("./"))
 
     declared = declared_by(site, config)
+    # Мастер, на который ссылается только разметка (блок schema, {{ site.base }}),
+    # не виден declared_by: его всё равно нужно найти, проверить и довезти целиком.
+    for src in manifest.raw:
+        declared.setdefault(src, ["site.yaml"])
     for src in sorted(declared):
         source = locate(site_root, src, declared, collector)
         if source is None:

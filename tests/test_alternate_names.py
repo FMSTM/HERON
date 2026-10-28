@@ -12,8 +12,14 @@ def _node(tmp_path, url="/", **config_over):
     content = sites.build(tmp_path, files)
     config = sites.config(**config_over)
     site, _ = tree.scan(content, config)
-    theme = sites.theme(types={"page": {"uses": [], "jsonld": ["WebSite"]}})
-    return jsonld.build(site.by_url[url], config, theme, site)[0], config
+    theme = sites.theme(
+        types={
+            "home": {"uses": [], "jsonld": ["WebSite"]},
+            "page": {"uses": [], "jsonld": ["WebSite"]},
+        }
+    )
+    graph = jsonld.build(site.by_url[url], config, theme, site)
+    return next(n for n in graph if n.get("@type") == "WebSite"), config
 
 
 def _site(**extra):

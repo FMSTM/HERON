@@ -307,7 +307,10 @@ def raw_references(site: Site, config=None) -> set[str]:
     """
     found: set[str] = set()
     for page in site.pages:
+        cover = page.cover_source(config) if config is not None else None
         for value in (
+            page.meta.image,
+            cover[0] if cover else None,
             page.meta.og_image,
             page.meta.video_poster,
             page.meta.extra.get("twitter_image"),
@@ -602,9 +605,17 @@ def variant(fits: bool, ratio: str, width: int, ext: str) -> str:
 
 
 def plan_master(
-    src: str, source: Path, spec: ImagesSpec, shape: Shape | None = None
+    src: str,
+    source: Path,
+    spec: ImagesSpec,
+    shape: Shape | None = None,
+    cover: bool = False,
 ) -> dict[str, Rendition]:
-    """Имена и размеры всех нарезок мастера, ничего не кодируя."""
+    """Имена и размеры всех нарезок мастера, ничего не кодируя.
+
+    `cover` - мастер служит обложкой: к запасным файлам добавляется ширина
+    `cover_width` (не шире кадра), чтобы краулеру было что отдать.
+    """
     shape = shape or shape_of(source)
     stem = Path(src)
     origin = stem.suffix.lstrip(".").lower()
@@ -628,7 +639,10 @@ def plan_master(
         # не больше fallback_width. Остальные ширины доступны media_url по
         # запросу (og:image на 1200) — и режутся, только если их попросили.
         fallback = min(spec.fallback_width, frame_w)
-        origin_widths = sorted({*widths, fallback})
+        extra = {fallback}
+        if cover:
+            extra.add(min(max(spec.fallback_width, spec.cover_width), frame_w))
+        origin_widths = sorted({*widths, *extra})
         rendition.sources["origin"] = [(w, named(ratio, origin, w)) for w in origin_widths]
         rendition.fallback = named(ratio, origin, fallback)
         out[ratio] = rendition
@@ -904,6 +918,13 @@ def plan(
     root = store(cache)
     _forget_legacy(cache)
 
+    covers: set[str] = set()
+    if config is not None:
+        for page in site.pages:
+            chosen = page.cover_source(config)
+            if chosen and not EXTERNAL.match(chosen[0]):
+                covers.add(chosen[0].lstrip("./"))
+
     declared = declared_by(site, config)
     for src in sorted(declared):
         source = locate(site_root, src, declared, collector)
@@ -937,7 +958,14 @@ def plan(
         entry = _entry(cache, root, digest(source))
         shape = _shape(entry, source)
         _touch(entry)
-        renditions = plan_master(src, source, spec, shape)
+        is_cover = src in covers
+        renditions = plan_master(src, source, spec, shape, is_cover)
+        if is_cover and shape.width < spec.cover_width:
+            collector.warn(
+                f"обложка меньше {spec.cover_width} px: {src}",
+                path=_owner(declared, src),
+                kind="картинки",
+            )
         fits = _fits(src, shape, spec)
         origin = Path(src).suffix.lstrip(".").lower()
         clash = [

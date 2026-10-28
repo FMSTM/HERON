@@ -175,7 +175,7 @@ def _spec_codes() -> set[str]:
     text = ENGINE_SPEC.read_text(encoding="utf-8")
     start = text.index("## 11. Ошибки и предупреждения")
     end = text.index("\n## 12.", start)
-    return set(re.findall(r"`(E0\d\d)`", text[start:end]))
+    return set(re.findall(r"`(E0\d\d|SCH0\d\d)`", text[start:end]))
 
 
 def test_errors_json_matches_spec_section_11() -> None:
@@ -187,7 +187,7 @@ def test_errors_json_matches_spec_section_11() -> None:
 
 def test_errors_entries_have_title_and_hint() -> None:
     for code, entry in schemas.errors_registry()["errors"].items():
-        assert re.fullmatch(r"E0\d\d", code)
+        assert re.fullmatch(r"E0\d\d|SCH0\d\d", code)
         assert entry["title"].strip()
         assert isinstance(entry["hint"], str)
 
@@ -269,14 +269,15 @@ def test_every_russian_text_has_a_current_english_translation() -> None:
 
 
 def test_english_error_titles_are_the_cli_titles() -> None:
-    from heron.core.errors import ERRORS
+    from heron.core.errors import ERRORS, SCHEMA_CODES
     from heron.messages import TITLES
 
+    ru_titles = {**ERRORS, **SCHEMA_CODES}
     en = schemas.errors_registry("en")["errors"]
-    assert set(en) == set(ERRORS)
+    assert set(en) == set(ru_titles)
     for code, entry in en.items():
         assert entry["title"] == TITLES["en"][code], code
-        assert entry["title"] != ERRORS[code]
+        assert entry["title"] != ru_titles[code]
 
 
 @pytest.mark.parametrize("lang", ["ru", "en"])
@@ -377,3 +378,37 @@ def test_site_image_workflow_publishes_english_main_and_russian_next_to_it() -> 
     assert 'schema --export "/out/schema/$version/ru" --lang ru' in text
     assert '"schema/$version/ru/site.schema.json"' in text  # и проверка, что файл лёг
     yaml.safe_load(text)  # файл остаётся корректным YAML
+
+
+# --- E17.S2.T2: коды разметки SCH001-SCH006 в реестре ---------------------------
+
+
+def test_errors_registry_lists_e_then_sch() -> None:
+    from heron.core.errors import ERRORS, SCHEMA_CODES
+
+    codes = list(schemas.errors_registry()["errors"])
+    assert {c for c in codes if c.startswith("SCH")} == set(SCHEMA_CODES)
+    assert set(codes) == set(ERRORS) | set(SCHEMA_CODES)
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_schema_codes_have_titles(lang: str) -> None:
+    from heron.core.errors import SCHEMA_CODES
+
+    errors = schemas.errors_registry(lang)["errors"]
+    for code in SCHEMA_CODES:
+        title = errors[code]["title"]
+        assert title.strip() and title != code, (lang, code)
+        assert bool(CYR.search(title)) == (lang == "ru"), (lang, code)
+
+
+def test_schema_export_writes_sch_codes(tmp_path) -> None:
+    import json
+
+    schemas.export(tmp_path, "en")
+    data = json.loads((tmp_path / "errors.json").read_text("utf-8"))
+    assert data["errors"]["SCH002"] == {
+        "title": "the property does not belong to this type",
+        "hint": "",
+    }
+    assert "SCH006" in data["errors"]

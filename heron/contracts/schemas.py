@@ -30,7 +30,7 @@ import heron
 from heron.contracts.frontmatter import PageMeta
 from heron.contracts.site import LOCALIZED, SiteConfig
 from heron.contracts.theme import ThemeConfig
-from heron.core.errors import ERRORS
+from heron.core.errors import ERRORS, SCHEMA_CODES
 from heron.setup.answers import Answers
 
 DRAFT = "https://json-schema.org/draft/2020-12/schema"
@@ -274,7 +274,8 @@ def errors_registry(lang: str = "ru") -> dict[str, Any]:
     from heron.messages import title
 
     check_lang(lang)
-    errors = {code: {"title": title(lang, code), "hint": ""} for code in ERRORS}
+    codes = [*ERRORS, *SCHEMA_CODES]
+    errors = {code: {"title": title(lang, code), "hint": ""} for code in codes}
     return _finish({"errors": errors}, "errors.json", lang)
 
 

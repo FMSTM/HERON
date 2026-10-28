@@ -1,6 +1,6 @@
 """Формат сообщения об ошибке: адрес обязателен, подсказка выводится."""
 
-from heron.core.errors import ERRORS, Collector, HeronError
+from heron.core.errors import ERRORS, SCHEMA_CODES, Collector, HeronError
 
 
 def test_message_has_address():
@@ -16,6 +16,12 @@ def test_hint_rendered():
 
 def test_codes_are_continuous():
     assert list(ERRORS) == [f"E{n:03d}" for n in range(1, len(ERRORS) + 1)]
+
+
+def test_schema_codes_are_separate_series():
+    assert list(SCHEMA_CODES) == [f"SCH{n:03d}" for n in range(1, 7)]
+    assert not set(SCHEMA_CODES) & set(ERRORS)
+    assert all(title.strip() for title in SCHEMA_CODES.values())
 
 
 def test_collector_collects_without_raising():

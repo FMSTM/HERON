@@ -475,11 +475,12 @@ def say(lang: str, key: str, **fields: object) -> str:
 
 def title(lang: str, code: str) -> str:
     """Название ошибки по коду на языке сообщений."""
-    from heron.core.errors import ERRORS
+    from heron.core.errors import ERRORS, SCHEMA_CODES
 
+    ru = ERRORS.get(code) or SCHEMA_CODES.get(code, code)
     if lang == "ru":
-        return ERRORS.get(code, code)
-    return TITLES["en"].get(code) or ERRORS.get(code, code)
+        return ru
+    return TITLES["en"].get(code) or ru
 
 
 # --- serve ---------------------------------------------------------------------
@@ -1428,5 +1429,92 @@ TEXT["en"].update(
         "docs_fallback": "[{have}: no English translation yet]",
         "docs_stale": "[{want}: the translation lags behind {have}]",
         "docs_toc_other": "(opens in {have})",
+    }
+)
+
+# --- проверка разметки schema.org: коды SCH001-SCH006 (21 §11) ---
+# Тексты - из контракта этапа E17.S2 (docs/architecture/schema-mvp.md).
+# detail и hint форматирует проверка (E17.S2.T4), строки отчёта - heron/core/report.py.
+TITLES["en"].update(
+    {
+        "SCH001": "the schema.org type does not exist in the vocabulary",
+        "SCH002": "the property does not belong to this type",
+        "SCH003": "the value is not a member of the enumeration",
+        "SCH004": "the value type does not fit the property",
+        "SCH005": "the type or property is superseded",
+        "SCH006": "an image from the markup is missing from the build",
+    }
+)
+
+TEXT["ru"].update(
+    {
+        "sch001_detail": "тип {value!r} не найден в словаре schema.org {release}",
+        "sch001_hint": "проверьте написание; похожие: {suggest}",
+        "sch002_detail": "у типа {types} нет свойства {prop!r}",
+        "sch002_hint": (
+            "свойство бывает у типов: {domain}; уберите его или смените тип. "
+            "Похожие свойства: {suggest}"
+        ),
+        "sch003_detail": "{prop}: {value!r} не входит в перечисление {enum}",
+        "sch003_hint": "допустимые значения (первые 10): {members}",
+        "sch004_detail": "{prop}: получено {got}, ожидается {expected}",
+        "sch004_hint": "впишите значение ожидаемого типа",
+        "sch005_detail": "{value!r} устарело в schema.org {release}",
+        "sch005_hint": "замените на {replacement}",
+        "sch006_detail": "{prop}: {url} - файла нет в сборке",
+        "sch006_hint": (
+            "положите файл в media/ и сошлитесь на него, или уберите адрес из разметки"
+        ),
+        "schema_head": (
+            "Разметка schema.org (словарь {release}): узлов {nodes}, находок {n} "
+            "({errors} {errors:ошибка|ошибки|ошибок}, "
+            "{warnings} {warnings:предупреждение|предупреждения|предупреждений})"
+        ),
+        "schema_key": "    ключ исключения: {finding}",
+        "schema_exceptions_head": "Исключения разметки: {n}",
+        "schema_exception_site": "  {finding} - причина: «{reason}», до {until} ({source})",
+        "schema_exception_flag": "  {finding} - разово (--allow-schema)",
+        "schema_unused": "Лишнее исключение: {finding} - ничего не ловит, уберите из schema_exceptions",
+        "schema_expired": "Исключение просрочено: {finding} - срок {until} истёк, находка снова в силе",
+        "schema_pending": "Свойства из раздела pending: {props} (сведение)",
+        "schema_reason_missing": "у исключения нет причины",
+        "schema_exception_twice": "исключение задано дважды",
+        "schema_key_bad": "ключ исключения: ожидается SCH00N:<файл>:<путь>",
+    }
+)
+
+TEXT["en"].update(
+    {
+        "sch001_detail": "type {value!r} is not in schema.org vocabulary {release}",
+        "sch001_hint": "check the spelling; similar: {suggest}",
+        "sch002_detail": "type {types} has no property {prop!r}",
+        "sch002_hint": (
+            "the property belongs to: {domain}; remove it or change the type. "
+            "Similar properties: {suggest}"
+        ),
+        "sch003_detail": "{prop}: {value!r} is not a member of {enum}",
+        "sch003_hint": "allowed values (first 10): {members}",
+        "sch004_detail": "{prop}: got {got}, expected {expected}",
+        "sch004_hint": "use a value of the expected type",
+        "sch005_detail": "{value!r} is superseded in schema.org {release}",
+        "sch005_hint": "replace it with {replacement}",
+        "sch006_detail": "{prop}: {url} - the file is not in the build",
+        "sch006_hint": (
+            "put the file into media/ and reference it, or remove the address from the markup"
+        ),
+        "schema_head": (
+            "schema.org markup (vocabulary {release}): {nodes} nodes, {n} findings "
+            "({errors} {errors:error|errors}, {warnings} {warnings:warning|warnings})"
+        ),
+        "schema_key": "    exception key: {finding}",
+        "schema_exceptions_head": "Markup exceptions: {n}",
+        "schema_exception_site": '  {finding} - reason: "{reason}", until {until} ({source})',
+        "schema_exception_flag": "  {finding} - one-off (--allow-schema)",
+        "schema_unused": "Unused exception: {finding} - matches nothing, remove it from schema_exceptions",
+        "schema_expired": "Expired exception: {finding} - {until} has passed, the finding applies again",
+        "schema_pending": "Properties from the pending area: {props} (info)",
+        "schema_reason_missing": "the exception has no reason",
+        "schema_exception_twice": "the exception is given twice",
+        "schema_key_bad": "exception key: expected SCH00N:<file>:<path>",
     }
 )

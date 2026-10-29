@@ -257,3 +257,76 @@ def test_build_four_pages_and_second_language(tmp_path, monkeypatch):
         assert cover is not None and cover["src"] == src, key
         url = scope["cover_url"](scope["page"])
         assert url.startswith("https://") and url == cover["url"], key
+
+
+def _site_pages(config, *pages: Page):
+    from heron.core.models import Site
+
+    site = Site()
+    for page in pages:
+        site.pages.append(page)
+    return site
+
+
+def test_report_counts_pages_without_cover():
+    from heron.core import report
+
+    cfg = sites.config(
+        site={"domain": "example.com", "theme": "demo", "default_lang": "uk", "languages": ["uk"]},
+        build={"notes": "ru"},
+    )
+    site = _site_pages(cfg, _page("uk"), _page("uk", image="media/a.png"))
+    warnings = report.pages_without_cover(site, cfg)
+    assert len(warnings) == 1
+    assert "страниц без обложки: 1" in warnings[0].message
+
+
+def test_report_silent_with_default_image(config):
+    from heron.core import report
+
+    site = _site_pages(config, _page("uk"), _page("ru"))
+    assert report.pages_without_cover(site, config) == []
+
+
+def test_report_ignores_non_indexable():
+    from heron.core import report
+
+    cfg = sites.config(
+        site={"domain": "example.com", "theme": "demo", "default_lang": "uk", "languages": ["uk"]},
+    )
+    site = _site_pages(cfg, _page("uk", noindex=True))
+    assert report.pages_without_cover(site, cfg) == []
+
+
+def _check_site(tmp_path, default_image: bool):
+    root = tmp_path / "s"
+    create(root, name="S", languages=["en"], demo=False)
+    sites.clear_content(root)
+    if default_image:
+        _png(root / "media" / "default.png", 1600, 900)
+        site_yaml = root / "site.yaml"
+        site_yaml.write_text(
+            site_yaml.read_text(encoding="utf-8") + "\nseo:\n  og_default_image: media/default.png\n",
+            encoding="utf-8",
+        )
+    content = root / "content" / "en"
+    content.mkdir(parents=True, exist_ok=True)
+    (content / "_index.md").write_text(_md("Home"), encoding="utf-8")
+    (content / "plain.md").write_text(_md("Plain"), encoding="utf-8")
+    (content / "hidden.md").write_text(_md("Hidden", noindex="true"), encoding="utf-8")
+    return pipeline.check(root)
+
+
+def test_check_warns_pages_without_cover(tmp_path):
+    result = _check_site(tmp_path, default_image=False)
+    messages = [w.message for w in result.collector.warnings if "without a cover" in w.message]
+    # noindex-страница не считается: две индексируемые без обложки
+    assert messages == ["pages without a cover: 2 (no og:image and no primaryImageOfPage)"]
+    assert not [e for e in result.collector.errors if "cover" in e.message]
+    assert not result.failed
+
+
+def test_check_silent_with_default_image(tmp_path):
+    result = _check_site(tmp_path, default_image=True)
+    assert not [w for w in result.collector.warnings if "without a cover" in w.message]
+    assert not result.failed

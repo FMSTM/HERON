@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from heron.contracts.site import SiteConfig
+from heron.core.media import FOLDERS
 from heron.core.urls import absolute
 
 IMAGE_PROPS = ("image", "logo", "photo", "thumbnailUrl", "contentUrl", "primaryImageOfPage")
@@ -70,9 +71,15 @@ def local_path(url: str, config: SiteConfig) -> str | None:
     return rel or None
 
 
-def source_exists(site_root: Path, rel: str) -> bool:
-    """check без сборки: файл по исходникам (media/ с нарезками мастера, иначе static/)."""
-    if rel.split("/", 1)[0] == "media":
+def source_exists(site_root: Path, rel: str, theme_dir: Path | None = None) -> bool:
+    """check без сборки: файл по исходникам - так же, как его разложит build.
+
+    media/ (и legacy img/) - мастер или нарезка существующего мастера;
+    assets/ - static/assets/ или theme/assets/ (build кладёт оба в assets/);
+    иначе static/<путь>.
+    """
+    head = rel.split("/", 1)[0]
+    if head in FOLDERS:
         if (site_root / rel).is_file():
             return True
         match = _SLICE.match(Path(rel).stem)
@@ -80,4 +87,6 @@ def source_exists(site_root: Path, rel: str) -> bool:
             parent = (site_root / rel).parent
             return any((parent / f"{match['stem']}{ext}").is_file() for ext in _KEEP)
         return False
-    return (site_root / "static" / rel).is_file()
+    if (site_root / "static" / rel).is_file():
+        return True
+    return head == "assets" and theme_dir is not None and (theme_dir / rel).is_file()

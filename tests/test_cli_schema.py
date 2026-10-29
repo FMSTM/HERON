@@ -57,6 +57,14 @@ def test_bad_key_on_build_is_usage_error(site):
     assert result.exit_code == 2
 
 
+def test_build_allow_schema_passes_on_prod(site):
+    blocked = _run("build", "--env", "prod", str(site))
+    assert blocked.exit_code == 1, blocked.output
+    result = _run("build", "--env", "prod", "--allow-schema", KEY, str(site))
+    assert result.exit_code == 0, result.output
+    assert KEY in result.output
+
+
 @pytest.mark.parametrize("lang", ["ru", "en"])
 def test_help_shows_flags(lang):
     result = CliRunner().invoke(main, ["--notes", lang, "check", "--help"])

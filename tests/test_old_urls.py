@@ -144,3 +144,19 @@ def test_cli_not_utf8_file_no_traceback(tmp_path):
     assert result.exit_code != 0
     assert "E030" in result.output
     assert not isinstance(result.exception, UnicodeDecodeError)
+
+
+def test_cli_check_json_includes_old_urls(tmp_path):
+    import json
+
+    root = tmp_path / "site"
+    create(root, name="Example", languages=["en"])
+    urls = tmp_path / "urls.txt"
+    urls.write_text("/glavnaja-rus\n", encoding="utf-8")
+    result = CliRunner().invoke(main, ["check", str(root), "--json", "--old-urls", str(urls)])
+    data = json.loads(result.output)
+    assert "old_urls" in data
+    assert len(data["old_urls"]["lost"]) == 1
+    assert "/glavnaja-rus" in data["old_urls"]["lost"][0]["message"]
+    plain = json.loads(CliRunner().invoke(main, ["check", str(root), "--json"]).output)
+    assert "old_urls" not in plain

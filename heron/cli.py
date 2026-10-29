@@ -577,7 +577,12 @@ def _finish(
 
 
 def _check_json(
-    path: Path, strict: bool, drafts: bool, env: BuildEnv, allow_schema: tuple[str, ...] = ()
+    path: Path,
+    strict: bool,
+    drafts: bool,
+    env: BuildEnv,
+    allow_schema: tuple[str, ...] = (),
+    old_urls: Path | None = None,
 ) -> None:
     """`heron check --json`: коды, файлы и строки — разбирать, а не читать.
 
@@ -597,10 +602,19 @@ def _check_json(
 
     kit = None
     schema = None
+    old_section = None
     try:
         result = pipeline.check(
             path, drafts=drafts, strict=strict, env=env, allow_schema=list(allow_schema)
         )
+        if old_urls is not None:
+            listed = report_module.read_old_urls(old_urls)
+            lost, old_summary = report_module.old_urls(listed, result.site, result.config)
+            result.collector.warnings.extend(lost)
+            old_section = {
+                "summary": old_summary,
+                "lost": [{"path": w.path, "line": w.line, "message": w.message} for w in lost],
+            }
         kit = result.report.kit if result.report is not None else None
         section = result.report.schema if result.report is not None else None
         schema = section.as_json() if section is not None else None
@@ -630,6 +644,7 @@ def _check_json(
                 "warnings": warnings,
                 "kit": kit.as_json(),
                 "schema": schema,
+                **({"old_urls": old_section} if old_section is not None else {}),
             },
             ensure_ascii=False,
             indent=2,
@@ -1225,7 +1240,7 @@ def check(
     _need_site(path, lang)
     env = BuildEnv.resolve(env_name)
     if as_json:
-        _check_json(path, strict, drafts, env, allow_schema)
+        _check_json(path, strict, drafts, env, allow_schema, old_urls)
         return
     click.secho(
         say(lang, "check_head", version=__version__, path=_shown(path)), bold=True, err=True

@@ -71,6 +71,22 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-soft
 .toast.bad { background: var(--bad); }
 .toast ul { margin: .4rem 0 0; padding-left: 1.1rem; }
 .toast button { float: right; background: none; border: 0; color: inherit; font-size: 1.1rem; cursor: pointer; }
+.field.bad input, .field.bad select, .field.bad textarea { border-color: var(--bad); box-shadow: 0 0 0 2px rgba(180,40,40,.18); }
+.field.bad > label { color: var(--bad); }
+.sch-banner { border: 1px solid var(--bad); border-radius: 12px; background: #fff6f4; padding: .9rem 1.1rem; margin-bottom: 1rem; }
+.sch-banner ul { margin: .4rem 0; padding-left: 1.1rem; }
+.sch-banner details { margin-top: .5rem; }
+.sch-banner .row { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+dialog.sch { border: 0; border-radius: 14px; padding: 1.3rem 1.4rem; max-width: min(40rem, calc(100% - 2rem)); box-shadow: 0 20px 60px rgba(0,0,0,.28); }
+dialog.sch::backdrop { background: rgba(23,22,28,.45); }
+dialog.sch h3 { margin: 0 0 .6rem; }
+dialog.sch ul { padding-left: 1.1rem; }
+dialog.sch textarea { width: 100%; min-height: 6rem; }
+dialog.sch .acts { display: flex; gap: .6rem; justify-content: flex-end; flex-wrap: wrap; margin-top: 1rem; }
+dialog.sch .acts button { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: .5rem 1rem; cursor: pointer; font: inherit; }
+dialog.sch .acts button.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+dialog.sch .acts button:disabled { opacity: .5; cursor: default; }
+dialog.sch .err { color: var(--bad); margin: .3rem 0 0; }
 .check { display: flex; gap: .5rem; align-items: center; }
 .muted { color: var(--muted); }
 .was[hidden] { display: none; }
@@ -145,6 +161,7 @@ table.envs code { word-break: break-all; }
     <div class="pop" id="bot-pop" role="status" hidden data-t="bot_off">The bot is not connected yet.</div>
   </div>
 </div></footer>
+<dialog class="sch" id="sch" aria-labelledby="sch-title"></dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -174,7 +191,8 @@ const LANGS = [
 ];
 const T = {
   ru: {
-    not_set: "не указано", filter: "Фильтр по названию", add_rule: "Добавить правило", remove: "Убрать строку", hours_preview: "В разметке будет", hours_order: "Закрытие должно быть позже открытия", not_in_vocab: "нет в словаре", remove_value: "Убрать", day_from: "С дня", day_to: "По день", opens: "Открытие", closes: "Закрытие", yes: "Да", no: "Нет", hours_bad: "не удалось разобрать, в разметку не попадёт", delete: "Удалить", hours_complex: "сложное правило, правится в site.yaml",
+    workplace: "Место работы", workplace_other_address: "Адрес не как у сайта",
+    not_set: "не указано", filter: "Фильтр по названию", add_rule: "Добавить правило", remove: "Убрать строку", hours_preview: "В разметке будет", hours_order: "Закрытие должно быть позже открытия", not_in_vocab: "нет в словаре", remove_value: "Убрать", not_for_spec: "не подходит выбранной сфере", day_from: "С дня", day_to: "По день", opens: "Открытие", closes: "Закрытие", yes: "Да", no: "Нет", hours_bad: "не удалось разобрать, в разметку не попадёт", delete: "Удалить", hours_complex: "сложное правило, правится в site.yaml",
     bot: "Нужна помощь или есть вопросы?", bot_off: "Скоро здесь будет связь с нами.",
     dir: "Сфера деятельности", dir_none: "— сфера деятельности —", spec_none: "— специализация (необязательно) —", kind_none: "— вид (необязательно) —",
     sep: "Разделитель", suffix_text: "Текст после разделителя",
@@ -228,10 +246,12 @@ const T = {
     g_theme: "Тема", g_theme_about: "Внешний вид сайта. Вместе с темой приезжают её страницы-примеры — только туда, где страниц ещё нет: ваши файлы не перезаписываются.",
     th_keep: "Текущая", th_white: "белая", th_name: "Из каталога HERON", th_url: "По ссылке", th_file: "Свой архив",
     th_url_h: "https-адрес .zip или .tar.gz; #sha256=<хеш> в конце сверяется.", th_file_h: ".zip или .tar.gz с папкой theme/ внутри.",
+    sch_title: "Разметка не пройдёт проверку schema.org", sch_fix: "Исправить", sch_save_anyway: "Сохранить всё равно", sch_drop_q: "Удалить неверные значения?", sch_drop: "Удалить", sch_keep: "Не удалять", sch_reason: "Причина", sch_reason_hint: "В site.yaml будет записано исключение, prod-сборка пройдёт, отчёт его покажет.", sch_except_title: "Сохранить с исключением", sch_saved_except: "Сохранено с исключением", sch_dropped: "Убрано из разметки", sch_banner: "В site.yaml есть разметка, которая не пройдёт проверку", sch_show: "Показать", sch_excepted: "Исключения", sch_expired: "Срок исключения истёк", sch_path: "Путь в site.yaml", sch_field: "Поле", sch_drop_hint: "Эти значения уйдут из site.yaml и из разметки:",
     saved: "Сохранено", nothing: "Ничего не изменилось.", written: "Записано", removed: "Убрано", kept: "Оставлено, файл не наш", created: "Создано", backup: "Прежняя версия", next: "Дальше: heron serve . — посмотреть сайт.", error: "Не сохранено",
   },
   en: {
-    not_set: "not set", filter: "Filter by name", add_rule: "Add rule", remove: "Remove row", hours_preview: "Markup will contain", hours_order: "Closing must be later than opening", not_in_vocab: "not in vocabulary", remove_value: "Remove", day_from: "From day", day_to: "To day", opens: "Opens", closes: "Closes", yes: "Yes", no: "No", hours_bad: "could not be parsed, will not reach the markup", delete: "Delete", hours_complex: "complex rule, edit it in site.yaml",
+    workplace: "Place of work", workplace_other_address: "Address differs from the site's",
+    not_set: "not set", filter: "Filter by name", add_rule: "Add rule", remove: "Remove row", hours_preview: "Markup will contain", hours_order: "Closing must be later than opening", not_in_vocab: "not in vocabulary", remove_value: "Remove", not_for_spec: "does not fit the chosen field", day_from: "From day", day_to: "To day", opens: "Opens", closes: "Closes", yes: "Yes", no: "No", hours_bad: "could not be parsed, will not reach the markup", delete: "Delete", hours_complex: "complex rule, edit it in site.yaml",
     bot: "Need help or have questions?", bot_off: "A way to reach us will be here soon.",
     dir: "Field of work", dir_none: "— field of work —", spec_none: "— specialization (optional) —", kind_none: "— kind (optional) —",
     sep: "Separator", suffix_text: "Text after the separator",
@@ -285,6 +305,7 @@ const T = {
     g_theme: "Theme", g_theme_about: "The look of the site. A theme brings its example pages, only where there are no pages yet: your files are never overwritten.",
     th_keep: "Current", th_white: "white", th_name: "From the HERON catalog", th_url: "By link", th_file: "My archive",
     th_url_h: "https address of a .zip or .tar.gz; #sha256=<hash> at the end is checked.", th_file_h: ".zip or .tar.gz with theme/ inside.",
+    sch_title: "The markup will not pass the schema.org check", sch_fix: "Fix", sch_save_anyway: "Save anyway", sch_drop_q: "Remove the invalid values?", sch_drop: "Remove", sch_keep: "Keep them", sch_reason: "Reason", sch_reason_hint: "An exception will be written to site.yaml, the prod build will pass, and the report will show it.", sch_except_title: "Save with an exception", sch_saved_except: "Saved with an exception", sch_dropped: "Removed from the markup", sch_banner: "site.yaml has markup that will not pass the check", sch_show: "Show", sch_excepted: "Exceptions", sch_expired: "The exception has expired", sch_path: "Path in site.yaml", sch_field: "Field", sch_drop_hint: "These values will leave site.yaml and the markup:",
     saved: "Saved", nothing: "Nothing changed.", written: "Written", removed: "Removed", kept: "Kept, not ours", created: "Created", backup: "Previous version", next: "Next: heron serve . — look at the site.", error: "Not saved",
   },
 };
@@ -429,6 +450,7 @@ function clabel(entry) { return entry[L] || entry.en; }
 function gWho() {
   const chain = lineage(A.about.type);
   const person = chain[0] === "Person";
+  const personName = person || !!(A.about.type && ST.vocab.types[A.about.type] && ST.vocab.types[A.about.type].person_name);
   const ab = A.about;
   const cascade = h("div", { class: "cascade" });
   const arrow = () => h("span", { class: "arrow", "aria-hidden": "true" }, "→");
@@ -455,17 +477,29 @@ function gWho() {
     if (d) {
       const sp = h("select", { "aria-label": t("spec_none") }, h("option", { value: "" }, t("spec_none")),
         ...d.items.map((it) => h("option", { value: it.id, selected: ab.specialization === it.id }, clabel(person ? it.person || it : it))));
-      sp.addEventListener("change", () => { ab.specialization = sp.value; refresh(); });
+      sp.addEventListener("change", () => { ab.specialization = sp.value; render(); });
       cascade.append(arrow(), sp);
     }
   }
   const names = A.about.type ? ST.fields_by_type[A.about.type] : ST.vocab.common;
   const main = h("div", { class: "grid" });
   const address = h("div", { class: "grid" });
+  const work = h("div", { class: "grid" });
+  const workOther = h("div", { class: "grid" });
+  const afterWork = h("div", { class: "grid" });
+  const WORK_ADDR = ["practices_at_city", "practices_at_region", "practices_at_postal_code", "practices_at_country"];
+  // Поля, идущие в словаре после места работы (hospital_affiliation, accepts_new_patients), выводятся после его блока.
+  const workAt = names.findIndex((n) => n.startsWith("practices_at"));
+  const target = (name, spec) => name.startsWith("practices_at") ? (WORK_ADDR.includes(name) ? workOther : work)
+    : spec.group === "address" ? address : workAt >= 0 && names.indexOf(name) > workAt ? afterWork : main;
   for (const name of names) {
     const spec = ST.vocab.fields[name];
     if (spec.money && !A.search.allow_prices) continue;
-    (spec.group === "address" ? address : main).append(aboutField(name, spec, person));
+    if (!fitsSpec(name)) {
+      if (hasValue(A.about.fields[name])) target(name, spec).append(unfitField(name, spec, personName));
+      continue;
+    }
+    target(name, spec).append(aboutField(name, spec, personName));
   }
   const typeNames = Object.fromEntries(Object.entries(ST.vocab.types).map(([k, v]) => [k, label(v)]));
   const dirNames = Object.fromEntries((ST.classifier || []).map((d) => [d.id, clabel(d)]));
@@ -473,9 +507,30 @@ function gWho() {
   const who = h("div", { class: "grid" }, h("div", { class: "field wide" }, h("span", { class: "legend" }, t("type")), cascade, hint(t("type_h")),
     track("about.type", typeNames), track("about.direction", dirNames), track("about.specialization", specNames)));
   const body = [who, h("div", { style: "height:1rem" }), main];
+  if (work.childNodes.length || workOther.childNodes.length) {
+    const box = h("fieldset", { class: "subbox", "data-group": "practices_at" }, h("legend", {}, t("workplace")), work);
+    if (workOther.childNodes.length) box.append(h("details", { style: "margin-top:.75rem" }, h("summary", {}, t("workplace_other_address")), workOther));
+    body.push(h("div", { style: "height:1rem" }), box);
+  }
+  if (afterWork.childNodes.length) body.push(h("div", { style: "height:1rem" }), afterWork);
   if (address.childNodes.length) body.push(h("div", { style: "height:1rem" }), h("div", { class: "subbox" }, h("h3", {}, person ? t("address_person") : t("address")), address));
   body.push(h("div", { style: "height:1rem" }), contactsBox());
   return group("who", "3", t("g_who"), t("g_who_about"), null, ...body);
+}
+// Поле подходит итоговому типу, если голова его prop есть в props_by_spec["вид|специализация"];
+// пары без записи не отличаются от набора самого вида.
+function fitsSpec(name) {
+  const ab = A.about;
+  const allowedProps = ab.type && ab.specialization && ST.schema && ST.schema.props_by_spec ? ST.schema.props_by_spec[ab.type + "|" + ab.specialization] : null;
+  if (!allowedProps) return true;
+  const prop = ST.vocab.fields[name] && ST.vocab.fields[name].prop;
+  return !prop || allowedProps.includes(String(prop).split(".")[0]);
+}
+function hasValue(v) { return v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && !v.join("").trim()) && !(typeof v === "object" && !Array.isArray(v) && !Object.values(v).join("").trim()); }
+function unfitField(name, spec, person) {
+  return h("div", { class: "field wide was", "data-field": name, style: "opacity:.6" }, h("span", { class: "legend" }, label(spec, person)),
+    h("span", {}, t("not_for_spec")),
+    h("button", { type: "button", onclick: () => { delete A.about.fields[name]; render(); } }, t("remove_value")));
 }
 function prune() {
   const allowed = new Set(A.about.type ? ST.fields_by_type[A.about.type] : ST.vocab.common);
@@ -520,7 +575,9 @@ function subtypeSelect(name, path, put) {
   const sel = h("select", { id: "f-" + name }, h("option", { value: "" }, t("not_set")),
     ...items.map((i) => h("option", { value: i.value, selected: now === i.value }, i.label)));
   sel.addEventListener("change", () => put(sel.value));
-  return sel;
+  if (!now || items.some((i) => i.value === now)) return sel;
+  return h("div", {}, sel, h("div", { class: "was" }, h("span", {}, now + " (" + t("not_in_vocab") + ")"),
+    h("button", { type: "button", onclick: () => { put(""); render(); } }, t("remove_value"))));
 }
 function boolButtons(path) {
   const now = get(path);
@@ -619,7 +676,8 @@ function aboutField(name, spec, person) {
     el.addEventListener("input", () => onset(kind === "lines" ? el.value.split("\n") : el.value));
     return el;
   };
-  const box = h("div", { class: "field" + (wide ? " wide" : "") }, h("label", { for: "f-" + name }, label(spec, person)));
+  const box = h("div", { class: "field" + (wide ? " wide" : ""), "data-field": name }, h("label", { for: "f-" + name }, label(spec, person)));
+  for (const ev of ["input", "change"]) box.addEventListener(ev, () => box.classList.remove("bad"));
   const current = A.about.fields[name];
   if (kind === "enum" || kind === "subtype" || kind === "bool" || kind === "hours") {
     if ((kind === "enum" || kind === "subtype") && !schemaList(name)) return document.createDocumentFragment();
@@ -824,7 +882,7 @@ function render() {
   for (const b of document.querySelectorAll(".langswitch button")) b.setAttribute("aria-pressed", String(b.dataset.lang === L));
   const y = window.scrollY;
   TRACKS.length = 0;
-  const form = $("#form"); form.replaceChildren(gSite(), gLang(), gWho(), gSearch(), gAI(), gAnalytics(), gPublish(), gKeys(), gTheme());
+  const form = $("#form"); form.replaceChildren(schemaBanner(), gSite(), gLang(), gWho(), gSearch(), gAI(), gAnalytics(), gPublish(), gKeys(), gTheme());
   $("#groups").replaceChildren(...[...form.querySelectorAll("section.group")].map((s) => h("a", { href: "#" + s.id }, h("span", { class: "n" }, $(".n", s).textContent), $(".title", s).textContent)));
   refresh();
   window.scrollTo(0, y);
@@ -835,15 +893,94 @@ function toast(kind, title, lines) {
   el.replaceChildren(h("button", { type: "button", "aria-label": "close", onclick: () => (el.style.display = "none") }, "×"), h("b", {}, title), lines && lines.length ? h("ul", {}, ...lines.map((x) => h("li", {}, x))) : null);
   el.style.display = "block";
 }
-function load(state) { ST = state; A = clone(state.answers); BASE = clone(state.answers); UPLOAD = ""; for (const k of Object.keys(HOURS_ROWS)) delete HOURS_ROWS[k]; }
-async function save() {
+// Находки schema.org: подсветка полей, баннер, окно решения
+function markBad(fields) {
+  const boxes = [];
+  for (const name of new Set(fields.filter(Boolean))) {
+    const box = document.querySelector('[data-field="' + name + '"]');
+    if (box) { box.classList.add("bad"); boxes.push(box); }
+  }
+  if (boxes.length) {
+    const d = boxes[0].closest("details"); if (d) d.open = true;
+    boxes[0].scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+function fieldLabel(name) {
+  const box = name && document.querySelector('[data-field="' + name + '"]');
+  const el = box && box.querySelector("label, .legend");
+  return el ? el.textContent.trim() : "";
+}
+function findingLine(f) {
+  const name = fieldLabel(f.field);
+  const where = name ? t("sch_field") + ": " + name : t("sch_path") + ": " + f.path;
+  return h("li", {}, h("b", {}, f.title), f.detail ? " " + f.detail : "", h("div", { class: "muted" }, where));
+}
+let SCH_LOOSE = [];
+function fixFindings(findings) {
+  closeSchema();
+  SCH_LOOSE = findings.filter((x) => !x.field || !document.querySelector('[data-field="' + x.field + '"]'));
+  render();
+  markBad(findings.map((x) => x.field));
+  if (SCH_LOOSE.length && !findings.some((x) => x.field && document.querySelector('[data-field="' + x.field + '"]'))) $("#form").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function schemaBanner() {
+  const f = (ST && ST.schema && ST.schema.findings) || { active: [], excepted: [], expired: [] };
+  if (!SCH_LOOSE.length && !f.active.length && !f.excepted.length && !f.expired.length) return document.createDocumentFragment();
+  const box = h("div", { class: "sch-banner", role: "alert" });
+  if (SCH_LOOSE.length) box.append(h("b", {}, schemaTitle()), h("ul", {}, ...SCH_LOOSE.map(findingLine)));
+  if (f.active.length) {
+    box.append(h("div", { class: "row" }, h("b", {}, t("sch_banner")), h("button", { type: "button", class: "add", onclick: () => markBad(f.active.map((x) => x.field)) }, t("sch_show"))),
+      h("ul", {}, ...f.active.map(findingLine)));
+  }
+  if (f.expired.length) box.append(h("div", {}, h("b", {}, t("sch_expired") + ": "), f.expired.map((x) => x.path + (x.reason ? " (" + x.reason + ")" : "")).join(", ")));
+  if (f.excepted.length) box.append(h("details", {}, h("summary", {}, t("sch_excepted") + " (" + f.excepted.length + ")"), h("ul", {}, ...f.excepted.map((x) => h("li", {}, h("code", {}, x.path), ": ", x.reason || "")))));
+  return box;
+}
+let SCH_FINDINGS = [];
+let SCH_RELEASE = "";
+function schemaTitle() { return t("sch_title") + (SCH_RELEASE ? " " + SCH_RELEASE : ""); }
+function closeSchema() { const d = $("#sch"); if (d.open) d.close(); }
+function schemaDialog(state, findings, busy, error) {
+  const d = $("#sch");
+  const acts = h("div", { class: "acts" });
+  const btn = (label, cls, fn, off) => h("button", { type: "button", class: cls || null, disabled: off || busy ? true : null, onclick: fn }, busy ? label + "…" : label);
+  let body;
+  if (state === "findings") {
+    body = [h("h3", { id: "sch-title" }, schemaTitle()), h("ul", {}, ...findings.map(findingLine))];
+    acts.append(btn(t("sch_fix"), "", () => fixFindings(findings)), btn(t("sch_save_anyway"), "primary", () => schemaDialog("drop", findings)));
+  } else if (state === "drop") {
+    body = [h("h3", { id: "sch-title" }, t("sch_drop_q")), h("p", { class: "muted" }, t("sch_drop_hint")), h("ul", {}, ...findings.map((x) => h("li", {}, x.drop_label)))];
+    acts.append(btn(t("sch_keep"), "", () => schemaDialog("reason", findings)), btn(t("sch_drop"), "primary", () => save({ mode: "drop", drop: findings.map((x) => x.key) })));
+  } else {
+    const ta = h("textarea", { id: "sch-reason", "aria-label": t("sch_reason") });
+    ta.value = state === "reason" && schemaDialog.reason ? schemaDialog.reason : "";
+    const go = btn(t("save"), "primary", () => { schemaDialog.reason = ta.value.trim(); save({ mode: "except", reason: schemaDialog.reason }); }, !ta.value.trim());
+    ta.addEventListener("input", () => { go.disabled = !ta.value.trim(); });
+    body = [h("h3", { id: "sch-title" }, t("sch_except_title")), h("label", { for: "sch-reason" }, t("sch_reason")), ta, h("div", { class: "hint" }, t("sch_reason_hint")), error ? h("p", { class: "err" }, error) : null];
+    acts.append(btn(t("sch_fix"), "", () => fixFindings(findings)), go);
+  }
+  d.replaceChildren(...body, acts);
+  if (!d.open) d.showModal();
+  if (state === "reason") $("#sch-reason", d).focus();
+}
+function showSchemaDialog(schema) { SCH_RELEASE = schema.release || ""; SCH_FINDINGS = schema.findings || []; schemaDialog("findings", SCH_FINDINGS); }
+$("#sch").addEventListener("cancel", (e) => { e.preventDefault(); fixFindings(SCH_FINDINGS); });
+$("#sch").addEventListener("click", (e) => { if (e.target === e.currentTarget) fixFindings(SCH_FINDINGS); });
+function load(state) { ST = state; A = clone(state.answers); BASE = clone(state.answers); UPLOAD = ""; SCH_LOOSE = []; for (const k of Object.keys(HOURS_ROWS)) delete HOURS_ROWS[k]; }
+async function save(decision) {
   const btn = $("#save"); btn.disabled = true; btn.textContent = t("saving");
+  for (const b of document.querySelectorAll("#sch .acts button")) { b.disabled = true; if (decision) b.textContent += "…"; }
   try {
     const answers = clone(A);
     answers.about.contacts = (answers.about.contacts || []).filter((c) => (c.value || "").trim());
-    const r = await fetch("/api/save", { method: "POST", headers: { "Content-Type": "application/json", "X-Heron-Token": TOKEN }, body: JSON.stringify({ answers, upload: UPLOAD, lang: L }) });
+    const r = await fetch("/api/save", { method: "POST", headers: { "Content-Type": "application/json", "X-Heron-Token": TOKEN }, body: JSON.stringify({ answers, upload: UPLOAD, lang: L, ...(decision ? { schema: decision } : {}) }) });
     const j = await r.json();
-    if (!j.ok) { toast("bad", t("error"), [j.error, j.hint].filter(Boolean)); return; }
+    if (r.status === 409 && j.schema) { showSchemaDialog(j.schema); return; }
+    if (!j.ok) {
+      if (decision && decision.mode === "except" && $("#sch").open) { schemaDialog("reason", SCH_FINDINGS, false, [j.error, j.hint].filter(Boolean).join(" ")); return; }
+      toast("bad", t("error"), [j.error, j.hint].filter(Boolean)); return;
+    }
+    closeSchema();
     const lines = [];
     if (j.written.length) lines.push(t("written") + ": " + j.written.join(", "));
     if (j.created.length) lines.push(t("created") + ": " + j.created.slice(0, 8).join(", ") + (j.created.length > 8 ? " …" : ""));
@@ -852,14 +989,16 @@ async function save() {
     if (j.backup) lines.push(t("backup") + ": " + j.backup);
     if (!lines.length) lines.push(t("nothing"));
     lines.push(t("next"));
+    if (j.dropped && j.dropped.length) lines.push(t("sch_dropped") + ": " + j.dropped.join(", "));
     load(j.state);
     render();
-    toast("ok", t("saved"), lines);
-  } catch (e) { toast("bad", t("error"), [String(e)]); }
+    if (j.excepted && j.excepted.length) toast("ok", t("sch_saved_except") + ": " + j.excepted.length, lines);
+    else toast("ok", t("saved"), lines);
+  } catch (e) { closeSchema(); toast("bad", t("error"), [String(e)]); }
   finally { btn.disabled = false; btn.textContent = t("save"); }
 }
 document.querySelectorAll(".langswitch button").forEach((b) => b.addEventListener("click", () => { L = b.dataset.lang; render(); }));
-$("#save").addEventListener("click", save);
+$("#save").addEventListener("click", () => save());
 $("#bot").addEventListener("click", () => {
   if (BOT_URL) { window.open(BOT_URL, "_blank", "noopener"); return; }
   const pop = $("#bot-pop"); pop.hidden = !pop.hidden;

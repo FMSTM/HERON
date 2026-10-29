@@ -1,0 +1,35 @@
+{
+  "site": {
+    "name": "Dr. Jane Example",
+    "domain": "example.org",
+    "default_lang": "uk",
+    "languages": ["uk", "en"]
+  },
+  "about": {
+    "type": "IndividualPhysician",
+    "fields": {
+      "name": "Dr. Jane Example",
+      "street": "Main street 1",
+      "city": "Example City",
+      "region": "Example Region",
+      "postal_code": "00000",
+      "country": "DE",
+      "latitude": 10.5,
+      "longitude": 20.25,
+      "opening_hours": ["Mo-Fr 09:00-17:00", "Sa 10:00-14:00"],
+      "medical_specialty": ["Cardiovascular", "Dermatology", "Pediatric"],
+      "practices_at_type": "Hospital",
+      "practices_at": "City Hospital",
+      "practices_at_street": "Hospital street 5",
+      "practices_at_city": "Example City",
+      "practices_at_region": "Example Region",
+      "practices_at_postal_code": "00001",
+      "practices_at_country": "DE"
+    },
+    "contacts": [
+      {"type": "phone", "value": "+00 000 000 00 00"},
+      {"type": "facebook", "value": "https://www.facebook.com/example-doctor"},
+      {"type": "linkedin", "value": "https://www.linkedin.com/in/example-doctor"}
+    ]
+  }
+}

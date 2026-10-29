@@ -1,0 +1,62 @@
+# Вымышленный врач. Структура schema.entity - та же, что владелец записал руками
+# на сайте-эталоне. Данные выдуманы: домен example.org, номер +00 000 000 00 00.
+heron: ">=0.1"
+site:
+  name: Dr. Jane Example
+  domain: example.org
+  theme: main
+  default_lang: uk
+  languages: [uk, en]
+organization:
+  name: Dr. Jane Example
+contact:
+  phone: "+00 000 000 00 00"
+  street: Main street 1
+  city: Example City
+  region: Example Region
+  postal_code: "00000"
+  country: DE
+  hours_schema:
+    - Mo-Fr 09:00-17:00
+    - Sa 10:00-14:00
+  geo:
+    - 10.5
+    - 20.25
+schema:
+  entity:
+    "@type": IndividualPhysician
+    "@id": "#doctor"
+    name: "{{ organization.name }}"
+    medicalSpecialty:
+      - https://schema.org/Cardiovascular
+      - https://schema.org/Dermatology
+      - https://schema.org/Pediatric
+    telephone: "{{ contact.phone }}"
+    openingHours: "{{ contact.hours_schema }}"
+    address:
+      "@type": PostalAddress
+      streetAddress: "{{ contact.street }}"
+      addressLocality: "{{ contact.city }}"
+      addressRegion: "{{ contact.region }}"
+      postalCode: "{{ contact.postal_code }}"
+      addressCountry: "{{ contact.country }}"
+    geo:
+      "@type": GeoCoordinates
+      latitude: "{{ contact.geo.0 }}"
+      longitude: "{{ contact.geo.1 }}"
+    practicesAt:
+      "@type": Hospital
+      name: City Hospital
+      address:
+        "@type": PostalAddress
+        streetAddress: Hospital street 5
+        addressLocality: Example City
+        addressRegion: Example Region
+        postalCode: "00001"
+        addressCountry: DE
+    sameAs:
+      - https://www.facebook.com/example-doctor
+      - https://www.linkedin.com/in/example-doctor
+    image:
+      "@type": ImageObject
+      url: "{{ site.base }}media/doctor.jpg"

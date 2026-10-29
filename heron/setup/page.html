@@ -954,7 +954,7 @@ function schemaDialog(state, findings, busy, error) {
     body = [h("h3", { id: "sch-title" }, schemaTitle()), h("ul", {}, ...findings.map(findingLine))];
     acts.append(btn(t("sch_fix"), "", () => fixFindings(findings)), btn(t("sch_save_anyway"), "primary", () => schemaDialog("drop", findings)));
   } else if (state === "drop") {
-    body = [h("h3", { id: "sch-title" }, t("sch_drop_q")), h("p", { class: "muted" }, t("sch_drop_hint")), h("ul", {}, ...findings.map((x) => h("li", {}, x.drop_label)))];
+    body = [h("h3", { id: "sch-title" }, t("sch_drop_q")), h("p", { class: "muted" }, t("sch_drop_hint")), h("ul", {}, ...findings.map((x) => h("li", {}, x.drop_label))), error ? h("p", { class: "err" }, error) : null];
     acts.append(btn(t("sch_keep"), "", () => schemaDialog("reason", findings)), btn(t("sch_drop"), "primary", () => save({ mode: "drop", drop: findings.map((x) => x.key) })));
   } else {
     const ta = h("textarea", { id: "sch-reason", "aria-label": t("sch_reason") });
@@ -983,6 +983,7 @@ async function save(decision) {
     if (r.status === 409 && j.schema) { showSchemaDialog(j.schema); return; }
     if (!j.ok) {
       if (decision && decision.mode === "except" && $("#sch").open) { schemaDialog("reason", SCH_FINDINGS, false, [j.error, j.hint].filter(Boolean).join(" ")); return; }
+      if (decision && decision.mode === "drop" && $("#sch").open) { schemaDialog("drop", SCH_FINDINGS, false, [j.error, j.hint].filter(Boolean).join(" ")); return; }
       toast("bad", t("error"), [j.error, j.hint].filter(Boolean)); return;
     }
     closeSchema();

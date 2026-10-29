@@ -149,3 +149,9 @@ def test_hours_select_keeps_times_not_multiple_of_15():
     assert "function timesWith(" in PAGE
     assert 'sel(t("opens"), timesWith(r.open).map(' in PAGE
     assert 'sel(t("closes"), timesWith(r.close).map(' in PAGE
+
+
+def test_drop_400_redraws_dialog_with_error():
+    assert 'schemaDialog("drop", SCH_FINDINGS, false' in PAGE
+    branch = PAGE.split('state === "drop"', 1)[1].split("} else {", 1)[0]
+    assert 'class: "err"' in branch

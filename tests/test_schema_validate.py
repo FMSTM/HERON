@@ -27,7 +27,7 @@ def doctor() -> dict[str, Any]:
             "https://schema.org/Surgical",
             "https://schema.org/Pediatric",
         ],
-        "telephone": "+70000000000",
+        "telephone": "+00 000 000 00 00",
         "openingHours": "Mo-Fr 09:00-18:00",
         "address": {"@type": "PostalAddress", "streetAddress": "Ул. 1", "addressLocality": "Город"},
         "geo": {"@type": "GeoCoordinates", "latitude": 55.1, "longitude": 37.2},

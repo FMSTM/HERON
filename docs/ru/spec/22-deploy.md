@@ -44,7 +44,8 @@ services:
     command: ["build", "--strict"]
 
   web:
-    image: nginxinc/nginx-unprivileged:1.30.6-alpine
+    # тот же digest, что в Dockerfile.site
+    image: nginxinc/nginx-unprivileged:1.30.6-alpine@sha256:782bb89768cc87b7f95c18b95baa1af250e5d451f26794f59363540161147c01
     restart: unless-stopped
     volumes:
       - ./dist:/usr/share/nginx/html:ro

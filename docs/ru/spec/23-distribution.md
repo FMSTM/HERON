@@ -265,7 +265,7 @@ docker run --rm \
 
 **Цепочка поставки:**
 
-- зависимости залочены (`uv.lock`) и **в образ ставятся ровно они**: `requirements.lock` — выгрузка `uv.lock` без dev-группы с хешами, `pip install --require-hashes`; сборочный бэкенд — `requirements-build.lock`, тоже с хешами, сборка без изоляции. Выгружает `scripts/lock.sh`, совпадение с `uv.lock` проверяет `scripts/check.sh`;
+- зависимости залочены (`uv.lock`) и **в образ ставятся ровно они**: `requirements.lock` — выгрузка `uv.lock` без dev-группы с хешами, `pip install --require-hashes`; сборочный бэкенд — `requirements-build.lock`, тоже с хешами, сборка без изоляции. Выгружает `scripts/lock.sh`, совпадение с `uv.lock` проверяет `scripts/check.sh` (при установленном `uv`; без него шаг пропускается);
 - базовые образы прибиты по digest: python — в `Dockerfile`, `nginxinc/nginx-unprivileged:1.30.6-alpine` (nginx 1.30.6 stable, закрывает опубликованные на 2026-10-14 advisories nginx.org) — в `Dockerfile.site`, стоковый nginx для `nginx -t` — во входе `nginx_image` workflow образа сайта;
 - CI собирает **кандидата** один раз (`load`), проверяет именно его — `--version` с коммитом и `scripts/smoke-engine.sh`: временный сайт `new`, затем `build --env prod --strict` с ограничениями из таблицы выше, — и публикует тот же образ, перевешивая теги, а не пересобирая;
 - время сборки — время коммита (`SOURCE_DATE_EPOCH`): метка `heron --version` и времена в слоях одинаковы у двух сборок одного коммита. Тот же `SOURCE_DATE_EPOCH` workflow образа сайта берёт из коммита контента.

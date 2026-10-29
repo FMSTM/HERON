@@ -265,7 +265,7 @@ docker run --rm \
 
 **Supply chain:**
 
-- the dependencies are locked (`uv.lock`) and **exactly they are installed into the image**: `requirements.lock` is an export of `uv.lock` without the dev group, with hashes, `pip install --require-hashes`; the build backend is `requirements-build.lock`, also with hashes, built without isolation. `scripts/lock.sh` exports them, `scripts/check.sh` checks that they match `uv.lock`;
+- the dependencies are locked (`uv.lock`) and **exactly they are installed into the image**: `requirements.lock` is an export of `uv.lock` without the dev group, with hashes, `pip install --require-hashes`; the build backend is `requirements-build.lock`, also with hashes, built without isolation. `scripts/lock.sh` exports them, `scripts/check.sh` checks that they match `uv.lock` (when `uv` is installed; without it the step is skipped);
 - the base images are pinned by digest: python - in `Dockerfile`, `nginxinc/nginx-unprivileged:1.30.6-alpine` (nginx 1.30.6 stable, closes the nginx.org advisories published as of 2026-10-14) - in `Dockerfile.site`, stock nginx for `nginx -t` - in the `nginx_image` input of the site image workflow;
 - CI builds **a candidate** once (`load`), checks exactly it - `--version` with the commit and `scripts/smoke-engine.sh`: a temporary site with `new`, then `build --env prod --strict` with the restrictions from the table above - and publishes the same image by moving the tags, not by rebuilding;
 - the build time is the commit time (`SOURCE_DATE_EPOCH`): the `heron --version` stamp and the times in the layers are the same for two builds of one commit. The site image workflow takes the same `SOURCE_DATE_EPOCH` from the content commit.

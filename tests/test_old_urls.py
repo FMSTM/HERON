@@ -30,7 +30,7 @@ def _lost(site, config, *urls):
 
 
 def test_old_slug_without_language_prefix_is_found_then_silent(tmp_path):
-    # случай myspine: в redirect_from только вариант с префиксом /ru/
+    # случай сайта, где в redirect_from только вариант с префиксом языка /ru/
     site, config = _site(tmp_path, {"redirect_from": ["/ru/staryj-slug"]})
     messages = _lost(site, config, "/staryj-slug")
     assert len(messages) == 1

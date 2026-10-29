@@ -594,6 +594,11 @@ function hoursTimes() {
   for (let m = 0; m <= 1440; m += 15) out.push(String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"));
   return out;
 }
+function timesWith(value) {
+  const all = hoursTimes();
+  if (!value || all.includes(value)) return all;
+  return [...all, value].sort();
+}
 function hoursLine(r) {
   if (r.state !== "rule" || r.close <= r.open) return null;
   return (r.to && r.to !== r.from ? r.from + "-" + r.to : r.from) + " " + r.open + "-" + r.close;
@@ -634,8 +639,8 @@ function hoursBuilder(name, path, put) {
       const row = h("div", { class: "hours-row", style: "display:flex;gap:.4rem;align-items:center;flex-wrap:wrap" + (bad ? ";outline:1px solid var(--bad);border-radius:6px;padding:.2rem" : "") },
         sel(t("day_from"), dayOpts, r.from, (v) => { r.from = v; commit(); draw(); }),
         sel(t("day_to"), [["", t("not_set")], ...dayOpts], r.to, (v) => { r.to = v; commit(); draw(); }),
-        sel(t("opens"), times.map((x) => [x, x]), r.open, (v) => { r.open = v; commit(); draw(); }),
-        sel(t("closes"), times.map((x) => [x, x]), r.close, (v) => { r.close = v; commit(); draw(); }),
+        sel(t("opens"), timesWith(r.open).map((x) => [x, x]), r.open, (v) => { r.open = v; commit(); draw(); }),
+        sel(t("closes"), timesWith(r.close).map((x) => [x, x]), r.close, (v) => { r.close = v; commit(); draw(); }),
         h("button", { type: "button", onclick: () => { rows.splice(i, 1); commit(); draw(); } }, t("remove")));
       if (bad) row.append(h("span", { style: "color:var(--bad)" }, t("hours_order")));
       wrap.append(row);

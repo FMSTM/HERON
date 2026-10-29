@@ -143,3 +143,9 @@ def test_subtype_select_shows_value_not_in_vocab():
     body = PAGE[start:PAGE.index("\nfunction ", start + 1)]
     assert "not_in_vocab" in body
     assert "remove_value" in body
+
+
+def test_hours_select_keeps_times_not_multiple_of_15():
+    assert "function timesWith(" in PAGE
+    assert 'sel(t("opens"), timesWith(r.open).map(' in PAGE
+    assert 'sel(t("closes"), timesWith(r.close).map(' in PAGE

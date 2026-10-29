@@ -670,7 +670,11 @@ def create(
         menu = ", ".join(json.dumps(item) if item == "/" else item for item in DEMO_NAV)
         site_yaml = site_yaml.replace('  main: ["/"]', f"  main: [{menu}]", 1)
     _put(root, "site.yaml", site_yaml, plan, force)
-    _put_bytes(root, f"media/{COVER_NAME}", (DEMO_MEDIA / COVER_NAME).read_bytes(), plan, force)
+    # Обложка по умолчанию нужна только новому site.yaml; чужой media/cover.png
+    # не трогаем ни при init, ни при init --force.
+    cover_rel = f"media/{COVER_NAME}"
+    if "site.yaml" in plan.created and not paths.in_site(root, cover_rel).exists():
+        _put_bytes(root, cover_rel, (DEMO_MEDIA / COVER_NAME).read_bytes(), plan, force)
     _put(root, ".gitignore", GITIGNORE, plan, force)
     _note(root, "root", "", notes, plan, force, name=name, slug=slugify(name) or name)
 

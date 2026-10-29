@@ -32,3 +32,29 @@ def test_fresh_site_passes_strict_check(tmp_path: Path, lang: str, demo: bool) -
     report = json.loads(result.output)
     assert report["ok"] is True
     assert "pages_without_cover" not in result.output
+
+
+@pytest.mark.parametrize("args", [["init"], ["init", "--force"]])
+def test_init_keeps_users_own_cover(tmp_path: Path, args: list[str]) -> None:
+    root = tmp_path / "s"
+    create(root, name="S", languages=["ru"], demo=False)
+    own = b"users own cover, not a png"
+    (root / "media" / "cover.png").write_bytes(own)
+    (root / "media" / "mine.png").write_bytes(b"x")
+    before = sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
+
+    result = CliRunner().invoke(main, [args[0], str(root), *args[1:]])
+    assert result.exit_code == 0, result.output
+
+    assert (root / "media" / "cover.png").read_bytes() == own
+    after = sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
+    assert [f for f in after if f not in before and f.startswith("media/")] == []
+
+
+def test_init_does_not_add_cover_to_foreign_site(tmp_path: Path) -> None:
+    root = tmp_path / "s"
+    create(root, name="S", languages=["ru"], demo=False)
+    (root / "media" / "cover.png").unlink()
+    result = CliRunner().invoke(main, ["init", str(root)])
+    assert result.exit_code == 0, result.output
+    assert not (root / "media" / "cover.png").exists()

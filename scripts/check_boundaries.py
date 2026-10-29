@@ -41,7 +41,15 @@ LOCAL = HERE / "boundary-patterns.local.txt"
 # classifier.yaml — общий классификатор сфер деятельности для анкеты (как
 # словарь schema.org): медицина, право и прочее там — это рубрики для любого
 # сайта, а не данные конкретного. Решено 2026-10-20.
-SKIP = {"scripts/boundary-hashes.txt", "uv.lock", "heron/setup/classifier.yaml"}
+# schemaorg-29.3.json — индекс словаря schema.org (стандарт, одинаковый у всех
+# сайтов), test_schemaorg_index.py сверяет факты этого словаря. Это термины стандарта, а не данные сайта. E17.S1.T1, 2026-10-29.
+SKIP = {
+    "scripts/boundary-hashes.txt",
+    "uv.lock",
+    "heron/setup/classifier.yaml",
+    "heron/schemaorg/schemaorg-29.3.json",
+    "tests/test_schemaorg_index.py",
+}
 
 WORD = re.compile(r"[^\W_]+", re.UNICODE)
 # Настоящий международный номер. Вымышленные в тестах и доках пишутся

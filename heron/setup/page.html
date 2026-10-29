@@ -902,7 +902,7 @@ function toast(kind, title, lines) {
 function markBad(fields) {
   const boxes = [];
   for (const name of new Set(fields.filter(Boolean))) {
-    const box = document.querySelector('[data-field="' + name + '"]');
+    const box = document.querySelector('[data-field="' + CSS.escape(name) + '"]');
     if (box) { box.classList.add("bad"); boxes.push(box); }
   }
   if (boxes.length) {
@@ -911,7 +911,7 @@ function markBad(fields) {
   }
 }
 function fieldLabel(name) {
-  const box = name && document.querySelector('[data-field="' + name + '"]');
+  const box = name && document.querySelector('[data-field="' + CSS.escape(name) + '"]');
   const el = box && box.querySelector("label, .legend");
   return el ? el.textContent.trim() : "";
 }
@@ -923,10 +923,10 @@ function findingLine(f) {
 let SCH_LOOSE = [];
 function fixFindings(findings) {
   closeSchema();
-  SCH_LOOSE = findings.filter((x) => !x.field || !document.querySelector('[data-field="' + x.field + '"]'));
+  SCH_LOOSE = findings.filter((x) => !x.field || !document.querySelector('[data-field="' + CSS.escape(x.field) + '"]'));
   render();
   markBad(findings.map((x) => x.field));
-  if (SCH_LOOSE.length && !findings.some((x) => x.field && document.querySelector('[data-field="' + x.field + '"]'))) $("#form").scrollIntoView({ behavior: "smooth", block: "start" });
+  if (SCH_LOOSE.length && !findings.some((x) => x.field && document.querySelector('[data-field="' + CSS.escape(x.field) + '"]'))) $("#form").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 function schemaBanner() {
   const f = (ST && ST.schema && ST.schema.findings) || { active: [], excepted: [], expired: [] };

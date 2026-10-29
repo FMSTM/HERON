@@ -155,3 +155,10 @@ def test_drop_400_redraws_dialog_with_error():
     assert 'schemaDialog("drop", SCH_FINDINGS, false' in PAGE
     branch = PAGE.split('state === "drop"', 1)[1].split("} else {", 1)[0]
     assert 'class: "err"' in branch
+
+
+def test_findings_selectors_use_css_escape():
+    block = PAGE[PAGE.index("function markBad("):PAGE.index("function findingLine(")]
+    block += PAGE[PAGE.index("function fixFindings("):][:900]
+    assert block.count("CSS.escape(") >= 3
+    assert not re.search(r"""\[data-field="' \+ (?!CSS\.escape)""", block)

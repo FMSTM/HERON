@@ -147,4 +147,5 @@ def test_notes_next_to_masters_are_not_reported(tmp_path):
     (root / "media").mkdir(exist_ok=True)
     (root / "media" / "README.md").write_text("что ещё нарисовать", encoding="utf-8")
     site, _ = tree.scan(root / "content", sites.config())
-    assert media.unused(site, root) == []
+    # media/cover.png - обложка по умолчанию заготовки (E18.S1.T11), не заметка
+    assert [n for n in media.unused(site, root) if n != "media/cover.png"] == []

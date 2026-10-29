@@ -102,7 +102,9 @@ def test_only_the_requested_ratio_lands_in_the_build(site):
     assert "media/card.png" in files
     # прочее: либо запрошенное шаблоном 16:9, либо вариант обложки (E16.S2.T3)
     cover = cover_variants(site, "media/card.png") & {n for n in files if n.endswith(".png")}
-    extra = {n for n in files if "-16x9-" not in n} - {"media/card.png"}
+    # media/cover.png - обложка по умолчанию заготовки (E18.S1.T11) и её варианты
+    default_cover = {"media/cover.png"} | cover_variants(site, "media/cover.png")
+    extra = {n for n in files if "-16x9-" not in n} - {"media/card.png"} - default_cover
     assert extra <= cover, extra
     # пропорций, на которые никто не ссылается, нет
     assert not any(n for n in files if re.search(r"-(1x1|4x3)-", n) and n not in cover), files
@@ -113,7 +115,12 @@ def test_one_fallback_per_ratio_and_not_wider_than_fallback_width(site):
     pngs = {name for name in built(site) if name.endswith(".png")}
     assert "media/card-16x9-800.png" in pngs
     # кроме запасного файла в <img> - мастер обложки и её вариант шириной cover_width
-    assert pngs == {"media/card.png", "media/card-16x9-800.png", "media/card-16x9-1200.png"}, pngs
+    assert pngs == {
+        "media/card.png",
+        "media/card-16x9-800.png",
+        "media/card-16x9-1200.png",
+        "media/cover.png",  # обложка по умолчанию заготовки (E18.S1.T11)
+    }, pngs
     html = (site / "dist" / "card" / "index.html").read_text(encoding="utf-8")
     assert 'src="/media/card-16x9-800.png"' in html
     with Image.open(site / "dist" / "media" / "card-16x9-800.png") as out:
@@ -137,7 +144,12 @@ def test_fallback_width_comes_from_the_theme(site):
     html = (site / "dist" / "card" / "index.html").read_text(encoding="utf-8")
     assert 'src="/media/card-16x9-400.png"' in html
     # прочие .png - мастер обложки и её вариант шириной max(fallback_width, cover_width)
-    assert pngs == {"media/card.png", "media/card-16x9-400.png", "media/card-16x9-1200.png"}, pngs
+    assert pngs == {
+        "media/card.png",
+        "media/card-16x9-400.png",
+        "media/card-16x9-1200.png",
+        "media/cover.png",  # обложка по умолчанию заготовки (E18.S1.T11)
+    }, pngs
 
 
 def test_fallback_width_defaults_to_800():
@@ -195,7 +207,8 @@ def test_cache_keeps_what_the_build_did_not_take(site, tmp_path):
     # нарезки карточки - 1:1; исключение - мастер и вариант обложки
     cover = cover_variants(site, "media/card.png")
     assert all(
-        "-1x1-" in name or name == "media/card.png" or name in cover for name in built(site)
+        "-1x1-" in name or name in {"media/card.png", "media/cover.png"} or name in cover
+        for name in built(site)
     ), built(site)
 
 

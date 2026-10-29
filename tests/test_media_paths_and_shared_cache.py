@@ -124,7 +124,8 @@ def test_two_sites_with_the_same_names_do_not_mix(tmp_path):
     assert close(colour_of(out / "red" / rel), (200, 30, 30))
     assert close(colour_of(out / "blue" / rel), (30, 30, 200))
     entries = [p for p in media.store(out / ".heron-cache").iterdir() if p.is_dir()]
-    assert len(entries) == 2  # по записи на содержимое, а не одна на имя
+    # по записи на содержимое, а не одна на имя: два фото и общая обложка заготовки
+    assert len(entries) == 3
 
 
 def _build(args) -> str:

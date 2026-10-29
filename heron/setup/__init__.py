@@ -224,7 +224,35 @@ def schema_state(lang: str) -> dict[str, Any]:
             ]
     names = DAY_LABELS.get(lang) or DAY_LABELS["en"]
     days = [{"value": d, "label": n} for d, n in zip(DAYS, names, strict=True)]
-    return {"release": RELEASE, "lists": lists, "days": days}
+    return {
+        "release": RELEASE,
+        "lists": lists,
+        "days": days,
+        "props_by_spec": props_by_spec(),
+    }
+
+
+def props_by_spec() -> dict[str, list[str]]:
+    """Свойства разметки, допустимые итоговому типу пары `вид|специализация`.
+
+    Только пары, где набор отличается от набора самого вида: страница скрывает
+    поля без запроса к серверу. Берутся лишь свойства, которые есть у полей анкеты.
+    """
+    from heron.schemaorg import vocab as schema_vocab
+    from heron.setup.answers import AboutAnswers, final_types, prop_head
+
+    heads = {prop_head(f["prop"]) for f in vocab()["fields"].values() if f.get("prop")}
+    sv = schema_vocab()
+    out: dict[str, list[str]] = {}
+    for kind in ("LocalBusiness", "Organization"):  # по impl_be задачи; остальные - fields_of(вид)
+        base = sorted(heads & set(sv.properties_of(kind)))
+        for item in classifier():
+            for entry in item["items"]:
+                about = AboutAnswers(type=kind, specialization=entry["id"])
+                props = sorted(heads & set(sv.properties_of(final_types(about))))
+                if props != base:
+                    out[f"{kind}|{entry['id']}"] = props
+    return out
 
 
 def countries() -> list[list[str]]:

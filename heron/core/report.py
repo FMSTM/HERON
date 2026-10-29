@@ -11,12 +11,13 @@
 
 from __future__ import annotations
 
+import csv
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
 
 import yaml
 
@@ -25,8 +26,9 @@ from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core import links as links_module
 from heron.core import media, notes
-from heron.core.errors import Collector, Warning_
+from heron.core.errors import Collector, HeronError, Warning_
 from heron.core.models import Site
+from heron.modules.sitemap import indexable
 
 LINK = re.compile(r'href="(/[^"#?]*)')
 MODULE_CALL = re.compile(r"mod\.([a-z_][a-z0-9_]*)\s*\(")
@@ -485,11 +487,18 @@ def _seo_text(config: SiteConfig, key: str, **values) -> str:
     return table[key].format(**values)
 
 
-def _norm_href(href: str, domain: str = "") -> str:
+def _norm_href(href: str, domain: str = "") -> str | None:
+    """Путь ссылки для сравнения с пунктом меню; чужой хост - None.
+
+    Снимается только свой домен (`domain` - хост окружения): ссылка
+    https://other.site/bio/ пунктом меню /bio/ не считается.
+    """
     href = unquote(href.strip()).split("#", 1)[0].split("?", 1)[0]
-    if domain and href.startswith(domain):
-        href = href[len(domain) :]
-    href = re.sub(r"^https?://[^/]+", "", href)
+    host = re.match(r"^(?:https?:)?//([^/]+)", href, re.IGNORECASE)
+    if host:
+        if host.group(1).lower() != domain.lower():
+            return None
+        href = href[host.end() :]
     if not href.startswith("/"):
         href = "/" + href
     return href.rstrip("/") + "/" if href != "/" else "/"
@@ -510,7 +519,8 @@ def duplicate_titles(site: Site, config: SiteConfig) -> list[Warning_]:
         suffix = config.seo.i18n.get("title_suffix", {}).get(lang, config.seo.title_suffix)
         groups: dict[str, list[str]] = defaultdict(list)
         for page in site.of_lang(lang):
-            if page.meta.noindex:
+            # то же правило, что у карты сайта: 404 и неопубликованные не в счёт
+            if not indexable(page):
                 continue
             groups[f"{page.title}{suffix}".strip()].append(page.source)
         for pages in groups.values():
@@ -541,7 +551,7 @@ def nav_in_html(out: dict[str, str], site: Site, config: SiteConfig) -> list[War
         html = out.get(home)
         if html is None:
             continue
-        found = {_norm_href(h) for h in _HREF.findall(html)}
+        found = {_norm_href(h, config.site.domain) for h in _HREF.findall(html)}
         if not any(_norm_href(page.url) in found for page in pages):
             result.append(Warning_(_seo_text(config, "nav_html", lang=lang), path=home, kind="seo"))
     return result
@@ -725,3 +735,85 @@ def _error_text(error, lang: str) -> str:
     if error.hint:
         text = f"{text}\n" + say(lang, "error_hint", hint=error.hint)
     return text
+
+
+# --- старые адреса: heron check --old-urls ------------------------------------------
+
+_OLD_TEXTS = {
+    "ru": {
+        "lost": (
+            "старый адрес {url} никуда не ведёт; вероятно, поставить 301 на {target}: "
+            "redirect_from: [{url}] во фронтматтере {file}"
+        ),
+        "summary": "старых адресов: {total}, без пути: {lost}",
+    },
+    "en": {
+        "lost": (
+            "old URL {url} leads nowhere; probably set a 301 to {target}: "
+            "redirect_from: [{url}] in the front matter of {file}"
+        ),
+        "summary": "old URLs: {total}, without a path: {lost}",
+    },
+}
+
+
+def read_old_urls(path: Path) -> list[str]:
+    """Адреса из файла: по строке на адрес или выгрузка Search Console (CSV).
+
+    Пустые строки и строки с # пропускаются. В строке с запятой или табом
+    берётся первый столбец, похожий на URL (начинается с / или со схемы);
+    строка без такого столбца (заголовок CSV) пропускается.
+    """
+    try:
+        text = path.read_text(encoding="utf-8-sig")
+    except UnicodeDecodeError as error:
+        raise HeronError(
+            "E030",
+            f"файл старых адресов не в UTF-8 (байт {error.start})",
+            path=str(path),
+            hint="пересохраните файл в UTF-8 и запустите check снова",
+        ) from error
+    urls: list[str] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        cells = next(csv.reader([line.replace("\t", ",")]))
+        pick = [c.strip() for c in cells if c.strip().startswith(("/", "http://", "https://"))]
+        if _looks_like_url(line):
+            urls.append(line)
+        elif pick:
+            urls.append(pick[0])
+    return urls
+
+
+def _looks_like_url(line: str) -> bool:
+    return line.startswith(("/", "http://", "https://")) and "," not in line and "\t" not in line
+
+
+def old_urls(urls: list[str], site: Site, config: SiteConfig) -> tuple[list[Warning_], str]:
+    """Предупреждения по адресам без пути и строка сводки (на языке build.notes)."""
+    texts = _OLD_TEXTS.get(config.build.notes, _OLD_TEXTS["en"])
+    warnings: list[Warning_] = []
+    seen: set[str] = set()
+    for url in urls:
+        # повторы - как их видит nginx: без схемы и хоста, слеш не важен
+        key = links_module.old_key(url)
+        if key in seen:
+            continue
+        seen.add(key)
+        if links_module.resolve_old(url, site, config) is not None:
+            continue
+        if links_module.is_old_gone(url, config):
+            continue
+        target = links_module.suggest_target(url, site, config)
+        shown = urlsplit(url).path or url
+        warnings.append(
+            Warning_(
+                texts["lost"].format(url=shown, target=target.url, file=target.source),
+                path="old-urls",
+                kind="редиректы",
+            )
+        )
+    summary = texts["summary"].format(total=len(seen), lost=len(warnings))
+    return warnings, summary

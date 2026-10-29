@@ -1200,6 +1200,14 @@ def init(
 @_option("--env", "env_name", default=None, metavar="help_mv_env", help="help_opt_env_check")
 @ALLOW_SCHEMA_OPTION
 @_option("--json", "as_json", is_flag=True, help="help_opt_json")
+@_option(
+    "--old-urls",
+    "old_urls",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    metavar="help_mv_file",
+    help="help_opt_old_urls",
+)
 @NOTES_OPTION
 @_path_argument
 def check(
@@ -1209,6 +1217,7 @@ def check(
     env_name: str | None,
     allow_schema: tuple[str, ...],
     as_json: bool,
+    old_urls: Path | None,
     notes: str | None,
 ) -> None:
     """Проверить контент и конфиг, ничего не собирая."""
@@ -1223,11 +1232,25 @@ def check(
     )
     try:
         result = pipeline.check(
-            path, drafts=drafts, strict=strict, env=env, allow_schema=list(allow_schema)
+            path,
+            drafts=drafts,
+            strict=strict,
+            env=env,
+            allow_schema=list(allow_schema),
         )
     except HeronError as error:
         _fail(error, lang)
+    old_summary = ""
+    if old_urls is not None:
+        try:
+            listed = report_module.read_old_urls(old_urls)
+        except HeronError as error:
+            _fail(error, lang)
+        lost, old_summary = report_module.old_urls(listed, result.site, result.config)
+        result.collector.warnings.extend(lost)
     _finish(result, result.strict, lang, "check")
+    if old_summary:
+        click.echo(old_summary)
     click.secho(say(lang, "check_done", path=_shown(path)), fg="green")
 
 

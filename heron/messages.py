@@ -1021,6 +1021,7 @@ TEXT["ru"].update(
         "help_opt_strict": "Считать предупреждения ошибками.",
         "help_opt_drafts": "Включить страницы с `published: false`.",
         "help_opt_json": "Ошибки и предупреждения в JSON — для агента и CI.",
+        "help_opt_old_urls": "Файл со старыми адресами (по строке на адрес или выгрузка из поисковой консоли): каждый должен вести на страницу, в redirect_from или в раздел «удалено».",
         "help_opt_out": "Куда собирать.",
         "help_opt_env": (
             "Окружение сборки: `prod` открывает индексацию и счётчики, всё прочее — нет."
@@ -1075,7 +1076,7 @@ TEXT["ru"].update(
         "help_mv_env": "ИМЯ",
         "help_opt_env_check": (
             "Окружение проверки: `prod` включает строгость prod (находки разметки - ошибки). "
-            "Без флага - SITE_ENV, затем dev."
+            "Без флага - SITE_ENV, затем `dev`."
         ),
         "help_opt_allow_schema": (
             "Разово пропустить находку разметки, ключ SCH00N:<файл>:<путь>; можно повторять."
@@ -1192,6 +1193,7 @@ TEXT["en"].update(
         "help_opt_strict": "Treat warnings as errors.",
         "help_opt_drafts": "Include pages with `published: false`.",
         "help_opt_json": "Errors and warnings as JSON — for an agent and CI.",
+        "help_opt_old_urls": "File with old URLs (one per line or a Search Console CSV): each must lead to a page, a redirect_from or gone.",
         "help_opt_out": "Where to build.",
         "help_opt_env": (
             "Build environment: `prod` opens indexing and counters, anything else does not."

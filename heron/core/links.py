@@ -12,13 +12,16 @@
 
 from __future__ import annotations
 
+import difflib
 import re
+from urllib.parse import parse_qsl, urlsplit
 
-from heron.contracts.site import SiteConfig
+from heron.contracts.site import SiteConfig, parse_gone
 from heron.contracts.theme import ThemeConfig
 from heron.core.errors import Collector
 from heron.core.models import Linked, Page, Pair, Site
 from heron.core.parser import blocks
+from heron.core.urls import canonical_path
 
 
 def _parent_url(url: str) -> str | None:
@@ -458,3 +461,111 @@ def _nav(site: Site, config: SiteConfig, collector: Collector) -> None:
                     continue
                 pages.append(page)
             site.nav[lang][group] = pages
+
+
+# --- старые адреса: heron check --old-urls ------------------------------------------
+
+
+def _stem(path: str) -> str:
+    return path.rstrip("/") or "/"
+
+
+def _old_path(url: str) -> tuple[str, list[tuple[str, str]]]:
+    """Путь и параметры старого адреса: относительного или абсолютного.
+
+    Схема и хост отбрасываются, якорь серверу не приходит. Путь приводится
+    к форме nginx (`canonical_path`): percent-encoding раскрыт, кириллица в NFC.
+    Регистр сохраняется: `/About/` и `/about/` - разные адреса.
+    """
+    parts = urlsplit(url.strip())
+    path = parts.path or "/"
+    if not path.startswith("/"):
+        path = "/" + path
+    return canonical_path(path)[0], parse_qsl(parts.query, keep_blank_values=True)
+
+
+def _is_gone(path: str, query: list[tuple[str, str]], config: SiteConfig) -> bool:
+    """Адрес закрыт записью `gone` из site.yaml (точной, префиксом или с параметром)."""
+    for entry in config.gone:
+        kind, gone_path, name, value = parse_gone(entry)
+        gone_path = canonical_path(gone_path, slash=kind != "prefix")[0]
+        if kind == "prefix":
+            if path.startswith(gone_path):
+                return True
+        elif _stem(path) == _stem(gone_path):
+            if kind == "exact":
+                return True
+            if any(k == name and (value is None or v == value) for k, v in query):
+                return True
+    return False
+
+
+def resolve_old(url: str, site: Site, config: SiteConfig) -> Page | None:
+    """Страница, на которую ведёт старый адрес, или None.
+
+    Адрес «ведёт», если это адрес страницы или один из её `redirect_from`.
+    Варианты, которые сервер считает одним адресом, сравниваются как равные:
+    со слешем и без, `%XX` и кириллица. Языковой префикс вариантом НЕ
+    считается: `/x/` и `/ru/x/` для nginx разные адреса, и редирект с
+    `/ru/x/` старый `/x/` не обслуживает. Регистр - точное совпадение.
+    Адрес из `gone` отвечает 410 и страницей не является: см. `is_old_gone`.
+    """
+    path, _ = _old_path(url)
+    stem = _stem(path)
+    for page in site.pages:
+        if _stem(page.url) == stem:
+            return page
+    for page in site.pages:
+        for written in page.meta.redirect_from:
+            if _stem(canonical_path(written)[0]) == stem:
+                return page
+    return None
+
+
+def old_key(url: str) -> str:
+    """Старый адрес так, как его видит сервер: путь в форме nginx без конечного слеша.
+
+    Параметры остаются в ключе: `gone` умеет закрывать адрес по параметру.
+    """
+    path, query = _old_path(url)
+    tail = "&".join(f"{k}={v}" for k, v in query)
+    return f"{_stem(path)}?{tail}" if tail else _stem(path)
+
+
+def is_old_gone(url: str, config: SiteConfig) -> bool:
+    path, query = _old_path(url)
+    return _is_gone(path, query, config)
+
+
+def _lang_of(path: str, config: SiteConfig) -> tuple[str, str]:
+    """Язык по префиксу адреса и адрес без префикса."""
+    default = config.site.default_lang
+    for lang in config.site.languages:
+        if lang != default and (path == f"/{lang}" or path.startswith(f"/{lang}/")):
+            return lang, path[len(lang) + 1 :] or "/"
+    return default, path
+
+
+def suggest_target(url: str, site: Site, config: SiteConfig) -> Page:
+    """Куда ставить 301: ближайшая страница по слагу и заголовку, иначе главная языка.
+
+    Сравнивается последний сегмент старого адреса (без языкового префикса)
+    со слагами и заголовками страниц; страницы языка адреса идут первыми.
+    """
+    path, _ = _old_path(url)
+    lang, rest = _lang_of(path, config)
+    wanted = rest.rstrip("/").rsplit("/", 1)[-1].lower()
+    pool = [p for p in site.of_lang(lang) if not p.is_index and p.url != "/"]
+    if wanted and pool:
+        candidates: dict[str, Page] = {}
+        for page in pool:
+            candidates.setdefault(page.slug.lower(), page)
+        for page in pool:
+            candidates.setdefault(page.h1.lower(), page)
+        found = difflib.get_close_matches(wanted.replace("_", "-"), list(candidates), 1, 0.6)
+        if found:
+            return candidates[found[0]]
+    home = _home_of(site, lang, config)
+    if home is None:
+        home = site.by_url.get("/") or site.pages[0]
+    return home

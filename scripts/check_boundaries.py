@@ -51,6 +51,29 @@ SKIP = {
     "tests/test_schemaorg_index.py",
 }
 
+# Решение владельца 2026-10-29 (вариант А): термины schema.org (типы и свойства
+# словаря) — стандарт, одинаковый у всех сайтов, а не предметная лексика.
+# Для этих файлов не проверяются слова и сочетания; телефонный шаблон PHONE
+# действует и в них. Только точные пути, масок на каталоги tests/ и docs/ нет.
+SCHEMAORG_STANDARD = {
+    "heron/setup/vocab.yaml",
+    "tests/test_vocab_medical.py",
+    "tests/test_schemaorg_vocab.py",
+    "tests/test_schema_validate.py",
+    "tests/test_classifier_schema.py",
+    "tests/test_entity_allowed_props.py",
+    "tests/test_setup_medical.py",
+    "tests/test_setup_reference.py",
+    "tests/test_messages_schema.py",
+    "tests/test_setup_final_type.py",
+    "docs/ru/guide/05-seo.md",
+    "docs/en/guide/05-seo.md",
+    "docs/ru/spec/20-data-contract.md",
+    "docs/en/spec/20-data-contract.md",
+}
+# Каталог индекса словаря: heron/schemaorg/<имя>.json
+SCHEMAORG_JSON = re.compile(r"^heron/schemaorg/[^/]+\.json$")
+
 WORD = re.compile(r"[^\W_]+", re.UNICODE)
 # Настоящий международный номер. Вымышленные в тестах и доках пишутся
 # нулями: +00 000 000 00 00.
@@ -85,11 +108,19 @@ def load() -> set[str]:
     return out
 
 
-def hits(text: str, known: set[str], cache: dict[str, bool]) -> list[tuple[int, str]]:
+def is_schemaorg_standard(name: str) -> bool:
+    return name in SCHEMAORG_STANDARD or bool(SCHEMAORG_JSON.match(name))
+
+
+def hits(
+    text: str, known: set[str], cache: dict[str, bool], phone_only: bool = False
+) -> list[tuple[int, str]]:
     found: list[tuple[int, str]] = []
     for number, line in enumerate(text.splitlines(), start=1):
         if PHONE.search(line.replace(" ", "")):
             found.append((number, line.strip()))
+            continue
+        if phone_only:
             continue
         words = WORD.findall(normalize(line))
         bad = False
@@ -150,7 +181,7 @@ def main(argv: list[str]) -> int:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             continue  # бинарные файлы
-        found = hits(text, known, cache)
+        found = hits(text, known, cache, phone_only=is_schemaorg_standard(name))
         for pattern in extra:
             found += [
                 (n, line.strip())

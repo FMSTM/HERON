@@ -195,7 +195,7 @@ How it differs from one site:
 | | One site | Several sites |
 |---|---|---|
 | What to run | `docker run … heron:prod` or `heron` from pip | `scripts/site.sh` from a repository clone |
-| Where the build settings are | command flags | `env/.env.<site>.<environment>`: path to the content, environment, engine, image and tag, strictness, port, registry |
+| Where the build settings are | command flags | `env/.env.<site>.<environment>`: path to the content, environment, engine, image and tag, strictness, port, registry and the folder with its login (keys: `env/.env.example`) |
 | Where it builds | `dist/` inside the site folder | `out/<site>-<environment>`, the site folder is not touched |
 | Which engine | the one you started | `ENGINE` in env: an exact version, `:prod` or sources next to it |
 | Site image | build by hand | `site.sh image`, check with `site.sh smoke` |

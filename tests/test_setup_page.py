@@ -1,4 +1,7 @@
-"""Страница анкеты heron/setup/page.html: виджеты enum, subtype, bool, hours (разбор файла как текста)."""
+"""Страница анкеты heron/setup/page.html.
+
+Виджеты enum, subtype, bool, hours (разбор файла как текста).
+"""
 
 from __future__ import annotations
 
@@ -50,26 +53,25 @@ def test_new_strings_in_both_languages(lang: str, key: str):
     assert re.search(rf"\b{key}: \"", _block(lang))
 
 
+_DASH_KEYS = NEW_KEYS + [
+    "day_from",
+    "day_to",
+    "opens",
+    "closes",
+    "yes",
+    "no",
+    "hours_bad",
+    "delete",
+    "hours_complex",
+]
+
+
 def test_no_long_dashes_in_new_strings():
     new = [
         m.group(0)
         for lang in ("ru", "en")
         for m in re.finditer(
-            r"\b(?:%s): \"[^\"]*\""
-            % "|".join(
-                NEW_KEYS
-                + [
-                    "day_from",
-                    "day_to",
-                    "opens",
-                    "closes",
-                    "yes",
-                    "no",
-                    "hours_bad",
-                    "delete",
-                    "hours_complex",
-                ]
-            ),
+            rf"\b(?:{'|'.join(_DASH_KEYS)}): \"[^\"]*\"",
             _block(lang),
         )
     ]

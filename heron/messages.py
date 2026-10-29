@@ -1021,7 +1021,10 @@ TEXT["ru"].update(
         "help_opt_strict": "Считать предупреждения ошибками.",
         "help_opt_drafts": "Включить страницы с `published: false`.",
         "help_opt_json": "Ошибки и предупреждения в JSON — для агента и CI.",
-        "help_opt_old_urls": "Файл со старыми адресами (по строке на адрес или выгрузка из поисковой консоли): каждый должен вести на страницу, в redirect_from или в раздел «удалено».",
+        "help_opt_old_urls": (
+            "Файл со старыми адресами (по строке на адрес или выгрузка из поисковой консоли): "
+            "каждый должен вести на страницу, в redirect_from или в раздел «удалено»."
+        ),
         "help_opt_out": "Куда собирать.",
         "help_opt_env": (
             "Окружение сборки: `prod` открывает индексацию и счётчики, всё прочее — нет."
@@ -1193,7 +1196,10 @@ TEXT["en"].update(
         "help_opt_strict": "Treat warnings as errors.",
         "help_opt_drafts": "Include pages with `published: false`.",
         "help_opt_json": "Errors and warnings as JSON — for an agent and CI.",
-        "help_opt_old_urls": "File with old URLs (one per line or a Search Console CSV): each must lead to a page, a redirect_from or gone.",
+        "help_opt_old_urls": (
+            "File with old URLs (one per line or a Search Console CSV): each must lead to a "
+            "page, a redirect_from or gone."
+        ),
         "help_opt_out": "Where to build.",
         "help_opt_env": (
             "Build environment: `prod` opens indexing and counters, anything else does not."
@@ -1493,8 +1499,13 @@ TEXT["ru"].update(
         "schema_exceptions_head": "Исключения разметки: {n}",
         "schema_exception_site": "  {finding} - причина: «{reason}», до {until} ({source})",
         "schema_exception_flag": "{finding} - разово (--allow-schema)",
-        "schema_unused": "Лишнее исключение: {finding} - ничего не ловит, уберите его (из schema_exceptions или флага --allow-schema)",
-        "schema_expired": "Исключение просрочено: {finding} - срок {until} истёк, находка снова в силе",
+        "schema_unused": (
+            "Лишнее исключение: {finding} - ничего не ловит, уберите его (из "
+            "schema_exceptions или флага --allow-schema)"
+        ),
+        "schema_expired": (
+            "Исключение просрочено: {finding} - срок {until} истёк, находка снова в силе"
+        ),
         "schema_pending": "Свойства из раздела pending: {props} (сведение)",
         "schema_reason_missing": "Для исключения из проверки разметки нужна причина",
         "schema_exception_twice": "Одно и то же исключение перечислено дважды: {finding}",
@@ -1530,8 +1541,13 @@ TEXT["en"].update(
         "schema_exceptions_head": "Markup exceptions: {n}",
         "schema_exception_site": '  {finding} - reason: "{reason}", until {until} ({source})',
         "schema_exception_flag": "{finding} - one-off (--allow-schema)",
-        "schema_unused": "Unused exception: {finding} - matches nothing, remove it (from schema_exceptions or the --allow-schema flag)",
-        "schema_expired": "Expired exception: {finding} - {until} has passed, the finding applies again",
+        "schema_unused": (
+            "Unused exception: {finding} - matches nothing, remove it (from schema_exceptions "
+            "or the --allow-schema flag)"
+        ),
+        "schema_expired": (
+            "Expired exception: {finding} - {until} has passed, the finding applies again"
+        ),
         "schema_pending": "Properties from the pending area: {props} (info)",
         "schema_reason_missing": "A schema exception needs a reason",
         "schema_exception_twice": "The same schema exception is listed twice: {finding}",

@@ -53,14 +53,16 @@ def _finding_section() -> SchemaSection:
 
 def test_finding_lines_are_contract_literals_ru():
     assert schema_lines(_finding_section(), "ru")[1:] == [
-        "  SCH002 site.yaml:schema.entity.worksFor - у типа Person нет свойства 'worksFor' (страниц: 3)",
+        "  SCH002 site.yaml:schema.entity.worksFor"
+        " - у типа Person нет свойства 'worksFor' (страниц: 3)",
         "    ключ исключения: SCH002:site.yaml:schema.entity.worksFor",
     ]
 
 
 def test_finding_lines_are_contract_literals_en():
     assert schema_lines(_finding_section(), "en")[1:] == [
-        "  SCH002 site.yaml:schema.entity.worksFor - type Person has no property 'worksFor' (pages: 3)",
+        "  SCH002 site.yaml:schema.entity.worksFor"
+        " - type Person has no property 'worksFor' (pages: 3)",
         "    exception key: SCH002:site.yaml:schema.entity.worksFor",
     ]
 

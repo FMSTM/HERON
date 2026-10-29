@@ -543,6 +543,46 @@ def verify(site: Site, site_root: Path, collector: Collector, config=None) -> No
             )
 
 
+def small_cover(cover_width: int, src: str) -> str:
+    """Текст предупреждения о мелкой обложке: общий для сборки и `heron check`."""
+    return f"обложка меньше {cover_width} px: {src}"
+
+
+def verify_covers(
+    site: Site, site_root: Path, collector: Collector, spec: ImagesSpec, config=None
+) -> None:
+    """Предупредить об обложках уже, чем images.cover_width (то же, что media.plan).
+
+    Ничего не кодирует и не пишет в кэш: только читает размер мастера.
+    """
+    declared = declared_by(site, config)
+    seen: set[str] = set()
+    for page in site.pages:
+        chosen = page.cover_source(config)
+        if not chosen or EXTERNAL.match(chosen[0]):
+            continue
+        src = chosen[0].lstrip("./")
+        if src in seen:
+            continue
+        seen.add(src)
+        if Path(src).suffix.lower() not in KEEP or any(src.startswith(r) for r in spec.as_is):
+            continue
+        source = locate(site_root, src, declared, Collector())
+        if source is None or not source.is_file():
+            continue
+        try:
+            with Image.open(source) as img:
+                width = img.size[0]
+        except (OSError, ValueError):
+            continue
+        if width < spec.cover_width:
+            collector.warn(
+                small_cover(spec.cover_width, src),
+                path=_owner(declared, src),
+                kind="картинки",
+            )
+
+
 def locate(
     site_root: Path, src: str, declared: dict[str, list[str]], collector: Collector
 ) -> Path | None:
@@ -1007,7 +1047,7 @@ def plan(
         renditions = plan_master(src, source, spec, shape, is_cover)
         if is_cover and shape.width < spec.cover_width:
             collector.warn(
-                f"обложка меньше {spec.cover_width} px: {src}",
+                small_cover(spec.cover_width, src),
                 path=_owner(declared, src),
                 kind="картинки",
             )

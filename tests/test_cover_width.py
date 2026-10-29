@@ -83,3 +83,31 @@ def test_cache_is_not_recut_on_second_build(tmp_path):
     before = kept.stat().st_mtime_ns
     _run(tmp_path, "img/c.jpg", _spec(), cache)
     assert kept.stat().st_mtime_ns == before
+
+
+def _check_site(tmp_path: Path, size: int):
+    from heron.core import build as pipeline
+    from heron.scaffold import create
+
+    root = tmp_path / "demo"
+    root.mkdir()
+    create(root, name="demo", languages=["uk"])
+    _photo(root / "media" / "c.jpg", size)
+    (root / "content" / "uk" / "index.md").write_text(
+        sites.page("Головна", image="media/c.jpg"), encoding="utf-8"
+    )
+    return pipeline.check(root)
+
+
+def test_check_warns_about_small_cover(tmp_path):
+    result = _check_site(tmp_path, 900)
+    assert any(
+        w.kind == "картинки" and "обложка меньше 1200 px: media/c.jpg" in w.message
+        for w in result.collector.warnings
+    )
+    assert not [e for e in result.collector.errors if "обложка" in e.message]
+
+
+def test_check_silent_for_large_cover(tmp_path):
+    result = _check_site(tmp_path, 1600)
+    assert not any("обложка меньше" in w.message for w in result.collector.warnings)

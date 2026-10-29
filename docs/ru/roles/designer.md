@@ -70,6 +70,23 @@ images:
 - пропорции, которые используешь, — в `images.ratios`;
 - CSS, JS, шрифты — в `theme/assets/`; favicon и `.well-known` — в `static/` сайта.
 
+### Обложка и robots в `<head>`
+
+`og:image`, `twitter:image`, `robots` и разметку картинки (`primaryImageOfPage`) руками не собирать. Брать готовое: `robots_meta` для `<meta name="robots">`, `cover_url(page)` для адреса обложки, `page.cover` (`src`, `width`, `height`, `alt`) для размеров и подписи (`21` §7, [«Обложка и robots_meta»](../spec/21-engine.md#cover-robots); выбор обложки — `20` §4.2, [«Обложка страницы»](../spec/20-data-contract.md#page-cover)).
+
+```jinja
+{% set cover = cover_url(page) %}
+{% if cover %}<meta property="og:image" content="{{ cover }}">
+<meta name="twitter:image" content="{{ cover }}">{% endif %}
+<meta name="robots" content="{{ robots_meta }}">
+```
+
+- обложки нет - `cover_url(page)` пуст, тег не выводить; это не ошибка сборки, `heron check` предупредит;
+- картинку соцсетей не класть в `static/`: мастер `seo.og_default_image` едет из `media/` сам (`20` §7.9);
+- обложку делать непрозрачной: подложку движок не добавляет (подложек `images.cover_background` нет), прозрачный PNG ляжет на чужой фон;
+- на dev `robots_meta` даёт `noindex, nofollow`, картинок в sitemap нет, адреса на dev-домене: проверять обложку нужно на прод-сборке;
+- `primaryImageOfPage` или `entity.image`, заданные сайтом в `schema`, главнее вычисленных.
+
 ## 6. Строки интерфейса
 
 Всё, что принадлежит теме, а не странице («Читать далее», «Вопросы и ответы»), — в `theme/i18n/<язык>.yaml`, в шаблоне `t.<ключ>`. На каждый язык сайта — свой файл; `init` кладёт заготовку. Ключи `on`, `off`, `yes`, `no` — в кавычках.

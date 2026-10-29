@@ -13,6 +13,7 @@ site:
   languages: [en, ru]          # от одного до N; остальные — под /<lang>/: /ru/o-nas/
   name: Daybreak               # название сайта
   name_ru: Рассвет             # то же на языке ru; без него — name
+  alternate_names: []          # другие написания названия -> WebSite.alternateName; по языкам alternate_names_ru
 
 seo:
   title_suffix: " — Daybreak"  # дописывается к <title> темой
@@ -53,8 +54,20 @@ build:
   allow_raw_html: false        # сырой HTML в markdown
   updated_from: git            # manual | git | file — откуда дата обновления
   workers: 0                   # процессов на нарезку картинок; 0 — по числу ядер
+  generator: true              # подпись движка в страницах; false — без неё
+  overrides: []                # сгенерированные файлы, которые заменяет static/: [robots.txt]
 
 plugins: []
+
+# forms:                       # формы сайта; плагин heron-relay
+#   callback:
+#     fields: [name, phone]
+#     sinks: [mail]
+# sinks:
+#   mail: {to: info@example.com}
+
+# nginx:
+#   hash_sizes: auto           # устарел, ничего не делает
 
 gone:                          # 410: точные адреса, префиксы, адрес с параметром
   - /sample-page/
@@ -81,3 +94,11 @@ schema:
     name: "{{ organization.name }}"
     telephone: "{{ contact.phone }}"
     url: "{{ site.base }}"
+
+# Осознанная находка проверки разметки (SCH001-SCH006), которую нельзя исправить сейчас.
+# Ключ печатает сама находка («ключ исключения: ...»); reason обязательна, until нет.
+# Сначала исправляйте: правка почти всегда лучше исключения.
+# schema_exceptions:
+#   - key: "SCH002:site.yaml:schema.entity.worksFor"
+#     reason: "переход на practicesAt после смены темы"
+#     until: 2026-12-31

@@ -61,7 +61,10 @@ images:
 - **`types.<тип>.uses`** — какие секции тип показывает. Это договор с контентом: `heron page service roof` положит заготовки ровно этих секций, а сводка «Не заполнено» после сборки назовёт пустые. Секция в файле, которой нет в `uses`, — строка в отчёте: так ловится опечатка в якоре. `"how:steps"` — тема ждёт у секции форму `steps`.
 - **`requires`** — пути в `site.yaml`, без которых тема не работает: не заполнены — ошибка `E011` до рендера.
 - **`links`** — поля связей. Ядро найдёт страницы, проверит их и построит обратный список (`back`). `type` в связи ограничивает, **на страницы какого типа** ведёт поле: `related` с `type: service` не свяжет статьи между собой. Связь без ограничения — без `type`: `- {field: related, back: related_from}`.
-- **`images`** — ширины, пропорции, форматы нарезки и `fallback_width` — ширина запасного PNG/JPEG. Режется только то, что шаблоны попросили.
+- **`images`** — ширины, пропорции, форматы нарезки, `fallback_width` — ширина запасного PNG/JPEG, `cover_width` — ширина обложки для краулеров, `crop` и `as_is` — пути для принудительного кропа и для копирования без нарезки. Режется только то, что шаблоны попросили.
+- **`types.<тип>.template`** — другой файл шаблона вместо `templates/<тип>.html`, путь от `templates/`.
+- **`forms`** — формы, которые рисует тема; их описание обязано быть в `site.yaml` (`E011`).
+- **`heron`** — версия движка, на которую рассчитана тема: не та — `E012`.
 
 Каждый ключ подробно — [`20` §6](../spec/20-data-contract.md#theme-yaml).
 
@@ -101,6 +104,39 @@ images:
 - **Пути в `extends`, `include` и `import` считаются от корня темы**, а не от папки шаблона: `{% extends "base.html" %}`, `{% extends "templates/page.html" %}`, `{% include "partials/header.html" %}`. Написать `{% extends "page.html" %}` из `templates/landing.html` — ошибка `E008` с подсказкой, где файл на самом деле.
 - **`mod` доступен в каждом шаблоне** — импортировать модули не нужно. Свои макросы — другое дело: `{% import %}` в `base.html` дочерним шаблонам не виден (так устроен Jinja2), импортируйте их в каждом шаблоне, где они нужны.
 
+## Что вывести в `<head>` <a id="head-seo"></a>
+
+Каркас `base.html` отвечает за всё, что поисковик и мессенджер читают до страницы. Для картинок и индексации нужны три вещи:
+
+- `<meta name="robots" content="{{ robots_meta }}">`: тема не решает, открыта страница или закрыта, это делает движок. Если строки нет, крупные превью не включатся, а закрытая дев-сборка не получит `noindex`;
+- `og:image` и `twitter:image` по `cover_url(page)`. Выводите их только когда адрес не пуст: пустая строка значит, что обложки нет, и пустой тег хуже отсутствующего;
+- размеры и подпись картинки: `page.cover.width`, `page.cover.height`, `page.cover.alt`. Размеры позволяют соцсети показать превью сразу, а `alt` нужен тем, кто картинку не видит.
+
+Пример блока целиком:
+
+```jinja
+<title>{{ page.title }}{{ site.seo.title_suffix }}</title>
+<meta name="description" content="{{ page.meta.description }}">
+<link rel="canonical" href="{{ absolute(page.url) }}">
+<meta property="og:title" content="{{ page.meta.og_title or page.title }}">
+<meta property="og:description" content="{{ page.meta.og_description or page.meta.description }}">
+{% set cover = page.cover %}
+{% set cover_src = cover_url(page) if cover else "" %}
+{% if cover_src %}
+<meta property="og:image" content="{{ cover_src }}">
+{% if cover.width %}<meta property="og:image:width" content="{{ cover.width }}">{% endif %}
+{% if cover.height %}<meta property="og:image:height" content="{{ cover.height }}">{% endif %}
+{% if cover.alt %}<meta property="og:image:alt" content="{{ cover.alt }}">{% endif %}
+<meta name="twitter:image" content="{{ cover_src }}">
+{% endif %}
+<meta name="robots" content="{{ robots_meta }}">
+{% for code, href in hreflang %}<link rel="alternate" hreflang="{{ code }}" href="{{ href }}">{% endfor %}
+{% set ld = jsonld() %}
+{% if ld %}<script type="application/ld+json">{{ ld }}</script>{% endif %}
+```
+
+Имена `cover_url` и `robots_meta` зарезервированы за движком: свои переменные с такими именами в теме не заводите. Какая картинка станет обложкой и как её готовить - [05 · SEO](05-seo.md#you-fill), правила выбора - [`20` §6](../spec/20-data-contract.md#page-cover).
+
 ## Модуль
 
 Модуль — файл `modules/<имя>.html`, вызывается как `mod.<имя>(<якорь>)`. Внутри доступны:
@@ -137,7 +173,12 @@ images:
 | `picture(src, ratio)` | готовый `<picture>` с `srcset`, WebP/AVIF и размерами |
 | `media_url(src, ratio, width)` | адрес одной нарезки |
 | `jsonld()` | разметка JSON-LD страницы, вставить в `<head>` |
+| `cover_url(page, min_width=1200)` | абсолютный адрес обложки не уже `min_width`; обложки нет - пустая строка. Есть и фильтр: `{{ page|cover_url }}` |
+| `robots_meta` | строка для `<meta name="robots">`: крупные превью на индексируемой странице прод-сборки, `noindex, nofollow` на закрытой |
 | `env` | окружение сборки: `env.indexable`, `env.analytics` |
+| `theme` | `theme.yaml` моделью: `theme.types`, `theme.images` |
+| `pages` | весь сайт: все страницы всех языков (`pages.of_lang('ru')`, `pages.of_type('article', 'ru')`, `pages.by_url`); страница по ключу удобнее через `page_of` |
+| `absolute(url)` | абсолютный адрес на домене сборки; есть и фильтр `{{ url|absolute }}` |
 
 Полная модель страницы — [`21` §6](../spec/21-engine.md#page-model), переменные — [`21` §7](../spec/21-engine.md#rendering).
 

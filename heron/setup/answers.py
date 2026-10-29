@@ -112,6 +112,56 @@ def fields_of(kind: str) -> list[str]:
     return out
 
 
+def _precise_types(about: Any) -> list[str]:
+    """Типы специализации из классификатора как список (type там строка или список)."""
+    found = specialization(about.specialization) if about.specialization else None
+    raw = found[1].get("type") if found else None
+    if not raw:
+        return []
+    return [raw] if isinstance(raw, str) else [str(x) for x in raw]
+
+
+def final_types(about: Any) -> list[str]:
+    """Итоговые типы узла списком: вид и, если есть, типы специализации.
+
+    Organization и LocalBusiness заменяются типами специализации; остальные виды
+    (Corporation, NGO, EducationalOrganization) остаются первым элементом без
+    дублей; Person и вид без специализации - только вид.
+    """
+    kind = about.type
+    if not kind:
+        return []
+    precise = _precise_types(about)
+    if not precise or lineage(kind)[0] == "Person" or precise == [kind]:
+        return [kind]
+    if kind in ("Organization", "LocalBusiness"):
+        return precise
+    return [kind, *[t for t in precise if t != kind]]
+
+
+def prop_head(prop: str) -> str:
+    """Свойство schema.org, к которому относится поле: `address.streetAddress` -> `address`."""
+    return prop.split(".", 1)[0]
+
+
+def fields_for(about: Any) -> list[str]:
+    """Поля анкеты, допустимые итоговому типу: свойство разметки есть у типа по словарю."""
+    kind = about.type
+    if not kind:
+        return list(vocab()["common"])
+    if lineage(kind)[0] == "Person":
+        return fields_of(kind)
+    from heron.schemaorg import vocab as schema_vocab
+
+    types = final_types(about)
+    fields = vocab()["fields"]
+    return [
+        name
+        for name in fields_of(kind)
+        if schema_vocab().allows(types, prop_head(fields[name]["prop"]))
+    ]
+
+
 class Model(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -302,8 +352,11 @@ class AboutAnswers(Model):
         return value
 
     @model_validator(mode="after")
-    def _known(self) -> AboutAnswers:
-        allowed = set(fields_of(self.type)) if self.type else set(vocab()["common"])
+    def _known(self, info: ValidationInfo) -> AboutAnswers:
+        # чтение записанного site.yaml (read) не ломается на устаревших полях
+        if info.context and info.context.get("stale"):
+            return self
+        allowed = set(fields_for(self))
         unknown = sorted(set(self.fields) - allowed)
         if unknown:
             raise Reason("fields_unknown", kind=self.type or "—", names=", ".join(unknown))
@@ -514,6 +567,9 @@ def _drop(data: dict, dotted: str) -> None:
             parent.pop(key)
 
 
+_STALE = {"stale": True}
+
+
 def read(data: dict[str, Any]) -> Answers:
     """Ответы из уже записанного `site.yaml` — мягко, без падений."""
     site = data.get("site") or {}
@@ -549,6 +605,8 @@ def read(data: dict[str, Any]) -> Answers:
             }
             if per_lang:
                 value = {default: value or "", **per_lang}
+        if value in (None, "", []) and isinstance(entity, dict):
+            value = _read_from_entity(entity, name, spec.get("prop"))
         if value not in (None, "", []):
             fields[name] = value
     out["about"] = {
@@ -574,7 +632,7 @@ def read(data: dict[str, Any]) -> Answers:
         known = PublishAnswers.model_fields
         out["publish"] = {k: v for k, v in publish.items() if k in known}
     try:
-        return Answers.model_validate(out)
+        return Answers.model_validate(out, context=_STALE)
     except ValueError:
         # Сырой конфиг не повод отказать в конфигураторе: он и нужен, чтобы
         # конфиг поправить. Берём то, что проходит по отдельности.
@@ -584,9 +642,38 @@ def read(data: dict[str, Any]) -> Answers:
                 setattr(
                     answers,
                     block,
-                    type(getattr(answers, block)).model_validate(out.get(block) or {}),
+                    type(getattr(answers, block)).model_validate(
+                        out.get(block) or {}, context=_STALE
+                    ),
                 )
         return answers
+
+
+def _literal_at(node: Any, path: str) -> str | None:
+    """Литерал по пути вложенного узла (practicesAt.address.streetAddress); дыры {{ }} не берём."""
+    for part in path.split("."):
+        node = node.get(part) if isinstance(node, dict) else None
+    if isinstance(node, str) and node.strip() and "{{" not in node:
+        return node
+    return None
+
+
+def _read_from_entity(entity: dict[str, Any], name: str, prop: str | None = None) -> Any:
+    """Ответ врача из готового узла, если в `organization.*` его нет."""
+    from heron.schemaorg import short
+
+    if name == "medical_specialty":
+        raw = entity.get("medicalSpecialty")
+        items = [raw] if isinstance(raw, str) else list(raw or [])
+        names = [short(str(x)) for x in items if isinstance(x, str)]
+        return list(dict.fromkeys(x for x in names if x))
+    if name == "practices_at_type":
+        practices = entity.get("practicesAt")
+        kind = practices.get("@type") if isinstance(practices, dict) else None
+        return kind if isinstance(kind, str) else None
+    if prop and prop.split(".")[0] in ("practicesAt", "hospitalAffiliation"):
+        return _literal_at(entity, prop)
+    return None
 
 
 def _read_type(raw: Any) -> tuple[str, str]:
@@ -614,7 +701,9 @@ def _read_classified(data: dict[str, Any], kind: str, precise: str) -> tuple[str
             labels = entry.get("person", {}) if person else entry
             if spec and spec in {labels.get("ru"), labels.get("en")}:
                 return item["id"], entry["id"]
-            if not spec and precise and entry.get("type") == precise and not work:
+            entry_types = entry.get("type")
+            entry_types = [entry_types] if isinstance(entry_types, str) else (entry_types or [])
+            if not spec and precise and precise in entry_types and not work:
                 return item["id"], entry["id"]
         if work:
             return item["id"], ""
@@ -678,14 +767,21 @@ def _entity(answers: Answers) -> dict[str, Any] | None:
         return None
     node: dict[str, Any] = {"@type": entity_type(answers.about), "@id": ENTITY_ID}
     person = lineage(kind)[0] == "Person"
-    if answers.about.direction or answers.about.specialization:
+    from heron.schemaorg import vocab as schema_vocab
+
+    types = final_types(answers.about)
+
+    def ok(prop: str) -> bool:
+        return person or schema_vocab().allows(types, prop)
+
+    if (answers.about.direction or answers.about.specialization) and ok("knowsAbout"):
         node["knowsAbout"] = "{{ organization.field_of_work }}"
-    if answers.about.specialization and person:
+    if answers.about.specialization and person and ok("hasOccupation"):
         node["hasOccupation"] = {
             "@type": "Occupation",
             "name": "{{ organization.specialization }}",
         }
-    for name in fields_of(kind):
+    for name in fields_for(answers.about):
         if name not in answers.about.fields:
             continue
         spec = vocab()["fields"][name]
@@ -693,6 +789,14 @@ def _entity(answers: Answers) -> dict[str, Any] | None:
             continue
         hole = "{{ " + spec["to"] + " }}"
         prop = spec["prop"]
+        if _is_nested(prop):
+            continue  # вложенные узлы строит _nested ниже
+        if spec.get("kind") == "enum" and spec.get("emit") == "url":
+            values = answers.about.fields[name]
+            values = [values] if isinstance(values, str) else list(values or [])
+            if values and ok(prop):
+                node[prop] = ["https://schema.org/" + str(x) for x in values]
+            continue
         if prop == "address.house":
             continue  # дом входит в streetAddress вместе с улицей, ниже
         if prop.startswith("address."):
@@ -709,12 +813,91 @@ def _entity(answers: Answers) -> dict[str, Any] | None:
             node[prop] = "{{ site.base }}" + "{{ " + spec["to"] + " }}"
         else:
             node[prop] = hole
-    if "house" in answers.about.fields and "street" not in answers.about.fields:
+    if (
+        "house" in answers.about.fields
+        and "street" not in answers.about.fields
+        and "house" in fields_for(answers.about)
+    ):
         address = node.setdefault("address", {"@type": "PostalAddress"})
         address["streetAddress"] = "{{ contact.house }}"
-    _entity_contacts(node, answers.about.contacts)
+    _nested(node, answers.about)
+    if not person and "medicalSpecialty" not in node and ok("medicalSpecialty"):
+        specialties = _specialties(answers.about)
+        if specialties:  # по задаче E17.S4.T2 - литералом, только на типах, где свойство допустимо
+            node["medicalSpecialty"] = ["https://schema.org/" + x for x in specialties]
+    _entity_contacts(node, answers.about.contacts, None if person else types)
     node.setdefault("url", "{{ site.base }}")
     return node
+
+
+_FLAT_HEADS = ("address", "geo", "worksFor")
+
+
+def _is_nested(prop: str) -> bool:
+    """Свойство с точкой, чья голова не address/geo/worksFor: вложенный узел."""
+    return "." in prop and prop_head(prop) not in _FLAT_HEADS
+
+
+def _put(node: dict[str, Any], dotted: str, value: Any) -> None:
+    """Записать значение по пути `a.b.c`, создавая промежуточные словари."""
+    parts = dotted.split(".")
+    for part in parts[:-1]:
+        child = node.get(part)
+        if not isinstance(child, dict):
+            child = node[part] = {}
+        node = child
+    node[parts[-1]] = value
+
+
+def _nested_type(about: AboutAnswers, root: str, path: str = "") -> str:
+    """`@type` вложенного узла: адрес - PostalAddress; место работы - из ответа;
+    остальные - первый класс диапазона свойства по словарю schema.org."""
+    from heron.schemaorg import vocab as schema_vocab
+
+    if path.endswith("address"):
+        return "PostalAddress"
+    if root == "practicesAt":
+        chosen = about.fields.get("practices_at_type")
+        if chosen:
+            return str(chosen)
+    ranges = schema_vocab().ranges(root)
+    return ranges[0] if ranges else ""
+
+
+def _nested(node: dict[str, Any], about: AboutAnswers) -> None:
+    """Вложенные узлы (practicesAt, hospitalAffiliation) из полей с точкой в prop.
+
+    Узел появляется, только если есть его имя. Пустое поле с `fallback` берёт
+    значение сайта, если у сайта есть ответ на поле-источник.
+    """
+    fields = vocab()["fields"]
+    allowed = fields_for(about)
+    roots: dict[str, list[tuple[str, str, str]]] = {}
+    for name in allowed:
+        spec = fields[name]
+        prop = spec["prop"]
+        if not _is_nested(prop) or prop.endswith(".@type"):
+            continue
+        if name in about.fields:
+            hole = "{{ " + spec["to"] + " }}"
+        elif spec.get("fallback") and any(
+            fields[src]["to"] == spec["fallback"] and src in about.fields for src in fields
+        ):
+            hole = "{{ " + spec["fallback"] + " }}"
+        else:
+            continue
+        roots.setdefault(prop_head(prop), []).append((name, prop, hole))
+    for root, items in roots.items():
+        if not any(prop == f"{root}.name" and name in about.fields for name, prop, _ in items):
+            continue
+        sub: dict[str, Any] = {"@type": _nested_type(about, root)}
+        for _name, prop, hole in items:
+            tail = prop.split(".", 1)[1]
+            if "." in tail:
+                inner = tail.rsplit(".", 1)[0]
+                _put(sub, inner + ".@type", _nested_type(about, root, inner))
+            _put(sub, tail, hole)
+        node[root] = sub
 
 
 def entity_type(about: AboutAnswers) -> str | list[str]:
@@ -725,27 +908,36 @@ def entity_type(about: AboutAnswers) -> str | list[str]:
     некоммерческая или учебная организация — оба типа списком: так schema.org
     и записывает организацию, которая одновременно и то, и другое.
     """
-    kind = about.type
+    types = final_types(about)
+    return types[0] if len(types) == 1 else types
+
+
+def _specialties(about: AboutAnswers) -> list[str]:
     found = specialization(about.specialization) if about.specialization else None
-    precise = found[1].get("type") if found else None
-    if not precise or lineage(kind)[0] == "Person" or precise == kind:
-        return kind
-    if kind in ("Organization", "LocalBusiness"):
-        return precise
-    return [kind, precise]
+    raw = found[1].get("specialty") if found else None
+    if not raw:
+        return []
+    return [raw] if isinstance(raw, str) else [str(x) for x in raw]
 
 
-def _entity_contacts(node: dict[str, Any], contacts: list[ContactAnswer]) -> None:
+def _entity_contacts(
+    node: dict[str, Any], contacts: list[ContactAnswer], types: list[str] | None = None
+) -> None:
     """Связь в разметке: основной телефон и почта, точки связи по назначению, профили.
 
     Телефон и почта — подстановкой из `contact.phone`/`contact.email`, как у
     всего остального. Точки связи и профили — списком: их состав пишет анкета
     при каждом сохранении, из того же `contact.channels`.
     """
+    from heron.schemaorg import vocab as schema_vocab
+
+    def ok(prop: str) -> bool:
+        return types is None or schema_vocab().allows(types, prop)
+
     kinds = {item.type for item in contacts}
-    if "phone" in kinds:
+    if "phone" in kinds and ok("telephone"):
         node["telephone"] = "{{ contact.phone }}"
-    if "email" in kinds:
+    if "email" in kinds and ok("email"):
         node["email"] = "{{ contact.email }}"
     points = []
     for item in contacts:
@@ -754,14 +946,14 @@ def _entity_contacts(node: dict[str, Any], contacts: list[ContactAnswer]) -> Non
             points.append(
                 {"@type": "ContactPoint", "contactType": PURPOSES[item.purpose], key: item.value}
             )
-    if points:
+    if points and ok("contactPoint"):
         node["contactPoint"] = points
     urls = [
         item.url
         for item in contacts
         if item.url and item.url.startswith("https://") and item.type != "website"
     ]
-    if urls:
+    if urls and ok("sameAs"):
         node["sameAs"] = list(dict.fromkeys(urls))
 
 

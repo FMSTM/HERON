@@ -83,3 +83,6 @@ def test_repeated_flag_and_unused_key(site):
     assert any(e["key"] == KEY for e in data["schema"]["excepted"])
     text = _run("check", "--env", "prod", "--allow-schema", KEY, "--allow-schema", OTHER, str(site))
     assert OTHER in text.output
+    unused_line = next(line for line in text.output.splitlines() if OTHER in line)
+    assert "--allow-schema" in unused_line
+    assert "schema_exceptions" in unused_line

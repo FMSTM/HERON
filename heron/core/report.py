@@ -150,6 +150,19 @@ def schema_lines(section, lang: str) -> list[str]:
             warnings=0 if prod else count,
         )
     ]
+    for entry in section.findings:
+        lines.append(
+            say(
+                lang,
+                "schema_finding",
+                code=entry.code,
+                file=entry.file,
+                path=entry.path,
+                detail=entry.detail(lang),
+                pages=entry.pages,
+            )
+        )
+        lines.append(say(lang, "schema_key", finding=entry.key))
     if section.excepted:
         lines.append(say(lang, "schema_exceptions_head", n=len(section.excepted)))
         for entry in section.excepted:

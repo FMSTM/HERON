@@ -40,10 +40,33 @@ def test_empty_section_prints_nothing():
     assert schema_lines(SchemaSection(), "ru") == []
 
 
+def _finding_section() -> SchemaSection:
+    finding = Finding(code="SCH002", path="schema.entity.worksFor", value="x",
+                      fields={"types": "Person", "prop": "worksFor"})
+    entry = Entry(KEY, "SCH002", "site.yaml", "schema.entity.worksFor", "x", finding, pages=3)
+    return SchemaSection(release="29.3", nodes=42, env_prod=True, findings=[entry])
+
+
+def test_finding_lines_are_contract_literals_ru():
+    assert schema_lines(_finding_section(), "ru")[1:] == [
+        "  SCH002 site.yaml:schema.entity.worksFor - у типа Person нет свойства 'worksFor' (страниц: 3)",
+        "    ключ исключения: SCH002:site.yaml:schema.entity.worksFor",
+    ]
+
+
+def test_finding_lines_are_contract_literals_en():
+    assert schema_lines(_finding_section(), "en")[1:] == [
+        "  SCH002 site.yaml:schema.entity.worksFor - type Person has no property 'worksFor' (pages: 3)",
+        "    exception key: SCH002:site.yaml:schema.entity.worksFor",
+    ]
+
+
 def test_lines_follow_contract_ru():
     lines = schema_lines(_section(), "ru")
     assert lines == [
         say("ru", "schema_head", release="29.3", nodes=42, n=1, errors=1, warnings=0),
+        "  SCH002 site.yaml:schema.entity.p0 - у типа  нет свойства '' (страниц: 1)",
+        "    ключ исключения: SCH002:site.yaml:schema.entity.p0",
         say("ru", "schema_exceptions_head", n=2),
         say(
             "ru",

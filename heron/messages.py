@@ -1488,6 +1488,7 @@ TEXT["ru"].update(
             "({errors} {errors:ошибка|ошибки|ошибок}, "
             "{warnings} {warnings:предупреждение|предупреждения|предупреждений})"
         ),
+        "schema_finding": "  {code} {file}:{path} - {detail} (страниц: {pages})",
         "schema_key": "    ключ исключения: {finding}",
         "schema_exceptions_head": "Исключения разметки: {n}",
         "schema_exception_site": "  {finding} - причина: «{reason}», до {until} ({source})",
@@ -1524,6 +1525,7 @@ TEXT["en"].update(
             "schema.org markup (vocabulary {release}): {nodes} nodes, {n} findings "
             "({errors} {errors:error|errors}, {warnings} {warnings:warning|warnings})"
         ),
+        "schema_finding": "  {code} {file}:{path} - {detail} (pages: {pages})",
         "schema_key": "    exception key: {finding}",
         "schema_exceptions_head": "Markup exceptions: {n}",
         "schema_exception_site": '  {finding} - reason: "{reason}", until {until} ({source})',

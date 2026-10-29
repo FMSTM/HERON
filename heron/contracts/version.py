@@ -3,6 +3,9 @@
 Проверка идёт до всего остального — раньше загрузки темы и обхода контента.
 Единственное, что не даёт сайтам разъехаться по несовместимым движкам.
 Спецификация: docs/spec/23-distribution.md, раздел 2.
+
+Требование пишется как в pip: условия через запятую, операторы
+`>=`, `<=`, `>`, `<`, `==`, `!=`, `~=` и шаблон `==X.Y.*` / `!=X.Y.*`.
 """
 
 from __future__ import annotations
@@ -11,12 +14,13 @@ import re
 
 from heron.core.errors import HeronError
 
-_CLAUSE = re.compile(r"^(>=|<=|==|!=|>|<)\s*([0-9]+(?:\.[0-9]+)*)$")
+_NUM = r"[0-9]+(?:\.[0-9]+)*"
+_CLAUSE = re.compile(rf"^(~=|>=|<=|==|!=|>|<)\s*({_NUM})(\.\*)?$")
 
 
 def parse(version: str) -> tuple[int, ...]:
     """Разобрать версию в кортеж чисел. `0.4.1` -> `(0, 4, 1)`."""
-    if not re.fullmatch(r"[0-9]+(\.[0-9]+)*", version.strip()):
+    if not re.fullmatch(_NUM, version.strip()):
         raise ValueError(f"не версия: {version!r}")
     return tuple(int(p) for p in version.strip().split("."))
 
@@ -26,33 +30,66 @@ def _pad(a: tuple[int, ...], b: tuple[int, ...]) -> tuple[tuple[int, ...], tuple
     return a + (0,) * (n - len(a)), b + (0,) * (n - len(b))
 
 
+def _clause_ok(got: tuple[int, ...], op: str, want: tuple[int, ...], wildcard: bool) -> bool:
+    if wildcard:
+        # `==0.4.*` — совпадает префикс; другие операторы шаблон не принимают
+        if op not in ("==", "!="):
+            raise ValueError(f"шаблон `.*` допустим только с == и !=, а не с {op}")
+        same = _pad(got, want)[0][: len(want)] == want
+        return same if op == "==" else not same
+    if op == "~=":
+        # `~=0.4.1` = `>=0.4.1, ==0.4.*`; одна цифра в требовании недопустима
+        if len(want) < 2:
+            raise ValueError("для ~= нужна версия хотя бы из двух чисел, например ~=0.4")
+        prefix = want[:-1]
+        left, right = _pad(got, want)
+        return left >= right and _pad(got, prefix)[0][: len(prefix)] == prefix
+    left, right = _pad(got, want)
+    return {
+        ">=": left >= right,
+        "<=": left <= right,
+        "==": left == right,
+        "!=": left != right,
+        ">": left > right,
+        "<": left < right,
+    }[op]
+
+
 def satisfies(actual: str, spec: str) -> bool:
     """Удовлетворяет ли версия требованию вида `>=0.4,<0.5`."""
     got = parse(actual)
-    for raw in spec.split(","):
-        clause = raw.strip()
-        if not clause:
-            continue
+    clauses = [c.strip() for c in spec.split(",") if c.strip()]
+    if not clauses:
+        raise ValueError(f"пустое требование версии: {spec!r}")
+    for clause in clauses:
         m = _CLAUSE.match(clause)
         if not m:
             raise ValueError(f"не разобрать требование версии: {clause!r}")
-        op, want_raw = m.groups()
-        left, right = _pad(got, parse(want_raw))
-        ok = {
-            ">=": left >= right,
-            "<=": left <= right,
-            "==": left == right,
-            "!=": left != right,
-            ">": left > right,
-            "<": left < right,
-        }[op]
-        if not ok:
+        op, want_raw, star = m.groups()
+        if not _clause_ok(got, op, parse(want_raw), bool(star)):
             return False
     return True
 
 
-def check(required: str | None, actual: str, site_yaml: str = "site.yaml") -> None:
-    """Проверить совместимость или остановить сборку с E012."""
+def _major_minor(version: str) -> str:
+    parts = version.split(".")
+    return ".".join((parts + ["0"])[:2])
+
+
+def _wanted_tag(spec: str) -> str | None:
+    """Какой тег образа `heron:X.Y` ближе всего к требованию: по нижней границе."""
+    for raw in spec.split(","):
+        m = _CLAUSE.match(raw.strip())
+        if m and m.group(1) in (">=", "~=", "=="):
+            return _major_minor(m.group(2))
+    return None
+
+
+def check_version(required: str | None, actual: str, site_yaml: str = "site.yaml") -> None:
+    """Проверить совместимость движка или остановить сборку с E012.
+
+    Нет ключа или он не разбирается — E011: это ошибка конфига, а не версии.
+    """
     if not required:
         raise HeronError(
             code="E011",
@@ -70,13 +107,18 @@ def check(required: str | None, actual: str, site_yaml: str = "site.yaml") -> No
             hint='формат требования — как в pip, например ">=0.4,<0.5"',
         ) from exc
     if not ok:
-        major_minor = ".".join(actual.split(".")[:2])
+        wanted = _wanted_tag(required)
+        need = f"нужен образ heron:{wanted}" if wanted else "нужен образ под это требование"
         raise HeronError(
             code="E012",
             message=f"движок версии {actual} не удовлетворяет требованию {required!r}",
             path=site_yaml,
             hint=(
-                f"возьмите подходящий образ (текущий даёт heron:{major_minor}) "
+                f"{need} (текущий даёт heron:{_major_minor(actual)}) "
                 "или поднимите требование в site.yaml, проверив совместимость"
             ),
         )
+
+
+# прежнее имя: на него ссылаются сборка и экспорт пакета
+check = check_version

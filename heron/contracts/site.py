@@ -20,6 +20,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 
+from heron import __version__
+from heron.contracts import version as version_contract
 from heron.contracts.loader import build, read_yaml
 from heron.core.errors import HeronError
 from heron.core.paths import NAME_RE
@@ -499,4 +501,8 @@ def load_site(path: Path) -> SiteConfig:
             path=str(path),
             hint='добавьте первой строкой, например: heron: ">=0.1,<0.2"',
         )
+    # версия движка раньше строгой схемы: site.yaml под более новый движок
+    # содержит ключи, которых здесь нет, и должен получить E012, а не E011
+    if isinstance(data["heron"], str):
+        version_contract.check_version(data["heron"], __version__, site_yaml=str(path))
     return build(SiteConfig, data, path)

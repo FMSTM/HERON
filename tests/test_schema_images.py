@@ -15,7 +15,7 @@ from heron.scaffold import create
 from heron.schemaorg.images import image_refs, local_path, source_exists
 from tests import sites
 
-HOME = "---\ntitle: Головна\n---\nТекст\n"
+HOME = "---\ntitle: Головна\nh1: Головна\ndescription: Демо-сайт для перевірки розмітки\n---\nТекст\n"
 
 
 @pytest.fixture
@@ -85,6 +85,21 @@ def test_source_exists_master_slice_static(tmp_path):
     assert not source_exists(tmp_path, "gone.png")
 
 
+def test_source_exists_theme_assets_and_legacy_img(tmp_path):
+    theme = tmp_path / "theme"
+    (theme / "assets").mkdir(parents=True)
+    (theme / "assets" / "logo.png").write_bytes(b"x")
+    (tmp_path / "img").mkdir()
+    (tmp_path / "img" / "old.jpg").write_bytes(b"x")
+    assert source_exists(tmp_path, "assets/logo.png", theme)
+    assert not source_exists(tmp_path, "assets/logo.png")
+    assert not source_exists(tmp_path, "assets/gone.png", theme)
+    assert not source_exists(tmp_path, "logo.png", theme)
+    assert source_exists(tmp_path, "img/old.jpg")
+    assert source_exists(tmp_path, "img/old-16x9-800.webp")
+    assert not source_exists(tmp_path, "img/nope.jpg")
+
+
 def test_check_missing_image_prod_is_error_with_key(scaffold):
     _entity(scaffold, "{{ site.base }}media/nope.jpg")
     result = pipeline.check(scaffold, env=BuildEnv.named("prod"))
@@ -147,3 +162,27 @@ def test_schema_media_collects_masters(scaffold):
     _entity(scaffold, "{{ site.base }}media/photo.jpg")
     result = pipeline.check(scaffold, env=None)
     assert "media/photo.jpg" in media.raw_references(result.site, result.config)
+
+
+def _local_theme(root) -> None:
+    """Тема в theme/ сайта с логотипом в assets/ - как у реального сайта."""
+    (root / "theme" / "assets").mkdir(exist_ok=True)
+    Image.new("RGB", (64, 64), "blue").save(root / "theme" / "assets" / "logo.png")
+
+
+def test_logo_in_theme_assets_no_false_sch006_in_check_and_build(scaffold, tmp_path):
+    _local_theme(scaffold)
+    _entity(scaffold, "{{ site.base }}assets/logo.png")
+    checked = pipeline.check(scaffold, env=BuildEnv.named("prod"))
+    assert "SCH006" not in _codes(checked)
+    dist = tmp_path / "dist"
+    built = pipeline.run(scaffold, dist, env=BuildEnv.named("prod"))
+    assert not [e for e in built.collector.errors if e.code == "SCH006"]
+    assert (dist / "assets" / "logo.png").is_file()
+
+
+def test_missing_theme_asset_still_sch006_in_check(scaffold):
+    _local_theme(scaffold)
+    _entity(scaffold, "{{ site.base }}assets/gone.png")
+    result = pipeline.check(scaffold, env=BuildEnv.named("prod"))
+    assert [e for e in result.collector.errors if e.code == "SCH006"]

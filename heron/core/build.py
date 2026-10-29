@@ -14,8 +14,6 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from heron import __version__
-from heron.contracts import version as version_contract
 from heron.contracts import wiring
 from heron.contracts.site import SiteConfig, load_site
 from heron.contracts.theme import ThemeConfig, load_theme
@@ -127,7 +125,6 @@ def for_env(config: SiteConfig, env: BuildEnv) -> None:
 def prepare(site_root: Path, collector: Collector) -> tuple[SiteConfig, ThemeConfig, Path, Hooks]:
     """Этап 1: конфиги, версия движка, тема, плагины."""
     config = load_site(site_root / SITE_YAML)
-    version_contract.check(config.heron, __version__, site_yaml=str(site_root / SITE_YAML))
 
     found = resolver.theme(site_root, config.site.theme)
     theme = load_theme(found.path / "theme.yaml")
@@ -621,15 +618,17 @@ def check(
     media.folder(site_root, collector)
     media.check_video(site, collector)
     media.verify(site, site_root, collector, config)
+    media.verify_covers(site, site_root, collector, theme.images, config)
     redirects.generate(site, collector, config)
 
     built = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
     collector.warnings.extend(report.nav_empty(site, config))
     collector.warnings.extend(report.duplicate_titles(site, config))
+    collector.warnings.extend(report.pages_without_cover(site, config))
     built.kit = report.kit_status(site_root, config)
     _schema(
         site, config, theme, collector, built, env or BuildEnv.resolve(None), allow_schema,
-        exists=lambda rel: source_exists(site_root, rel),
+        exists=lambda rel: source_exists(site_root, rel, theme_dir),
     )
     return Result(
         config=config,

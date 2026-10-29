@@ -142,7 +142,7 @@ The engine checks that such pages exist (`E006` if they do not), gives the theme
 
 ## Images, video, documents
 
-Everything goes in `media/`, links are from the site root:
+Everything goes in `media/`. The path is written from the site root, with or without a leading `/`: `media/a.png` and `/media/a.png` are resolved by the engine to the same address.
 
 ```yaml
 image: media/services/roof.png        # preview in the catalog

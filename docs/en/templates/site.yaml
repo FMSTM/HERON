@@ -13,6 +13,7 @@ site:
   languages: [en, ru]          # one to N; the others go under /<lang>/: /ru/o-nas/
   name: Daybreak               # site name
   name_ru: Рассвет             # the same in the ru language; without it - name
+  alternate_names: []          # other spellings of the name -> WebSite.alternateName; per language alternate_names_ru
 
 seo:
   title_suffix: " — Daybreak"  # the theme appends it to <title>
@@ -53,8 +54,20 @@ build:
   allow_raw_html: false        # raw HTML in markdown
   updated_from: git            # manual | git | file - where the update date comes from
   workers: 0                   # processes for image renditions; 0 - one per core
+  generator: true              # engine signature in pages; false - without it
+  overrides: []                # generated files replaced by static/: [robots.txt]
 
 plugins: []
+
+# forms:                       # site forms; the heron-relay plugin
+#   callback:
+#     fields: [name, phone]
+#     sinks: [mail]
+# sinks:
+#   mail: {to: info@example.com}
+
+# nginx:
+#   hash_sizes: auto           # deprecated, does nothing
 
 gone:                          # 410: exact addresses, prefixes, an address with a parameter
   - /sample-page/
@@ -81,3 +94,11 @@ schema:
     name: "{{ organization.name }}"
     telephone: "{{ contact.phone }}"
     url: "{{ site.base }}"
+
+# A deliberate markup-check finding (SCH001-SCH006) that cannot be fixed right now.
+# The finding itself prints the key ("exception key: ..."); reason is required, until is not.
+# Fix first: a fix is almost always better than an exception.
+# schema_exceptions:
+#   - key: "SCH002:site.yaml:schema.entity.worksFor"
+#     reason: "moving to practicesAt after the theme change"
+#     until: 2026-12-31

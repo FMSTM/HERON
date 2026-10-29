@@ -115,10 +115,19 @@ contract: "0.1"                   # contract version = engine major.minor
 lang: ru                          # build.notes at the time of writing
 created: "2026-10-25T10:00:00Z"   # SOURCE_DATE_EPOCH if set, otherwise the moment of writing, UTC
 docs_url: "https://github.com/FMSTM/HERON/blob/prod/docs/ru/"   # the same documentation online
-files:                            # every kit file except work/
+files:                            # every kit file except work/, and the root AGENTS.md, CLAUDE.md, GEMINI.md (root/…)
   - path: README.md
     sha256: "…"
   - path: roles/architect.md
+    sha256: "…"
+  - path: guide/06-deploy.md
+    sha256: "…"
+    lang: en                      # no translation - a file of another language
+  - path: root/AGENTS.md          # root pointers carry the root/ prefix
+    sha256: "…"
+  - path: root/CLAUDE.md
+    sha256: "…"
+  - path: root/GEMINI.md
     sha256: "…"
 ```
 
@@ -181,8 +190,10 @@ Rules:
 - `_index.md` is the page of the folder itself
 - the default language (`default_lang` from `site.yaml`) is served from the root, the others with a prefix
 - all URLs end with a slash, the canonical form has the slash
-- a slug is only Latin letters, digits and hyphens. A file with another name fails the build
+- a slug is only Latin letters, digits and hyphens. A file with another name fails the build (`E005`)
 - the slug can be overridden with the `slug` field in the frontmatter, but usually there is no need
+- these are not treated as pages and are not checked: `README.md`, `CHANGELOG.md`, `LICENSE.md`, `CONTRIBUTING.md` (in any case), `heron-readme.md`, files whose name starts with a dot, and files with an underscore at the start, except `_index.md` (`_draft.md` is a draft outside the build)
+- a link-file that leads outside `content/` is `E024`: content is taken only from inside
 
 ### The file name is the key, `slug` is the address
 
@@ -226,6 +237,8 @@ the author does not expect, and the author learns about it from the search resul
 Two files that give one address are error `E004`, no matter how
 exactly they gave it: the same slug, or a slug that matches the name of
 a neighboring file.
+
+Two files with one key are error `E029`: a page `a.md` and a section `a/_index.md` of the same level are both called `a`, and links, translations and `page_of('a')` would not know which one is meant. Rename one of the files: `slug` does not change the key.
 
 The old address after a rename is closed with `redirect_from` - it is
 not relative to the language and is written in full.
@@ -374,12 +387,12 @@ Groups and their order:
 
 | No. | Group | What is inside |
 |---|---|---|
-| 1 | Main | `title` `description` `h1` `canonical` `robots` |
+| 1 | Main | `title` `description` `h1` `nav_title` `slug` `canonical` `robots` |
 | 2 | Search queries | only a comment: the main query, additional ones, how many in total |
 | 3 | Open Graph | `og_type` `og_title` `og_description` `og_image` `og_image_alt` |
 | 4 | Twitter / X | `twitter_card` `twitter_title` `twitter_description` `twitter_image` |
 | 5 | Schema.org | the `schema` block - markup refinements for this page |
-| 6 | Card and catalog | `image` `image_alt` `order` `children_type` `type` |
+| 6 | Card and catalog | `image` `image_alt` `order` `children_type` `type` `video` `video_poster` `video_title` |
 | 7 | Service | `updated` `published` `priority` |
 | 8 | Relations | relation fields declared by the theme, plus `redirect_from` |
 
@@ -396,7 +409,9 @@ Block rules:
 - **group 2 is mandatory** on every content page. The engine does not read it, but it holds the rule "one intent - one page": to add someone else's cluster, you first have to write it there and see that it needs its own page
 - **the `keywords` meta tag is not output.** Google has ignored it since 2009, and it shows competitors the whole semantic core of the project
 - **empty optional fields stay with their comment and are not deleted** - otherwise in half a year nobody will remember they can be filled
-- `twitter_*` are filled only when they must differ from `og_*`; the engine fills empty ones from Open Graph
+- `twitter_*` are filled only when they must differ from `og_*`; the template fills empty ones from Open Graph (so does the theme blank of `heron new`)
+
+Comments `<!-- ... -->` in the text are author's notes: the engine cuts them out before parsing, and they do not reach the page. Inside a code block a comment stays content.
 
 Then comes the content. Text before the first heading becomes the `intro` section, then sections like `## Heading {#anchor}`, with a module class if needed: `{#red-flags .alert}`, `{#timeline .timeline}`.
 
@@ -419,25 +434,26 @@ A short explanation in plain words…
 
 YAML between `---`. This is **the only authoritative list of fields**: the page model (`21` §6) and the `heron page` sample follow it.
 
-The "core" column says what the engine does with the field: **yes** - it reads and checks it itself (`E002` - a required field is missing or the value has the wrong type; `E001` - the frontmatter does not parse as YAML); **theme** - the core does not interpret the field, it passes through and is available to the template as `page.meta.<field>`. The "group" column is the SEO block group number from 4.1.
+The "core" column says what the engine does with the field: **yes** - it reads and checks it itself (`E002` - a required field is missing, it is empty or the value has the wrong type; `E001` - the file does not start with `---`, the YAML does not parse, the frontmatter is not a set of keys or the file is not UTF-8); **theme** - the core does not interpret the field, it passes through and is available to the template as `page.meta.<field>`. The "group" column is the SEO block group number from 4.1.
 
 | Field | Type | Default | Core | Group | What it does |
 |---|---|---|---|---|---|
 | `title` | string | - **required** | yes; longer than 60 - a warning | 1 | `<title>` |
-| `h1` | string | - **required** | yes | 1 | the heading on the page, `name` in the markup |
+| `h1` | string | - **required** | yes; the same as `title` - a warning | 1 | the heading on the page, `name` in the markup |
 | `description` | string | - **required** | yes; longer than 155 - a warning | 1 | `meta description`, the description in `llms.txt` and in the markup |
 | `slug` | string | file name | yes: Latin letters, digits, hyphen | 1 | the last address segment; does not change the key (section 2) |
 | `canonical` | string | own address | theme | 1 | the theme outputs it if set |
 | `robots` | string | - | theme | 1 | the theme outputs it; the core decides indexing by `noindex` |
-| `og_title` | string | `title` | yes | 3 | the title in social networks |
-| `og_description` | string | `description` | yes | 3 | the description in social networks |
-| `og_image` | path in `media/` | `seo.og_default_image` | yes: the file must exist (`E007`) | 3 | a 1200×630 image, not cropped |
-| `og_type`, `og_image_alt` | string | - | theme | 3 | |
-| `twitter_card`, `twitter_title`, `twitter_description`, `twitter_image` | string | from `og_*` | theme | 4 | filled only if they must differ from `og_*` |
+| `og_title` | string | `title` | yes: type only; the template substitutes `title` (`page.meta.og_title or page.title`) | 3 | the title in social networks |
+| `og_description` | string | `description` | yes: type only; the template substitutes `description` | 3 | the description in social networks |
+| `og_image` | path in `media/` | `seo.og_default_image` | yes: the file must exist (`E007`) | 3 | a 1200×630 image; first in the page cover choice (the "Page cover" paragraph below) |
+| `og_type` | string | - | theme | 3 | |
+| `og_image_alt` | string | `image_alt` | yes: the cover caption (`page.cover.alt`) | 3 | |
+| `twitter_card`, `twitter_title`, `twitter_description`, `twitter_image` | string | from `og_*` | theme; `twitter_image` is a path in `media/`, the master goes into the build whole, the file must exist (`E007`) | 4 | filled only if they must differ from `og_*` |
 | `schema` | map | - | yes: merged into JSON-LD on top of `site.yaml` | 5 | markup refinements of the page (section 5) |
-| `image` | path in `media/` | - | yes: `E007` if the file is missing | 6 | the preview in the catalog and in relation cards |
+| `image` | path in `media/` | - | yes: `E007` if the file is missing | 6 | the preview in the catalog and in relation cards; second in the page cover choice, if there is no `og_image` |
 | `image_alt` | string | - | yes: a warning if there is `image` without `alt` | 6 | |
-| `nav_title` | string | file name | yes | 6 | the short name in the menu and breadcrumbs (see below) |
+| `nav_title` | string | file name | yes | 1 | the short name in the menu and breadcrumbs (see below) |
 | `order` | integer | `999` | yes | 6 | the order in catalogs and menus, ascending |
 | `type` | string | from the folder, see below | yes: the type must have a template (`E008`) | 6 | the page type - which template renders it |
 | `children_type` | string | - | yes; read only in `_index.md` | 6 | the type of the section's children |
@@ -449,10 +465,30 @@ The "core" column says what the engine does with the field: **yes** - it reads a
 | `published` | `true`/`false` | `true` | yes | 7 | `false` - the page is not built and appears nowhere (`--drafts` turns it on) |
 | `noindex` | `true`/`false` | `false` | yes | 7 | `robots: noindex`, excluded from the sitemap and `llms.txt` |
 | `priority` | number | - | theme | 7 | the core does not output it in the sitemap |
-| `redirect_from` | list of paths | `[]` | yes: a path from the root, normalization - section 2 | 8 | old addresses with a 301 to this page |
+| `redirect_from` | list of paths | `[]` | yes: a path from the root, no spaces, `?` or `#`, otherwise `E002`; normalization - section 2 | 8 | old addresses with a 301 to this page |
 | relation fields | list of names or maps `{slug, note}` | - | yes, if declared by the theme in `links`: the name must be found (`E006`) | 8 | relations between pages (section 6) |
 | `gone` | list of paths | - | deprecated: read with a warning | 8 | move it to `gone` in `site.yaml` (section 5) |
 | any of your own | any | - | theme | - | in the template `page.meta.get('field')` - an empty field does not fail the build; all your own fields at once - `page.meta.extra`. They need not be declared anywhere: `fields` in `theme.yaml` is only for engine fields (section 7) |
+
+#### Page cover <a id="page-cover"></a>
+
+A page has one cover, and it feeds all the places at once: `og:image`, `twitter:image`, `primaryImageOfPage` in the markup and the images in the `sitemap`. If these places diverge, they give a search engine and a messenger different answers. The engine picks the cover in order, the first one found wins:
+
+1. the page `og_image` (its caption is `og_image_alt`, otherwise `image_alt`);
+2. the page `image`;
+3. the first image in the intro block (`intro`) or in the `hero` section, written in the markdown text;
+4. `seo.og_default_image` of the page language (`og_default_image_<lang>`, otherwise without a suffix).
+
+What the cover turns into: `page.cover` in the template (`src`, `url`, `width`, `height`, `alt`), `og:image` and `twitter:image` through `cover_url(page)`, the `primaryImageOfPage` node on the page (`WebPage` and its derivatives) and the first `<image:image>` entry in the `sitemap` (`21` §9). If the site set `primaryImageOfPage` itself in the `schema` block, its value wins: the engine substitutes its own only when the key is absent.
+
+**The cover master always goes into the build whole**, even if no template asked for it in `picture()`: the address from `og:image` must not lead to a 404. This also covers `seo.og_default_image` with all its language values.
+
+Edge cases:
+
+- **no cover found** (none of the four sources) - `page.cover` is empty, `cover_url(page)` returns an empty string; on an empty string the template outputs no `og:image`, and `primaryImageOfPage` is not added. This is not a build error;
+- **the master is narrower than `images.cover_width`** (1200 px by default) - the whole master is served, and `heron check` warns: "cover is smaller than 1200 px: <path>";
+- **an external cover** (a full URL) - used as is, without sizes;
+- **a transparent cover** - the engine adds no backing, the crawler will show it on a black or white background. Make the cover opaque (section 7.9).
 
 The "theme" fields in groups 1, 3, 4 and 7 are part of the SEO block the stub puts: they are filled where the theme can output them. The core does not decide for the theme how to render them and does not complain about empty ones.
 
@@ -541,13 +577,13 @@ A section is a block of content with an identifier. The syntax is an ordinary ma
 ## What it is {#what}
 ```
 
-A section is everything from this heading to the next heading **of the same level** with an anchor or to the end of the file. Nested headings (`###`) belong to the section.
+The section level is set by the first heading with an anchor in the file. A section is everything from it to the next heading with an anchor of the same or a higher level, or to the end of the file. Deeper headings (`###`), with an anchor or without, belong to the section; a heading without an anchor does not start a section.
 
 Rules:
 
-- identifier: Latin letters, digits, hyphen
+- identifier: lowercase Latin letters, digits and a single hyphen between them (`quick-facts`, not `Quick_Facts` and not `-faq`); otherwise `E016` with the line number
 - the order of sections in the file does not matter
-- the same identifier twice in a file is a build error
+- the same identifier twice in a file is `E003`, the message gives both lines
 - text before the first section is the intro block, available to the theme as `intro`
 - a section the theme does not use is not an error - it goes into the `heron check` report
 - a section the theme expects but the file lacks is not an error either: the value is empty,
@@ -666,7 +702,9 @@ A class in the anchor is stronger than the content. Without a class the form is 
 | `.timeline` | `timeline` |
 | `.two-lists` | `two-lists` |
 
-Separately, `{.top}` on an item of a numbered list marks the main step (without it `top` belongs to the first step). An unknown class is a warning, the form is determined by the content.
+A plugin can declare its own form (`block:<name>`, `21`): the class `.name` hands the section to its parser, `section.kind` is the form name. The thirteen built-in classes are not overridden by a plugin.
+
+Separately, `{.top}` on an item of a numbered list marks the main step (without it `top` belongs to the first step). The form is set by the first class from the table; an unknown class before it is a warning, without a known class the form is determined by the content. The other classes reach the theme in `section.classes`.
 
 #### Broken input
 
@@ -711,6 +749,8 @@ heron: ">=0.1,<0.2"          # engine version the site requires. Mandatory
 
 site:
   domain: example.com        # no scheme or path; https:// and the slash are stripped. Labels - Latin letters, digits, hyphen not at the edges; one rule for site.yaml and heron new
+  domains:                   # a domain per environment, optional. The key is an environment name from --env
+    dev: dev.example.com
   theme: main                # theme name. A local theme/ overrides it
   default_lang: en
   languages: [en, ru]
@@ -732,8 +772,8 @@ organization:
 seo:
   title_suffix: " - Site name"
   og_default_image: media/og/default.jpg
-  twitter_card: summary_large_image
-  llms_txt: true
+  twitter_card: summary_large_image   # the value of <meta name="twitter:card">, summary_large_image by default
+  llms_txt: true             # true - the full llms-full*.txt too; the short llms*.txt are always built
   llms_note:                 # facts about the site for the files an AI model reads
     en: |
       ### How to reach us
@@ -745,11 +785,13 @@ seo:
 
       Телефон: +00 000 000 00 00, с 9 до 18.
       Запись — только по телефону.
-  robots_extra: []
+  robots_extra: []           # extra robots.txt lines, verbatim
   feed: article              # page type for the feed. No key - no feed
+  feed_limit: 20             # how many entries in the feed, 20 by default
 
 nav:
   main: [about, services, contacts]
+  footer: [privacy]          # your own groups: the theme invents the names
 
 build:
   fail_on_warning: false
@@ -778,7 +820,13 @@ sinks:
   crm:  {webhook: https://crm.example.com/hook, secret_env: CRM_SECRET}
 ```
 
+`site.domains` - a domain per build environment: the key is the same environment name as in `--env`, the value is a domain by the same rules as `site.domain`. A build with `--env dev` puts this domain into canonical, sitemap, hreflang, robots and the markup. No entry for the environment - `site.domain` is taken. An invalid domain is `E011`.
+
+`nav.main` is the main menu; other groups (`footer` and any) are named by the theme itself. The values are page keys, the home page is `"/"`.
+
 `forms` and `sinks` are read not by the engine but by `heron-relay`. The engine uses them only to give the theme the form description for the markup and to fail if the theme renders a form that is not in the config.
+
+Core checks (`E011`): a form must have a non-empty `fields`, a field name is Latin letters, digits, `-` and `_`; every name in the `sinks` of a form must be a key of the `sinks` block. A form in `forms` of `theme.yaml` that is not here is `E011`; a form here that the theme does not render is a warning.
 
 Values from `contact` and `organization` go at the same time into the page markup, into JSON-LD and into the theme blocks. They change in one place - this is what keeps the address from drifting apart between the header and the footer.
 
@@ -850,8 +898,18 @@ seo:
 | Key | By language |
 |---|---|
 | `site.name` | `site.name_<lang>` |
+| `site.alternate_names` | `site.alternate_names_<lang>` |
 | `seo.title_suffix` | `seo.title_suffix_<lang>` |
 | `seo.og_default_image` | `seo.og_default_image_<lang>` |
+
+- `site.alternate_names` - a list of other spellings of the name (an old name, a transliteration, an abbreviation). It goes into `alternateName` of the `WebSite` node on the home page, so the site is found by any of the spellings. An empty list - no key in the markup:
+
+```yaml
+site:
+  name: Daybreak
+  alternate_names: [Daybreak Studio, Dawn]
+  alternate_names_ru: [Rassvet, Deibrek]
+```
 
 - `key_<lang>` is stronger than the key without a suffix; a language without its own value gets the value without a suffix;
 - a suffix of a language that is not in `site.languages` is `E011`;
@@ -873,6 +931,7 @@ The starter theme (`heron new`) already outputs `<title>` with the suffix, `og:*
 | `updated_from` | `manual` \| `git` \| `file` | `manual` | where the page update date comes from if `updated` is not set by hand |
 | `workers` | 0-64 | `0` | processes for image renditions; `0` - by the number of cores, `1` - no pool. Overridden by the `HERON_WORKERS` variable and the `--workers` flag of `build` and `serve` (order: flag, variable, `site.yaml`) |
 | `overrides` | list of paths | `[]` | generated files the site replaces with its own from `static/`: `[robots.txt]`. Without an entry here, a name in `static/` matching a generated file is `E026`. Static files never replace a page, a rendition or a theme resource; an entry that replaced nothing is a warning. A replaced `.heron-nginx.conf` is checked with `nginx -t` just like a generated one; an empty, unreadable or non-UTF-8 one is `E034` before writing |
+| `generator` | `true`/`false` | `true` | the engine signature on every page: `<meta name="generator" content="HERON">` and a comment. `false` - no signature |
 
 **`updated_from`.** `updated` in the frontmatter always overrides the automation. Without it:
 
@@ -913,6 +972,22 @@ schema:
 
 **Page addresses and the base address** are available to substitutions: `{{ site.base }}` - the site root, `{{ pages.<key>.url }}` - the address of the page with that key in the language of the current page, `{{ pages.<key>.image }}` - its image, `{{ pages.<key>.h1 }}`, `.title`, `.description`. There is no need to type a page address by hand: it changes together with the slug, and nobody rereads the markup after a rename. In substitutions the home page is called `home` (elsewhere its key is `/`, see 4.2).
 
+**The cover is available to substitutions:** `{{ page.cover.url }}` - the absolute address of the current page cover, `{{ pages.<key>.cover.url }}` - the cover of the page with that key (`.width`, `.height` - the sizes, if known). `{{ site.base }}` - the site root. This is how the owner photo goes into a sitewide node without a copy of the path:
+
+```yaml
+schema:
+  entity:
+    "@type": Organization
+    name: "{{ organization.name }}"
+    image:
+      "@type": ImageObject
+      url: "{{ pages.about.cover.url }}"
+      width: "{{ pages.about.cover.width }}"
+      height: "{{ pages.about.cover.height }}"
+```
+
+No cover or no size - the key is not output (the "what is not there is not there" rule below). A value the site set itself (`entity.image`, `primaryImageOfPage`) wins over the computed one.
+
 **Page relations are available to substitutions:** `{{ related.topics.*.url }}` - the addresses of related pages, `.h1`, `.note`, `.description`. The list is already collected by the engine by the theme rules, and copying the same links into the frontmatter means starting a second list that will drift apart from the first by the third edit.
 
 **An anchor `@id` becomes absolute.** The engine turns `"@id": "#owner"` inside a page node into `https://domain/#owner`: a relative identifier is resolved against the document address, so each page would get its own entity, and the link between nodes would silently fall apart.
@@ -936,6 +1011,40 @@ seo:
 The default ban is not forgetfulness in the data but protection: if the site does not publish prices on its pages, they must not leak through the markup. A site that publishes prices sets `allow_prices: true`.
 
 The report after the build counts pages by node type, so that it is visible the markup arrived.
+
+**Check against the schema.org vocabulary** (codes `SCH001`-`SCH006`, `21` §11). Every markup node is checked against the schema.org 29.3 vocabulary shipped in the engine package: the type must be in the vocabulary, the property must fit the type, the value must be in the enumeration and have a fitting type, nothing deprecated may be used, and an image from the markup must get into the build. On `prod` a finding is an error, in other environments - a warning.
+
+An example: a doctor as a person with a practice in an organization. The `IndividualPhysician` type has no `worksFor` property; the doctor's place of work is set with `practicesAt`:
+
+```yaml
+schema:
+  entity:
+    "@id": "#owner"
+    "@type": IndividualPhysician
+    name: "{{ organization.name }}"
+    practicesAt:
+      "@type": MedicalClinic
+      name: "{{ organization.workplace }}"
+```
+
+A `worksFor` entry on such a node gives `SCH002`. The properties `practicesAt` and `isAcceptingNewPatients` are listed in the pending section of the vocabulary: they are allowed, and the report mentions them as information.
+
+**Exceptions: `schema_exceptions`.** If a finding is deliberate and cannot be fixed right now, it is written to `site.yaml`:
+
+```yaml
+schema_exceptions:
+  - key: "SCH002:site.yaml:schema.entity.worksFor"
+    reason: "switching to practicesAt after the theme change"
+    until: 2026-12-31
+```
+
+Rules:
+
+- `key` is required, of the form `<CODE>:<file>:<path>`, the code from `SCH001`-`SCH006`. The finding itself prints the ready key ("exception key: ..."). Identical keys from different pages and languages merge into one finding.
+- `reason` is required, a non-empty string. Without a reason - `E011`.
+- `until` is optional, a date `YYYY-MM-DD`. After it the exception no longer applies: the finding is in force again, and the report warns "Exception expired".
+- The same key twice - `E011`. An exception that caught nothing during the run is a warning "Unused exception": remove it.
+- A one-off exception without editing `site.yaml` - the `--allow-schema KEY` flag of `heron build` and `heron check` (`21` §10).
 
 ### The `nginx` block
 
@@ -974,7 +1083,7 @@ The `gone` field on a page is deprecated: an address that no longer exists canno
 
 Clarification of 2026-09-14, after implementing the contracts.
 
-The core strictly validates only its own keys: `heron`, `site`, `seo`, `nav`, `build`, `analytics`, `plugins`, `forms`, `sinks`, `gone`. A typo inside them is a stop with `E011`.
+The core strictly validates its own keys: `heron`, `site`, `seo`, `build`, `analytics`, `nginx`, `plugins`, `forms`, `gone`, `schema_exceptions`. A typo inside them is a stop with `E011`. `nav` allows any groups (`main` and your own), `sinks` any keys: they are read by heron-relay. The names `heron site seo nav build plugins forms sinks analytics gone nginx schema_exceptions` are taken by the core and are not used as your own blocks.
 
 Blocks the engine does not know - `contact`, `organization`, any of your own - **pass through** and reach the templates as they are. The core does not go into their meaning: otherwise it would start knowing the subject area of each site separately, and the boundary everything was started for would disappear.
 
@@ -1008,7 +1117,7 @@ requires:
   - contact.phone
   - organization.name
 
-# forms the theme renders. Their description must be in site.yaml
+# forms the theme renders. Not in site.yaml forms - E011; in site.yaml but not here - a warning
 forms: [callback]
 
 modules:
@@ -1059,9 +1168,18 @@ images:
   ratios: ["1:1", "16:9", "4:3"]   # what templates may ask for; only what is asked for is cut
   formats: [avif, webp]
   fallback_width: 800              # fallback PNG/JPEG for <img src> - one width
+  cover_width: 1200                # width of the JPEG/PNG cover variant for crawlers (1200 by default)
+  crop: []                         # crop even with transparency: [media/bio/] (7.6)
+  as_is: []                        # copy without cutting: scans, documents (7.3)
 ```
 
-A page type is implemented by the file `templates/<type>.html` - an ordinary Jinja2 template where the order of blocks is visible from top to bottom:
+`name` is required, Latin letters, digits, `-` and `_`; `site.theme` follows the same rule. `version` is a string, `"0.1"` by default; a number (`version: 1.0`) is turned into a string by the engine. `title` is optional. The other keys are optional.
+
+The `images` values in the example are the defaults: the block may be omitted. `ratios` look like `16:9`, both parts positive integers; `widths` is a non-empty list of positive numbers, order and repeats do not matter; `fallback_width` and `cover_width` must be greater than zero. A violation is `E008`.
+
+`uses` are the sections of the type. An element is a section anchor (`intro`), optionally with a form after a colon (`how:steps`, forms are table 4.4): a form mismatch is a line in the `check` report, not an error. `"*"` - the type accepts any sections. An unknown form, an invalid anchor or a repeated anchor is `E008`.
+
+A page type is implemented by the file `templates/<type>.html` - an ordinary Jinja2 template. Another file is set by the key `types.<type>.template` (a path from `templates/`): `template: page.html` - the type is rendered by the common page template. The order of blocks is visible from top to bottom:
 
 ```jinja
 {% extends "base.html" %}
@@ -1160,7 +1278,7 @@ The migration is a one-time pass over the site, and until it is done the site mu
 - there is `media/` - silent, this is normal;
 - there is only `img` - it builds as before, with one warning about the rename;
 - there are both - `E018`, the build stops. This is not a transitional state but a fork: the engine does not know which folder holds the truth, and guessing costs more;
-- there is `media/` and also `static/media` - also `E018`: static files are copied to the root, and both folders aim at the same addresses. A name match there is a silent overwrite noticed only online.
+- there is `media/` and also `static/media`: the file names match - `E018` (static files are copied to the root, and a match is a silent overwrite noticed only online); they do not match - a warning suggesting to move the contents of `static/media` into `media/`.
 
 Paths inside the site are written from the site root: `media/foto/portrait.jpg`. The form `./media/…` is also accepted.
 
@@ -1168,7 +1286,7 @@ Paths inside the site are written from the site root: `media/foto/portrait.jpg`.
 
 An image is recognized **by its value, not by the field name**: the engine does not guess names, the theme may name its field anything. A value counts if it is a path that starts with the media folder and ends with a known extension; a string from prose does not match, because it is checked as a whole, not as a substring.
 
-`media/` holds **any content file**, not only images: a video, a PDF leaflet, a presentation. The engine cuts images to ratios and converts them, everything else it copies as is - the list of processed extensions stays explicit, but a file not on it is not an error. Otherwise every new file type would require a core edit, and until then it would settle in `static/` bypassing all checks.
+`media/` holds **any content file**, not only images: a video, a PDF leaflet, a presentation. The engine cuts images to ratios and converts them, everything else it copies as is - the list of processed extensions stays explicit: `.jpg`, `.jpeg`, `.png`, `.webp` are cut and converted; `.avif`, `.gif`, `.svg` and all other files (video, PDF) are copied into the build as is, without variants, and a file not on the list is not an error. Otherwise every new file type would require a core edit, and until then it would settle in `static/` bypassing all checks.
 
 **Only declared** files get into the build. What lies in `media/` but is mentioned by nobody goes nowhere and gets into the report as the line "files in media nobody expects": this is not an error - a master is often put before the page is written - but it is no reason to hoard old versions in the folder for years either.
 
@@ -1185,7 +1303,7 @@ The traversal depth is limited: YAML anchors produce shared objects, and a limit
 
 A value with its own scheme (`https://…`, `//…`) is not considered a site image - it is someone else's file, and the engine does not go looking for it on its own disk.
 
-A typo in a path gives `E007` with the page name - in a nested field too. Such an image used to get lost silently: no error, no warning, just an empty space on the page.
+A typo in a path gives `E007` (in a strict build; otherwise a warning) with the page name - in a nested field too. Such an image used to get lost silently: no error, no warning, just an empty space on the page.
 
 ### 7.3 What not to cut
 
@@ -1217,7 +1335,7 @@ The theme could get only a ready `<picture>` from the engine. There was no way t
 - with `ratio` - the address of a cut variant; `width` takes the nearest size **not smaller** than requested, and if there are none - the largest: serving a larger one and letting the browser scale it down is more honest than showing a blur;
 - `format` chooses the variant format; without it - the original format of the master, because this is an address for a link and a download, not for `<picture>`;
 - the requested variant does not exist - a **warning** with the path and the address of the original. Silently returning an empty string is not allowed: this is exactly how images get lost, and it is noticed by eye a week after the release;
-- the file is not on disk - the same error `E007` as for any declared file;
+- the file is not on disk - the same error `E007` as for any declared file (in a strict build: `--strict` or `build.fail_on_warning`; otherwise a warning "no file <path>");
 - it works for files the engine does not process too: a PDF, a video, an archive.
 
 ### 7.5 Video
@@ -1251,7 +1369,7 @@ asks for and pads it with transparent margins to the required size:
 Cropping illustrations is forbidden. Photos - portraits, interiors, works -
 are cut with a center crop, as before: they have no alpha channel, and there is
 nowhere to take margins from. There is one sign: alpha present - fit, absent - crop. The theme
-may name exceptions explicitly.
+may name exceptions explicitly - with the key `images.crop` in `theme.yaml`: paths that are cropped even if the file has transparency. A path is written as a prefix: `crop: [media/bio/]`.
 
 The warning "the object touches the edge of the master" is gone: with fitting
 this stopped being a problem.
@@ -1288,7 +1406,19 @@ It is needed for files that must sit at an exact address and that the engine mus
 
 The rule does not rest on a promise: `heron check` names a file with an image or video extension found in `static/` and suggests moving it to `media/`. Without this, in half a year photos would be there again - putting a file in bypassing processing is always faster than declaring it in the content.
 
-**An empty `static/` is the normal state of a site.** Most sites have nothing there.
+**Do not put the picture for social networks and search results into `static/`.** Before, `og_image` and `seo.og_default_image` were routed around through `static/`, because the master from `media/` might not reach the build. Now the cover master is always copied whole (section 4.2, "Page cover"), so the advice is out of date: the engine does not check a file in `static/`, and `heron check` will name it an image out of place.
+
+**An empty `static/` is the normal state of a site.**
+
+### 7.9 The cover and crawlers <a id="cover-crawlers"></a>
+
+Crawlers of social networks, messengers and search engines understand not everything browsers do: not all of them read AVIF and WebP, and Google recommends a cover width of 1200 px or more. So a `<picture>` with AVIF/WebP does not fit a cover, and the engine gives the crawler a separate variant:
+
+- for a cover master a JPEG or PNG (the master format) `images.cover_width` wide (1200 by default), but not wider than the frame, is added to the fallback files. Other images are not cut to this width;
+- `cover_url(page, min_width=1200)` returns the address of a JPEG/PNG variant not narrower than `min_width`; if there is none - the address of the master;
+- a master narrower than `cover_width` is served whole, and `heron check` warns: "cover is smaller than 1200 px: <path>";
+- a variant only in AVIF or WebP does not fit: some crawlers will not show the picture, and the preview stays empty. That is why there is no "cover only in a modern format" mode;
+- **make a transparent cover opaque.** JPEG has no alpha, and transparent areas get a black background, while a crawler puts its own under a PNG. The engine adds no backing (a background color): that is the decision of the picture author. Most sites have nothing there.
 
 
 ---
@@ -1351,11 +1481,13 @@ Separately: to send mail, use an API key of the mail service, not the SMTP passw
 
 Generated by the engine into `dist/`, absent from the repository:
 
-`sitemap.xml` (on a multilingual site - an index and a file per language) · `robots.txt` · `llms.txt` (on a multilingual site - also a file per language) · `404.html` · `redirects.map` for nginx · JSON-LD inside pages · `hreflang` and canonicals · `feed.xml` when articles appear.
+`sitemap.xml` (on a multilingual site - an index and a file per language; page entries carry `<image:image>`, section 7.9 and `21` §9) · `robots.txt` · `llms.txt` (on a multilingual site - also a file per language) · `404.html` · `redirects.map` for nginx · JSON-LD inside pages · `hreflang` and canonicals · `feed.xml` when articles appear.
 
 Placed by hand in `static/`: favicon and its variants · `site.webmanifest` · `.well-known/security.txt`.
 
 Generated by the engine **into the site folder**, not into `dist/`, and kept in the repository: `agents/schemas/*.json` and `agents/heron-kit.yaml` (section 1) - they are written by `new` and `init`, the build does not read them.
+
+The engine puts a `robots_meta` string into the template context for `<meta name="robots">`: on an indexable page of a prod build it is `max-image-preview:large, max-snippet:-1, max-video-preview:-1` (large previews allowed), on a closed one (`noindex: true`, not prod, dev) - `noindex, nofollow`. The starter theme from `heron new` outputs it itself; your own theme connects it with one line in `<head>`: `<meta name="robots" content="{{ robots_meta }}">`.
 
 A `robots.txt` placed by hand starts lying in half a year: addresses change, the file does not. The same happens to a sitemap built by a third-party plugin.
 

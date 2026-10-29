@@ -86,7 +86,21 @@ jobs:
       engine: prod      # engine tag: prod, beta or 0.1.0
 ```
 
-The workflow builds the site with the engine from the image, packs `dist/` into nginx by the recipe of the same HERON version, starts the image, runs a smoke check and pushes it to `ghcr.io/<owner>/<repository>:<environment>`. Parameters: `path` is the site folder inside the repository, `image` and `tag` are your own image name, `strict` is `true`/`false` (by default only prod is strict), `push: false` builds and checks without pushing. The input `export_docs` (`true`/`false`, `false` by default) is needed only for the engine's own site: before the build, the same engine image puts the raw documentation files of this version into the site's `static/` - `agents/{ru,en}/**`, `schema/<major.minor>/*.json` and `AGENTS.md`; only the `static/` folder is mounted writable for this. An ordinary site does not need to enable it ([`22` §4](../spec/22-deploy.md)). Until beta becomes prod, call `@beta` with `engine: beta`.
+The workflow builds the site with the engine from the image, packs `dist/` into nginx by the recipe of the same HERON version, starts the image, runs a smoke check and pushes it to `ghcr.io/<owner>/<repository>:<environment>`. The workflow inputs:
+
+| Input | Default | What it does |
+|---|---|---|
+| `env` | `dev` | the build environment |
+| `engine` | `prod` | the engine tag: `prod`, `beta`, `dev`, `X.Y.Z`, `@sha256:<digest>` is possible |
+| `path` | `.` | the site folder inside the repository, without `..` |
+| `image` | `ghcr.io/<owner>/<repository>` | the site image name |
+| `tag` | the environment name | the image tag |
+| `strict` | `auto` | `auto` - strict for `prod`; `true`/`false` |
+| `nginx_image` | stock nginx by digest | `nginx -t` runs on it before the image is built |
+| `export_docs` | `false` | raw documentation files into `static/` |
+| `push` | `true` | `false` - build and check without pushing |
+
+The output `image` is the full image name with the tag. The input `export_docs` (`true`/`false`, `false` by default) is needed only for the engine's own site: before the build, the same engine image puts the raw documentation files of this version into the site's `static/` - `agents/{ru,en}/**`, `schema/<major.minor>/*.json` and `AGENTS.md`; only the `static/` folder is mounted writable for this. An ordinary site does not need to enable it ([`22` §4](../spec/22-deploy.md)). Until beta becomes prod, call `@beta` with `engine: beta`.
 
 ## Several sites: `scripts/site.sh`
 

@@ -16,9 +16,13 @@ None of this is written by hand or lies in a file: it is assembled on every buil
 | JSON-LD | type from the theme, data from the page and the `schema` block in `site.yaml`, breadcrumbs, FAQ | [`21` §9](../spec/21-engine.md#json-ld) |
 | `llms.txt`, `llms-full.txt` | page tree, `description`, `seo.llms_note` | [`21` §9](../spec/21-engine.md#llms-txt) |
 | 301 and 410 | `redirect_from` of pages and `gone` in `site.yaml`, straight into the nginx config | [`21` §9](../spec/21-engine.md#redirects) |
+| image in search results | the page cover: `og:image`, `twitter:image`, `primaryImageOfPage` in JSON-LD, the first image of the entry in `sitemap.xml` - one image for all places | [`20` §6, "Page cover"](../spec/20-data-contract.md#page-cover) |
+| large previews | `<meta name="robots" content="max-image-preview:large, max-snippet:-1, max-video-preview:-1">` on every indexable page of a production build | [`21` §7](../spec/21-engine.md#cover-robots) |
+| image sitemap | `<image:image>` in the page entry: the cover first, then the images from the text, no more than 20 | [`21` §9](../spec/21-engine.md#sitemap) |
+| site name | `WebSite` with `name` and `alternateName` on the home page, from `site.name` and `site.alternate_names` | [`21` §9](../spec/21-engine.md#json-ld) |
 | closed dev build | without `--env prod`: `noindex` on everything, `Disallow: /`, no counters | [`23`, "Engine version and site environment"](../spec/23-distribution.md#engine-version-vs-site-environment) |
 
-## What you fill in
+## What you fill in <a id="you-fill"></a>
 
 **On every page** is group 1 of the SEO block:
 
@@ -59,9 +63,101 @@ analytics:
 
 `{{ … }}` in `schema` are substitutions from the same `site.yaml`: the address and the phone live in one place and do not diverge between the layout and the markup. → [`20` §5, "The schema block"](../spec/20-data-contract.md#schema-block)
 
+**Cover.** Which photo becomes the cover is your decision; the engine does everything else.
+
+- The first one found is taken: `og_image` of the page, then `image`, then the first image in the intro block or in `hero`, then the site's `seo.og_default_image`. The caption for the image is `og_image_alt`, otherwise `image_alt`.
+- Size: at least 1200 px wide. A smaller one is served as is, and `heron check` warns "cover is smaller than 1200 px".
+- Composition: the face or the main subject in the central third of the frame. Social networks and search results crop the preview differently, and the edges are the first to go.
+- The cover must be opaque. The engine does not add a backing, so a crawler will show a transparent PNG on a black or white background.
+- No cover at all means the page has no `og:image` and no `primaryImageOfPage`, and `heron check` warns. This is not a build error, but the preview in a messenger will be empty.
+- If you set `primaryImageOfPage` or `entity.image` in the `schema` block yourself, your value wins over the computed one.
+
+**How people search for the site.** `site.alternate_names` are other spellings of the name: the old name, a transliteration, an abbreviation. For a separate language use `alternate_names_ru` and so on.
+
+```yaml
+site:
+  name: Workshop
+  alternate_names: [Workshop Studio, Atelier]
+  alternate_names_ru: [Workshop RU]
+```
+
+An empty list means the key is absent in the markup. Write here only how people really search for and call the site, not keyword queries.
+
 **Prices in the markup** are forbidden by default (`E020`): if the site does not show the cost on its pages, it must not leak into JSON-LD. To allow it, use `seo.allow_prices: true`.
 
 **Update date.** `lastmod` and `dateModified` are taken from `updated` in the frontmatter, and if it is absent, from the source `build.updated_from`: `git` (the date of the last commit of the file), `file` (the file time) or `manual` (by hand only). A manual `updated` is stronger than the source: if you put it on all pages during the move, git dates stop working. The report after the build shows how many pages ended up this way. Dates go to the search engine as full ISO 8601 with a time zone: from git it is the commit time (`2026-10-17T11:30:12+02:00`), a manual day is midnight UTC (`2026-10-14T00:00:00+00:00`); on the page the caption stays a date. A date from the future and an update earlier than the publication are warnings, and with `--strict` errors.
+
+## Image and sitelinks in Google <a id="google-images-sitelinks"></a>
+
+An honest note on the limits: the engine prepares everything that depends on the site, but Google decides what to show.
+
+- **Image in search results.** The markup and the image sitemap give a search engine the right to show an image, not an obligation. After a release it usually takes 2-3 weeks for it to appear, and for some pages it will not appear at all.
+- **What to check in Search Console:**
+  1. Rich Results Test: paste the page address, make sure the markup is read without errors and `primaryImageOfPage` is in place.
+  2. "URL inspection" -> "Request indexing": for the home page and a few key pages after a release.
+  3. The "Images" report (in the search performance section, search type "Image"): after a few weeks impressions should appear there.
+- **Sitelinks cannot be turned on with markup.** There is no special markup for them, and the engine does not invent one. Google builds them itself. What affects them: clear navigation in HTML (a menu of ordinary links), breadcrumbs, unique `title` on pages, no duplicate pages, and brand demand, that is, how many people search for the site by name. The first is under your control, the last comes with time.
+- **Large previews** (`max-image-preview:large`) are on in `<head>` by themselves. They are turned off only by closing the page: `noindex: true`.
+- **Dev build.** Without `--env prod` pages are closed with `noindex, nofollow`, there are no images in `sitemap.xml`, and addresses point to the dev domain. Checking how Google shows it on this build is pointless.
+
+## Markup check for schema.org <a id="schema-check"></a>
+
+The engine checks every node of your markup against the schema.org 29.3 vocabulary that ships inside it. It catches what a search engine would later ignore silently: the type is not in the vocabulary, the property does not fit the type, the value is not from the enumeration, the value has the wrong type, a deprecated item is used, or an image from the markup did not make it into the build. These are the codes `SCH001`-`SCH006`; the full list is in [`21` §11](../spec/21-engine.md).
+
+**Prod and dev.** With `--env prod` a finding is an error and the build stops. In other environments it is a warning: the site builds, but the report has a line with the finding. `heron check --env prod` shows what would stop a production build without building the site.
+
+**How to read a finding.** The report has a line like `CODE file:path - reason (pages: K)`: the code says what is wrong, the file and path say where to fix it, the number of pages says how many pages it affects. The same finding from different pages and languages arrives as one line. Under it is the "exception key": a ready line you can copy.
+
+**Fix first.** An exception is needed only when it cannot be fixed right now. Most often the fix is replacing a property or a type, as in the example below.
+
+**How to record an exception.** An entry in `site.yaml`; the reason is required, the deadline is optional:
+
+```yaml
+schema_exceptions:
+  - key: "SCH002:site.yaml:schema.entity.worksFor"   # key copied from the report
+    reason: "moving to practicesAt after the theme change"
+    until: 2026-12-31                                  # optional
+```
+
+- without `reason` the build stops with `E011`; the same key twice is also `E011`;
+- after the `until` date the exception stops working, the finding returns, and the report says "Exception expired";
+- an exception that caught nothing is called redundant by the report: remove it;
+- one time, without editing the file: `heron check --allow-schema "<key>"` or the same for `heron build`;
+- an exception written by the questionnaire is permanent: if such a key already existed (including an expired one), the reason is replaced and the `until` term is removed; set a term by hand if needed.
+
+**The questionnaire helps.** Before writing `site.yaml`, `heron setup` checks the site-wide node and the `schema` blocks and shows three lists: active findings, excepted ones, and expired ones. A finding can be removed from the file or recorded as an exception, and then the questionnaire asks for a reason.
+
+### Example: a doctor, before and after
+
+All data is fictional. Earlier the doctor was described as `Physician` and tied to a clinic through `worksFor`:
+
+```yaml
+schema:
+  entity:
+    "@id": "#owner"
+    "@type": Physician
+    name: "Ivan Obraztsov"
+    worksFor:
+      "@type": MedicalClinic
+      name: "Sample Clinic"
+    medicalSpecialty: "internal medicine"
+```
+
+Since release 24.0 a specific doctor is `IndividualPhysician`. This is an organizational type, so `worksFor` is not valid for it (`SCH002`). The place of work is set with the `practicesAt` property with a type from the vocabulary list, and the specialty only with a `MedicalSpecialty` value, an address like `https://schema.org/<name>`:
+
+```yaml
+schema:
+  entity:
+    "@id": "#owner"
+    "@type": IndividualPhysician
+    name: "Ivan Obraztsov"
+    practicesAt:
+      "@type": MedicalClinic
+      name: "Sample Clinic"
+    medicalSpecialty: https://schema.org/Gastroenterologic
+```
+
+The `practicesAt` property is still in the pending section of the vocabulary: it is valid, and the report only mentions it as information. If the specialty is written as an arbitrary string, that is `SCH003`: the value is not from the enumeration. → [`20` §5, "Schema block"](../spec/20-data-contract.md#schema-block)
 
 ## Languages
 
@@ -75,7 +171,36 @@ analytics:
 
 The goal is that no indexed address returns 404.
 
-1. **Export the old addresses** from the sitemap, Search Console, the logs.
+1. **Export the old addresses.** Where to get the list:
+   - Search Console -> "Pages" -> export (CSV, the engine takes the first column that looks like an address);
+   - the old sitemap (`sitemap.xml`), write the addresses out one per line;
+   - a WordPress export or server logs.
+
+   Save it to the file `old-urls.txt`: one address per line, lines with `#` and empty ones are skipped. Then:
+
+   ```bash
+   heron check my-site --old-urls old-urls.txt
+   ```
+
+   Every address must lead to a page, to `redirect_from` or to `gone`. The rest go into warnings with a suggested target:
+
+   ```
+   old address /uslugi-dlya-primera/ leads nowhere; probably set a 301 to /ru/uslugi/: redirect_from: [/uslugi-dlya-primera/] in the frontmatter of content/ru/uslugi.md
+   old addresses: 120, without a path: 7
+   ```
+
+   To close a warning, add the address to `redirect_from` of the indicated page (or another one, if the target was guessed wrong) or to `gone`, and run the check again: the summary must reach "without a path: 0".
+
+   **An address without a language prefix.** Old addresses usually have no `/ru/`, while in the new site a non-default language has a prefix. For a server `/x/` and `/ru/x/` are different addresses, so a redirect from `/ru/x/` does not serve the old `/x/`. Example: the old page `/uslugi-dlya-primera/` (a made-up slug), the new one lives at `/ru/uslugi/`. Write the old address exactly as it was, without the prefix:
+
+   ```yaml
+   redirect_from:
+     - /uslugi-dlya-primera/
+   ```
+
+   **Case.** `/About/` and `/about/` are different addresses for the server: write them as in the export. An address is compared the way nginx sees it: the scheme and host are dropped, `%XX` and Cyrillic are equal, with and without a trailing slash is one address; query parameters are taken into account only by `gone` entries with a parameter; repeats in the file count once.
+
+The target is chosen by the last segment of the address that looks like a slug or a page title. If nothing is found, the home page of the language is suggested, and then you decide: either a suitable page or `gone`.
 2. **The address has moved**: put it into the SEO block of the new page:
 
    ```yaml
@@ -84,7 +209,7 @@ The goal is that no indexed address returns 404.
      - /%D1%81%D1%82%D0%B0%D1%80%D0%B0%D1%8F/
    ```
 
-   Cyrillic and percent-encoding are normalized: a Cyrillic address and its percent-encoded form (the second line above is the encoded Cyrillic word "old") are one address, and the 301 works for either, with a slash and without.
+   Cyrillic and percent-encoding are normalized: an address written in Cyrillic and its percent-encoded form (as in the second line) are one address, and the 301 works for either, with a slash and without.
 3. **The address is gone** goes into `gone` in `site.yaml`. The server answers 410, and the search engine drops the address faster than after a 404:
 
    ```yaml

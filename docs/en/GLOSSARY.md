@@ -100,6 +100,8 @@ Terms of the HERON documentation and their English equivalents. The source is `d
 | кэш нарезок | rendition cache | `spec/23-distribution.md` |
 | мастер (исходная картинка в `media/`) | master | `spec/20-data-contract.md` |
 | пул (процессов нарезки) | pool | `spec/20-data-contract.md` |
+| обложка (страницы) | cover, page cover | `roles/content.md` |
+| sitelinks (дополнительные ссылки под результатом) | sitelinks | `roles/capabilities.md` |
 | рендер, рендеринг | rendering | `guide/04-theme.md` |
 | песочница (Jinja, macOS) | sandbox | `guide/04-theme.md` |
 | блокировка (файла, кэша) | lock | `spec/21-engine.md` |

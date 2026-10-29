@@ -1,11 +1,12 @@
 # Sample theme.yaml. Reference - ../spec/20-data-contract.md (in the engine repository docs/<lang>/spec/), section 6.
 # Section forms after the colon come from the table in 20 §4.4:
-# prose list alert-list checklist two-lists steps table facts faq timeline callout gallery
+# prose list alert-list checklist two-lists steps table facts faq timeline callout gallery tabs
 
 name: main
 version: "1.0"
 title: Site theme
 heron: ">=0.1"                 # engine version the theme is made for
+# forms: [callback]            # forms the theme renders; described in site.yaml
 
 requires:                      # site.yaml paths the theme does not work without
   - site.name
@@ -26,6 +27,7 @@ types:                         # page type → sections and markup; template tem
   article:
     uses: [intro, "short:callout", "*", "faq:faq"]   # "*" - any sections
     jsonld: [Article]
+    # template: page.html       # optional: another file instead of templates/article.html
   page:
     uses: [intro, "*"]
   "404":
@@ -48,3 +50,4 @@ images:
   crop: []                     # paths to crop even if they have transparency
   as_is: []                    # paths to copy without renditions: scans, documents
   fallback_width: 800          # fallback PNG/JPEG for <img src> - one width
+  cover_width: 1200            # width of the cover JPEG/PNG for crawlers

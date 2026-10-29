@@ -21,7 +21,7 @@ bugs because of it. A dev site is built with a stable engine - this is a normal,
 expected combination.
 
 A raw engine is taken only when you work on the engine itself, and
-explicitly: `ENGINE=local`, `ENGINE=dev`, `ENGINE=beta`.
+explicitly: `ENGINE=source` (the sources next to `scripts/site.sh`) or the full name of a branch image, for example `ENGINE=ghcr.io/fmstm/heron:beta`. The short `dev`, `beta`, `prod` are not accepted in `ENGINE`: they would be read as repository branches.
 
 ## 1. Why separately
 
@@ -36,7 +36,7 @@ There is exactly one artifact, in two packagings of the same code.
 | Packaging | Address | What for |
 |---|---|---|
 | Image | `ghcr.io/OWNER/heron:<version>` | a build on any machine without installing Python; production and CI |
-| Package | `pip install heron` | local development: editing content without Docker for every paragraph |
+| Package | `pip install git+https://github.com/FMSTM/HERON.git@<channel>` | local development: editing content without Docker for every paragraph. The package is not published to PyPI yet |
 
 Inside the image: Python, the `heron` package, `ENTRYPOINT ["heron"]` and an unprivileged user. Nothing else.
 
@@ -60,7 +60,7 @@ Versioning is semantic. A breaking change of the folder contract, of the `site.y
 
 ## 3. Commands
 
-The engine commands - `new`, `init`, `check`, `serve`, `build`, `page` - are described in `21-engine.md` §10; this is its whole surface. Packing into an image is not among them: the host does it (section 5).
+The engine commands - `new`, `init`, `check`, `serve`, `build`, `page`, `setup`, `theme`, `docs`, `schema`, `recipe` - are described in `21-engine.md` §10; this is its whole surface. Packing into an image is not among them: `heron recipe` only prints the Dockerfile of the site image, and the host runs `docker build` (section 5).
 
 ### Two entries, one exit
 
@@ -101,15 +101,18 @@ docker run --rm -it -v "$PWD":/site -w /site --user $(id -u):$(id -g) ghcr.io/fm
 ```
 <site>/
 ├── site.yaml              engine version, name, domain, languages, theme, menu with the home page
-├── .gitignore             dist/, .heron-cache/, .heron-docs/
+├── .gitignore             dist/, .heron-cache/, .heron-docs/, .*.heron-lock, .DS_Store, __pycache__/
 ├── heron-readme.md        the note - and in every folder below
 ├── AGENTS.md              entry point for an AI agent; CLAUDE.md and GEMINI.md - one line "@AGENTS.md"
 ├── agents/                the agent kit in the --notes language: README, manifest,
 │                          roles/, templates/, guide/, spec/, architecture.md, schemas/, work/
-├── content/<lang>/        index.md and 404.md with the full SEO block - for each language from site.yaml
-├── data/  media/  static/  plugins/          empty
-└── theme/                 skeleton: theme.yaml, base.html, templates/ (home, page, 404),
-                           modules/, partials/ (header, footer, analytics), i18n/, assets/
+├── content/<lang>/        home, 404 and the demo pages of the white theme (blocks, themes, docs)
+│                          with the full SEO block - for each language from site.yaml
+├── media/                 images of the demo pages (light.svg, dark.svg)
+├── data/  static/  plugins/          empty
+└── theme/                 the white theme: theme.yaml, base.html, templates/ (home, page, 404),
+                           modules/ (a module for each section form), partials/ (header, footer,
+                           analytics, mark, sections), i18n/, assets/
 ```
 
 Build tooling - Dockerfile, compose, `build.sh`, `.env` - is not in the site folder and must not be there (`20` §1): it lives in the engine repository.
@@ -125,13 +128,18 @@ The output is chosen by the build command, not when the site is created.
 **Image.** The host builds an nginx image with the site inside from the engine repository:
 
 ```bash
+./scripts/site.sh <site> new <path>              # create the site folder and env/.env.<site>.dev and .prod
+./scripts/site.sh <site> init                    # complete the folder to match site.yaml
+./scripts/site.sh <site> check <environment>     # check the content without a build
+./scripts/site.sh <site> serve <environment>     # nginx on the built folder, port PORT (8080)
+./scripts/site.sh <site> stop <environment>      # stop the preview
 ./scripts/site.sh <site> build <environment>   # → out/<site>-<environment>
 ./scripts/site.sh <site> image <environment>   # Dockerfile.site: nginx-unprivileged + static files + config
 ./scripts/site.sh <site> smoke <environment>   # start the image and check the response codes
 ./scripts/site.sh <site> push <environment>    # to the registry from REGISTRY
 ```
 
-The image build context is the already built folder `out/<site>-<environment>`, not the content folder: neither `.git` nor image sources can physically get into the image, and there is no engine in the running container. Settings are in `env/.env.<site>.<environment>` (an annotated example is `env/.env.example`): the path to the content, `SITE_ENV`, the engine (`ENGINE`), the image name, the registry.
+The image build context is the already built folder `out/<site>-<environment>`, not the content folder: neither `.git` nor image sources can physically get into the image, and there is no engine in the running container. Settings are in `env/.env.<site>.<environment>` (an annotated example is `env/.env.example`): `SITE_PATH` (the path to the content), `SITE_ENV` (the environment name by default), `ENGINE` (`source` or a full image name), `IMAGE_NAME` (`heron-site-<site>` by default), `IMAGE_TAG` (the environment name by default), `STRICT` (`true` in prod), `PORT` (8080, for `serve` and `smoke`), `REGISTRY` (empty - `push` is forbidden), `REGISTRY_CONFIG` (a docker config folder with the registry login; `DOCKER_CONFIG` is not used).
 
 **From the site repository** the image is built by the reusable workflow `FMSTM/HERON/.github/workflows/site-image.yml`: a build with the engine from the image, `Dockerfile.site` of the same HERON branch, the smoke check `scripts/smoke-site.sh`, a push to the registry. How to connect it: `../guide/06-deploy.md`.
 
@@ -162,7 +170,7 @@ Whether to show it is up to the theme, but it must not be shown in production: i
 
 ### Checks and the smoke run <a id="checks-and-smoke"></a>
 
-There is one set of checks and it lives in one place - `scripts/check.sh`: the core boundary over the whole tree, format, linter, tests. CI calls the same script. Two sets - a local one and one "like in CI" - diverge on the very first day: the linter was run locally, and it failed on formatting.
+There is one set of checks and it lives in one place - `scripts/check.sh`: the core boundary over the whole tree, commit messages, translation state, a check of `requirements.lock` against `uv.lock` (when `uv` is present), format, linter, tests. CI calls the same script. Two sets - a local one and one "like in CI" - diverge on the very first day: the linter was run locally, and it failed on formatting.
 
 `./scripts/site.sh <site> smoke <environment>` starts **the built image**, waits for a response and compares the codes (`scripts/smoke_site.py`, standard library only): the root and `robots.txt` - 200; the languages are taken from the built nginx config, for each the home page is 200 and has its own 404; hidden files are 404 at the root, under each language, in `media/` and `assets/`, including the service `.heron-nginx.conf` and `.heron-manifest.json`; **every address from `redirects.map` is a 301 to where it is declared, and the target itself answers 200** (a redirect chain or loop is an error); every exact address from `gone.map` is 410. Cyrillic in addresses is encoded before the request. The container is stopped, the logs are shown on a failure.
 
@@ -172,9 +180,9 @@ The check is not there out of love for automation: "the container dies at start"
 
 CI writes the branch, the commit and the build time into the image (`HERON_CHANNEL`, `HERON_REVISION`, `HERON_BUILT`), and `heron --version` shows them: `0.1.0 (beta, 55249f0, 2026-10-08 19:12 UTC)`. The CI smoke check verifies that the image carries the mark of exactly the commit that was built.
 
-Published: the branch name, **the exact version** from the tag `vX.Y.Z`, `latest` for a tag and the short sha. A moving `X.Y` is absent on purpose: the site declares its engine requirement in `site.yaml` and must be able to pin itself to something that will not move under it tomorrow.
+Published: the branch name (`dev`, `beta`, `prod`), **the exact version** from the tag `vX.Y.Z`, `latest` only for a release tag without a hyphen (a prerelease `vX.Y.Z-rc1` does not get it) and the short sha like `sha-55249f0`. A moving `X.Y` is absent on purpose: the site declares its engine requirement in `site.yaml` and must be able to pin itself to something that will not move under it tomorrow.
 
-## 6. Theme and plugin resolver
+## 6. Theme and plugin resolver <a id="theme-plugin-resolver"></a>
 
 One mechanism for both entities - we do not add a second one, otherwise you would have to remember which is where.
 
@@ -227,7 +235,7 @@ The sinks are independent: an unavailable CRM does not cancel the email. An erro
 
 The line that must not be crossed: **as soon as content or site settings go into a database, HERON turns into WordPress.** Files are the only source of truth.
 
-## 9. Security model
+## 9. Security model <a id="security-model"></a>
 
 A static site builder is a process that needs nothing. So we take everything away.
 
@@ -244,7 +252,7 @@ docker run --rm \
 | Measure | What it gives |
 |---|---|
 | `--network=none` | the build reads and writes only local files. It needs no network at any stage. A compromised dependency cannot leak or pull in anything. As a side effect it disciplines the design: fetching a font or an image "at build time" is physically impossible |
-| `--user $(id -u):$(id -g)` | `dist/` is created by the folder owner, not by root. The image has `USER heron`, but the flag matters more: without it on a Linux VPS the build result belongs to someone else's uid. The image must not depend on a particular `$HOME` - otherwise it breaks with an arbitrary uid |
+| `--user $(id -u):$(id -g)` | `dist/` is created by the folder owner, not by root. The image has `USER 10001` (the user `heron`), but the flag matters more: without it on a Linux VPS the build result belongs to someone else's uid. The image must not depend on a particular `$HOME` - otherwise it breaks with an arbitrary uid |
 | `--read-only` + tmpfs, sources `:ro` | the site folder is mounted read-only; only `/out` (the build `/out/dist`, the rendition cache `/out/.heron-cache`) and `/tmp` are writable. The same restrictions apply to `scripts/site.sh`, to the site image workflow and to the engine image smoke check (`scripts/smoke-engine.sh`). Only `new` and `init` write into the site folder - they need it. The cache survives `rm -rf dist` on purpose: it holds everything that is expensive to compute, and it is safe to delete at any moment |
 | `--cap-drop=ALL` | an HTML generator needs no capability at all |
 | `no-new-privileges` | no escalation through suid |
@@ -288,7 +296,7 @@ An agent is one more performer that the engine trusts exactly as much as a human
 
 | Repository | Contents | Visibility |
 |---|---|---|
-| `HERON` | `heron/` (contracts, core, modules, cli, scaffold), `tests/`, `docs/{ru,en}/`, `docs/translation.yaml`, `skills/`, `scripts/site.sh`, `Dockerfile`, `Dockerfile.site` | public |
+| `HERON` | `heron/` (contracts, core, modules, cli, scaffold, setup, schemaorg, themes, docs), `tests/`, `docs/{ru,en}/`, `docs/translation.yaml`, `skills/`, `scripts/` (site.sh, check.sh, lock.sh, smoke-engine.sh, smoke-site.sh), `Dockerfile`, `Dockerfile.site` | public |
 | site repository | content, data, images, theme, the `agents/` kit - without build tooling | at the site owner's discretion |
 | engine site (`sitebuilder.heron.software`) | an ordinary site on HERON: pages for humans and raw documentation files for agents (§12) | public |
 
@@ -337,7 +345,7 @@ The human gives the agent one link - to the site repository, to the engine repos
 | engine repository (GitHub) | `AGENTS.md` → `docs/{ru,en}/README.md` and the whole tree | a commit | an agent with a link to the engine repository; absolute links from site kits lead here, to the channel branch (`prod`, `beta`) |
 | image and pip package | the same tree in `heron/_docs/` | the wheel build (§2) | `heron docs --lang <lang> <topic>`, `--export`: an agent next to the image, without a clone |
 | site repository | `agents/` = `docs/<lang>/` + `schemas/` + manifest + `work/`; `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` | `heron new`/`init` (§4); update with `init --agents` | an agent with a link to the site repository - the main scenario |
-| engine site `sitebuilder.heron.software` | HTML for humans; raw `/AGENTS.md`, `/agents/ru/**`, `/agents/en/**`, `/schema/<major.minor>/*.json` | HTML - by hand, with a version stamp and a link to the raw file; raw files - the `export_docs: true` input of the `site-image.yml` workflow in the site CI (`22` §4): `docs --export --all-langs`, `schema --export` and `docs agents` with the same image that builds the site | an agent with a link to the engine site; the site `llms.txt` names `/AGENTS.md` in one fact line |
+| engine site `sitebuilder.heron.software` | HTML for humans; raw `/AGENTS.md`, `/agents/ru/**`, `/agents/en/**`, `/schema/<major.minor>/*.json` (en) and `/schema/<major.minor>/ru/*.json` | HTML - by hand, with a version stamp and a link to the raw file; raw files - the `export_docs: true` input of the `site-image.yml` workflow in the site CI (`22` §4): `docs --export --all-langs`, `schema --export` (en and ru) and `docs agents` with the same image that builds the site | an agent with a link to the engine site; the site `llms.txt` names `/AGENTS.md` in one fact line |
 
 **Links out of the site kit** are absolute, to GitHub, to the channel branch of the image that laid out the kit (`HERON_CHANNEL`; outside the image - `prod`): `https://github.com/FMSTM/HERON/blob/<channel>/docs/<lang>/spec/20-data-contract.md`. The same topic from the image is `docker run --rm ghcr.io/fmstm/heron:<channel> docs --lang <lang> <topic>`; the header of the site `AGENTS.md` names this command, it is not repeated at every link. Inside the kit the links are relative and the same in all four channels - because the channels hand out one tree, not four editions. Delivery makes two exceptions (`20` §1); they do not change `docs/<lang>/` itself:
 

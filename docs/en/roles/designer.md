@@ -70,6 +70,23 @@ For each form the theme draws - `modules/<name>.html`. Inside: `section` (the se
 - the ratios you use go in `images.ratios`;
 - CSS, JS, fonts - in `theme/assets/`; favicon and `.well-known` - in the site's `static/`.
 
+### The cover and robots in `<head>`
+
+Do not assemble `og:image`, `twitter:image`, `robots` or the image markup (`primaryImageOfPage`) by hand. Use what is ready: `robots_meta` for `<meta name="robots">`, `cover_url(page)` for the cover address, `page.cover` (`src`, `width`, `height`, `alt`) for the size and caption (`21` §7, ["The cover and `robots_meta`"](../spec/21-engine.md#cover-robots); how the cover is chosen - `20` §4.2, ["Page cover"](../spec/20-data-contract.md#page-cover)).
+
+```jinja
+{% set cover = cover_url(page) %}
+{% if cover %}<meta property="og:image" content="{{ cover }}">
+<meta name="twitter:image" content="{{ cover }}">{% endif %}
+<meta name="robots" content="{{ robots_meta }}">
+```
+
+- no cover - `cover_url(page)` is empty, do not output the tag; this is not a build error, `heron check` warns;
+- do not put the social image in `static/`: the `seo.og_default_image` master is carried from `media/` by itself (`20` §7.9);
+- make the cover opaque: the engine adds no backing (there are no `images.cover_background` backings), a transparent PNG will land on someone else's background;
+- on dev `robots_meta` gives `noindex, nofollow`, there are no images in the sitemap, addresses are on the dev domain: check the cover on a prod build;
+- `primaryImageOfPage` or `entity.image` set by the site in `schema` take precedence over the computed ones.
+
 ## 6. Interface strings
 
 Everything that belongs to the theme and not to the page ("Read more", "Questions and answers") goes in `theme/i18n/<lang>.yaml`, and in a template it is `t.<key>`. Each site language has its own file; `init` puts a stub. The keys `on`, `off`, `yes`, `no` go in quotes.

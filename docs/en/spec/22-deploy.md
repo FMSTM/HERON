@@ -118,7 +118,21 @@ The tests of the engine itself run in the CI of the **engine repository**, not t
 
 **What does not get into the site image.** The image context is the built `dist/`, so the site sources are physically absent from it: no `.git`, no image masters, no agent kit (`agents/`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` - `20` §1). There is no need to check this separately in the site CI: it is a property of the build, pinned by the engine tests.
 
-**The step before the build.** The reusable workflow `site-image.yml` takes an optional input `export_docs` (`true`/`false`, default `false`) - an allowlist, not an arbitrary command: with `true`, **with the same engine image**, in the repository working copy before the build, while the folder is not yet mounted read-only, it runs `heron docs --export static/agents --all-langs`, `heron schema --export static/schema/<major.minor>` (the version comes from `heron --version` of the same image) and `heron docs agents > static/AGENTS.md`. This is how the engine site publishes the raw documentation files (`23` §12). The run policy is the same: no network, no capabilities, not as root, the container root read-only. Only the site's `static/` folder is mounted for writing (inside the container it is `/out`), not the site folder and not the whole working copy: with `path: "."` that would be the checkout root together with `.git` and `.heron/` (the recipe and the smoke check the image build then follows). A symbolic link in place of `static/` or `static/AGENTS.md` is a step error: the mount and the output redirection would follow it outside the site folder. Nothing is added to the image except what later gets into `dist/` through the normal build.
+**The step before the build.** The reusable workflow `site-image.yml` takes an optional input `export_docs` (`true`/`false`, default `false`) - an allowlist, not an arbitrary command: with `true`, **with the same engine image**, in the repository working copy before the build, while the folder is not yet mounted read-only, it runs `heron docs --export static/agents --all-langs`, `heron schema --export static/schema/<major.minor> --lang en` and `heron schema --export static/schema/<major.minor>/ru --lang ru` (the version comes from `heron --version` of the same image) and `heron docs agents > static/AGENTS.md`. This is how the engine site publishes the raw documentation files (`23` §12). The run policy is the same: no network, no capabilities, not as root, the container root read-only. Only the site's `static/` folder is mounted for writing (inside the container it is `/out`), not the site folder and not the whole working copy: with `path: "."` that would be the checkout root together with `.git` and `.heron/` (the recipe and the smoke check the image build then follows). A symbolic link in place of `static/` or `static/AGENTS.md` is a step error: the mount and the output redirection would follow it outside the site folder. Nothing is added to the image except what later gets into `dist/` through the normal build.
+
+Inputs of the `site-image.yml` workflow (one output - `image`, the full image name with the tag):
+
+| Input | Default | What it does |
+|---|---|---|
+| `env` | `dev` | build environment |
+| `engine` | `prod` | engine tag `prod`, `beta`, `dev`, `X.Y.Z`; `@sha256:<digest>` is allowed |
+| `path` | `.` | site folder inside the repository, without `..` |
+| `image` | `ghcr.io/<owner>/<repository>` | site image name |
+| `tag` | the environment name | image tag |
+| `strict` | `auto` | `auto` - strict for `prod`; `true` / `false` |
+| `nginx_image` | stock `nginx:1.30.6-alpine` by digest | `nginx -t` runs on it before the image build |
+| `export_docs` | `false` | raw documentation files into `static/` |
+| `push` | `true` | whether to push the image to the registry |
 
 **Rendition cache in CI.** Without it every build is cold: on a site with a hundred images that is minutes of CPU time for any text edit. The cache lives in `.heron-cache/` next to the build folder and goes into the runner cache as an ordinary folder:
 

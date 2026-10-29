@@ -1,6 +1,6 @@
 # HERON ARCHITECTURE
 
-**Last edited:** 2026-10-25 · The concept "the engine is separate from the site", approved 2026-09-14. Edit of 2026-10-25: documentation by language and the agent kit.
+**Last edited:** 2026-10-29 · The concept "the engine is separate from the site", approved 2026-09-14. Edit of 2026-10-29: the setup, schemaorg, themes, messages and nginx components. Edit of 2026-10-25: documentation by language and the agent kit.
 
 ## Overview
 
@@ -21,9 +21,13 @@ Forms service (`heron-relay`, a separate component, later): FastAPI, no database
 ## Components
 
 - **`heron/core/`** - markdown parser, tree and URLs, relation resolve, renderer, image processing
-- **`heron/modules/`** - generators: sitemap, robots, llms.txt, JSON-LD, hreflang, redirects, feed
+- **`heron/modules/`** - generators: sitemap, robots, llms.txt, JSON-LD, redirects, feed, the nginx config (`nginx.py`)
 - **`heron/contracts/`** - pydantic schemas of `site.yaml`, `theme.yaml`, the frontmatter, the engine version; `schemas.py` - export of JSON Schema and the error registry (`heron schema`)
 - **`heron/cli.py`** - the commands `new`, `init`, `check`, `serve`, `build`, `page`, `setup`, `theme`, `docs`, `schema`, `recipe`
+- **`heron/setup/`** - the `heron setup` questionnaire: the answer model, writing `site.yaml` and the publishing files, the local server, the sphere classifier
+- **`heron/schemaorg/`** - the schema.org 29.3 vocabulary for markup checks (`SCH001`-`SCH006`)
+- **`heron/themes/`** - built-in themes for `heron theme get`
+- **`heron/messages.py`** - command texts in ru and en
 - **`heron/scaffold/`** - the site skeleton: theme, starter pages, notes; `agents.py` - the agent kit (a copy of `docs/<lang>/`, schemas, manifest, root pointers)
 - **`heron/docs.py`** - documentation inside the package by language: `heron docs --lang`, topics, fallback to the other language, export
 - **`docs/{ru,en}/`** - the single source of documentation: the kit README, roles, samples, guides, specs; `docs/translation.yaml` - the translation state

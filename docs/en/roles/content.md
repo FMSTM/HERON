@@ -51,6 +51,8 @@ All fields and default values - `20` §4.2.
 
 Files go to `media/`, the path is from the site root: `media/services/roof.png`. Illustrations - PNG/WebP with a transparent background, photos - JPEG; the engine makes the renditions itself. Every image has `alt` (`image_alt`, the caption in `![…]`).
 
+**The page cover** (the picture in search results and social networks) is chosen by a field: `og_image` (caption `og_image_alt`), otherwise `image`, otherwise the first picture in the intro block or `hero`, otherwise `seo.og_default_image` (`20` §4.2, ["Page cover"](../spec/20-data-contract.md#page-cover)). `alt` is required. A photo - at least 1200 px wide, opaque; the file only in `media/`, not in `static/`. Under 1200 px - it is served as is, `heron check` warns. No cover - `og:image` is not output, a warning, not an error.
+
 ## 6. Migration
 
 - an old address whose content has moved - `redirect_from` on the new page, in Cyrillic or `%D0%…`;
@@ -58,6 +60,8 @@ Files go to `media/`, the path is from the site root: `media/services/roof.png`.
 - addresses that no longer exist - in `gone` in `site.yaml`, not in a page.
 
 The migration order - guide [05](../guide/05-seo.md#migrate-from-old-site).
+
+Check: `$H check . --old-urls <file>` - a file with the old addresses (one address per line, or a Search Console export). An address that leads nowhere goes into the report with a hint: add it to the page's `redirect_from` or to `gone` (`21` §10, §11). An address is compared the way nginx sees it: the scheme and host are dropped, `%XX` and Cyrillic are equal, with and without a trailing slash is one address; case and the language prefix are distinguished (`/About/` and `/about/` are different addresses); query parameters count only for `gone` entries with a parameter.
 
 ## 7. Languages
 
@@ -71,5 +75,6 @@ A translation is a file with the same name in `content/<lang>/`. No translation 
 - [ ] no empty placeholder sections
 - [ ] links by keys; relations by theme fields
 - [ ] images have `alt`
-- [ ] old addresses are split between `redirect_from` and `gone`
+- [ ] old addresses are split between `redirect_from` and `gone`; `check --old-urls` has no lost addresses
+- [ ] the cover is chosen by the `image`/`og_image` field and has an `alt`
 - [ ] `check` has no errors; the "Not filled" summary goes to the report

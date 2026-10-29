@@ -61,7 +61,10 @@ images:
 - **`types.<type>.uses`** is which sections the type shows. This is an agreement with the content: `heron page service roof` puts stubs of exactly these sections, and the "Not filled" summary after the build names the empty ones. A section in the file that is not in `uses` is a line in the report: this is how a typo in an anchor is caught. `"how:steps"` means the theme expects the form `steps` in that section.
 - **`requires`** are the paths in `site.yaml` without which the theme does not work: if they are not filled in, the error `E011` comes before rendering.
 - **`links`** are relation fields. The core finds the pages, checks them and builds a reverse list (`back`). `type` in a relation limits **to pages of which type** the field leads: `related` with `type: service` will not link articles to each other. A relation without a limit has no `type`: `- {field: related, back: related_from}`.
-- **`images`** are widths, proportions, resize formats and `fallback_width`, the width of the fallback PNG/JPEG. Only what the templates asked for is resized.
+- **`images`** are widths, proportions, resize formats, `fallback_width`, the width of the fallback PNG/JPEG, `cover_width`, the cover width for crawlers, `crop` and `as_is`, paths for forced cropping and for copying without resizing. Only what the templates asked for is resized.
+- **`types.<type>.template`** is another template file instead of `templates/<type>.html`, a path from `templates/`.
+- **`forms`** are the forms the theme draws; their description must be in `site.yaml` (`E011`).
+- **`heron`** is the engine version the theme is built for: a different one is `E012`.
 
 Every key in detail: [`20` §6](../spec/20-data-contract.md#theme-yaml).
 
@@ -101,6 +104,39 @@ A template that does not know in advance which sections there will be chooses th
 - **Paths in `extends`, `include` and `import` are counted from the theme root**, not from the template folder: `{% extends "base.html" %}`, `{% extends "templates/page.html" %}`, `{% include "partials/header.html" %}`. Writing `{% extends "page.html" %}` from `templates/landing.html` is the error `E008` with a hint where the file actually is.
 - **`mod` is available in every template**, so there is no need to import modules. Your own macros are another matter: `{% import %}` in `base.html` is not visible to child templates (this is how Jinja2 works), so import them in every template where they are needed.
 
+## What to output in `<head>` <a id="head-seo"></a>
+
+The `base.html` skeleton is responsible for everything a search engine and a messenger read before the page itself. Three things are needed for images and indexing:
+
+- `<meta name="robots" content="{{ robots_meta }}">`: the theme does not decide whether a page is open or closed, the engine does. Without this line large previews will not turn on, and a closed dev build will not get `noindex`;
+- `og:image` and `twitter:image` from `cover_url(page)`. Output them only when the address is not empty: an empty string means there is no cover, and an empty tag is worse than a missing one;
+- the size and caption of the image: `page.cover.width`, `page.cover.height`, `page.cover.alt`. The size lets a social network show the preview at once, and `alt` is for those who cannot see the image.
+
+The whole block as an example:
+
+```jinja
+<title>{{ page.title }}{{ site.seo.title_suffix }}</title>
+<meta name="description" content="{{ page.meta.description }}">
+<link rel="canonical" href="{{ absolute(page.url) }}">
+<meta property="og:title" content="{{ page.meta.og_title or page.title }}">
+<meta property="og:description" content="{{ page.meta.og_description or page.meta.description }}">
+{% set cover = page.cover %}
+{% set cover_src = cover_url(page) if cover else "" %}
+{% if cover_src %}
+<meta property="og:image" content="{{ cover_src }}">
+{% if cover.width %}<meta property="og:image:width" content="{{ cover.width }}">{% endif %}
+{% if cover.height %}<meta property="og:image:height" content="{{ cover.height }}">{% endif %}
+{% if cover.alt %}<meta property="og:image:alt" content="{{ cover.alt }}">{% endif %}
+<meta name="twitter:image" content="{{ cover_src }}">
+{% endif %}
+<meta name="robots" content="{{ robots_meta }}">
+{% for code, href in hreflang %}<link rel="alternate" hreflang="{{ code }}" href="{{ href }}">{% endfor %}
+{% set ld = jsonld() %}
+{% if ld %}<script type="application/ld+json">{{ ld }}</script>{% endif %}
+```
+
+The names `cover_url` and `robots_meta` are reserved by the engine: do not create your own variables with these names in the theme. Which image becomes the cover and how to prepare it - [05 · SEO](05-seo.md#you-fill), the selection rules - [`20` §6](../spec/20-data-contract.md#page-cover).
+
 ## Module
 
 A module is a file `modules/<name>.html`, called as `mod.<name>(<anchor>)`. Inside, these are available:
@@ -137,7 +173,12 @@ What is in `items` for each of the thirteen forms is in the table [`20` §4.4](.
 | `picture(src, ratio)` | a ready `<picture>` with `srcset`, WebP/AVIF and sizes |
 | `media_url(src, ratio, width)` | the address of one rendition |
 | `jsonld()` | the JSON-LD markup of the page, to insert into `<head>` |
+| `cover_url(page, min_width=1200)` | absolute address of a cover no narrower than `min_width`; no cover - an empty string. There is also a filter: `{{ page|cover_url }}` |
+| `robots_meta` | the string for `<meta name="robots">`: large previews on an indexable page of a production build, `noindex, nofollow` on a closed one |
 | `env` | the build environment: `env.indexable`, `env.analytics` |
+| `theme` | `theme.yaml` as a model: `theme.types`, `theme.images` |
+| `pages` | the whole site: all pages of all languages (`pages.of_lang('ru')`, `pages.of_type('article', 'ru')`, `pages.by_url`); a page by key is more convenient through `page_of` |
+| `absolute(url)` | an absolute address on the build domain; there is also a filter `{{ url|absolute }}` |
 
 The full page model is [`21` §6](../spec/21-engine.md#page-model), the variables are [`21` §7](../spec/21-engine.md#rendering).
 

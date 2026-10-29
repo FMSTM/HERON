@@ -126,8 +126,8 @@ directions:
     ru: Клиника
     en: Clinic
     person:
-      ru: Врач
-      en: Doctor
+      ru: Врач клиники
+      en: Clinic doctor
     type: MedicalClinic
   - id: health-02
     ru: Частная практика врача

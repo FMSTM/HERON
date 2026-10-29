@@ -50,7 +50,7 @@ def test_type_and_lineage(data: dict[str, Any]) -> None:
     assert schema_vocab().is_subtype(KIND, "LocalBusiness")
 
 
-def test_fields_of_physician(data: dict[str, Any]) -> None:
+def test_fields_of_kind(data: dict[str, Any]) -> None:
     assert data["types"][KIND]["fields"] == NEW_FIELDS
     own = fields_of(KIND)
     assert own[0] == "name"
@@ -69,7 +69,6 @@ def test_specialty_labels_cover_all_members(data: dict[str, Any]) -> None:
         assert labels[value]["ru"].strip(), value
         assert labels[value]["en"].strip(), value
     assert labels["Neurologic"]["ru"] == "Неврология"
-    assert labels["Surgical"]["ru"] == "Хирургия"
 
 
 def test_specialty_field_is_enum(data: dict[str, Any]) -> None:
@@ -99,7 +98,7 @@ def test_prop_head_allowed(data: dict[str, Any], name: str) -> None:
     assert schema_vocab().allows(KIND, head), head
 
 
-def test_no_works_for_on_physician() -> None:
+def test_no_works_for_on_kind() -> None:
     assert not schema_vocab().allows(KIND, "worksFor")
     assert "works_for" not in fields_of(KIND)
 

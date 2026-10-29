@@ -20,7 +20,7 @@ anything it sees can end up in the HTML.
 | Folder or file | What's inside |
 |---|---|
 | `content/<lang>/` | pages in markdown, the file path is the page address |
-| `media/` | everything the content shows: images, video, documents |
+| `media/` | everything the content shows: images (covers and the social sharing image included, from 1200 px), video, documents |
 | `theme/` | how the site looks: templates, styles, interface strings |
 | `data/` | shared reference data in yaml, reaches templates as `data.<name>` |
 | `static/` | files that must sit at an exact address |

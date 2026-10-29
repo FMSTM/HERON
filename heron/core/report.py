@@ -181,9 +181,7 @@ def schema_lines(section, lang: str) -> list[str]:
                     )
                 )
     lines.extend(say(lang, "schema_unused", finding=key) for key in section.unused)
-    lines.extend(
-        say(lang, "schema_expired", finding=e.key, until=e.until) for e in section.expired
-    )
+    lines.extend(say(lang, "schema_expired", finding=e.key, until=e.until) for e in section.expired)
     if section.pending:
         lines.append(say(lang, "schema_pending", props=", ".join(section.pending)))
     return lines

@@ -10,7 +10,16 @@ import pytest
 from heron.setup import answers
 
 PAGE = (Path(answers.__file__).parent / "page.html").read_text(encoding="utf-8")
-NEW_KEYS = ["not_set", "filter", "add_rule", "remove", "hours_preview", "hours_order", "not_in_vocab", "remove_value"]
+NEW_KEYS = [
+    "not_set",
+    "filter",
+    "add_rule",
+    "remove",
+    "hours_preview",
+    "hours_order",
+    "not_in_vocab",
+    "remove_value",
+]
 
 
 def _block(lang: str) -> str:
@@ -42,23 +51,59 @@ def test_new_strings_in_both_languages(lang: str, key: str):
 
 
 def test_no_long_dashes_in_new_strings():
-    new = [m.group(0) for lang in ("ru", "en") for m in re.finditer(r"\b(?:%s): \"[^\"]*\"" % "|".join(NEW_KEYS + ["day_from", "day_to", "opens", "closes", "yes", "no", "hours_bad", "delete", "hours_complex"]), _block(lang))]
+    new = [
+        m.group(0)
+        for lang in ("ru", "en")
+        for m in re.finditer(
+            r"\b(?:%s): \"[^\"]*\""
+            % "|".join(
+                NEW_KEYS
+                + [
+                    "day_from",
+                    "day_to",
+                    "opens",
+                    "closes",
+                    "yes",
+                    "no",
+                    "hours_bad",
+                    "delete",
+                    "hours_complex",
+                ]
+            ),
+            _block(lang),
+        )
+    ]
     assert new
     assert not any("—" in s or "–" in s for s in new)
-    widgets = PAGE[PAGE.index("function schemaList("):PAGE.index("function aboutField(")]
+    widgets = PAGE[PAGE.index("function schemaList(") : PAGE.index("function aboutField(")]
     assert "—" not in widgets and "–" not in widgets
 
 
 SCH_KEYS = [
-    "sch_title", "sch_fix", "sch_save_anyway", "sch_drop_q", "sch_drop", "sch_keep", "sch_reason", "sch_reason_hint",
-    "sch_saved_except", "sch_banner", "sch_show", "sch_excepted", "sch_expired",
+    "sch_title",
+    "sch_fix",
+    "sch_save_anyway",
+    "sch_drop_q",
+    "sch_drop",
+    "sch_keep",
+    "sch_reason",
+    "sch_reason_hint",
+    "sch_saved_except",
+    "sch_banner",
+    "sch_show",
+    "sch_excepted",
+    "sch_expired",
 ]
 
 
 def test_page_handles_409_with_dialog():
     assert "r.status === 409" in PAGE
     assert "<dialog" in PAGE and "showModal()" in PAGE
-    assert "function showSchemaDialog(" in PAGE and "function markBad(" in PAGE and "function schemaBanner(" in PAGE
+    assert (
+        "function showSchemaDialog(" in PAGE
+        and "function markBad(" in PAGE
+        and "function schemaBanner(" in PAGE
+    )
 
 
 def test_schema_dialog_flow_by_spec():
@@ -70,7 +115,9 @@ def test_schema_dialog_flow_by_spec():
 
 
 @pytest.mark.parametrize("lang", ["ru", "en"])
-@pytest.mark.parametrize("key", ["sch_field", "sch_path", "sch_except_title", "sch_dropped", "sch_drop_hint"])
+@pytest.mark.parametrize(
+    "key", ["sch_field", "sch_path", "sch_except_title", "sch_dropped", "sch_drop_hint"]
+)
 def test_schema_helper_strings_in_both_languages(lang: str, key: str):
     m = re.search(rf"\b{key}: \"([^\"]*)\"", _block(lang))
     assert m and "\u2014" not in m.group(1) and "\u2013" not in m.group(1)
@@ -79,7 +126,7 @@ def test_schema_helper_strings_in_both_languages(lang: str, key: str):
 def test_page_sends_schema_decision():
     assert 'mode: "drop"' in PAGE and 'mode: "except"' in PAGE
     assert "schema: decision" in PAGE
-    assert 'data-field' in PAGE
+    assert "data-field" in PAGE
 
 
 @pytest.mark.parametrize("lang", ["ru", "en"])
@@ -89,10 +136,14 @@ def test_schema_strings_in_both_languages(lang: str, key: str):
 
 
 def test_no_long_dashes_in_schema_strings():
-    found = [m.group(0) for lang in ("ru", "en") for m in re.finditer(r"\bsch_\w+: \"[^\"]*\"", _block(lang))]
+    found = [
+        m.group(0)
+        for lang in ("ru", "en")
+        for m in re.finditer(r"\bsch_\w+: \"[^\"]*\"", _block(lang))
+    ]
     assert len(found) >= len(SCH_KEYS) * 2
     assert not any("\u2014" in s or "\u2013" in s for s in found)
-    code = PAGE[PAGE.index("// Находки schema.org"):PAGE.index("function load(state)")]
+    code = PAGE[PAGE.index("// Находки schema.org") : PAGE.index("function load(state)")]
     assert "\u2014" not in code and "\u2013" not in code
 
 
@@ -123,11 +174,20 @@ def test_doctor_fields_follow_workplace_in_vocab_order():
     from heron.setup.answers import fields_of
 
     names = fields_of("IndividualPhysician")
-    own = [n for n in names if n == "medical_specialty" or n.startswith("practices_at") or n in ("hospital_affiliation", "accepts_new_patients")]
+    own = [
+        n
+        for n in names
+        if n == "medical_specialty"
+        or n.startswith("practices_at")
+        or n in ("hospital_affiliation", "accepts_new_patients")
+    ]
     assert own[0] == "medical_specialty"
     last_work = max(i for i, n in enumerate(names) if n.startswith("practices_at"))
-    assert names.index("hospital_affiliation") > last_work and names.index("accepts_new_patients") > last_work
-    assert "afterWork" in PAGE and 'names.indexOf(name) > workAt ? afterWork' in PAGE
+    assert (
+        names.index("hospital_affiliation") > last_work
+        and names.index("accepts_new_patients") > last_work
+    )
+    assert "afterWork" in PAGE and "names.indexOf(name) > workAt ? afterWork" in PAGE
 
 
 @pytest.mark.parametrize("lang", ["ru", "en"])
@@ -140,7 +200,7 @@ def test_workplace_strings_without_dashes(lang: str, key: str):
 
 def test_subtype_select_shows_value_not_in_vocab():
     start = PAGE.index("function subtypeSelect(")
-    body = PAGE[start:PAGE.index("\nfunction ", start + 1)]
+    body = PAGE[start : PAGE.index("\nfunction ", start + 1)]
     assert "not_in_vocab" in body
     assert "remove_value" in body
 
@@ -158,7 +218,7 @@ def test_drop_400_redraws_dialog_with_error():
 
 
 def test_findings_selectors_use_css_escape():
-    block = PAGE[PAGE.index("function markBad("):PAGE.index("function findingLine(")]
-    block += PAGE[PAGE.index("function fixFindings("):][:900]
+    block = PAGE[PAGE.index("function markBad(") : PAGE.index("function findingLine(")]
+    block += PAGE[PAGE.index("function fixFindings(") :][:900]
     assert block.count("CSS.escape(") >= 3
     assert not re.search(r"""\[data-field="' \+ (?!CSS\.escape)""", block)

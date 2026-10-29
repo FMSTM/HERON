@@ -356,7 +356,11 @@ def _schema_media(value, found: set[str], data=None, config=None, depth: int = 0
     if depth > MAX_DEPTH:
         return
     if isinstance(value, str):
-        base = absolute(config, "/") if config is not None else (data or {}).get("site", {}).get("base", "")
+        base = (
+            absolute(config, "/")
+            if config is not None
+            else (data or {}).get("site", {}).get("base", "")
+        )
         text = re.sub(r"\{\{\s*site\.base\s*\}\}", base, value.strip())
         if base and text.startswith(base):
             text = text[len(base) - 1 :]

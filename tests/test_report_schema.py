@@ -41,8 +41,12 @@ def test_empty_section_prints_nothing():
 
 
 def _finding_section() -> SchemaSection:
-    finding = Finding(code="SCH002", path="schema.entity.worksFor", value="x",
-                      fields={"types": "Person", "prop": "worksFor"})
+    finding = Finding(
+        code="SCH002",
+        path="schema.entity.worksFor",
+        value="x",
+        fields={"types": "Person", "prop": "worksFor"},
+    )
     entry = Entry(KEY, "SCH002", "site.yaml", "schema.entity.worksFor", "x", finding, pages=3)
     return SchemaSection(release="29.3", nodes=42, env_prod=True, findings=[entry])
 

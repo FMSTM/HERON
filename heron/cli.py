@@ -1046,13 +1046,17 @@ STRICT_OPTION = _option("--strict", is_flag=True, help="help_opt_strict")
 DRAFTS_OPTION = _option("--drafts", is_flag=True, help="help_opt_drafts")
 
 
-def _schema_key(ctx: click.Context, param: click.Parameter, values: tuple[str, ...]) -> tuple[str, ...]:
+def _schema_key(
+    ctx: click.Context, param: click.Parameter, values: tuple[str, ...]
+) -> tuple[str, ...]:
     """Ключ `--allow-schema` проверяется тем же валидатором, что `schema_exceptions[].key`."""
     for value in values:
         try:
             site_contract.SchemaException(key=value, reason="-")
         except ValueError:
-            raise click.UsageError(say(_lang(None, None), "schema_key_bad", finding=value)) from None
+            raise click.UsageError(
+                say(_lang(None, None), "schema_key_bad", finding=value)
+            ) from None
     return values
 
 

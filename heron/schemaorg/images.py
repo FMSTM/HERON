@@ -61,7 +61,7 @@ def local_path(url: str, config: SiteConfig) -> str | None:
         return None
     base = absolute(config, "/")
     if text.startswith(base):
-        text = "/" + text[len(base):]
+        text = "/" + text[len(base) :]
     elif text.startswith(("http://", "https://")):
         return None
     if not text.startswith("/"):

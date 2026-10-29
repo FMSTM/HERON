@@ -306,7 +306,8 @@ def _check_site(tmp_path, default_image: bool):
         _png(root / "media" / "default.png", 1600, 900)
         site_yaml = root / "site.yaml"
         site_yaml.write_text(
-            site_yaml.read_text(encoding="utf-8") + "\nseo:\n  og_default_image: media/default.png\n",
+            site_yaml.read_text(encoding="utf-8")
+            + "\nseo:\n  og_default_image: media/default.png\n",
             encoding="utf-8",
         )
     content = root / "content" / "en"

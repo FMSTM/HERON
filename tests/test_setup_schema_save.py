@@ -64,7 +64,11 @@ def test_drop_removes_value_and_makes_backup(site: Path):
 
 def test_drop_only_listed_keys(site: Path):
     with pytest.raises(SchemaFindings):
-        apply(site, _answers(site), schema={"mode": "drop", "drop": ["SCH002:site.yaml:schema.entity.nope"]})
+        apply(
+            site,
+            _answers(site),
+            schema={"mode": "drop", "drop": ["SCH002:site.yaml:schema.entity.nope"]},
+        )
     assert "worksFor" in _data(site)["schema"]["entity"]
 
 
@@ -190,7 +194,9 @@ def test_http_flow(site: Path, server):
     code, body = server("/api/save", {"answers": answers, "schema": {"mode": "except"}})
     assert code == 400 and "reason" in body["error"].lower() or "причин" in body["error"]
 
-    code, body = server("/api/save", {"answers": answers, "schema": {"mode": "except", "reason": "ok"}})
+    code, body = server(
+        "/api/save", {"answers": answers, "schema": {"mode": "except", "reason": "ok"}}
+    )
     assert code == 200 and body["excepted"] == [KEY]
     assert _data(site)["schema_exceptions"][0]["reason"] == "ok"
 

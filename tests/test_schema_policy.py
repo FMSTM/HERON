@@ -180,7 +180,7 @@ def _site_yaml(root, extra: str) -> None:
     path.write_text(path.read_text(encoding="utf-8") + "\n" + extra, encoding="utf-8")
 
 
-ENTITY_YAML = "schema:\n  entity:\n    \"@type\": IndividualPhysician\n    worksFor: Клиника\n"
+ENTITY_YAML = 'schema:\n  entity:\n    "@type": IndividualPhysician\n    worksFor: Клиника\n'
 
 
 def _check(root, env=None, allow=()):
@@ -216,8 +216,8 @@ def test_check_prod_exception_unused_and_expired(scaffold):
         scaffold,
         ENTITY_YAML
         + "schema_exceptions:\n"
-        + f"  - key: \"{KEY}\"\n    reason: пока без клиники\n"
-        + "  - key: \"SCH001:site.yaml:schema.entity\"\n    reason: лишнее\n",
+        + f'  - key: "{KEY}"\n    reason: пока без клиники\n'
+        + '  - key: "SCH001:site.yaml:schema.entity"\n    reason: лишнее\n',
     )
     result = _check(scaffold, env=BuildEnv.named("prod"))
     assert not [e for e in result.collector.errors if e.code.startswith("SCH")]
@@ -228,7 +228,7 @@ def test_check_prod_exception_unused_and_expired(scaffold):
 
 
 def test_check_prod_expired_exception_fails_again(scaffold):
-    expired = f"schema_exceptions:\n  - key: \"{KEY}\"\n    reason: r\n    until: 2026-10-27\n"
+    expired = f'schema_exceptions:\n  - key: "{KEY}"\n    reason: r\n    until: 2026-10-27\n'
     _site_yaml(scaffold, ENTITY_YAML + expired)
     result = _check(scaffold, env=BuildEnv.named("prod"))
     codes = [e.code for e in result.collector.errors if e.code.startswith("SCH")]

@@ -28,7 +28,16 @@ KIND = "schema.org"
 LANGS = ("ru", "en")
 _ENGINE_KINDS = frozenset({"BreadcrumbList", "FAQPage"})
 _FIELDS = (
-    "suggest", "domain", "members", "replacement", "types", "prop", "enum", "got", "expected", "url"
+    "suggest",
+    "domain",
+    "members",
+    "replacement",
+    "types",
+    "prop",
+    "enum",
+    "got",
+    "expected",
+    "url",
 )
 
 
@@ -163,8 +172,16 @@ def _apply(
 
 def _with(entry: Entry, source: str, reason: str, until: date | None) -> Entry:
     return Entry(
-        entry.key, entry.code, entry.file, entry.path, entry.value, entry.finding,
-        entry.pages, reason, until, source,
+        entry.key,
+        entry.code,
+        entry.file,
+        entry.path,
+        entry.value,
+        entry.finding,
+        entry.pages,
+        reason,
+        until,
+        source,
     )
 
 

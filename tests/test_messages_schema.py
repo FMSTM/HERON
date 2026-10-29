@@ -55,7 +55,10 @@ def test_detail_uses_repr() -> None:
     assert say("en", "sch002_detail", types="Person", prop="worksFor") == (
         "type Person has no property 'worksFor'"
     )
-    assert say("ru", "sch006_detail", prop="image", url="/a.jpg") == "image: /a.jpg - файла нет в сборке"
+    assert (
+        say("ru", "sch006_detail", prop="image", url="/a.jpg")
+        == "image: /a.jpg - файла нет в сборке"
+    )
 
 
 @pytest.mark.parametrize(
@@ -67,7 +70,15 @@ def test_detail_uses_repr() -> None:
     ],
 )
 def test_schema_head_plural_ru(errors: int, warnings: int, expected: str) -> None:
-    line = say("ru", "schema_head", release="29.3", nodes=7, n=errors + warnings, errors=errors, warnings=warnings)
+    line = say(
+        "ru",
+        "schema_head",
+        release="29.3",
+        nodes=7,
+        n=errors + warnings,
+        errors=errors,
+        warnings=warnings,
+    )
     assert line.startswith("Разметка schema.org (словарь 29.3): узлов 7")
     assert line.endswith(expected)
 

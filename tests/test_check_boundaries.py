@@ -51,7 +51,12 @@ def test_schemaorg_file_is_not_checked_for_terms(run, name: str) -> None:
 
 @pytest.mark.parametrize(
     "name",
-    ["tests/test_other.py", "docs/ru/other.md", "heron/schemaorg/x.py", "heron/schemaorg/sub/x.json"],
+    [
+        "tests/test_other.py",
+        "docs/ru/other.md",
+        "heron/schemaorg/x.py",
+        "heron/schemaorg/sub/x.json",
+    ],
 )
 def test_neighbour_paths_are_still_checked(run, name: str) -> None:
     assert run(name, f"type: {FAKE}\n") == 1

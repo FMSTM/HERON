@@ -25,7 +25,7 @@ def short(name: str) -> str:
     name = str(name).strip()
     for prefix in _PREFIXES:
         if name.startswith(prefix):
-            return name[len(prefix):].strip()
+            return name[len(prefix) :].strip()
     return name
 
 

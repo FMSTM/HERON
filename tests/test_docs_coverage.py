@@ -32,7 +32,21 @@ TICKED = re.compile(r"`([^`\n]+)`")
 CODE = re.compile(r"\b(?:E\d{3}|SCH\d{3})\b")
 WORD = re.compile(r"--?[A-Za-z][\w-]*|[\w.\-\[\]]+")
 KEY_HEAD = re.compile(r"[\w.\-\[\]<>]+")
-FILE_EXT = {"md", "xml", "yaml", "yml", "json", "txt", "html", "css", "js", "py", "svg", "png", "webp"}
+FILE_EXT = {
+    "md",
+    "xml",
+    "yaml",
+    "yml",
+    "json",
+    "txt",
+    "html",
+    "css",
+    "js",
+    "py",
+    "svg",
+    "png",
+    "webp",
+}
 
 
 def _spec_text(lang: str) -> str:
@@ -185,10 +199,14 @@ def test_mutation_removed_key_line_is_named() -> None:
     """Мутация 1: убрать из spec/20 все упоминания ключа - тест называет ключ."""
     elements = code_elements()
     text = _spec_text("ru")
-    documented = sorted(n for (k, n) in elements if k == "key" and (k, n) not in _missing_in(text, elements))
+    documented = sorted(
+        n for (k, n) in elements if k == "key" and (k, n) not in _missing_in(text, elements)
+    )
     assert documented, "в spec нет ни одного документированного ключа"
     victim = documented[0]
-    cut = "\n".join(line for line in text.splitlines() if not re.search(rf"\b{re.escape(victim)}\b", line))
+    cut = "\n".join(
+        line for line in text.splitlines() if not re.search(rf"\b{re.escape(victim)}\b", line)
+    )
     assert ("key", victim) in _missing_in(cut, elements)
 
 
@@ -203,7 +221,9 @@ def test_mutation_documented_key_in_allow_is_stale() -> None:
     """Мутация 3: документированный ключ в допуске - «лишний допуск»."""
     elements = code_elements()
     gaps = {lang: _missing(lang) for lang in LANGS}
-    documented = sorted(n for (k, n) in elements if k == "key" and all((k, n) not in g for g in gaps.values()))
+    documented = sorted(
+        n for (k, n) in elements if k == "key" and all((k, n) not in g for g in gaps.values())
+    )
     assert documented
     row = {"name": documented[0], "kind": "key", "reason": "мутация"}
     assert _stale([row], elements, gaps)

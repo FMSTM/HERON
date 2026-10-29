@@ -40,8 +40,7 @@ def test_allow_schema_passes_and_is_reported(site):
     result = _run("check", "--env", "prod", "--allow-schema", KEY, str(site))
     assert result.exit_code == 0, result.output
     assert any(
-        KEY in line
-        and ("разово (--allow-schema)" in line or "one-off (--allow-schema)" in line)
+        KEY in line and ("разово (--allow-schema)" in line or "one-off (--allow-schema)" in line)
         for line in result.output.splitlines()
     ), result.output
 
@@ -83,7 +82,15 @@ def test_json_has_schema_section(site):
 
 def test_repeated_flag_and_unused_key(site):
     result = _run(
-        "check", "--json", "--env", "prod", "--allow-schema", KEY, "--allow-schema", OTHER, str(site)
+        "check",
+        "--json",
+        "--env",
+        "prod",
+        "--allow-schema",
+        KEY,
+        "--allow-schema",
+        OTHER,
+        str(site),
     )
     data = json.loads(result.output)
     assert result.exit_code == 0, result.output

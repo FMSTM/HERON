@@ -23,7 +23,9 @@ def test_frontmatter_image_is_raw(tmp_path):
 
 
 def test_intro_cover_is_raw(tmp_path):
-    raw = _raw(tmp_path, {"uk/index.md": _md("Головна", intro="Текст ![Підпис](media/intro.jpg) далі.")})
+    raw = _raw(
+        tmp_path, {"uk/index.md": _md("Головна", intro="Текст ![Підпис](media/intro.jpg) далі.")}
+    )
     assert "media/intro.jpg" in raw
 
 

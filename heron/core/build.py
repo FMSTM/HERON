@@ -188,7 +188,6 @@ def sitemap_images(config: SiteConfig, manifest: media.Manifest) -> Callable[[Pa
     return collect
 
 
-
 def _homes(outputs: output.Outputs, config: SiteConfig) -> dict[str, str]:
     """HTML главных страниц языков - только то, что смотрит nav_in_html.
 
@@ -207,6 +206,7 @@ def _homes(outputs: output.Outputs, config: SiteConfig) -> dict[str, str]:
         if html is not None:
             homes[rel] = html
     return homes
+
 
 def run(
     site_root: Path,
@@ -434,7 +434,13 @@ def run(
                 conf = None
         result.report.nginx_test = nginx.check(conf, collector)
         _schema(
-            site, config, theme, collector, result.report, env, allow_schema,
+            site,
+            config,
+            theme,
+            collector,
+            result.report,
+            env,
+            allow_schema,
             exists=(lambda rel: rel in outputs.entries) if with_media else None,
         )
         if result.failed:
@@ -627,7 +633,13 @@ def check(
     collector.warnings.extend(report.pages_without_cover(site, config))
     built.kit = report.kit_status(site_root, config)
     _schema(
-        site, config, theme, collector, built, env or BuildEnv.resolve(None), allow_schema,
+        site,
+        config,
+        theme,
+        collector,
+        built,
+        env or BuildEnv.resolve(None),
+        allow_schema,
         exists=lambda rel: source_exists(site_root, rel, theme_dir),
     )
     return Result(

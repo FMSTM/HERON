@@ -15,13 +15,17 @@ from heron.scaffold import create
 from heron.schemaorg.images import image_refs, local_path, source_exists
 from tests import sites
 
-HOME = "---\ntitle: Головна\nh1: Головна\ndescription: Демо-сайт для перевірки розмітки\n---\nТекст\n"
+HOME = (
+    "---\ntitle: Головна\nh1: Головна\ndescription: Демо-сайт для перевірки розмітки\n---\nТекст\n"
+)
 
 
 @pytest.fixture
 def scaffold(tmp_path, monkeypatch):
     monkeypatch.delenv("SITE_ENV", raising=False)
-    monkeypatch.setenv("SOURCE_DATE_EPOCH", str(int(datetime(2026, 10, 28, tzinfo=UTC).timestamp())))
+    monkeypatch.setenv(
+        "SOURCE_DATE_EPOCH", str(int(datetime(2026, 10, 28, tzinfo=UTC).timestamp()))
+    )
     root = tmp_path / "demo"
     root.mkdir()
     create(root, name="demo", languages=["uk"])
@@ -31,7 +35,9 @@ def scaffold(tmp_path, monkeypatch):
 
 def _entity(root, image: str) -> None:
     path = root / "site.yaml"
-    block = f'\nschema:\n  entity:\n    "@type": Organization\n    name: Demo\n    image: "{image}"\n'
+    block = (
+        f'\nschema:\n  entity:\n    "@type": Organization\n    name: Demo\n    image: "{image}"\n'
+    )
     path.write_text(path.read_text(encoding="utf-8") + block, encoding="utf-8")
 
 
@@ -141,7 +147,9 @@ def test_build_master_from_markup_ships_whole(scaffold, tmp_path):
     result = pipeline.run(scaffold, dist, env=BuildEnv.named("prod"))
     assert not [e for e in result.collector.errors if e.code == "SCH006"]
     assert (dist / "media" / "photo.jpg").is_file()
-    assert (dist / "media" / "photo.jpg").read_bytes() == (scaffold / "media" / "photo.jpg").read_bytes()
+    assert (dist / "media" / "photo.jpg").read_bytes() == (
+        scaffold / "media" / "photo.jpg"
+    ).read_bytes()
 
 
 def test_image_object_url_and_primary_image_checked(scaffold):

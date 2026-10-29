@@ -23,6 +23,8 @@ site:
 seo:
   title_suffix: ""
   # ↑ дописывается к <title> каждой страницы: " — Название"
+  og_default_image: media/cover.png
+  # ↑ обложка по умолчанию для страниц без своей картинки (og:image)
   llms_txt: true
   robots_extra: []
 

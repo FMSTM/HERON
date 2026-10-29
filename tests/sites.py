@@ -103,7 +103,23 @@ def clear_content(root: Path) -> None:
     """Убрать стартовые страницы, которые кладёт `heron new`.
 
     Тестам про пустой сайт и пустой язык нужен контент без единой страницы.
+    Обложка по умолчанию заготовки (seo.og_default_image и media/cover.png)
+    тоже убирается: без неё страницы без картинки не получают og:image.
     """
+    site_yaml = root / "site.yaml"
+    kept: list[str] = []
+    skip_hint = False
+    for line in site_yaml.read_text(encoding="utf-8").splitlines(keepends=True):
+        if line.strip().startswith("og_default_image:"):
+            skip_hint = True
+            continue
+        if skip_hint and line.strip().startswith("#"):
+            skip_hint = False
+            continue
+        skip_hint = False
+        kept.append(line)
+    site_yaml.write_text("".join(kept), encoding="utf-8")
+    (root / "media" / "cover.png").unlink(missing_ok=True)
     for path in (root / "content").rglob("*.md"):
         if path.name != "heron-readme.md":
             path.unlink()

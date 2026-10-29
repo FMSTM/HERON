@@ -94,6 +94,8 @@ STRINGS = {
 # на русском и английском; остальные языки получают английские.
 DEMO = HERE / "demo"
 DEMO_MEDIA = DEMO / "media"
+# Обложка по умолчанию заготовки: seo.og_default_image в site.yaml ведёт сюда
+COVER_NAME = "cover.png"
 DEMO_LANGS = ("ru", "en")
 DEMO_PAGES = ("index", "blocks", "themes", "docs")
 DEMO_TITLES = {
@@ -501,9 +503,11 @@ def _demo(root: Path, lang: str, name: str, plan: Plan, force: bool, notes: str)
         body = _demo_links((DEMO / source / f"{page}.md").read_text(encoding="utf-8"))
         _put(root, f"content/{lang}/{page}.md", head + "\n" + body, plan, force)
     for image in sorted(DEMO_MEDIA.glob("*")):
+        if image.name == COVER_NAME:
+            continue  # обложка по умолчанию лежит в media/ сайта, а не в media/demo/
         rel = f"media/demo/{image.name}"
         if rel not in plan.created:
-            _put(root, rel, image.read_text(encoding="utf-8"), plan, force)
+            _put_bytes(root, rel, image.read_bytes(), plan, force)
 
 
 def starter_theme(stage: Path, languages: list[str], notes: str = "en") -> None:
@@ -552,6 +556,10 @@ def _version_spec() -> str:
 
 
 def _put(root: Path, rel: str, text: str, plan: Plan, force: bool) -> None:
+    _put_bytes(root, rel, text.encode("utf-8"), plan, force)
+
+
+def _put_bytes(root: Path, rel: str, data: bytes, plan: Plan, force: bool) -> None:
     # Ссылка наружу на файле или на папке по пути к нему — E024 до записи:
     # init и setup дописывают чужие папки сайта, а не только новые.
     path = paths.in_site(root, rel)
@@ -560,7 +568,7 @@ def _put(root: Path, rel: str, text: str, plan: Plan, force: bool) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     paths.in_site(root, rel)  # папки созданы — проверить ещё раз
-    path.write_text(text, encoding="utf-8")
+    path.write_bytes(data)
     plan.created.append(rel)
 
 
@@ -662,6 +670,7 @@ def create(
         menu = ", ".join(json.dumps(item) if item == "/" else item for item in DEMO_NAV)
         site_yaml = site_yaml.replace('  main: ["/"]', f"  main: [{menu}]", 1)
     _put(root, "site.yaml", site_yaml, plan, force)
+    _put_bytes(root, f"media/{COVER_NAME}", (DEMO_MEDIA / COVER_NAME).read_bytes(), plan, force)
     _put(root, ".gitignore", GITIGNORE, plan, force)
     _note(root, "root", "", notes, plan, force, name=name, slug=slugify(name) or name)
 

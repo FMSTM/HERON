@@ -23,6 +23,8 @@ site:
 seo:
   title_suffix: ""
   # ↑ appended to every page <title>: " — Site name"
+  og_default_image: media/cover.png
+  # ↑ default cover for pages without their own image (og:image)
   llms_txt: true
   robots_extra: []
 

@@ -39,7 +39,11 @@ def test_prod_with_finding_fails(site):
 def test_allow_schema_passes_and_is_reported(site):
     result = _run("check", "--env", "prod", "--allow-schema", KEY, str(site))
     assert result.exit_code == 0, result.output
-    assert "--allow-schema" in result.output
+    assert any(
+        KEY in line
+        and ("разово (--allow-schema)" in line or "one-off (--allow-schema)" in line)
+        for line in result.output.splitlines()
+    ), result.output
 
 
 def test_bad_key_is_usage_error(site):

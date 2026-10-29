@@ -332,10 +332,17 @@ def _may_have(kind: str, prop: str) -> bool:
     return v.allows(kind, prop) if v.is_type(kind) else True
 
 
-def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list[dict[str, Any]]:
-    """Собрать граф разметки для страницы."""
+def declared_kinds(
+    page: Page, config: SiteConfig, theme: ThemeConfig
+) -> tuple[list[str], list[str], dict[str, Any], dict[str, Any]]:
+    """Типы разметки страницы: (от темы, все объявленные, свой блок, общий блок).
+
+    Единственное место вычисления: порядок `declared` задаёт и граф build, и
+    происхождение находок в heron.schemaorg.policy (по индексу узла).
+    """
     spec = theme.types.get(page.type)
-    declared = list(spec.jsonld) if spec else []
+    from_theme = list(spec.jsonld) if spec else []
+    declared = list(from_theme)
 
     shared = config.extras.get("schema", {})
     shared = shared if isinstance(shared, dict) else {}
@@ -348,6 +355,12 @@ def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list
     for kind in own:
         if kind != "entity" and isinstance(own[kind], dict) and kind not in declared:
             declared.append(kind)
+    return from_theme, declared, own, shared
+
+
+def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list[dict[str, Any]]:
+    """Собрать граф разметки для страницы."""
+    _from_theme, declared, own, shared = declared_kinds(page, config, theme)
 
     cover = _cover(page)
     graph: list[dict[str, Any]] = []

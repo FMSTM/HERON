@@ -50,6 +50,12 @@ def texts(finding: Finding, lang: str) -> tuple[str, str]:
     return say(lang, f"{code}_detail", **fields), say(lang, f"{code}_hint", **fields)
 
 
+def _declared_kinds(page: Any, config: SiteConfig, theme: Any):
+    from heron.modules import jsonld  # внутри: jsonld тянет heron.schemaorg
+
+    return jsonld.declared_kinds(page, config, theme)
+
+
 @dataclass
 class Entry:
     """Находка с происхождением. Одинаковые ключи с разных страниц схлопнуты."""
@@ -180,16 +186,7 @@ class SchemaCheck:
 
     def page(self, page: Any, graph: list[dict[str, Any]], config: SiteConfig, theme: Any) -> None:
         """Проверить граф страницы и накопить находки с происхождением."""
-        shared = config.extras.get("schema", {})
-        shared = shared if isinstance(shared, dict) else {}
-        own = page.meta.extra.get("schema", {})
-        own = own if isinstance(own, dict) else {}
-        spec = theme.types.get(page.type)
-        from_theme = list(spec.jsonld) if spec else []
-        declared = list(from_theme)
-        for kind in own:
-            if kind != "entity" and isinstance(own[kind], dict) and kind not in declared:
-                declared.append(kind)
+        from_theme, declared, own, shared = _declared_kinds(page, config, theme)
 
         self.graphs.append((page, graph))
         seen: set[str] = set()
@@ -243,16 +240,7 @@ class SchemaCheck:
         theme: Any,
     ) -> None:
         """SCH006: картинка из разметки своего сайта, которой нет в сборке."""
-        shared = config.extras.get("schema", {})
-        shared = shared if isinstance(shared, dict) else {}
-        own = page.meta.extra.get("schema", {})
-        own = own if isinstance(own, dict) else {}
-        spec = theme.types.get(page.type)
-        from_theme = list(spec.jsonld) if spec else []
-        declared = list(from_theme)
-        for kind in own:
-            if kind != "entity" and isinstance(own[kind], dict) and kind not in declared:
-                declared.append(kind)
+        from_theme, declared, own, shared = _declared_kinds(page, config, theme)
         seen: set[str] = set()
         for index, node in enumerate(graph):
             if not node:

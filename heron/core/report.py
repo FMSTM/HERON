@@ -470,12 +470,14 @@ _SEO_TEXTS = {
         "nav_html": "ссылок навигации нет в HTML главной ({lang}): меню строится скриптом, "
         "краулер его не видит",
         "titles": "одинаковый title у {n} страниц ({lang}): {pages}",
+        "no_cover": "страниц без обложки: {n} (нет og:image в разметке и primaryImageOfPage)",
     },
     "en": {
         "nav_empty": "nav.main is empty: search engines will not see the site sections",
         "nav_html": "the home page HTML ({lang}) has no navigation links: the menu is built "
         "by a script, crawlers do not see it",
         "titles": "{n} pages share the same title ({lang}): {pages}",
+        "no_cover": "pages without a cover: {n} (no og:image and no primaryImageOfPage)",
     },
 }
 
@@ -509,6 +511,19 @@ def nav_empty(site: Site, config: SiteConfig) -> list[Warning_]:
     if config.nav.main:
         return []
     return [Warning_(_seo_text(config, "nav_empty"), path="site.yaml", kind="seo")]
+
+
+def pages_without_cover(site: Site, config: SiteConfig) -> list[Warning_]:
+    """Индексируемые страницы без обложки: предупреждение, не ошибка."""
+    missing = [
+        page
+        for lang in config.site.languages
+        for page in site.of_lang(lang)
+        if indexable(page) and page.cover_source(config) is None
+    ]
+    if not missing:
+        return []
+    return [Warning_(_seo_text(config, "no_cover", n=len(missing)), kind="seo")]
 
 
 def duplicate_titles(site: Site, config: SiteConfig) -> list[Warning_]:

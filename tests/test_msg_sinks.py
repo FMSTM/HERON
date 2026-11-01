@@ -2,21 +2,32 @@
 
 import json
 import re
+import socket
+import threading
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 
-from heron import cli
+from heron import cli, setup
 from heron.core import watch
 from heron.core.errors import HeronError
 from heron.messages import Msg, rendered
+from heron.scaffold import create
+from heron.setup import server
 
 CYR = re.compile("[а-яА-ЯёЁ]")
 
 
 def _error() -> HeronError:
     return HeronError(
-        "E030", Msg("report_old_not_utf8", byte=3), path="old.txt", hint=Msg("report_old_not_utf8_hint")
+        "E030",
+        Msg("report_old_not_utf8", byte=3),
+        path="old.txt",
+        hint=Msg("report_old_not_utf8_hint"),
     )
 
 
@@ -56,7 +67,101 @@ def test_watch_once_renders_error_by_language(monkeypatch, tmp_path, capsys):
     assert "пересохраните файл" in capsys.readouterr().out
 
 
-def test_check_json_en_has_no_cyrillic_in_messages(tmp_path):
-    result = CliRunner().invoke(cli.main, ["check", str(tmp_path / "missing"), "--json", "--notes", "en"])
-    # папки нет: человеческий текст на экран, JSON не печатается; код выхода ненулевой
-    assert result.exit_code != 0
+def _site(tmp_path: Path) -> Path:
+    root = tmp_path / "site"
+    create(root, name="S", languages=["en"], demo=True, notes="en")
+    return root
+
+
+def _json(output: str) -> dict:
+    return json.JSONDecoder().raw_decode(output[output.index("{") :])[0]
+
+
+def _old_urls(tmp_path: Path) -> Path:
+    path = tmp_path / "old.txt"
+    path.write_text("https://example.com\n/gone-page/\n", encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize(
+    ("lang", "message", "hint"),
+    [
+        ("en", "the old URLs file is not UTF-8", "re-save the file as UTF-8"),
+        ("ru", "не в UTF-8", "пересохраните файл"),
+    ],
+)
+def test_check_json_error_follows_language(tmp_path, lang, message, hint):
+    root = _site(tmp_path)
+    old = tmp_path / "old.txt"
+    old.write_bytes(b"/page/\n\xff\xfe\n")
+    args = ["check", str(root), "--json", "--old-urls", str(old), "--notes", lang]
+    result = CliRunner().invoke(cli.main, args)
+    assert result.exit_code == 1, result.output
+    item = _json(result.output)["errors"][0]
+    assert item["code"] == "E030"
+    assert message in item["message"]
+    assert hint in item["hint"]
+
+
+@pytest.mark.parametrize(
+    ("lang", "summary"),
+    [("en", "old URLs: 2, without a path: 1"), ("ru", "старых адресов: 2, без пути: 1")],
+)
+def test_old_urls_summary_follows_language(tmp_path, lang, summary):
+    root = _site(tmp_path)
+    old = _old_urls(tmp_path)
+    base = ["check", str(root), "--old-urls", str(old), "--notes", lang]
+    text = CliRunner().invoke(cli.main, base)
+    assert summary in text.output
+    as_json = CliRunner().invoke(cli.main, [*base, "--json"])
+    assert _json(as_json.output)["old_urls"]["summary"] == summary
+
+
+@pytest.mark.parametrize(
+    ("lang", "message", "hint"),
+    [
+        ("en", "the old URLs file is not UTF-8 (byte 3)", "re-save the file as UTF-8"),
+        ("ru", "не в UTF-8", "пересохраните файл"),
+    ],
+)
+def test_setup_save_renders_error_in_page_language(tmp_path, monkeypatch, lang, message, hint):
+    def refuse(*args, **kwargs):
+        raise _error()
+
+    monkeypatch.setattr(setup, "apply", refuse)
+    root = _site(tmp_path)
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    box: dict[str, str] = {}
+    thread = threading.Thread(
+        target=server.run,
+        args=(root, "127.0.0.1", port),
+        kwargs={"on_ready": lambda token: box.update(token=token)},
+        daemon=True,
+    )
+    thread.start()
+    while "token" not in box:
+        time.sleep(0.01)
+
+    def post(path: str, data: dict) -> urllib.request.Request:
+        return urllib.request.Request(
+            f"http://localhost:{port}{path}",
+            data=json.dumps(data).encode("utf-8"),
+            headers={"X-Heron-Token": box["token"], "Content-Type": "application/json"},
+            method="POST",
+        )
+
+    try:
+        answers = setup.load_answers(setup.current_answers(root)).model_dump(mode="json")
+        request = post("/api/save", {"lang": lang, "answers": answers})
+        with pytest.raises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(request, timeout=5)
+        assert caught.value.code == 400
+        body = json.loads(caught.value.read().decode("utf-8"))
+        assert body["ok"] is False
+        assert message in body["error"]
+        assert hint in body["hint"]
+    finally:
+        urllib.request.urlopen(post("/api/stop", {}), timeout=5).read()
+        thread.join(timeout=5)

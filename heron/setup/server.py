@@ -148,11 +148,14 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
                 )
                 return
             except HeronError as error:
-                self._json(400, {
+                self._json(
+                    400,
+                    {
                         "ok": False,
                         "error": rendered(error.message, shown),
                         "hint": rendered(error.hint, shown) or "",
-                    })
+                    },
+                )
                 return
             except ValueError as error:
                 self._json(400, {"ok": False, "error": _plain(error, shown)})

@@ -613,7 +613,7 @@ def _check_json(
             lost, old_summary = report_module.old_urls(listed, result.site, result.config)
             result.collector.warnings.extend(lost)
             old_section = {
-                "summary": old_summary,
+                "summary": rendered(old_summary, lang),
                 "lost": [
                     {"path": w.path, "line": w.line, "message": rendered(w.message, lang)}
                     for w in lost
@@ -1278,7 +1278,7 @@ def check(
         result.collector.warnings.extend(lost)
     _finish(result, result.strict, lang, "check")
     if old_summary:
-        click.echo(old_summary)
+        click.echo(rendered(old_summary, lang))
     click.secho(say(lang, "check_done", path=_shown(path)), fg="green")
 
 

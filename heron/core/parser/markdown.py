@@ -18,6 +18,7 @@ import re
 from markdown_it import MarkdownIt
 
 from heron.core.errors import HeronError
+from heron.messages import Msg
 
 ATTRS = re.compile(r"\s*\{(?P<body>[^{}]*)\}\s*$")
 ALLOWED_INLINE = re.compile(r"^\s*<(br|wbr)\s*/?>\s*$", re.I)
@@ -101,11 +102,10 @@ def forbidden_attrs(md: MarkdownIt, body: str, path: str, offset: int = 0) -> No
                 line = offset + (token.map[0] if token.map else 0) + 1
                 raise HeronError(
                     code="E025",
-                    message=f"недопустимый атрибут заголовка: {chunk[:60]}",
+                    message=Msg("parser_bad_heading_attr", chunk=chunk[:60]),
                     path=path,
                     line=line,
-                    hint="у заголовка бывают #id, .class, lang=, dir=, title= и data-*=; "
-                    "обработчики событий и стили — нет",
+                    hint=Msg("parser_bad_heading_attr_hint"),
                 )
 
 
@@ -273,11 +273,8 @@ def guard_raw_html(body: str, path: str, allow: bool, offset: int = 0) -> None:
     for number, text in raw_html(body):
         raise HeronError(
             code="E015",
-            message=f"сырой HTML в markdown: {text.strip()[:80]}",
+            message=Msg("parser_raw_html", text=text.strip()[:80]),
             path=path,
             line=offset + number + 1,
-            hint=(
-                "перепишите средствами markdown, или разрешите осознанно: "
-                "build.allow_raw_html: true в site.yaml"
-            ),
+            hint=Msg("parser_raw_html_hint"),
         )

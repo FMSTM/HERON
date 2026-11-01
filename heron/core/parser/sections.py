@@ -18,6 +18,7 @@ from markdown_it import MarkdownIt
 from markdown_it.token import Token
 
 from heron.core.errors import HeronError
+from heron.messages import Msg
 from heron.core.models import Section
 from heron.core.parser import markdown
 
@@ -80,10 +81,10 @@ def split(
         if not SECTION_ID.match(anchor):
             raise HeronError(
                 code="E016",
-                message=f"недопустимый идентификатор секции {anchor!r}",
+                message=Msg("parser_bad_section_id", anchor=anchor),
                 path=path,
                 line=line,
-                hint="идентификатор — латиница, цифры и дефис: {#quick-facts}",
+                hint=Msg("parser_bad_section_id_hint"),
             )
         marks.append((index, level, anchor, _classes(token), _inline_text(tokens, index), line))
 
@@ -120,10 +121,10 @@ def split(
         if anchor in sections:
             raise HeronError(
                 code="E003",
-                message=f"идентификатор секции {anchor!r} встречается в файле дважды",
+                message=Msg("parser_duplicate_section", anchor=anchor),
                 path=path,
                 line=line,
-                hint=f"первый раз — строка {sections[anchor].line}",
+                hint=Msg("parser_duplicate_section_hint", line=sections[anchor].line),
             )
 
         content = [t for t in tokens[index:next_index]]

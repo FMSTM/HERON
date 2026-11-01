@@ -19,6 +19,7 @@ from pydantic import ValidationError
 from heron.contracts.frontmatter import PageMeta
 from heron.contracts.loader import describe
 from heron.core.errors import HeronError, Warning_
+from heron.messages import Msg
 
 FRONTMATTER = re.compile(r"\A\ufeff?---[ \t]*\r?\n(?P<body>.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re.S)
 
@@ -31,10 +32,10 @@ def split(text: str, path: str) -> tuple[dict[str, Any], str, int]:
     if not match:
         raise HeronError(
             code="E001",
-            message="в начале файла нет блока фронтматтера",
+            message=Msg("parser_no_frontmatter"),
             path=path,
             line=1,
-            hint="файл должен начинаться со строки --- , затем YAML, затем снова ---",
+            hint=Msg("parser_no_frontmatter_hint"),
         )
 
     raw = match.group("body")
@@ -44,10 +45,10 @@ def split(text: str, path: str) -> tuple[dict[str, Any], str, int]:
         mark = getattr(exc, "problem_mark", None)
         raise HeronError(
             code="E001",
-            message=f"битый YAML во фронтматтере: {getattr(exc, 'problem', exc)}",
+            message=Msg("parser_bad_yaml", problem=str(getattr(exc, "problem", exc))),
             path=path,
             line=(mark.line + 2) if mark else 1,
-            hint="проверьте отступы и кавычки: значение с двоеточием берётся в кавычки",
+            hint=Msg("parser_bad_yaml_hint"),
         ) from exc
 
     if data is None:
@@ -55,7 +56,7 @@ def split(text: str, path: str) -> tuple[dict[str, Any], str, int]:
     if not isinstance(data, dict):
         raise HeronError(
             code="E001",
-            message=f"фронтматтер должен быть набором ключей, а не {type(data).__name__}",
+            message=Msg("parser_not_mapping", type=type(data).__name__),
             path=path,
             line=2,
         )
@@ -71,10 +72,10 @@ def parse_meta(data: dict[str, Any], path: str) -> PageMeta:
     if missing:
         raise HeronError(
             code="E002",
-            message="нет обязательных полей: " + ", ".join(missing),
+            message=Msg("parser_missing_fields", fields=", ".join(missing)),
             path=path,
             line=2,
-            hint="title пишется под выдачу, h1 под того, кто уже открыл страницу",
+            hint=Msg("parser_missing_fields_hint"),
         )
     try:
         return PageMeta.model_validate(data)
@@ -82,7 +83,7 @@ def parse_meta(data: dict[str, Any], path: str) -> PageMeta:
         lines = [describe(e) for e in exc.errors()]
         raise HeronError(
             code="E002",
-            message="фронтматтер не проходит проверку:\n    " + "\n    ".join(lines),
+            message=Msg("parser_frontmatter_invalid", lines=lines),
             path=path,
             line=2,
         ) from exc
@@ -96,9 +97,9 @@ def read(path: Path, rel: str | None = None) -> tuple[PageMeta, str, int, list[W
     except UnicodeDecodeError as exc:
         raise HeronError(
             code="E001",
-            message="файл не читается как UTF-8",
+            message=Msg("parser_not_utf8"),
             path=where,
-            hint="пересохраните файл в UTF-8 без BOM",
+            hint=Msg("parser_not_utf8_hint"),
         ) from exc
     except OSError as exc:
         from heron.core import paths

@@ -20,6 +20,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from heron.core.errors import Warning_
+from heron.messages import Msg, MsgError
 
 SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\Z")
 URL_PATH_RE = re.compile(r"^/[^\s?#]*\Z")
@@ -121,14 +122,14 @@ class PageMeta(BaseModel):
     @classmethod
     def _not_blank(cls, v: str) -> str:
         if not v or not v.strip():
-            raise ValueError("поле не может быть пустым")
+            raise MsgError("loader_fm_blank")
         return v.strip()
 
     @field_validator("slug")
     @classmethod
     def _slug(cls, v: str | None) -> str | None:
         if v is not None and not SLUG_RE.match(v):
-            raise ValueError("слаг — латиница, цифры и дефис, без слешей и подчёркиваний")
+            raise MsgError("loader_fm_slug")
         return v
 
     @field_validator("redirect_from", "gone")
@@ -136,7 +137,7 @@ class PageMeta(BaseModel):
     def _old_urls(cls, v: list[str]) -> list[str]:
         for url in v:
             if not URL_PATH_RE.match(url):
-                raise ValueError(f"{url!r} — ожидается путь от корня, например /services/old/")
+                raise MsgError("loader_fm_old_url", url=repr(url))
         return v
 
     @property
@@ -148,20 +149,22 @@ class PageMeta(BaseModel):
         """Мягкие замечания. Сборку не останавливают, попадают в отчёт check."""
         out: list[Warning_] = []
         if len(self.title) > TITLE_MAX:
-            out.append(Warning_(f"title длиннее {TITLE_MAX} знаков ({len(self.title)})", path=path))
+            out.append(Warning_(
+                    Msg("loader_fm_title_long", max=TITLE_MAX, length=len(self.title)), path=path
+                ))
         if len(self.description) > DESCRIPTION_MAX:
             out.append(
                 Warning_(
-                    f"description длиннее {DESCRIPTION_MAX} знаков ({len(self.description)})",
+                    Msg("loader_fm_description_long", max=DESCRIPTION_MAX, length=len(self.description)),
                     path=path,
                 )
             )
         if self.image and not self.image_alt:
-            out.append(Warning_("картинка задана, а image_alt нет", path=path))
+            out.append(Warning_(Msg("loader_fm_image_alt"), path=path))
         if self.title == self.h1:
             out.append(
                 Warning_(
-                    "title и h1 совпадают: title пишется под выдачу, h1 под того, кто уже открыл",
+                    Msg("loader_fm_title_h1_same"),
                     path=path,
                 )
             )

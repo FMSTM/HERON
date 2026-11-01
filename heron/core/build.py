@@ -40,6 +40,7 @@ from heron.core.parser import markdown
 from heron.core.progress import Progress, Silent
 from heron.core.render import env as render_env
 from heron.core.render import pages as renderer
+from heron.messages import Msg
 from heron.modules import feed, jsonld, llms, nginx, redirects, robots, sitemap
 from heron.schemaorg import policy
 from heron.schemaorg.images import source_exists
@@ -88,7 +89,7 @@ def _claim_tree(
     source: Path,
     prefix: str,
     kind: str,
-    label: str,
+    owner: Callable[[str], str],
     collector: Collector,
 ) -> None:
     """Заявить папку как есть, кроме того, чего в сети быть не должно.
@@ -105,7 +106,7 @@ def _claim_tree(
             continue
         outputs.add(
             f"{prefix}{rel}",
-            output.Entry(owner=f"{label}/{rel}", kind=kind, source=path),
+            output.Entry(owner=owner(rel), kind=kind, source=path),
             collector,
         )
 
@@ -152,9 +153,9 @@ def env_workers() -> int | None:
     if not 0 <= value <= 64:
         raise HeronError(
             code="E011",
-            message=f"{WORKERS_ENV}={raw!r}: нужно целое число от 0 до 64",
+            message=Msg("build_bad_workers", env=WORKERS_ENV, raw=raw),
             path=WORKERS_ENV,
-            hint="0 — по числу ядер, 1 — без пула процессов; пустое значение — как в site.yaml",
+            hint=Msg("build_bad_workers_hint"),
         )
     return value
 
@@ -258,10 +259,9 @@ def run(
     if env.is_prod and not [p for p in site.pages if not p.generated]:
         collector.error(
             "E017",
-            "в проде нечего собирать: ни одной страницы",
+            Msg("build_prod_no_pages"),
             path=str(site_root / "content"),
-            hint="проверьте путь к контенту и языки в site.yaml; "
-            "пустую сборку можно делать только в деве",
+            hint=Msg("build_prod_no_pages_hint"),
         )
     # Язык по умолчанию отдаётся из корня. Пуст он — корень сайта отвечает
     # 404, даже если другие языки заполнены целиком. На деве это стадия
@@ -270,10 +270,9 @@ def run(
         default = config.site.default_lang
         collector.error(
             "E021",
-            f"в проде пуст язык по умолчанию {default!r}: корень сайта ответил бы 404",
+            Msg("build_prod_empty_default_lang", default=default),
             path=str(site_root / "content" / default),
-            hint=f"заполните content/{default}/ или назначьте default_lang "
-            "языком, на котором контент уже есть",
+            hint=Msg("build_prod_empty_default_lang_hint", default=default),
         )
 
     _roots(site, config, collector, prod=env.is_prod)
@@ -342,36 +341,46 @@ def run(
         by_url = {page.url: page for page in site.pages}
         for url, text in html.items():
             page = by_url.get(url)
-            owner = (
-                f"страница {page.source}" if page is not None and page.source else f"страница {url}"
+            owner = Msg(
+                "build_owner_page",
+                where=page.source if page is not None and page.source else url,
             )
             outputs.add(
                 _page_path(url), output.Entry(owner=owner, kind="page", text=text), collector
             )
         not_found = html.get("/404/")
         if not_found:
-            claim({"404.html": not_found}, "page", "страница 404")
+            claim({"404.html": not_found}, "page", Msg("build_owner_page_404"))
         claim(
             sitemap.generate(
                 site, config, sitemap_images(config, manifest) if env.indexable else None
             ),
             "generator",
-            "генератор sitemap",
+            Msg("build_owner_sitemap"),
         )
-        claim(robots.generate(config, env), "generator", "генератор robots.txt")
-        claim(llms.generate(site, config), "generator", "генератор llms.txt")
+        claim(robots.generate(config, env), "generator", Msg("build_owner_robots"))
+        claim(llms.generate(site, config), "generator", Msg("build_owner_llms"))
         moves = redirects.collect(site, collector, config)
-        claim(redirects.files(moves), "generator", "генератор карт 301/410")
-        claim(nginx.generate(config, moves), "generator", "генератор конфига nginx")
-        claim(feed.generate(site, config), "generator", "генератор ленты")
+        claim(redirects.files(moves), "generator", Msg("build_owner_redirects"))
+        claim(nginx.generate(config, moves), "generator", Msg("build_owner_nginx"))
+        claim(feed.generate(site, config), "generator", Msg("build_owner_feed"))
         say.done()
 
         for extra in hooks.call("on_generate", site, config):
             if isinstance(extra, dict):
-                claim(extra, "plugin", "плагин (on_generate)")
+                claim(extra, "plugin", Msg("build_owner_plugin_generate"))
 
-        _claim_tree(outputs, site_root / STATIC, "", "static", "static", collector)
-        _claim_tree(outputs, theme_dir / ASSETS, f"{ASSETS}/", "asset", "тема assets", collector)
+        _claim_tree(
+            outputs, site_root / STATIC, "", "static", lambda rel: f"static/{rel}", collector
+        )
+        _claim_tree(
+            outputs,
+            theme_dir / ASSETS,
+            f"{ASSETS}/",
+            "asset",
+            lambda rel: Msg("build_owner_theme_asset", rel=rel),
+            collector,
+        )
         if collector.failed:
             return result
 
@@ -426,10 +435,9 @@ def run(
             if conf is not None and not conf.strip():
                 collector.error(
                     "E034",
-                    f"{nginx.NAME} пуст",
+                    Msg("build_nginx_empty", name=nginx.NAME),
                     path=nginx.NAME,
-                    hint="пустой конфиг — сайт без 301, 410 и 404; уберите подмену "
-                    "из build.overrides или верните содержимое",
+                    hint=Msg("build_nginx_empty_hint"),
                 )
                 conf = None
         result.report.nginx_test = nginx.check(conf, collector)
@@ -460,14 +468,13 @@ def run(
         try:
             returned = handler(site, config, dist)
         except Exception as error:  # noqa: BLE001 — чужой код, любой отказ
-            name = getattr(handler, "__module__", "") or "плагин"
-            result.finish_errors.append(f"{name}: {type(error).__name__}: {error}")
+            name = getattr(handler, "__module__", "") or Msg("build_plugin_word")
+            result.finish_errors.append(
+                Msg("build_finish_failed", name=name, kind=type(error).__name__, error=str(error))
+            )
             continue
         if isinstance(returned, dict) and returned:
-            result.notices.append(
-                "плагин вернул файлы из on_build_finished — они не записаны: "
-                "файлы сборки объявляются в on_generate(site, config)"
-            )
+            result.notices.append(Msg("build_finished_returned_files"))
     media.sweep_daily(cache)
     return result
 
@@ -519,10 +526,10 @@ def _roots(site: Site, config: SiteConfig, collector: Collector, prod: bool) -> 
             continue
         if lang == config.site.default_lang and "E021" in said:
             continue  # об этом уже сказано
-        message = f"у языка {lang!r} нет главной страницы: {home} ответит 404"
+        message = Msg("build_no_home_page", lang=lang, home=home)
         where = f"content/{lang}/index.md"
         if prod:
-            collector.error("E028", message, path=where, hint="создайте index.md в корне языка")
+            collector.error("E028", message, path=where, hint=Msg("build_no_home_page_hint"))
         else:
             collector.warn(message, path=where, kind="языки")
 

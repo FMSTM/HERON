@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any
 
 from heron.core.errors import HeronError
+from heron.messages import rendered
 from heron.setup.reasons import plain, run_lang, say
 
 PAGE = Path(__file__).parent / "page.html"
@@ -147,7 +148,11 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
                 )
                 return
             except HeronError as error:
-                self._json(400, {"ok": False, "error": error.message, "hint": error.hint or ""})
+                self._json(400, {
+                        "ok": False,
+                        "error": rendered(error.message, shown),
+                        "hint": rendered(error.hint, shown) or "",
+                    })
                 return
             except ValueError as error:
                 self._json(400, {"ok": False, "error": _plain(error, shown)})

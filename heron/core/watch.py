@@ -108,7 +108,7 @@ def once(
     try:
         result = pipeline.run(root, dist=dist, drafts=drafts, workers=workers)
     except HeronError as error:
-        click.secho(str(error), fg="red")
+        click.secho(error.render(lang), fg="red")
         return
     if result.collector.errors:
         click.secho(report_module.summary(result.collector, lang=lang), fg="red")

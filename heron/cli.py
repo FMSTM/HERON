@@ -32,7 +32,7 @@ from heron.core import report as report_module
 from heron.core.environment import BuildEnv
 from heron.core.errors import HeronError
 from heron.core.notes import NOTE
-from heron.messages import CLICK_RU, RECIPE_EN, say, title
+from heron.messages import CLICK_RU, RECIPE_EN, rendered, say, title
 from heron.scaffold import (
     ENV_NOTES,
     NOTE_LANGS,
@@ -465,9 +465,9 @@ def _fail(error: HeronError, lang: str = "en") -> None:
     if error.path:
         where = error.path if error.line is None else f"{error.path}:{error.line}"
         _err(say(lang, "error_where", where=where), None)
-    _err(say(lang, "error_what", message=error.message), None)
+    _err(say(lang, "error_what", message=rendered(error.message, lang)), None)
     if error.hint:
-        _err(say(lang, "error_hint", hint=error.hint), None)
+        _err(say(lang, "error_hint", hint=rendered(error.hint, lang)), None)
     elif error.path and error.code == "E011" and not Path(error.path).exists():
         _err(_missing_hint(Path(error.path).parent, lang), None)
     sys.exit(1)
@@ -583,6 +583,7 @@ def _check_json(
     env: BuildEnv,
     allow_schema: tuple[str, ...] = (),
     old_urls: Path | None = None,
+    lang: str = "en",
 ) -> None:
     """`heron check --json`: коды, файлы и строки — разбирать, а не читать.
 
@@ -596,8 +597,8 @@ def _check_json(
             "code": item.code,
             "path": item.path,
             "line": item.line,
-            "message": item.message,
-            "hint": item.hint,
+            "message": rendered(item.message, lang),
+            "hint": rendered(item.hint, lang),
         }
 
     kit = None
@@ -613,14 +614,22 @@ def _check_json(
             result.collector.warnings.extend(lost)
             old_section = {
                 "summary": old_summary,
-                "lost": [{"path": w.path, "line": w.line, "message": w.message} for w in lost],
+                "lost": [
+                    {"path": w.path, "line": w.line, "message": rendered(w.message, lang)}
+                    for w in lost
+                ],
             }
         kit = result.report.kit if result.report is not None else None
         section = result.report.schema if result.report is not None else None
         schema = section.as_json() if section is not None else None
         errors = [error(item) for item in result.collector.errors]
         warnings = [
-            {"kind": w.kind, "path": w.path, "line": w.line, "message": w.message}
+            {
+                "kind": w.kind,
+                "path": w.path,
+                "line": w.line,
+                "message": rendered(w.message, lang),
+            }
             for w in result.collector.warnings
         ]
         strict = result.strict
@@ -1244,7 +1253,7 @@ def check(
     _need_site(path, lang)
     env = BuildEnv.resolve(env_name)
     if as_json:
-        _check_json(path, strict, drafts, env, allow_schema, old_urls)
+        _check_json(path, strict, drafts, env, allow_schema, old_urls, lang)
         return
     click.secho(
         say(lang, "check_head", version=__version__, path=_shown(path)), bold=True, err=True

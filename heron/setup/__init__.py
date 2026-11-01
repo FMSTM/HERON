@@ -27,6 +27,7 @@ from typing import Any
 import yaml
 
 from heron.core import paths
+from heron.setup import comments
 from heron.setup import files as files_module
 from heron.setup.answers import (
     CONTACT_TYPES,
@@ -451,9 +452,11 @@ def apply(
         result.warnings.extend(installed.warnings)
 
     path = root / SITE_YAML
-    text = HEADER[lang] + dump(new)
+    current = path.read_text(encoding="utf-8") if path.is_file() else ""
+    text, lost = comments.carry(current, dump(new), HEADER[lang], new)
+    if lost:
+        result.warnings.append("comments_lost")
     if path.is_file():
-        current = path.read_text(encoding="utf-8")
         if current != text:
             saved = backup(root, SITE_YAML, current.encode("utf-8"))
             result.backup = saved.relative_to(root).as_posix()

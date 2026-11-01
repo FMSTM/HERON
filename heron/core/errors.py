@@ -71,12 +71,14 @@ class HeronError(Exception):
     hint: str | None = None
 
     def __str__(self) -> str:
-        where = self.path or "<неизвестный файл>"
+        from heron.messages import say
+
+        where = self.path or say("ru", "summary_unknown_file")
         if self.line is not None:
             where = f"{where}:{self.line}"
         text = f"{self.code} {where}: {self.message}"
         if self.hint:
-            text = f"{text}\n  что сделать: {self.hint}"
+            text = f"{text}\n" + say("ru", "error_hint", hint=self.hint)
         return text
 
 

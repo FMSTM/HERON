@@ -28,6 +28,7 @@ from heron.core import links as links_module
 from heron.core import media, notes
 from heron.core.errors import Collector, HeronError, Warning_
 from heron.core.models import Site
+from heron.messages import Msg, rendered
 from heron.modules.sitemap import indexable
 
 LINK = re.compile(r'href="(/[^"#?]*)')
@@ -475,29 +476,11 @@ def build(
     return report
 
 
-_SEO_TEXTS = {
-    "ru": {
-        "nav_empty": "навигация nav.main пуста: поисковик не увидит разделов сайта",
-        "nav_html": "ссылок навигации нет в HTML главной ({lang}): меню строится скриптом, "
-        "краулер его не видит",
-        "titles": "одинаковый title у {n} страниц ({lang}): {pages}",
-        "no_cover": "страниц без обложки: {n} (нет og:image в разметке и primaryImageOfPage)",
-    },
-    "en": {
-        "nav_empty": "nav.main is empty: search engines will not see the site sections",
-        "nav_html": "the home page HTML ({lang}) has no navigation links: the menu is built "
-        "by a script, crawlers do not see it",
-        "titles": "{n} pages share the same title ({lang}): {pages}",
-        "no_cover": "pages without a cover: {n} (no og:image and no primaryImageOfPage)",
-    },
-}
-
 _HREF = re.compile(r"""<a\b[^>]*?\bhref\s*=\s*["']([^"']*)["']""", re.IGNORECASE)
 
 
-def _seo_text(config: SiteConfig, key: str, **values) -> str:
-    table = _SEO_TEXTS.get(config.build.notes, _SEO_TEXTS["en"])
-    return table[key].format(**values)
+def _seo_text(config: SiteConfig, key: str, **values) -> Msg:
+    return Msg(f"report_seo_{key}", **values)
 
 
 def _norm_href(href: str, domain: str = "") -> str | None:
@@ -699,9 +682,8 @@ def summary(collector: Collector, full: Path | None = None, lang: str = "en") ->
     на диске: раньше сводка резалась на тридцатом по порядку появления,
     и важное просто не доходило до глаз.
 
-    Рамка сводки — на языке сообщений (`lang`); тексты самих замечаний
-    движок пока пишет по-русски (21 §10). Файл `full` — для разбора, в нём
-    виды как в коде.
+    Сводка и тексты замечаний — на языке сообщений (`lang`). Файл `full` —
+    для разбора, в нём виды как в коде.
     """
     from heron.messages import kind as kind_label
     from heron.messages import say
@@ -728,7 +710,7 @@ def summary(collector: Collector, full: Path | None = None, lang: str = "en") ->
             if where and warning.line:
                 where = f"{where}:{warning.line}"
             where = f"{where}: " if where else ""
-            lines.append(f"    {where}{warning.message}")
+            lines.append(f"    {where}{rendered(warning.message, lang)}")
         if len(batch) > EXAMPLES:
             lines.append(say(lang, "summary_more", count=len(batch) - EXAMPLES))
 
@@ -738,7 +720,7 @@ def summary(collector: Collector, full: Path | None = None, lang: str = "en") ->
             full.write_text(
                 "\n".join(
                     f"{getattr(w, 'kind', '') or 'прочее'}\t"
-                    f"{w.path or ''}{f':{w.line}' if w.path and w.line else ''}\t{w.message}"
+                    f"{w.path or ''}{f':{w.line}' if w.path and w.line else ''}\t{rendered(w.message, lang)}"
                     for w in collector.warnings
                 )
                 + "\n",
@@ -757,31 +739,13 @@ def _error_text(error, lang: str) -> str:
     where = error.path or say(lang, "summary_unknown_file")
     if error.line is not None:
         where = f"{where}:{error.line}"
-    text = f"{error.code} {where}: {error.message}"
+    text = f"{error.code} {where}: {rendered(error.message, lang)}"
     if error.hint:
-        text = f"{text}\n" + say(lang, "error_hint", hint=error.hint)
+        text = f"{text}\n" + say(lang, "error_hint", hint=rendered(error.hint, lang))
     return text
 
 
 # --- старые адреса: heron check --old-urls ------------------------------------------
-
-_OLD_TEXTS = {
-    "ru": {
-        "lost": (
-            "старый адрес {url} никуда не ведёт; вероятно, поставить 301 на {target}: "
-            "redirect_from: [{url}] во фронтматтере {file}"
-        ),
-        "summary": "старых адресов: {total}, без пути: {lost}",
-    },
-    "en": {
-        "lost": (
-            "old URL {url} leads nowhere; probably set a 301 to {target}: "
-            "redirect_from: [{url}] in the front matter of {file}"
-        ),
-        "summary": "old URLs: {total}, without a path: {lost}",
-    },
-}
-
 
 def read_old_urls(path: Path) -> list[str]:
     """Адреса из файла: по строке на адрес или выгрузка Search Console (CSV).
@@ -795,9 +759,9 @@ def read_old_urls(path: Path) -> list[str]:
     except UnicodeDecodeError as error:
         raise HeronError(
             "E030",
-            f"файл старых адресов не в UTF-8 (байт {error.start})",
+            Msg("report_old_not_utf8", byte=error.start),
             path=str(path),
-            hint="пересохраните файл в UTF-8 и запустите check снова",
+            hint=Msg("report_old_not_utf8_hint"),
         ) from error
     urls: list[str] = []
     for raw in text.splitlines():
@@ -819,7 +783,6 @@ def _looks_like_url(line: str) -> bool:
 
 def old_urls(urls: list[str], site: Site, config: SiteConfig) -> tuple[list[Warning_], str]:
     """Предупреждения по адресам без пути и строка сводки (на языке build.notes)."""
-    texts = _OLD_TEXTS.get(config.build.notes, _OLD_TEXTS["en"])
     warnings: list[Warning_] = []
     seen: set[str] = set()
     for url in urls:
@@ -836,10 +799,10 @@ def old_urls(urls: list[str], site: Site, config: SiteConfig) -> tuple[list[Warn
         shown = urlsplit(url).path or url
         warnings.append(
             Warning_(
-                texts["lost"].format(url=shown, target=target.url, file=target.source),
+                Msg("report_old_lost", url=shown, target=target.url, file=target.source),
                 path="old-urls",
                 kind="редиректы",
             )
         )
-    summary = texts["summary"].format(total=len(seen), lost=len(warnings))
+    summary = Msg("report_old_summary", total=len(seen), lost=len(warnings))
     return warnings, summary

@@ -31,6 +31,7 @@ from pathlib import Path
 
 from heron.core.errors import Collector
 from heron.core.models import Site
+from heron.messages import Msg
 
 TIMEOUT = 30
 STAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}([+-]\d{2}:\d{2}|Z)$")
@@ -135,7 +136,7 @@ def _by_git(pages, site_root: Path, content: Path, collector: Collector) -> None
     history = _history(site_root)
     if history is None:
         collector.warn(
-            f"истории нет — даты взяты из времени файлов, страниц {len(pages)}",
+            Msg("links_dates_no_history", count=len(pages)),
             path=str(site_root),
             kind="даты",
         )
@@ -149,7 +150,7 @@ def _by_git(pages, site_root: Path, content: Path, collector: Collector) -> None
         if rel in dirty:
             page.auto_updated = _mtime(content / page.source)
             collector.warn(
-                "файл изменён, но не закоммичен — дата взята из времени файла",
+                Msg("links_dates_dirty"),
                 path=page.source,
                 kind="даты",
             )
@@ -158,7 +159,7 @@ def _by_git(pages, site_root: Path, content: Path, collector: Collector) -> None
         if stamp is None:
             page.auto_updated = _mtime(content / page.source)
             collector.warn(
-                "файла нет в истории — дата взята из времени файла",
+                Msg("links_dates_not_in_history"),
                 path=page.source,
                 kind="даты",
             )
@@ -176,8 +177,7 @@ def _by_file(pages, content: Path, collector: Collector, loud: bool) -> None:
     ]
     if len(times) > 1 and max(times) - min(times) <= HUDDLE:
         collector.warn(
-            "у всех файлов одно время — так выглядит копирование, а не правка; "
-            "дата обновления не проставлена",
+            Msg("links_dates_same_time"),
             path=str(content),
             kind="даты",
         )
@@ -185,7 +185,7 @@ def _by_file(pages, content: Path, collector: Collector, loud: bool) -> None:
     if loud:
         missing = [source for source, stamp in stamps.items() if stamp is None]
         for source in missing:
-            collector.warn("файл не читается — даты нет", path=source, kind="даты")
+            collector.warn(Msg("links_dates_unreadable"), path=source, kind="даты")
     for page in pages:
         page.auto_updated = stamps.get(page.source)
 
@@ -205,14 +205,17 @@ def check(site: Site, collector: Collector, now: datetime | None = None) -> None
         for name, moment in (("date", page.date_at), ("updated", page.updated_at)):
             if moment is not None and moment > now:
                 collector.warn(
-                    f"{name}: {moment.isoformat(timespec='seconds')} — позже сборки; "
-                    "поисковик сочтёт дату ошибкой",
+                    Msg("links_dates_future", name=name, moment=moment.isoformat(timespec="seconds")),
                     path=page.source,
                     kind="даты",
                 )
         if page.date and page.updated and page.updated < page.date:
             collector.warn(
-                f"обновление {page.updated.isoformat()} раньше публикации {page.date.isoformat()}",
+                Msg(
+                    "links_dates_backwards",
+                    updated=page.updated.isoformat(),
+                    date=page.date.isoformat(),
+                ),
                 path=page.source,
                 kind="даты",
             )

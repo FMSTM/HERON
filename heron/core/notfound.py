@@ -18,6 +18,7 @@ from heron.contracts.site import SiteConfig
 from heron.core.errors import Collector
 from heron.core.models import Page, Site
 from heron.core.urls import home_url
+from heron.messages import Msg
 
 TYPE = "404"
 KEY = "404"
@@ -36,20 +37,19 @@ def ensure(site: Site, config: SiteConfig, theme_dir: Path, collector: Collector
             continue
         if not template.is_file():
             collector.warn(
-                f"нет content/{lang}/404.md и шаблона темы templates/404.html: "
-                "на несуществующий адрес сервер отдаст свою заглушку",
+                Msg("links_notfound_no_template", lang=lang),
                 path=f"content/{lang}",
                 kind="контент",
             )
             continue
         collector.warn(
-            f"нет content/{lang}/404.md: страница 404 собрана из шаблона темы без текста",
+            Msg("links_notfound_from_theme", lang=lang),
             path=f"content/{lang}",
             kind="контент",
         )
         page = Page(
             lang=lang,
-            source=f"content/{lang}/404.md (нет файла)",
+            source=Msg("links_notfound_source", lang=lang),
             key=KEY,
             meta=PageMeta.model_validate(
                 {"title": "404", "h1": "404", "description": "404", "noindex": True}

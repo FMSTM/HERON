@@ -22,6 +22,7 @@ from heron.core.errors import Collector
 from heron.core.models import Linked, Page, Pair, Site
 from heron.core.parser import blocks
 from heron.core.urls import canonical_path
+from heron.messages import Msg
 
 
 def _parent_url(url: str) -> str | None:
@@ -179,7 +180,7 @@ def check(site: Site, config: SiteConfig, collector: Collector) -> None:
     """
     for source, line, href in unresolved(site, config):
         collector.warn(
-            f"ссылка {href} никуда не ведёт",
+            Msg("links_unresolved", href=href),
             path=source,
             line=line,
             kind="ссылки",
@@ -255,8 +256,7 @@ def localize(site: Site, config: SiteConfig, collector: Collector) -> None:
             if fallback and path not in said:
                 said.add(path)
                 collector.warn(
-                    f"ссылка {path}: на {page.lang!r} этой страницы нет, "
-                    f"ведёт на версию {found.lang!r}",
+                    Msg("links_fallback", path=path, lang=page.lang, found=found.lang),
                     path=page.source,
                     kind="ссылки",
                 )
@@ -315,7 +315,7 @@ def _translations(site: Site, config: SiteConfig, collector: Collector) -> None:
         # незачем.
         if page.lang != default and default not in page.translations and default_filled:
             collector.warn(
-                f"страница есть на {page.lang!r}, но нет на языке по умолчанию {default!r}",
+                Msg("links_no_default", lang=page.lang, default=default),
                 path=page.source,
                 kind="переводы",
             )
@@ -359,7 +359,7 @@ def _declared(site: Site, theme: ThemeConfig, collector: Collector) -> None:
                 # не знает, обязано ли оно быть, и молчит.
                 if link.required and link.on and page.type == link.on:
                     collector.warn(
-                        f"поле {link.field!r} не заполнено, а тема ждёт минимум {link.required}",
+                        Msg("links_field_empty", field=link.field, required=link.required),
                         path=page.source,
                         kind="связи",
                     )
@@ -375,27 +375,34 @@ def _declared(site: Site, theme: ThemeConfig, collector: Collector) -> None:
                 if not found:
                     collector.error(
                         "E006",
-                        f"{link.field}: страницы {name!r} не существует"
-                        + (f" среди страниц типа {link.type!r}" if link.type else ""),
+                        Msg(
+                            "links_missing_page",
+                            field=link.field,
+                            name=name,
+                            of_type=Msg("links_of_type", type=link.type) if link.type else "",
+                        ),
                         path=page.source,
-                        hint="страница называется именем своего файла без расширения, "
-                        "а не адресом: slug на неё ничего здесь не меняет",
+                        hint=Msg("links_missing_page_hint"),
                     )
                     continue
                 if len(found) > 1:
                     collector.error(
                         "E006",
-                        f"{link.field}: имя {name!r} неоднозначно — "
-                        + ", ".join(p.source for p in found),
+                        Msg(
+                            "links_ambiguous",
+                            field=link.field,
+                            name=name,
+                            sources=", ".join(p.source for p in found),
+                        ),
                         path=page.source,
-                        hint="уточните тип связи в theme.yaml или переименуйте файл",
+                        hint=Msg("links_ambiguous_hint"),
                     )
                     continue
                 if found[0] is page:
                     # Ссылка на себя ничего не связывает, а в карточках
                     # «смотрите также» выглядит как ошибка вёрстки.
                     collector.warn(
-                        f"{link.field}: страница ссылается на саму себя ({name!r}), пропущено",
+                        Msg("links_self", field=link.field, name=name),
                         path=page.source,
                         kind="связи",
                     )
@@ -411,7 +418,12 @@ def _declared(site: Site, theme: ThemeConfig, collector: Collector) -> None:
 
             if link.required and len(targets) < link.required:
                 collector.warn(
-                    f"{link.field}: ссылок {len(targets)}, тема ждёт минимум {link.required}",
+                    Msg(
+                        "links_too_few",
+                        field=link.field,
+                        count=len(targets),
+                        required=link.required,
+                    ),
                     path=page.source,
                     kind="связи",
                 )
@@ -448,13 +460,13 @@ def _nav(site: Site, config: SiteConfig, collector: Collector) -> None:
                     )
                     if elsewhere:
                         collector.warn(
-                            f"меню {group!r}: {key!r} ещё не переведено на {lang!r}",
+                            Msg("links_menu_untranslated", group=group, key=key, lang=lang),
                             path="site.yaml",
                             kind="нет перевода",
                         )
                     else:
                         collector.warn(
-                            f"меню {group!r}: нет страницы {key!r} на языке {lang!r}",
+                            Msg("links_menu_missing", group=group, key=key, lang=lang),
                             path="site.yaml",
                             kind="меню",
                         )

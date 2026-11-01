@@ -430,6 +430,13 @@ STARTER = {
 }
 
 
+_TYPE_HINTS = {
+    "ru": ("тип страницы: какой шаблон темы её рисует", "тип, если не задан папкой"),
+    "en": ("page type: which theme template renders it", "type, if not set by the folder"),
+}
+_THEME_TITLE = {"ru": "Тема сайта {name}", "en": "Theme of {name}"}
+
+
 def seo_block(
     title: str,
     h1: str,
@@ -447,10 +454,7 @@ def seo_block(
     """
     import json
 
-    hint = {
-        "ru": ("тип страницы: какой шаблон темы её рисует", "тип, если не задан папкой"),
-        "en": ("page type: which theme template renders it", "type, if not set by the folder"),
-    }[notes]
+    hint = _TYPE_HINTS[notes]
     type_line = (
         f"type: {json.dumps(page_type, ensure_ascii=False)}\n# ↑ {hint[0]}\n"
         if page_type
@@ -651,7 +655,7 @@ def create(
 
     import json
 
-    theme_title = {"ru": f"Тема сайта {name}", "en": f"Theme of {name}"}[notes]
+    theme_title = _THEME_TITLE[notes].format(name=name)
     fields = {
         "name": name,
         # в YAML имя идёт строкой в кавычках: «Студия: Киев» без них не читается

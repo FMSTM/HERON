@@ -15,6 +15,7 @@ from heron.contracts.theme import load_theme
 from heron.core import paths
 from heron.core.errors import HeronError
 from heron.core.resolver import theme as find_theme
+from heron.messages import Msg
 from heron.scaffold import seo_block
 
 SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\Z")
@@ -48,8 +49,8 @@ def write_page(
     if not SLUG.match(slug):
         raise HeronError(
             code="E005",
-            message=f"недопустимый слаг {slug!r}",
-            hint="латиница, цифры и дефис: getting-started. Заголовок может быть любым",
+            message=Msg("scaffold_bad_slug", slug=slug),
+            hint=Msg("scaffold_bad_slug_hint"),
         )
 
     config = load_site(root / "site.yaml")
@@ -57,10 +58,14 @@ def write_page(
     theme = load_theme(found.path / "theme.yaml")
 
     if page_type not in theme.types:
-        known = ", ".join(sorted(theme.types)) or "ни одного"
+        known = ", ".join(sorted(theme.types))
         raise HeronError(
             code="E008",
-            message=f"тема не знает тип страницы {page_type!r}; в ней описаны: {known}",
+            message=(
+                Msg("scaffold_unknown_type", page_type=page_type, known=known)
+                if known
+                else Msg("scaffold_unknown_type_none", page_type=page_type)
+            ),
             path=str(found.path / "theme.yaml"),
         )
 
@@ -68,7 +73,7 @@ def write_page(
     if lang not in config.site.languages:
         raise HeronError(
             code="E005",
-            message=f"языка {lang!r} нет в site.languages",
+            message=Msg("scaffold_bad_lang", lang=lang),
             hint=", ".join(config.site.languages),
         )
     clean = paths.normalize(folder)
@@ -77,13 +82,13 @@ def write_page(
     if paths.escapes(clean) or any(part.startswith(".") for part in clean.split("/") if part):
         raise HeronError(
             code=paths.CODE,
-            message=f"папка {folder!r} выходит за пределы content/{lang}/",
-            hint="относительный путь без `..`: guides/intro",
+            message=Msg("scaffold_bad_folder", folder=folder, lang=lang),
+            hint=Msg("scaffold_bad_folder_hint"),
         )
     rel = "/".join(part for part in ("content", lang, clean, f"{slug}.md") if part)
     target = paths.in_site(root, rel)
     if target.exists():
-        raise HeronError(code="E004", message="такой файл уже есть", path=str(target))
+        raise HeronError(code="E004", message=Msg("scaffold_exists"), path=str(target))
 
     import os
 

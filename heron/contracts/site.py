@@ -25,6 +25,7 @@ from heron.contracts import version as version_contract
 from heron.contracts.loader import build, read_yaml
 from heron.core.errors import HeronError
 from heron.core.paths import NAME_RE
+from heron.messages import Msg, MsgError
 
 LANG_RE = re.compile(r"^[a-z]{2}(-[a-z]{2})?\Z")
 # Домен: метки из латиницы, цифр и дефиса, не с дефиса и не на дефис, до 63
@@ -110,7 +111,7 @@ def domain(text: str) -> str | None:
 def _clean_domain(v: str) -> str:
     found = domain(v)
     if found is None:
-        raise ValueError("домен указывается без схемы и слешей, например example.com")
+        raise MsgError("site_domain")
     return found
 
 
@@ -154,28 +155,26 @@ class SiteBlock(Strict):
     @classmethod
     def _theme(cls, v: str) -> str:
         if not NAME_RE.match(v):
-            raise ValueError("имя темы — латиница, цифры, дефис и подчёркивание")
+            raise MsgError("site_theme_name")
         return v
 
     @field_validator("languages")
     @classmethod
     def _languages(cls, v: list[str]) -> list[str]:
         if not v:
-            raise ValueError("нужен хотя бы один язык")
+            raise MsgError("site_lang_none")
         for lang in v:
             if not LANG_RE.match(lang):
-                raise ValueError(
-                    f"код языка {lang!r} не похож на код языка: ожидается uk, ru, en-gb"
-                )
+                raise MsgError("site_lang_code", lang=repr(lang))
         if len(set(v)) != len(v):
-            raise ValueError("языки повторяются")
+            raise MsgError("site_lang_dup")
         return v
 
     @model_validator(mode="after")
     def _default_lang_listed(self) -> SiteBlock:
         if self.default_lang not in self.languages:
-            raise ValueError(
-                f"default_lang {self.default_lang!r} отсутствует в languages {self.languages}"
+            raise MsgError(
+                "site_default_lang", default=repr(self.default_lang), languages=str(self.languages)
             )
         return self
 
@@ -281,7 +280,7 @@ class BuildBlock(Strict):
         if isinstance(v, str) and v.strip().lower() in ("true", "false", "kit"):
             text = v.strip().lower()
             return {"true": True, "false": False}.get(text, text)
-        raise ValueError(f"build.agents: {v!r} — ожидается true, kit или false")
+        raise MsgError("site_agents", value=repr(v))
 
 
 class NginxBlock(Strict):
@@ -310,10 +309,10 @@ class FormSpec(Strict):
     @classmethod
     def _fields(cls, v: list[str]) -> list[str]:
         if not v:
-            raise ValueError("у формы нет ни одного поля")
+            raise MsgError("site_form_no_fields")
         for name in v:
             if not NAME_RE.match(name):
-                raise ValueError(f"имя поля {name!r} — латиница, цифры, дефис и подчёркивание")
+                raise MsgError("site_field_name", name=repr(name))
         return v
 
 
@@ -331,24 +330,24 @@ def parse_gone(entry: str) -> tuple[str, str, str, str | None]:
     Негодная запись — `ValueError` с объяснением.
     """
     if not entry.startswith("/"):
-        raise ValueError(f"gone: {entry!r} — ожидается путь от корня, например /old-page/")
+        raise MsgError("site_gone_root", entry=repr(entry))
     if "#" in entry:
-        raise ValueError(f"gone: {entry!r} — якорь серверу не приходит, уберите #…")
+        raise MsgError("site_gone_anchor", entry=repr(entry))
     path, sep, query = entry.partition("?")
     if sep:
         name, eq, value = query.partition("=")
         if "*" in path or not name or not eq or "&" in query or not value:
-            raise ValueError(f"gone: {entry!r} — параметр пишется одной парой: /?p=* или /?p=12")
+            raise MsgError("site_gone_param", entry=repr(entry))
         if "*" in value and value != "*":
-            raise ValueError(f"gone: {entry!r} — звёздочка заменяет значение целиком: /?p=*")
+            raise MsgError("site_gone_star_value", entry=repr(entry))
         return "query", path, name, None if value == "*" else value
     if path.endswith("*"):
         stem = path[:-1]
         if "*" in stem:
-            raise ValueError(f"gone: {entry!r} — звёздочка допустима только в конце: /wp/*")
+            raise MsgError("site_gone_star_end", entry=repr(entry))
         return "prefix", stem, "", None
     if "*" in path:
-        raise ValueError(f"gone: {entry!r} — звёздочка допустима только в конце: /wp/*")
+        raise MsgError("site_gone_star_end", entry=repr(entry))
     return "exact", path, "", None
 
 
@@ -363,7 +362,7 @@ class SchemaException(Strict):
     @classmethod
     def _key(cls, v: str) -> str:
         if not re.fullmatch(r"SCH00[1-6]:[^:\s]+:\S+", v):
-            raise ValueError("ключ исключения: ожидается SCH00N:<файл>:<путь>")
+            raise MsgError("site_exc_key")
         return v
 
     @field_validator("reason")
@@ -371,7 +370,7 @@ class SchemaException(Strict):
     def _reason(cls, v: str) -> str:
         v = v.strip()
         if not v:
-            raise ValueError("у исключения нет причины")
+            raise MsgError("site_exc_reason")
         return v
 
 
@@ -403,9 +402,9 @@ class SiteConfig(BaseModel):
         names = [name.strip() for name in value]
         for name in names:
             if not NAME_RE.match(name):
-                raise ValueError(f"plugins: недопустимое имя {name!r}: латиница, цифры, _ и -")
+                raise MsgError("site_plugin_name", name=repr(name))
         if len(set(names)) != len(names):
-            raise ValueError("plugins: имя плагина повторяется")
+            raise MsgError("site_plugin_dup")
         return names
 
     @field_validator("gone")
@@ -420,7 +419,7 @@ class SiteConfig(BaseModel):
         seen: set[str] = set()
         for exc in self.schema_exceptions:
             if exc.key in seen:
-                raise ValueError(f"исключение задано дважды: {exc.key}")
+                raise MsgError("site_exc_dup", key=exc.key)
             seen.add(exc.key)
         return self
 
@@ -432,9 +431,11 @@ class SiteConfig(BaseModel):
             for key, values in block.i18n.items():
                 for lang in values:
                     if lang not in self.site.languages:
-                        raise ValueError(
-                            f"{key}_{lang}: языка {lang!r} нет в site.languages "
-                            f"{self.site.languages}"
+                        raise MsgError(
+                            "site_i18n_lang",
+                            key=key,
+                            lang=lang,
+                            languages=str(self.site.languages),
                         )
         return self
 
@@ -470,9 +471,8 @@ class SiteConfig(BaseModel):
         for form_name, form in self.forms.items():
             unknown = [s for s in form.sinks if s not in self.sinks]
             if unknown:
-                raise ValueError(
-                    f"форма {form_name!r} ссылается на приёмники, которых нет в sinks: "
-                    + ", ".join(unknown)
+                raise MsgError(
+                    "site_form_sinks", form=repr(form_name), sinks=", ".join(unknown)
                 )
         return self
 
@@ -497,9 +497,9 @@ def load_site(path: Path) -> SiteConfig:
     if "heron" not in data:
         raise HeronError(
             code="E011",
-            message="нет обязательного ключа `heron` с требуемой версией движка",
+            message=Msg("site_no_heron"),
             path=str(path),
-            hint='добавьте первой строкой, например: heron: ">=0.1,<0.2"',
+            hint=Msg("site_no_heron_hint"),
         )
     # версия движка раньше строгой схемы: site.yaml под более новый движок
     # содержит ключи, которых здесь нет, и должен получить E012, а не E011

@@ -26,6 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from heron.contracts.loader import build, read_yaml
 from heron.core.paths import NAME_RE
+from heron.messages import MsgError
 
 # Все формы секций, которые знает ядро. Тема называет их в `theme.yaml`
 # (`uses: ["how:steps"]`), отчёт сверяет с фактом.
@@ -74,18 +75,18 @@ class TypeSpec(BaseModel):
                 continue
             match = USES_RE.match(section)
             if not match:
-                raise ValueError(
-                    f"секция {section!r} — латиница, цифры и дефис, "
-                    "необязательный формат через двоеточие"
-                )
+                raise MsgError("site_th_section_name", section=repr(section))
             kind = match.group("kind")
             if kind and kind not in KINDS:
-                raise ValueError(
-                    f"секция {section!r}: формы {kind!r} нет. Есть: " + ", ".join(KINDS)
+                raise MsgError(
+                    "site_th_section_kind",
+                    section=repr(section),
+                    kind=repr(kind),
+                    kinds=", ".join(KINDS),
                 )
             names.append(match.group("id"))
         if len(set(names)) != len(names):
-            raise ValueError("секции повторяются")
+            raise MsgError("site_th_section_dup")
         return v
 
 
@@ -110,7 +111,7 @@ class LinkSpec(BaseModel):
     @classmethod
     def _name(cls, v: str | None) -> str | None:
         if v is not None and not NAME_RE.match(v):
-            raise ValueError("имя поля связи — латиница, цифры, дефис и подчёркивание")
+            raise MsgError("site_th_relation_name")
         return v
 
 
@@ -154,14 +155,14 @@ class ImagesSpec(BaseModel):
         for ratio in v:
             parts = ratio.split(":")
             if len(parts) != 2 or not all(p.isdigit() and int(p) > 0 for p in parts):
-                raise ValueError(f"пропорция {ratio!r} задаётся как 16:9")
+                raise MsgError("site_th_ratio", ratio=repr(ratio))
         return v
 
     @field_validator("widths")
     @classmethod
     def _widths(cls, v: list[int]) -> list[int]:
         if not v or any(width <= 0 for width in v):
-            raise ValueError("ширины — положительные числа")
+            raise MsgError("site_th_widths")
         return sorted(set(v))
 
 
@@ -213,7 +214,7 @@ class ThemeConfig(BaseModel):
     @classmethod
     def _name(cls, v: str) -> str:
         if not NAME_RE.match(v):
-            raise ValueError("имя темы — латиница, цифры, дефис и подчёркивание")
+            raise MsgError("site_th_name")
         return v
 
     @field_validator("modules")
@@ -221,7 +222,7 @@ class ThemeConfig(BaseModel):
     def _modules(cls, v: list[str]) -> list[str]:
         for module in v:
             if not NAME_RE.match(module):
-                raise ValueError(f"имя модуля {module!r} — латиница, цифры, дефис и подчёркивание")
+                raise MsgError("site_th_module_name", module=repr(module))
         return v
 
     def sections_of(self, page_type: str) -> list[str]:

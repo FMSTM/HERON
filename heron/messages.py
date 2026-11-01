@@ -467,10 +467,62 @@ class _Formatter(string.Formatter):
 _FORMATTER = _Formatter()
 
 
-def say(lang: str, key: str, **fields: object) -> str:
+# Склейка строк списка-поля: та же, что в heron/contracts/loader.py (E011).
+LINES_JOIN = "\n    "
+
+
+def _field(lang: str, value: object) -> object:
+    """Значение поля к показу: Msg рендерится на lang, список и кортеж склеиваются."""
+    if isinstance(value, Msg):
+        return value.text(lang)
+    if isinstance(value, (list, tuple)):
+        return LINES_JOIN.join(str(_field(lang, item)) for item in value)
+    return value
+
+
+def say(lang: str, key: str, /, **fields: object) -> str:
+    """Текст по ключу на языке lang; lang и key позиционные, поля с такими именами допустимы."""
     table = TEXT.get(lang, TEXT["en"])
     template = table.get(key) or TEXT["en"][key]
-    return _FORMATTER.format(template, **fields)
+    values = {name: _field(lang, value) for name, value in fields.items()}
+    return _FORMATTER.vformat(template, (), values)
+
+
+class Msg(str):
+    """Сообщение ядра: ключ и поля, текст при показе. Строка по умолчанию русская."""
+
+    key: str
+    fields: dict[str, object]
+
+    def __new__(cls, key: str, /, **fields: object) -> Msg:
+        obj = super().__new__(cls, say("ru", key, **fields))
+        obj.key = key
+        obj.fields = fields
+        return obj
+
+    def text(self, lang: str, /) -> str:
+        return say(lang, self.key, **self.fields)
+
+    def __reduce__(self) -> tuple[object, tuple[str, dict[str, object]]]:
+        return (_make_msg, (self.key, self.fields))
+
+
+def _make_msg(key: str, fields: dict[str, object]) -> Msg:
+    return Msg(key, **fields)
+
+
+class MsgError(ValueError):
+    """ValueError валидатора с Msg в args[0]."""
+
+    def __init__(self, key: str, /, **fields: object) -> None:
+        super().__init__(Msg(key, **fields))
+
+
+def rendered(value: str | None, lang: str) -> str | None:
+    """Msg на языке lang; str и None как есть."""
+    if isinstance(value, Msg):
+        return value.text(lang)
+    return value
 
 
 def title(lang: str, code: str) -> str:
@@ -907,6 +959,7 @@ KINDS: dict[str, dict[str, str]] = {
         "нет перевода": "not translated",
         "даты": "dates",
         "контент": "content",
+        "редиректы": "redirects",
     },
 }
 
@@ -1554,3 +1607,14 @@ TEXT["en"].update(
         "schema_key_bad": "Invalid schema exception key: {finding} (expected SCH00N:<file>:<path>)",
     }
 )
+
+
+# --- словарь по группам: heron/texts/<группа>.py (E15.S2) ---------------------------
+def _load_groups() -> None:
+    from heron.texts import load
+
+    for lang, table in load().items():
+        TEXT.setdefault(lang, {}).update(table)
+
+
+_load_groups()

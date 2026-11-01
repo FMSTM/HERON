@@ -160,7 +160,7 @@ $H build my-site       # → my-site/dist/
 
 The engine in the container sees only the current folder, so the path to the site is relative to it: `my-site`, or `.` if you are already in the site folder (for example in your own git repository: `.git` and `README` do not get in the way). Without questions, for agents and CI: `$H new my-site --notes en --name Workshop --domain workshop.com --lang en,ru -y`.
 
-The answers go into `site.yaml`; the `setup` questionnaire adds the rest and puts the publication scripts, and you can edit `site.yaml` by hand too. If you changed the languages, `$H init my-site` builds up the folders. A new site comes with the white theme and its demo pages: the home page, "Blocks" (every kind of block), "Themes", "Documentation".
+The answers go into `site.yaml`: comments written by hand and keys the questionnaire does not manage stay in place on save; the `setup` questionnaire adds the rest and puts the publication scripts, and you can edit `site.yaml` by hand too. If you changed the languages, `$H init my-site` builds up the folders. A new site comes with the white theme and its demo pages: the home page, "Blocks" (every kind of block), "Themes", "Documentation".
 
 To look at the result:
 

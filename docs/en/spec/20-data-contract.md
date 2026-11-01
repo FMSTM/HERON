@@ -78,6 +78,8 @@ The build result is `dist/`: `heron build` without `--out` puts it inside the si
 
 **Dockerfile, compose and `.env` in the site folder are forbidden; it has no build logic.** All tooling lives in the engine (`scripts/site.sh`, `Dockerfile.site` - also `heron recipe`, `site-image.yml`, `env/.env.<site>.<environment>`), service secrets live with the services (section 8). There is one exception: `heron setup` optionally puts `.heron/scripts/build.sh`, `.heron/scripts/publish.sh` and a workflow - one-line calls of the HERON image for the chosen publication method, marked "heron setup" (`21` §10).
 
+**`site.yaml` saved by the questionnaire.** When `heron setup` writes `site.yaml`, it keeps the author's comments: for nodes whose data did not change the text stays as it was, for changed ones the comments above the key and at the end of the line stay. Keys the questionnaire does not manage are neither touched nor deleted: they stay in the file in their places. Comments are carried over by key path.
+
 There is no engine code here. `heron/` in the site folder is an error, not structure.
 
 **`data/`** - reference data that does not belong in the markdown body: lists of services with attributes, comparison tables, company details, lists of documents. Templates access it as `data.<file name>`.

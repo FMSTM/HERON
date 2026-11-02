@@ -163,7 +163,7 @@ KEEP_RELEASES=3
 
 ### CI движка: кеши, jobs и сброс кеша
 
-Workflow `ci.yml` репозитория движка состоит из четырёх jobs. `quality` (линт и тесты), `browser` (Chromium-проверки) и `image-build` (сборка и проверка образа, только на push) идут **параллельно**. `publish` (публикация образа, только на push) ждёт их все: `needs: [quality, browser, image-build]`. Раннер закреплён явно, `ubuntu-26.04`.
+Workflow `ci.yml` репозитория движка состоит из четырёх jobs. `quality` (линт и тесты), `browser` (Chromium-проверки) и `image-build` (сборка и проверка образа, только на push) идут **параллельно**. `publish` (публикация образа, только на push) ждёт их все: `needs: [quality, browser, image-build]`. `publish` не пересобирает образ: он получает проверенный в `image-build` образ артефактом `heron-candidate` (`docker save`/`docker load`, срок хранения 1 день), поэтому публикуется ровно тот образ, что прошёл дымовую проверку. Раннер закреплён явно, `ubuntu-26.04`.
 
 **Concurrency.** Группа `${{ github.workflow }}-${{ github.ref }}`: один активный запуск на ветку или pull request. Устаревший запуск отменяется новым только для pull request и ветки `dev`. На `beta`, `prod` и тегах отмена выключена: там идёт публикация образа.
 
@@ -172,10 +172,10 @@ Workflow `ci.yml` репозитория движка состоит из чет
 | Зависимости Python (uv) | `quality`, `browser`: `astral-sh/setup-uv`, `enable-cache` | хеш `uv.lock` (`cache-dependency-glob`) |
 | `.deb` nginx | `quality`: `~/.apt-archives` | `apt-nginx-<ОС>-<архитектура>-ubuntu-26.04` |
 | Chromium Playwright | `browser`: `~/.cache/ms-playwright` | `playwright-<ОС>-<версия Playwright>` |
-| Слои Docker (buildx, бэкенд gha) | `image-build` пишет и читает, `publish` только читает | `scope=heron-engine` |
+| Слои Docker (buildx, бэкенд gha) | `image-build` (пишет и читает) | `scope=heron-engine` |
 | Слои Docker образа сайта | `site-image.yml` | `scope=heron-site` |
 
-Попадание в кеш Chromium пропускает скачивание браузера, но системные библиотеки всё равно ставятся (`playwright install-deps`). Кеш влияет только на скорость: промах не меняет результат, сборка просто холодная.
+Попадание в кеш Chromium пропускает скачивание браузера, но системные библиотеки всё равно ставятся (`playwright install-deps`). Промах кеша слоёв Docker влияет на время сборки `image-build`, а публикуется в любом случае образ, прошедший проверку. Результат холодной сборки может отличаться: она заново ставит незакреплённый пакет git (шаг установки git в `Dockerfile`).
 
 **Как сбросить кеш.**
 

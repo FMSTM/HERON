@@ -163,7 +163,7 @@ Item 3 is not a formality. It is the only thing that protects the index when mig
 
 ### Engine CI: caches, jobs and cache reset
 
-The engine repository workflow `ci.yml` has four jobs. `quality` (lint and tests), `browser` (Chromium checks) and `image-build` (image build and check, push only) run **in parallel**. `publish` (image publishing, push only) waits for all of them: `needs: [quality, browser, image-build]`. The runner is pinned explicitly, `ubuntu-26.04`.
+The engine repository workflow `ci.yml` has four jobs. `quality` (lint and tests), `browser` (Chromium checks) and `image-build` (image build and check, push only) run **in parallel**. `publish` (image publishing, push only) waits for all of them: `needs: [quality, browser, image-build]`. `publish` does not rebuild the image: it receives the image verified in `image-build` as the `heron-candidate` artifact (`docker save`/`docker load`, retention 1 day), so exactly the image that passed the smoke check is published. The runner is pinned explicitly, `ubuntu-26.04`.
 
 **Concurrency.** Group `${{ github.workflow }}-${{ github.ref }}`: one active run per branch or pull request. A stale run is cancelled by a new one only for pull requests and the `dev` branch. On `beta`, `prod` and tags cancellation is off: the image is published there.
 
@@ -172,10 +172,10 @@ The engine repository workflow `ci.yml` has four jobs. `quality` (lint and tests
 | Python dependencies (uv) | `quality`, `browser`: `astral-sh/setup-uv`, `enable-cache` | hash of `uv.lock` (`cache-dependency-glob`) |
 | nginx `.deb` packages | `quality`: `~/.apt-archives` | `apt-nginx-<OS>-<arch>-ubuntu-26.04` |
 | Playwright Chromium | `browser`: `~/.cache/ms-playwright` | `playwright-<OS>-<Playwright version>` |
-| Docker layers (buildx, gha backend) | `image-build` writes and reads, `publish` only reads | `scope=heron-engine` |
+| Docker layers (buildx, gha backend) | `image-build` (writes and reads) | `scope=heron-engine` |
 | Site image Docker layers | `site-image.yml` | `scope=heron-site` |
 
-A Chromium cache hit skips the browser download, but system libraries are still installed (`playwright install-deps`). The cache affects speed only: a miss does not change the result, the build is just cold.
+A Chromium cache hit skips the browser download, but system libraries are still installed (`playwright install-deps`). A Docker layer cache miss affects the build time of `image-build`, and the image that passed the check is published in any case. A cold build may differ in content: it reinstalls the unpinned git package (the git install step in `Dockerfile`).
 
 **How to reset a cache.**
 

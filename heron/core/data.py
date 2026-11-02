@@ -15,6 +15,7 @@ from typing import Any
 from heron.contracts.loader import read_yaml
 from heron.core import paths
 from heron.core.errors import Collector, HeronError
+from heron.messages import Msg
 
 SUFFIXES = (".yaml", ".yml")
 
@@ -32,14 +33,14 @@ def load(root: Path, collector: Collector | None = None) -> dict[str, Any]:
             if collector is None:
                 raise HeronError(
                     code=paths.CODE,
-                    message="символическая ссылка ведёт за пределы data/",
+                    message=Msg("blocks_symlink_outside"),
                     path=str(path),
                 )
             collector.error(
                 paths.CODE,
-                "символическая ссылка ведёт за пределы data/",
+                Msg("blocks_symlink_outside"),
                 path=str(path.relative_to(root.parent)),
-                hint="положите сам файл в data/ вместо ссылки на него",
+                hint=Msg("blocks_symlink_hint"),
             )
             continue
         node = out
@@ -53,7 +54,7 @@ def load(root: Path, collector: Collector | None = None) -> dict[str, Any]:
                 raise
             collector.error(
                 "E011",
-                f"справочник не читается: {exc}",
+                Msg("blocks_data_unreadable", error=str(exc)),
                 path=str(path.relative_to(root.parent)),
             )
     return out

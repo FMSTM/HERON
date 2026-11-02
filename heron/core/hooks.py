@@ -16,6 +16,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from heron.messages import MsgError
+
 NAMES = (
     "on_config",
     "on_page_parsed",
@@ -39,9 +41,7 @@ class Hooks:
     def on(self, name: str, handler: Callable[..., Any]) -> None:
         """Подписать обработчик на хук."""
         if name not in NAMES and not name.startswith(BLOCK):
-            raise ValueError(
-                f"неизвестный хук {name!r}; доступны: " + ", ".join([*NAMES, "block:<имя>"])
-            )
+            raise MsgError("blocks_hook_unknown", name=repr(name), names=", ".join(NAMES))
         self.handlers.setdefault(name, []).append(handler)
 
     def filter(self, name: str, handler: Callable[..., Any]) -> None:

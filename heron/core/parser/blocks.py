@@ -26,6 +26,7 @@ from markdown_it.token import Token
 from heron.contracts.theme import KINDS  # noqa: F401 — реэкспорт для модулей ядра
 from heron.core.errors import Warning_
 from heron.core.models import Pair, Section
+from heron.messages import Msg
 
 # Порядок автоопределения, когда класса в якоре нет. Первая форма, которой
 # подошло содержимое, и есть форма секции. `alert-list`, `gallery` и
@@ -358,7 +359,7 @@ def detect(md: MarkdownIt, section: Section) -> tuple[str, Any, list[Warning_]]:
             explicit = BY_CLASS[name]
             break
         warnings.append(
-            Warning_(f"секция {section.id!r}: неизвестный класс {name!r}, определяю по содержимому")
+            Warning_(Msg("blocks_unknown_class", section=repr(section.id), name=repr(name)))
         )
 
     groups = _headed_groups(md, tokens, env)
@@ -372,7 +373,7 @@ def detect(md: MarkdownIt, section: Section) -> tuple[str, Any, list[Warning_]]:
                 if stray:
                     warnings.append(
                         Warning_(
-                            f"секция {section.id!r}: строки без разделителя «|» пропущены ({stray})"
+                            Msg("blocks_stray_lines", section=repr(section.id), stray=stray)
                         )
                     )
             return ("facts", rows) if rows is not None else None
@@ -414,10 +415,7 @@ def detect(md: MarkdownIt, section: Section) -> tuple[str, Any, list[Warning_]]:
         if parsed:
             return parsed[0], parsed[1], warnings
         warnings.append(
-            Warning_(
-                f"секция {section.id!r}: класс {explicit!r} не подходит к содержимому, "
-                "вывожу прозой"
-            )
+            Warning_(Msg("blocks_class_mismatch", section=repr(section.id), name=repr(explicit)))
         )
         return "prose", section.html, warnings
 
@@ -551,11 +549,7 @@ def intro_parts(md: MarkdownIt, intro: Section) -> list[Warning_]:
     intro.links = links_of(intro.html)
     if len(chunks) > 2:
         return [
-            Warning_(
-                f"вводный блок длиннее двух абзацев: третий и далее "
-                f"({len(chunks) - 2}) не попадут в шаблон",
-                kind="контент",
-            )
+            Warning_(Msg("blocks_intro_long", count=len(chunks) - 2), kind="контент")
         ]
     return []
 

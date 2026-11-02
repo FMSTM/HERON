@@ -1,7 +1,6 @@
 """Строки интерфейса ru: без длинного и короткого тире (AGENTS.md, «Типографика»).
 
-Проверяются собственные значения heron.messages; ключи из групп heron/texts
-правят отдельные задачи (E15.S2.T48-T50).
+Проверяются все значения messages.TEXT["ru"] и ru-значения групп heron.texts.
 """
 
 from __future__ import annotations
@@ -15,15 +14,8 @@ DASHES = ("—", "–")
 TABLES = [name for name in ("TEXT", "TITLES", "KINDS") if "ru" in getattr(messages, name, {})]
 
 
-def _group_keys() -> set[str]:
-    keys: set[str] = set()
-    for tables in groups().values():
-        keys.update(tables.get("ru", {}))
-    return keys
-
-
-def _bad_keys(table: dict[str, str], skip: set[str]) -> list[str]:
-    return [k for k, v in table.items() if k not in skip and any(d in v for d in DASHES)]
+def _bad_keys(table: dict[str, str]) -> list[str]:
+    return [k for k, v in table.items() if any(d in v for d in DASHES)]
 
 
 def test_tables_are_discovered():
@@ -32,9 +24,26 @@ def test_tables_are_discovered():
 
 @pytest.mark.parametrize("name", TABLES)
 def test_ru_own_values_have_no_long_or_short_dash(name):
-    skip = _group_keys() if name == "TEXT" else set()
-    bad = _bad_keys(getattr(messages, name)["ru"], skip)
+    bad = _bad_keys(getattr(messages, name)["ru"])
     assert not bad, f"{name}['ru']: тире в ключах {bad}"
+
+
+def test_all_group_ru_values_have_no_dash():
+    bad = [
+        f"{group}.{k}"
+        for group, tables in groups().items()
+        for k, v in tables.get("ru", {}).items()
+        if any(d in v for d in DASHES)
+    ]
+    assert not bad, f"heron.texts ru: тире в ключах {bad}"
+
+
+def test_mutation_dash_in_group_ru_value_is_detected(monkeypatch):
+    group = next(iter(groups().values()))
+    key = next(iter(group["ru"]))
+    monkeypatch.setitem(group["ru"], key, "а — б")
+    with pytest.raises(AssertionError, match=key):
+        test_all_group_ru_values_have_no_dash()
 
 
 def test_summary_warnings_ru_uses_hyphen():

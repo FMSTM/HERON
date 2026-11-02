@@ -42,7 +42,10 @@ def test_bad_yaml():
     assert err.message.key == "parser_bad_yaml"
     assert err.message.text("ru").startswith("битый YAML во фронтматтере: ")
     assert not CYR.search(err.message.text("en"))
-    assert err.hint.text("ru") == "проверьте отступы и кавычки: значение с двоеточием берётся в кавычки"
+    assert (
+        err.hint.text("ru")
+        == "проверьте отступы и кавычки: значение с двоеточием берётся в кавычки"
+    )
 
 
 def test_not_mapping():
@@ -61,7 +64,11 @@ def test_missing_fields():
 
 
 def test_invalid_frontmatter_lines_joined():
-    err = _err(frontmatter.parse_meta, {"title": "t", "h1": "h", "description": "d", "date": "не дата"}, "a.md")
+    err = _err(
+        frontmatter.parse_meta,
+        {"title": "t", "h1": "h", "description": "d", "date": "не дата"},
+        "a.md",
+    )
     if err.message.key == "parser_frontmatter_invalid":
         assert err.message.text("ru").startswith("фронтматтер не проходит проверку:\n    ")
         assert not CYR.search(err.message.text("en").split("\n", 1)[0])
@@ -81,7 +88,7 @@ def test_bad_section_id():
     _check(
         err,
         "недопустимый идентификатор секции 'Bad_Id'",
-        "идентификатор — латиница, цифры и дефис: {#quick-facts}",
+        "идентификатор - латиница, цифры и дефис: {#quick-facts}",
     )
     assert "{#quick-facts}" in err.hint.text("en")
 
@@ -92,7 +99,7 @@ def test_duplicate_section():
     _check(
         err,
         "идентификатор секции 'x' встречается в файле дважды",
-        "первый раз — строка 1",
+        "первый раз - строка 1",
     )
     assert err.hint.text("en") == "the first time is line 1"
 

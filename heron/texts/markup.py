@@ -13,7 +13,7 @@ TEXT: dict[str, dict[str, str]] = {
         "markup_entity_empty": "в сквозном узле объявлены адрес или координаты, а значения пустые",
         "markup_entity_empty_hint": "заполните в site.yaml то, на что ссылается schema.entity: например contact.city и contact.geo",
         "markup_money": "в разметке есть поля про деньги: {fields}",
-        "markup_money_hint": "сайт не публикует цены (seo.allow_prices: false) — уберите эти поля из блока schema или разрешите цены в site.yaml",
+        "markup_money_hint": "сайт не публикует цены (seo.allow_prices: false) - уберите эти поля из блока schema или разрешите цены в site.yaml",
     },
     "en": {
         "markup_no_replacement": "no replacement, remove it",

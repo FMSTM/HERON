@@ -10,7 +10,7 @@ TEXT: dict[str, dict[str, str]] = {
         "render_include_missing_hint": (
             "пути в extends, include и import считаются от корня темы: templates/…, modules/…"
         ),
-        "render_include_found_hint": "файл есть как {folder}/{missing} — пути считаются от корня темы",
+        "render_include_found_hint": "файл есть как {folder}/{missing} - пути считаются от корня темы",
         "render_sandbox": "шаблон {name} обращается к закрытому: {detail}",
         "render_sandbox_hint": (
             "шаблону доступны поля и вызовы из docs/ru/spec/21-engine.md §7; "
@@ -24,7 +24,7 @@ TEXT: dict[str, dict[str, str]] = {
         "render_i18n_symlink": "i18n/{lang}.yaml ведёт за пределы темы через ссылку",
         "render_symlink_hint": "положите сам файл в тему вместо ссылки на него",
         "render_i18n_key_type": (
-            "ключ {key!r} прочитан как {type}, а не как строка — возьмите его в кавычки"
+            "ключ {key!r} прочитан как {type}, а не как строка - возьмите его в кавычки"
         ),
         "render_i18n_missing": "в теме нет строк интерфейса для языка {lang!r}",
         "render_template_symlink": "шаблон {template} ведёт за пределы темы через ссылку",

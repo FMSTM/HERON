@@ -72,7 +72,7 @@ def test_i18n_key_not_string(tmp_path):
     collector = Collector()
     envmod.load_strings(tmp_path, "ru", collector)
     (w,) = collector.warnings
-    assert w.message == "ключ False прочитан как bool, а не как строка — возьмите его в кавычки"
+    assert w.message == "ключ False прочитан как bool, а не как строка - возьмите его в кавычки"
     assert w.message.text("en") == "key False was read as bool, not as a string: put it in quotes"
 
 

@@ -46,7 +46,7 @@ files:
     ru_sha256: "79952f64741493a4cefcc6babc2e5758af71f58083376b09619f4577ce45bee3"
     en_status: current
   - path: spec/21-engine.md
-    ru_sha256: "86f17bd9398b10bd4db4cc9d2a0784ce900fb2df2920bb0966c1c5edc1fb855d"
+    ru_sha256: "6c5d6547def6b5a7a6808885bf2d793c4e22a0fa37985ae1ec232efd32e867db"
     en_status: current
   - path: spec/22-deploy.md
     ru_sha256: "8849224c97f73016a561a6de59f362fdacacc68ec30d0bec62b3196e26be2e9c"

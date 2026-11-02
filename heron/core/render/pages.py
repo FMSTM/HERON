@@ -22,6 +22,7 @@ from heron.core.media import Manifest
 from heron.core.models import Page, Site
 from heron.core.render import env as envmod
 from heron.core.render import signature
+from heron.messages import Msg
 
 TEMPLATES = "templates"
 
@@ -51,16 +52,18 @@ def render_page(
     except TemplateNotFound as exc:
         raise HeronError(
             code="E008",
-            message=f"для типа страницы {page.type!r} нет шаблона {name}",
+            message=Msg("render_template_missing", type=page.type, name=name),
             path=page.source,
-            hint=f"создайте {name} в теме или задайте другой тип страницы",
+            hint=Msg("render_template_missing_hint", name=name),
         ) from exc
     except TemplateSyntaxError as exc:
         raise HeronError(
             code="E010",
-            message=f"ошибка в шаблоне {exc.name or name}, строка {exc.lineno}: {exc.message}",
+            message=Msg(
+                "render_template_syntax", name=exc.name or name, line=exc.lineno, detail=exc.message
+            ),
             path=page.source,
-            hint="проверьте разметку Jinja в этой строке шаблона темы",
+            hint=Msg("render_template_syntax_hint"),
         ) from exc
 
     scope = envmod.context(env, page, site, config, theme, strings, collector, media, build_env)
@@ -71,25 +74,27 @@ def render_page(
         # Это опечатка темы, а не сбой движка, — и почти всегда одна и та же:
         # путь пишут от папки шаблона, а он считается от корня темы.
         missing = exc.name or str(exc)
-        hint = "пути в extends, include и import считаются от корня темы: templates/…, modules/…"
+        hint = Msg("render_include_missing_hint")
         loader = getattr(env, "loader", None)
         searched = getattr(loader, "searchpath", None) or []
         for root in searched:
             for folder in ("templates", "modules", "partials"):
                 if (Path(root) / folder / missing).is_file():
-                    hint = f"файл есть как {folder}/{missing} — пути считаются от корня темы"
+                    hint = Msg("render_include_found_hint", folder=folder, missing=missing)
         raise HeronError(
             code="E008",
-            message=f"шаблон {name} ссылается на {missing!r}, а такого файла в теме нет",
+            message=Msg("render_include_missing", name=name, missing=missing),
             path=page.source,
             hint=hint,
         ) from exc
     except TemplateSyntaxError as exc:
         raise HeronError(
             code="E010",
-            message=f"ошибка в шаблоне {exc.name or name}, строка {exc.lineno}: {exc.message}",
+            message=Msg(
+                "render_template_syntax", name=exc.name or name, line=exc.lineno, detail=exc.message
+            ),
             path=page.source,
-            hint="проверьте разметку Jinja в этой строке шаблона темы",
+            hint=Msg("render_template_syntax_hint"),
         ) from exc
     except SecurityError as exc:
         # Тема — недоверенный код, шаблоны собираются в песочнице. Сюда
@@ -97,17 +102,16 @@ def render_page(
         # или изменить данные сайта из шаблона.
         raise HeronError(
             code="E033",
-            message=f"шаблон {name} обращается к закрытому: {exc}",
+            message=Msg("render_sandbox", name=name, detail=str(exc)),
             path=page.source,
-            hint="шаблону доступны поля и вызовы из docs/ru/spec/21-engine.md §7; "
-            "служебные атрибуты Python и изменение данных сайта закрыты",
+            hint=Msg("render_sandbox_hint"),
         ) from exc
     except JinjaUndefined as exc:
         raise HeronError(
             code="E010",
-            message=f"шаблон {name} обращается к тому, чего нет: {exc.message}",
+            message=Msg("render_undefined", name=name, detail=exc.message),
             path=page.source,
-            hint="опечатка в имени переменной или поле не заполнено во фронтматтере",
+            hint=Msg("render_undefined_hint"),
         ) from exc
 
 

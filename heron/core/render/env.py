@@ -30,6 +30,7 @@ from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError
 from heron.core.media import Manifest
 from heron.core.models import EXTERNAL_URL, Page, Site
+from heron.messages import Msg
 from heron.modules import jsonld, sitemap
 
 MODULES = "modules"
@@ -62,7 +63,7 @@ class Strings:
         if key not in self._missed:
             self._missed.add(key)
             self._collector.warn(
-                f"нет строки перевода {key!r} для языка {self._lang!r}", kind="переводы"
+                Msg("render_string_missing", key=key, lang=self._lang), kind="переводы"
             )
         return key
 
@@ -97,9 +98,9 @@ class Modules:
             except TemplateNotFound as exc:
                 raise HeronError(
                     code="E008",
-                    message=f"тема вызывает модуль {name!r}, но {template_name} в ней нет",
+                    message=Msg("render_module_missing", name=name, template=template_name),
                     path=page.source,
-                    hint="добавьте шаблон модуля или уберите вызов из шаблона типа",
+                    hint=Msg("render_module_missing_hint"),
                 ) from exc
             scope = dict(self._context)
             scope.update(
@@ -121,9 +122,9 @@ def load_strings(theme_dir: Path, lang: str, collector: Collector) -> Strings:
         # Файл строк — ссылка за пределы темы: её текст ушёл бы в страницы.
         raise HeronError(
             code=paths.CODE,
-            message=f"i18n/{lang}.yaml ведёт за пределы темы через ссылку",
+            message=Msg("render_i18n_symlink", lang=lang),
             path=str(path),
-            hint="положите сам файл в тему вместо ссылки на него",
+            hint=Msg("render_symlink_hint"),
         )
     if path.is_file():
         loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -133,8 +134,7 @@ def load_strings(theme_dir: Path, lang: str, collector: Collector) -> Strings:
             # ключа, а причина будет неочевидна до самого осмотра страницы.
             for key in [k for k in loaded if not isinstance(k, str)]:
                 collector.warn(
-                    f"ключ {key!r} прочитан как {type(key).__name__}, а не как строка — "
-                    "возьмите его в кавычки",
+                    Msg("render_i18n_key_type", key=key, type=type(key).__name__),
                     path=str(path),
                     kind="переводы",
                 )
@@ -142,7 +142,7 @@ def load_strings(theme_dir: Path, lang: str, collector: Collector) -> Strings:
             values = loaded
     else:
         collector.warn(
-            f"в теме нет строк интерфейса для языка {lang!r}", path=str(path), kind="переводы"
+            Msg("render_i18n_missing", lang=lang), path=str(path), kind="переводы"
         )
     return Strings(values, lang, collector)
 
@@ -165,9 +165,9 @@ class ThemeLoader(FileSystemLoader):
         if filename and not paths.inside(self.root, Path(filename)):
             raise HeronError(
                 code=paths.CODE,
-                message=f"шаблон {template} ведёт за пределы темы через ссылку",
+                message=Msg("render_template_symlink", template=template),
                 path=str(filename),
-                hint="положите сам файл в тему вместо ссылки на него",
+                hint=Msg("render_symlink_hint"),
             )
         return source, filename, uptodate
 
@@ -255,7 +255,7 @@ def media_url(
             # Молча отдать пустоту нельзя: именно на этом теряются картинки,
             # и замечают это глазами, через неделю после выката.
             collector.warn(
-                f"нет нарезанного варианта {ratio or '1:1'} для {clean}", kind="картинки"
+                Msg("render_no_rendition", ratio=ratio or "1:1", name=clean), kind="картинки"
             )
             return f"/{clean}"
 
@@ -263,7 +263,7 @@ def media_url(
         if variants is None:
             variants = rendition.sources.get("origin") or next(iter(rendition.sources.values()), [])
         if not variants:
-            collector.warn(f"нет файлов варианта {ratio} для {clean}", kind="картинки")
+            collector.warn(Msg("render_no_rendition_files", ratio=ratio, name=clean), kind="картинки")
             return f"/{clean}"
 
         chosen = next((path for w, path in variants if w >= width), variants[-1][1])
@@ -380,7 +380,7 @@ def picture(
     ) -> Markup:
         rendition = manifest.get(src, ratio)
         if rendition is None:
-            collector.warn(f"нет нарезанного варианта {ratio} для {src}", kind="картинки")
+            collector.warn(Msg("render_no_rendition", ratio=ratio, name=src), kind="картинки")
             return Markup("")
 
         # Результат — Markup, автоэкранирование Jinja его не трогает, поэтому

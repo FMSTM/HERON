@@ -11,15 +11,18 @@
     {% if channels %}
     <ul class="contacts">
       {% for c in channels %}
-        {% set v = c.get('value', '')|string %}{% set kind = c.get('type', 'other') %}{% set purpose = c.get('purpose', '') %}
+        {% set v = c.get('value', '')|string|trim %}{% set kind = c.get('type', 'other') %}{% set purpose = c.get('purpose', '') %}
         {% set digits = v|select('in', '0123456789')|join %}
         {% if kind == 'phone' %}{% set href = 'tel:+' ~ digits %}
         {% elif kind == 'email' %}{% set href = 'mailto:' ~ v %}
         {% elif v.startswith('https://') or v.startswith('http://') %}{% set href = v %}
-        {% elif kind == 'whatsapp' %}{% set href = 'https://wa.me/' ~ digits %}
-        {% elif kind == 'telegram' %}{% set href = 'https://t.me/' ~ v.lstrip('@') %}
-        {% elif kind == 'instagram' %}{% set href = 'https://www.instagram.com/' ~ v.lstrip('@') %}
-        {% elif kind == 'website' %}{% set href = 'https://' ~ v %}
+        {% elif kind == 'whatsapp' %}{% set href = ('https://wa.me/' ~ digits) if digits else '' %}
+        {% elif kind == 'viber' %}{% set href = ('viber://chat?number=%2B' ~ digits) if digits else '' %}
+        {% elif kind in ('telegram', 'instagram', 'tiktok', 'x', 'youtube') %}
+          {% set bare = v[1:] if v.startswith('@') else v %}
+          {% set base = {'telegram': 'https://t.me/', 'instagram': 'https://www.instagram.com/', 'tiktok': 'https://www.tiktok.com/@', 'x': 'https://x.com/', 'youtube': 'https://www.youtube.com/@'}[kind] %}
+          {% set href = (base ~ v.lstrip('@')) if (bare|length >= 2 and bare|length <= 64 and bare|reject('in', 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.')|list|length == 0) else '' %}
+        {% elif kind == 'website' %}{% set href = ('https://' ~ v) if ('.' in v and ' ' not in v) else '' %}
         {% else %}{% set href = '' %}
         {% endif %}
         <li class="contact contact-{{ kind }}">{% if purpose %}<span class="purpose">{{ t['contact_' ~ purpose] if ('contact_' ~ purpose) in t else purpose }}</span> {% endif %}{% if href %}<a href="{{ href }}">{{ v }}</a>{% else %}{{ v }}{% endif %}</li>

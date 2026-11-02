@@ -26,7 +26,7 @@ def test_both_folders(tmp_path):
     with pytest.raises(HeronError) as raised:
         media.folder(tmp_path, Collector())
     err = raised.value
-    assert err.message == "в сайте есть и media/, и img/ — движок не знает, какая настоящая"
+    assert err.message == "в сайте есть и media/, и img/ - движок не знает, какая настоящая"
     assert err.hint == "перенесите файлы в media/ и удалите img/"
     assert _en_ok(err) == "the site has both media/ and img/: the engine cannot tell which one is real"
 
@@ -91,9 +91,9 @@ def test_cache_link_guard(tmp_path):
     cache.symlink_to(real)
     with pytest.raises(HeronError) as raised:
         media.guard(cache)
-    assert raised.value.message.startswith("кэш — ссылка, а не папка")
+    assert raised.value.message.startswith("кэш - ссылка, а не папка")
     assert _en_ok(raised.value).startswith("the cache is a link, not a folder")
-    assert raised.value.hint == "удалите эту ссылку — папка кэша пересоздастся при сборке"
+    assert raised.value.hint == "удалите эту ссылку - папка кэша пересоздастся при сборке"
 
 
 def test_slice_is_dir(tmp_path):
@@ -101,7 +101,7 @@ def test_slice_is_dir(tmp_path):
     folder.mkdir()
     with pytest.raises(HeronError) as raised:
         media._reusable(folder)
-    assert raised.value.message == f"на месте нарезки в кэше — папка: {folder}"
+    assert raised.value.message == f"на месте нарезки в кэше - папка: {folder}"
     assert _en_ok(raised.value).startswith("a folder sits where a rendition")
 
 

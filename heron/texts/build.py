@@ -6,7 +6,7 @@ TEXT: dict[str, dict[str, str]] = {
     "ru": {
         "build_bad_workers": "{env}={raw!r}: нужно целое число от 0 до 64",
         "build_bad_workers_hint": (
-            "0 — по числу ядер, 1 — без пула процессов; пустое значение — как в site.yaml"
+            "0 - по числу ядер, 1 - без пула процессов; пустое значение - как в site.yaml"
         ),
         "build_prod_no_pages": "в проде нечего собирать: ни одной страницы",
         "build_prod_no_pages_hint": (
@@ -32,13 +32,13 @@ TEXT: dict[str, dict[str, str]] = {
         "build_owner_theme_asset": "тема assets/{rel}",
         "build_nginx_empty": "{name} пуст",
         "build_nginx_empty_hint": (
-            "пустой конфиг — сайт без 301, 410 и 404; уберите подмену "
+            "пустой конфиг - сайт без 301, 410 и 404; уберите подмену "
             "из build.overrides или верните содержимое"
         ),
         "build_plugin_word": "плагин",
         "build_finish_failed": "{name}: {kind}: {error}",
         "build_finished_returned_files": (
-            "плагин вернул файлы из on_build_finished — они не записаны: "
+            "плагин вернул файлы из on_build_finished - они не записаны: "
             "файлы сборки объявляются в on_generate(site, config)"
         ),
         "build_no_home_page": "у языка {lang!r} нет главной страницы: {home} ответит 404",

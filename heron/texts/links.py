@@ -12,21 +12,21 @@ TEXT: dict[str, dict[str, str]] = {
             "страница называется именем своего файла без расширения, "
             "а не адресом: slug на неё ничего здесь не меняет"
         ),
-        "links_ambiguous": "{field}: имя {name!r} неоднозначно — {sources}",
+        "links_ambiguous": "{field}: имя {name!r} неоднозначно - {sources}",
         "links_ambiguous_hint": "уточните тип связи в theme.yaml или переименуйте файл",
         "links_self": "{field}: страница ссылается на саму себя ({name!r}), пропущено",
         "links_too_few": "{field}: ссылок {count}, тема ждёт минимум {required}",
         "links_menu_untranslated": "меню {group!r}: {key!r} ещё не переведено на {lang!r}",
         "links_menu_missing": "меню {group!r}: нет страницы {key!r} на языке {lang!r}",
-        "links_dates_no_history": "истории нет — даты взяты из времени файлов, страниц {count}",
-        "links_dates_dirty": "файл изменён, но не закоммичен — дата взята из времени файла",
-        "links_dates_not_in_history": "файла нет в истории — дата взята из времени файла",
+        "links_dates_no_history": "истории нет - даты взяты из времени файлов, страниц {count}",
+        "links_dates_dirty": "файл изменён, но не закоммичен - дата взята из времени файла",
+        "links_dates_not_in_history": "файла нет в истории - дата взята из времени файла",
         "links_dates_same_time": (
-            "у всех файлов одно время — так выглядит копирование, а не правка; "
+            "у всех файлов одно время - так выглядит копирование, а не правка; "
             "дата обновления не проставлена"
         ),
-        "links_dates_unreadable": "файл не читается — даты нет",
-        "links_dates_future": "{name}: {moment} — позже сборки; поисковик сочтёт дату ошибкой",
+        "links_dates_unreadable": "файл не читается - даты нет",
+        "links_dates_future": "{name}: {moment} - позже сборки; поисковик сочтёт дату ошибкой",
         "links_dates_backwards": "обновление {updated} раньше публикации {date}",
         "links_notfound_no_template": (
             "нет content/{lang}/404.md и шаблона темы templates/404.html: "

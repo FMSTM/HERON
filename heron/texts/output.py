@@ -2,7 +2,7 @@
 
 TEXT = {
     "ru": {
-        "output_reserved_name": "{owner}: {clean} — служебное имя сборки, его пишет сам движок",
+        "output_reserved_name": "{owner}: {clean} - служебное имя сборки, его пишет сам движок",
         "output_rename_file": "переименуйте файл",
         "output_path_outside": "{owner}: выходной путь {rel} вне папки сборки",
         "output_conflict": "два источника дают один файл сборки {clean}: {held} и {owner}",
@@ -11,21 +11,21 @@ TEXT = {
             "сгенерированный файл, перечислите {clean} в build.overrides"
         ),
         "output_conflict_hint": "переименуйте один из них",
-        "output_file_and_folder": "{folder} — и файл ({file_owner}), и папка для {rel} ({owner})",
+        "output_file_and_folder": "{folder} - и файл ({file_owner}), и папка для {rel} ({owner})",
         "output_rename_either": "переименуйте файл или папку",
         "output_override_unused": (
-            "build.overrides: {rel} ничего не подменяет — "
+            "build.overrides: {rel} ничего не подменяет - "
             "нет ни генерированного файла, ни файла в static/"
         ),
         "output_not_utf8": "не UTF-8 (байт {byte})",
         "output_unreadable": "не читается: {reason}",
         "output_file_unreadable": "{rel} из {owner}: {reason}",
         "output_utf8_hint": (
-            "сохраните файл в UTF-8 и дайте его прочитать — сборка без проверки "
+            "сохраните файл в UTF-8 и дайте его прочитать - сборка без проверки "
             "этого файла не выходит"
         ),
         "output_cache_link": "файл кэша стал ссылкой: {source}",
-        "output_cache_link_hint": "удалите папку .heron-cache — она пересоздастся при сборке",
+        "output_cache_link_hint": "удалите папку .heron-cache - она пересоздастся при сборке",
         "output_cannot_create": "не удалось создать {path}: {reason}",
         "output_cannot_create_hint": (
             "папка над --out должна быть доступна для записи: "
@@ -46,14 +46,14 @@ TEXT = {
         "output_paths_site_escapes": "путь {rel} выходит за пределы папки сайта",
         "output_paths_site_link": "{shown} ведёт за пределы папки сайта через символическую ссылку",
         "output_paths_site_link_hint": (
-            "замените ссылку настоящим файлом или папкой — "
+            "замените ссылку настоящим файлом или папкой - "
             "движок не пишет и не удаляет файлы вне папки сайта"
         ),
         "output_paths_unreadable": "не читается {path}: {reason}",
         "output_paths_unreadable_hint": "проверьте права и диск: без этой папки сборка вышла бы неполной",
         "output_paths_files_link": "символическая ссылка {link} ведёт за пределы папки",
         "output_paths_files_link_hint": "положите сам файл в папку сайта вместо ссылки на него",
-        "output_paths_folder_link": "папка {folder}/ — ссылка за пределы {root}/",
+        "output_paths_folder_link": "папка {folder}/ - ссылка за пределы {root}/",
         "output_paths_folder_link_hint": "положите саму папку на место ссылки на неё",
         "output_paths_layout_hint": (
             "укажите --out в отдельную папку: не корень сайта, не папку исходников и не кэш"

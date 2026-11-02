@@ -28,7 +28,7 @@ def test_bad_workers(monkeypatch, raw):
     _check(err.message, f"{build.WORKERS_ENV}={raw!r}: нужно целое число от 0 до 64")
     _check(
         err.hint,
-        "0 — по числу ядер, 1 — без пула процессов; пустое значение — как в site.yaml",
+        "0 - по числу ядер, 1 - без пула процессов; пустое значение - как в site.yaml",
     )
     assert err.message.text("en") == (
         f"{build.WORKERS_ENV}={raw!r}: an integer from 0 to 64 is required"

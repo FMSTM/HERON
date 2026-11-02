@@ -34,7 +34,7 @@ def test_dates_future_and_backwards():
     dates.check(SimpleNamespace(pages=[page]), collector, now=now)
     msgs = [_en_ok(w) for w in collector.warnings]
     assert collector.warnings[0].message == (
-        "updated: 2030-01-01T00:00:00+00:00 — позже сборки; поисковик сочтёт дату ошибкой"
+        "updated: 2030-01-01T00:00:00+00:00 - позже сборки; поисковик сочтёт дату ошибкой"
     )
     assert msgs[0].startswith("updated: 2030-01-01T00:00:00+00:00 is later than the build")
     assert collector.warnings[1].message.text("ru").startswith("обновление 2024-04-01")
@@ -58,7 +58,7 @@ def test_dates_unreadable_file(tmp_path):
     collector = Collector()
     dates._by_file(pages, tmp_path, collector, loud=True)
     (w,) = collector.warnings
-    assert w.message == "файл не читается — даты нет"
+    assert w.message == "файл не читается - даты нет"
     assert _en_ok(w) == "the file cannot be read: no date"
 
 

@@ -2,16 +2,16 @@
 
 TEXT: dict[str, dict[str, str]] = {
     "ru": {
-        "media_both_folders": "в сайте есть и {media}/, и {legacy}/ — движок не знает, какая настоящая",
+        "media_both_folders": "в сайте есть и {media}/, и {legacy}/ - движок не знает, какая настоящая",
         "media_both_folders_hint": "перенесите файлы в {media}/ и удалите {legacy}/",
         "media_same_address": "static/{media} и {media}/ дают один адрес: {files}",
         "media_same_address_hint": "держите ресурсы в одном месте: {media}/",
         "media_two_folders": (
-            "в /{media}/ отдаются две папки сразу: {media}/ и static/{media} — "
+            "в /{media}/ отдаются две папки сразу: {media}/ и static/{media} - "
             "перенесите содержимое второй в первую"
         ),
         "media_legacy_folder": (
-            "папка ресурсов называется {legacy}/ — переименуйте в {media}/, туда же ложится видео"
+            "папка ресурсов называется {legacy}/ - переименуйте в {media}/, туда же ложится видео"
         ),
         "media_owner_more": "{page} и ещё {count}",
         "media_heavy": "{src} весит {megabytes} МБ",
@@ -26,16 +26,16 @@ TEXT: dict[str, dict[str, str]] = {
         "media_path_escapes_hint": (
             "ресурсы берутся только из папки media/; уберите `..` и символические ссылки наружу"
         ),
-        "media_cache_is_link": "кэш — ссылка, а не папка: {folder}",
-        "media_cache_is_link_hint": "удалите эту ссылку — папка кэша пересоздастся при сборке",
+        "media_cache_is_link": "кэш - ссылка, а не папка: {folder}",
+        "media_cache_is_link_hint": "удалите эту ссылку - папка кэша пересоздастся при сборке",
         "media_cache_escapes": "кэш нарезок ведёт за свои пределы через ссылку: {folder}",
-        "media_cache_rebuild_hint": "удалите папку .heron-cache — она пересоздастся при сборке",
-        "media_slice_is_dir": "на месте нарезки в кэше — папка: {path}",
+        "media_cache_rebuild_hint": "удалите папку .heron-cache - она пересоздастся при сборке",
+        "media_slice_is_dir": "на месте нарезки в кэше - папка: {path}",
         "media_missing_on_disk": "картинки {src} нет на диске",
         "media_missing_on_disk_hint": "битая картинка в проде дороже упавшей сборки",
         "media_slice_clash": "{other} и {src} дают одинаковые имена нарезок: {name}",
         "media_slice_clash_hint": (
-            "имена нарезок берутся от имени файла без расширения — переименуйте один из мастеров"
+            "имена нарезок берутся от имени файла без расширения - переименуйте один из мастеров"
         ),
         "media_placed_slices": "нарезка {src}",
         "media_placed_file": "файл {src}",

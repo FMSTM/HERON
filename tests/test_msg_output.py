@@ -81,7 +81,7 @@ def test_outputs_conflict_and_reserved():
     outs.add("../b", output.Entry(owner="W", kind="page", text="4"), collector)
     texts = [e.message for e in collector.errors]
     assert "два источника дают один файл сборки a.txt: X и Y" in texts
-    assert "Z: .heron-manifest.json — служебное имя сборки, его пишет сам движок" in texts
+    assert "Z: .heron-manifest.json - служебное имя сборки, его пишет сам движок" in texts
     assert "W: выходной путь '../b' вне папки сборки" in texts
     for e in collector.errors:
         _en_ok(e)
@@ -95,7 +95,7 @@ def test_override_unused_and_tree():
     outs.check_overrides(collector)
     (warning,) = collector.warnings
     assert warning.message == (
-        "build.overrides: robots.txt ничего не подменяет — "
+        "build.overrides: robots.txt ничего не подменяет - "
         "нет ни генерированного файла, ни файла в static/"
     )
     assert not CYR.search(warning.message.text("en"))
@@ -107,7 +107,7 @@ def test_override_unused_and_tree():
     collector = Collector()
     outs.check_tree(collector)
     (error,) = collector.errors
-    assert error.message == "a — и файл (P), и папка для a/index.html (Q)"
+    assert error.message == "a - и файл (P), и папка для a/index.html (Q)"
     assert _en_ok(error) == "a is both a file (P) and a folder for a/index.html (Q)"
 
 

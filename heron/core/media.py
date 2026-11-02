@@ -36,6 +36,7 @@ from heron.core.errors import Collector, HeronError
 from heron.core.models import EXTERNAL_URL, Site
 from heron.core.parser import markdown
 from heron.core.urls import absolute
+from heron.messages import Msg
 
 # Папка ресурсов сайта. Имя `img` обещало только изображения, и видео класть
 # было некуда — оно оседало в `static/` и ехало в сборку без обработки.
@@ -188,9 +189,9 @@ def folder(site_root: Path, collector: Collector) -> str:
     if new.is_dir() and old.is_dir():
         raise HeronError(
             code="E018",
-            message=f"в сайте есть и {MEDIA}/, и {LEGACY}/ — движок не знает, какая настоящая",
+            message=Msg("media_both_folders", media=MEDIA, legacy=LEGACY),
             path=str(site_root),
-            hint=f"перенесите файлы в {MEDIA}/ и удалите {LEGACY}/",
+            hint=Msg("media_both_folders_hint", media=MEDIA, legacy=LEGACY),
         )
     shadow = site_root / "static" / MEDIA
     if shadow.is_dir() and new.is_dir():
@@ -204,19 +205,18 @@ def folder(site_root: Path, collector: Collector) -> str:
         if clash:
             raise HeronError(
                 code="E018",
-                message=f"static/{MEDIA} и {MEDIA}/ дают один адрес: {', '.join(clash[:3])}",
+                message=Msg("media_same_address", media=MEDIA, files=", ".join(clash[:3])),
                 path=str(site_root),
-                hint=f"держите ресурсы в одном месте: {MEDIA}/",
+                hint=Msg("media_same_address_hint", media=MEDIA),
             )
         collector.warn(
-            f"в /{MEDIA}/ отдаются две папки сразу: {MEDIA}/ и static/{MEDIA} — "
-            "перенесите содержимое второй в первую",
+            Msg("media_two_folders", media=MEDIA),
             path=str(shadow),
             kind="картинки",
         )
     if old.is_dir():
         collector.warn(
-            f"папка ресурсов называется {LEGACY}/ — переименуйте в {MEDIA}/, туда же ложится видео",
+            Msg("media_legacy_folder", legacy=LEGACY, media=MEDIA),
             path=str(site_root / LEGACY),
             kind="картинки",
         )
@@ -384,8 +384,9 @@ def _owner(declared: dict[str, list[str]], src: str) -> str:
     pages = declared.get(src) or []
     if not pages:
         return src
-    tail = f" и ещё {len(pages) - 1}" if len(pages) > 1 else ""
-    return f"{pages[0]}{tail}"
+    if len(pages) > 1:
+        return Msg("media_owner_more", page=pages[0], count=len(pages) - 1)
+    return pages[0]
 
 
 def _fit(image: Image.Image, ratio: tuple[int, int]) -> Image.Image:
@@ -468,7 +469,7 @@ def _weigh(source: Path, src: str, declared: dict[str, list[str]], collector: Co
     if source.stat().st_size > HEAVY:
         megabytes = source.stat().st_size / 1024 / 1024
         collector.warn(
-            f"{src} весит {megabytes:.0f} МБ",
+            Msg("media_heavy", src=src, megabytes=f"{megabytes:.0f}"),
             path=_owner(declared, src),
             kind="картинки",
         )
@@ -488,9 +489,9 @@ def check_video(site: Site, collector: Collector) -> None:
             continue
         collector.error(
             "E019",
-            "у видео нет постера",
+            Msg("media_no_poster"),
             path=page.source,
-            hint="добавьте video_poster: без него браузер грузит ролик ради первого кадра",
+            hint=Msg("media_no_poster_hint"),
         )
 
 
@@ -541,15 +542,15 @@ def verify(site: Site, site_root: Path, collector: Collector, config=None) -> No
         if not source.is_file():
             collector.error(
                 "E007",
-                f"нет файла {src}",
+                Msg("media_no_file", src=src),
                 path=_owner(declared, src),
-                hint="поправьте путь во фронтматтере или положите картинку",
+                hint=Msg("media_no_file_hint"),
             )
 
 
-def small_cover(cover_width: int, src: str) -> str:
+def small_cover(cover_width: int, src: str) -> Msg:
     """Текст предупреждения о мелкой обложке: общий для сборки и `heron check`."""
-    return f"обложка меньше {cover_width} px: {src}"
+    return Msg("media_small_cover", width=cover_width, src=src)
 
 
 def verify_covers(
@@ -605,10 +606,9 @@ def locate(
     except HeronError:
         collector.error(
             paths.CODE,
-            f"путь {src!r} выходит за пределы {MEDIA}/",
+            Msg("media_path_escapes", src=src, media=MEDIA),
             path=_owner(declared, src),
-            hint="ресурсы берутся только из папки media/; уберите `..` и "
-            "символические ссылки наружу",
+            hint=Msg("media_path_escapes_hint"),
         )
         return None
 
@@ -892,9 +892,9 @@ def guard(cache_dir: Path) -> None:
         if folder.is_symlink():
             raise HeronError(
                 code=paths.CODE,
-                message=f"кэш — ссылка, а не папка: {folder}",
+                message=Msg("media_cache_is_link", folder=folder),
                 path=str(folder),
-                hint="удалите эту ссылку — папка кэша пересоздастся при сборке",
+                hint=Msg("media_cache_is_link_hint"),
             )
 
 
@@ -916,9 +916,9 @@ def _entry(cache_dir: Path, root: Path, key: str) -> Path:
         if folder.exists() and not contained(cache_dir, folder):
             raise HeronError(
                 code=paths.CODE,
-                message=f"кэш нарезок ведёт за свои пределы через ссылку: {folder}",
+                message=Msg("media_cache_escapes", folder=folder),
                 path=str(folder),
-                hint="удалите папку .heron-cache — она пересоздастся при сборке",
+                hint=Msg("media_cache_rebuild_hint"),
             )
     return entry
 
@@ -928,7 +928,7 @@ def _shape(entry: Path, source: Path) -> Shape:
     record = entry / "shape.json"
     try:
         if record.is_symlink():
-            raise ValueError("shape.json — ссылка")  # пересчитать и заменить
+            raise ValueError("shape.json is a link")  # пересчитать и заменить
         data = json.loads(record.read_text(encoding="utf-8"))
         return Shape(int(data["width"]), int(data["height"]), bool(data["alpha"]))
     except (OSError, ValueError, KeyError, TypeError):
@@ -963,9 +963,9 @@ def _reusable(path: Path) -> bool:
     if stat.S_ISDIR(info.st_mode):
         raise HeronError(
             code=paths.CODE,
-            message=f"на месте нарезки в кэше — папка: {path}",
+            message=Msg("media_slice_is_dir", path=path),
             path=str(path),
-            hint="удалите папку .heron-cache — она пересоздастся при сборке",
+            hint=Msg("media_cache_rebuild_hint"),
         )
     path.unlink()
     return False
@@ -1023,12 +1023,12 @@ def plan(
             if strict:
                 collector.error(
                     "E007",
-                    f"картинки {src} нет на диске",
+                    Msg("media_missing_on_disk", src=src),
                     path=_owner(declared, src),
-                    hint="битая картинка в проде дороже упавшей сборки",
+                    hint=Msg("media_missing_on_disk_hint"),
                 )
             else:
-                collector.warn(f"нет файла {src}", path=_owner(declared, src), kind="картинки")
+                collector.warn(Msg("media_no_file", src=src), path=_owner(declared, src), kind="картинки")
             continue
 
         _weigh(source, src, declared, collector)
@@ -1068,10 +1068,9 @@ def plan(
             other = manifest.planned[clash[0]][0]
             collector.error(
                 "E027",
-                f"{other} и {src} дают одинаковые имена нарезок: {clash[0]}",
+                Msg("media_slice_clash", other=other, src=src, name=clash[0]),
                 path=_owner(declared, src),
-                hint="имена нарезок берутся от имени файла без расширения — "
-                "переименуйте один из мастеров",
+                hint=Msg("media_slice_clash_hint"),
             )
             continue
         manifest.add(src, renditions)
@@ -1214,16 +1213,16 @@ def finish(
     )
 
     placed = [
-        Placed(rel, manifest.cached[rel], True, f"нарезка {manifest.planned[rel][0]}")
+        Placed(rel, manifest.cached[rel], True, Msg("media_placed_slices", src=manifest.planned[rel][0]))
         for rel in sorted(wanted)
     ]
     # Мастер рядом с нарезками — только по ссылке: «открыть целиком»,
     # og:image, картинка из текста. Без ссылки это мегабайты в каждой сборке.
     placed += [
-        Placed(src, paths.source(site_root, src), False, f"файл {src}") for src in sorted(masters)
+        Placed(src, paths.source(site_root, src), False, Msg("media_placed_file", src=src)) for src in sorted(masters)
     ]
     placed += [
-        Placed(src, source, False, f"файл {src}") for src, source in sorted(manifest.copies.items())
+        Placed(src, source, False, Msg("media_placed_file", src=src)) for src, source in sorted(manifest.copies.items())
     ]
     return placed
 

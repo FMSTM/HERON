@@ -106,7 +106,7 @@ def once(
     workers: int | None = None,
 ) -> None:
     try:
-        result = pipeline.run(root, dist=dist, drafts=drafts, workers=workers)
+        result = pipeline.run(root, dist=dist, drafts=drafts, workers=workers, notes_lang=lang)
     except HeronError as error:
         click.secho(error.render(lang), fg="red")
         return

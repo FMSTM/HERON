@@ -171,3 +171,32 @@ def test_heron_notes_outranks_build_notes(tmp_path, monkeypatch):
     assert result.exit_code == 0, result.output
     for _, message in full_list(root):
         assert not CYRILLIC.search(message), message
+
+
+def test_serve_once_passes_the_run_language_to_the_build(tmp_path, monkeypatch):
+    from heron.core import build as build_module
+    from heron.core import watch
+
+    root = with_schema_findings(tmp_path, "ru")
+    seen: dict = {}
+    real = build_module.run
+
+    def spy(*args, **kwargs):
+        seen.update(kwargs)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(build_module, "run", spy)
+    watch.once(root, drafts=False, dist=tmp_path / "dist", lang="en")
+    assert seen["notes_lang"] == "en"
+
+
+@pytest.mark.parametrize("lang", ["en", "ru"])
+def test_serve_once_prod_output_follows_the_run_language(tmp_path, monkeypatch, capsys, lang):
+    from heron.core import watch
+
+    root = with_schema_findings(tmp_path, "ru")
+    monkeypatch.setenv("SITE_ENV", "prod")
+    watch.once(root, drafts=False, dist=tmp_path / "dist", lang=lang)
+    out = capsys.readouterr().out
+    assert out.strip()
+    assert bool(CYRILLIC.search(out)) is (lang == "ru"), out

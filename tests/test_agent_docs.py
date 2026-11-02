@@ -314,7 +314,7 @@ def test_site_template_keeps_the_kit_language_on_init_agents(tmp_path, monkeypat
     assert plan.kit is not None and plan.kit.lang == "ru" and plan.kit.lang_from == ""
     assert _kit_lang(root) == "ru"
     assert (root / "agents/README.md").read_bytes() == readme
-    assert (root / "AGENTS.md").read_text(encoding="utf-8").startswith("# Daybreak — для агентов")
+    assert (root / "AGENTS.md").read_text(encoding="utf-8").startswith("# Daybreak - для агентов")
     assert not plan.kit.edited and not plan.kit.forced
 
 

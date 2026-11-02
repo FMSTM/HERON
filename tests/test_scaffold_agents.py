@@ -127,7 +127,7 @@ def test_agents_md_and_pointers(tmp_path):
     put(root, "ru")
     text = (root / "AGENTS.md").read_text(encoding="utf-8")
     assert 60 <= len(text.splitlines()) <= 100
-    assert text.startswith("# Demo — для агентов\n")
+    assert text.startswith("# Demo - для агентов\n")
     assert "en, ru" in text and "demo.example" in text and heron.__version__ in text
     assert "docker run --rm ghcr.io/fmstm/heron:prod docs --lang ru" in text
     assert "<о проекте: заполняет архитектор>" in text
@@ -257,7 +257,7 @@ def test_english_kit_uses_translation_or_marks_fallback(tmp_path):
     assert data["docs_url"].endswith("/docs/en/")
     readme = (root / "agents/README.md").read_bytes()
     text = (root / "AGENTS.md").read_text(encoding="utf-8")
-    assert text.startswith("# Demo — for agents\n")
+    assert text.startswith("# Demo - for agents\n")
     assert "<about the project: the architect fills this in>" in text
     assert 60 <= len(text.splitlines()) <= 100
     marked = {e["path"]: e.get("lang") for e in data["files"]}
@@ -526,8 +526,8 @@ def test_create_places_the_kit_by_default(tmp_path):
     root = tmp_path / "site"
     plan = create(root, name="Demo", languages=["en", "ru"], notes="ru")
     assert (root / "agents/heron-kit.yaml").is_file()
-    assert (root / "AGENTS.md").read_text(encoding="utf-8").startswith("# Demo — для агентов")
-    assert "**Языки сайта:** en, ru, основной — en; домен — demo.example." in (
+    assert (root / "AGENTS.md").read_text(encoding="utf-8").startswith("# Demo - для агентов")
+    assert "**Языки сайта:** en, ru, основной - en; домен - demo.example." in (
         root / "AGENTS.md"
     ).read_text(encoding="utf-8")
     assert _agents_value(root) is True
@@ -960,8 +960,8 @@ def test_setup_refreshes_agents_md_from_the_answers(tmp_path):
     assert "<о проекте: заполняет архитектор>" in (root / "AGENTS.md").read_text(encoding="utf-8")
     apply(root, Answers.model_validate(STUDIO))
     text = (root / "AGENTS.md").read_text(encoding="utf-8")
-    assert text.startswith("# Studio — для агентов\n")
-    assert "**Языки сайта:** en, ru, основной — en; домен — studio.example.com." in text
+    assert text.startswith("# Studio - для агентов\n")
+    assert "**Языки сайта:** en, ru, основной - en; домен - studio.example.com." in text
     expected = agents.fields(root, None, "ru")["about"]
     assert "заполняет архитектор" not in expected
     assert f"**О проекте:** {expected}" in text
@@ -995,7 +995,7 @@ def test_plain_adopt_refreshes_only_pointers_and_keeps_manifest_header(tmp_path)
     text = (root / "site.yaml").read_text(encoding="utf-8").replace("s.example", "real.example")
     (root / "site.yaml").write_text(text, encoding="utf-8")
     plan = adopt(root)
-    assert "домен — real.example" in (root / "AGENTS.md").read_text(encoding="utf-8")
+    assert "домен - real.example" in (root / "AGENTS.md").read_text(encoding="utf-8")
     assert plan.kit.updated == ["AGENTS.md", "agents/heron-kit.yaml"]
     assert (root / "agents/roles/designer.md").read_bytes() == b"# old\n"
     after = load_manifest(root)

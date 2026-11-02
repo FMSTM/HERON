@@ -86,7 +86,7 @@ def test_new_en_uses_english_or_marks_fallback(here):
     data = manifest(root)
     assert data["lang"] == "en"
     text = (root / "AGENTS.md").read_text(encoding="utf-8")
-    assert text.startswith("# site — for agents")
+    assert text.startswith("# site - for agents")
     assert "agent instructions: agents/, AGENTS.md - en" in result.output
     if HAS_EN:
         assert (root / "agents/README.md").read_bytes() == (

@@ -41,6 +41,7 @@ from pathlib import Path
 
 from heron.core import paths
 from heron.core.errors import Collector, HeronError
+from heron.messages import Msg
 
 MANIFEST = ".heron-manifest.json"
 STAGING = ".heron-staging"
@@ -79,15 +80,15 @@ class Outputs:
         if clean in RESERVED or clean.split("/", 1)[0] == STAGING:
             collector.error(
                 CONFLICT,
-                f"{entry.owner}: {clean} — служебное имя сборки, его пишет сам движок",
+                Msg("output_reserved_name", owner=entry.owner, clean=clean),
                 path=entry.owner,
-                hint="переименуйте файл",
+                hint=Msg("output_rename_file"),
             )
             return
         if not clean or clean == "." or paths.escapes(clean):
             collector.error(
                 paths.CODE,
-                f"{entry.owner}: выходной путь {rel!r} вне папки сборки",
+                Msg("output_path_outside", owner=entry.owner, rel=repr(rel)),
                 path=entry.owner,
             )
             return
@@ -101,13 +102,12 @@ class Outputs:
             return
         collector.error(
             CONFLICT,
-            f"два источника дают один файл сборки {clean}: {held.owner} и {entry.owner}",
+            Msg("output_conflict", clean=clean, held=held.owner, owner=entry.owner),
             path=entry.owner,
             hint=(
-                f"переименуйте один из них; если {entry.owner} должен заменить "
-                f"сгенерированный файл, перечислите {clean} в build.overrides"
+                Msg("output_conflict_override_hint", owner=entry.owner, clean=clean)
                 if entry.kind == "static" and held.kind in OVERRIDABLE
-                else "переименуйте один из них"
+                else Msg("output_conflict_hint")
             ),
         )
 
@@ -121,18 +121,22 @@ class Outputs:
                 if folder in names:
                     collector.error(
                         CONFLICT,
-                        f"{folder} — и файл ({self.entries[folder].owner}), и папка "
-                        f"для {rel} ({self.entries[rel].owner})",
+                        Msg(
+                            "output_file_and_folder",
+                            folder=folder,
+                            file_owner=self.entries[folder].owner,
+                            rel=rel,
+                            owner=self.entries[rel].owner,
+                        ),
                         path=self.entries[rel].owner,
-                        hint="переименуйте файл или папку",
+                        hint=Msg("output_rename_either"),
                     )
 
     def check_overrides(self, collector: Collector) -> None:
         """Подмена, которая ничего не подменила, — опечатка в site.yaml."""
         for rel in sorted(self.overrides - self.used_overrides):
             collector.warn(
-                f"build.overrides: {rel} ничего не подменяет — "
-                "нет ни генерированного файла, ни файла в static/",
+                Msg("output_override_unused", rel=rel),
                 path="site.yaml",
                 kind="прочее",
             )
@@ -154,15 +158,14 @@ class Outputs:
         try:
             return entry.source.read_text(encoding="utf-8")
         except UnicodeDecodeError as error:
-            reason = f"не UTF-8 (байт {error.start})"
+            reason = Msg("output_not_utf8", byte=error.start)
         except OSError as error:
-            reason = f"не читается: {error.strerror or type(error).__name__}"
+            reason = Msg("output_unreadable", reason=error.strerror or type(error).__name__)
         raise HeronError(
             code="E034",
-            message=f"{rel} из {entry.owner}: {reason}",
+            message=Msg("output_file_unreadable", rel=rel, owner=entry.owner, reason=reason),
             path=str(entry.source),
-            hint="сохраните файл в UTF-8 и дайте его прочитать — сборка без проверки "
-            "этого файла не выходит",
+            hint=Msg("output_utf8_hint"),
         )
 
     def texts(self) -> list[str]:
@@ -223,9 +226,9 @@ def _prepare(staging: Path, entry: Entry) -> Path:
         # проверкой и записью: её цель в dist не попадает.
         raise HeronError(
             code=paths.CODE,
-            message=f"файл кэша стал ссылкой: {entry.source}",
+            message=Msg("output_cache_link", source=entry.source),
             path=str(entry.source),
-            hint="удалите папку .heron-cache — она пересоздастся при сборке",
+            hint=Msg("output_cache_link_hint"),
         )
     if entry.link:
         try:
@@ -260,10 +263,9 @@ def unwritable(path: Path, error: OSError) -> HeronError:
     """Нельзя создать папку или файл рядом со сборкой — E035 вместо общего «denied»."""
     return HeronError(
         code="E035",
-        message=f"не удалось создать {path}: {error.strerror or error}",
+        message=Msg("output_cannot_create", path=path, reason=error.strerror or error),
         path=str(path),
-        hint="папка над --out должна быть доступна для записи: "
-        "там живут .heron-cache и .<dist>.heron-lock",
+        hint=Msg("output_cannot_create_hint"),
     )
 
 
@@ -340,17 +342,17 @@ def _commit(dist: Path, outputs: Outputs) -> Applied:
         ):
             raise HeronError(
                 code=CONFLICT,
-                message=f"в папке сборки чужой файл на месте {rel}",
+                message=Msg("output_foreign_file", rel=rel),
                 path=str(out),
-                hint="его положил не движок; уберите его или соберите в чистую папку",
+                hint=Msg("output_foreign_hint"),
             )
         blocker = _blocker(dist, rel, stale)
         if blocker is not None:
             raise HeronError(
                 code=CONFLICT,
-                message=f"в папке сборки чужой файл мешает записать {rel}: {blocker}",
+                message=Msg("output_foreign_blocker", rel=rel, blocker=blocker),
                 path=str(dist / blocker),
-                hint="его положил не движок; уберите его или соберите в чистую папку",
+                hint=Msg("output_foreign_hint"),
             )
 
     staging = dist / STAGING

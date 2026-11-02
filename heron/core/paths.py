@@ -33,6 +33,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from heron.core.errors import HeronError
+from heron.messages import Msg
 
 CODE = "E024"
 
@@ -88,10 +89,9 @@ def source(root: Path, rel: str, *, where: str | None = None) -> Path:
     if not clean or escapes(clean) or not inside(root, root / clean):
         raise HeronError(
             code=CODE,
-            message=f"путь {rel!r} выходит за пределы {root.name}/",
+            message=Msg("output_paths_escapes_root", rel=repr(rel), root=root.name),
             path=where or str(root),
-            hint="файлы сайта берутся только из его собственных папок; "
-            "уберите `..` и символические ссылки наружу",
+            hint=Msg("output_paths_escapes_root_hint"),
         )
     return root / clean
 
@@ -107,9 +107,9 @@ def target(root: Path, rel: str) -> Path:
     if not clean or clean == "." or escapes(clean):
         raise HeronError(
             code=CODE,
-            message=f"результат {rel!r} оказался бы вне папки сборки",
+            message=Msg("output_paths_out_outside", rel=repr(rel)),
             path=str(root),
-            hint="имя выходного файла должно быть относительным путём без `..`",
+            hint=Msg("output_paths_out_outside_hint"),
         )
     out = root / clean
     # Сам файл ещё может не существовать — проверяем ближайшую папку.
@@ -119,9 +119,9 @@ def target(root: Path, rel: str) -> Path:
     if not inside(root, parent) or (out.is_symlink() and not inside(root, out)):
         raise HeronError(
             code=CODE,
-            message=f"результат {clean} ведёт за пределы папки сборки через ссылку",
+            message=Msg("output_paths_out_link", clean=clean),
             path=str(out),
-            hint="уберите символические ссылки из папки сборки",
+            hint=Msg("output_paths_out_link_hint"),
         )
     return out
 
@@ -143,7 +143,7 @@ def in_site(root: Path, rel: str | Path) -> Path:
     if clean is not None and (not clean or clean == "." or escapes(clean)):
         raise HeronError(
             code=CODE,
-            message=f"путь {rel!r} выходит за пределы папки сайта",
+            message=Msg("output_paths_site_escapes", rel=repr(rel)),
             path=str(root),
         )
     parent = out.parent
@@ -153,10 +153,9 @@ def in_site(root: Path, rel: str | Path) -> Path:
         shown = out.relative_to(root).as_posix() if out.is_relative_to(root) else str(out)
         raise HeronError(
             code=CODE,
-            message=f"{shown} ведёт за пределы папки сайта через символическую ссылку",
+            message=Msg("output_paths_site_link", shown=shown),
             path=str(out),
-            hint="замените ссылку настоящим файлом или папкой — "
-            "движок не пишет и не удаляет файлы вне папки сайта",
+            hint=Msg("output_paths_site_link_hint"),
         )
     return out
 
@@ -169,9 +168,9 @@ def unreadable(path: Path, error: OSError) -> HeronError:
     reason = error.strerror or type(error).__name__
     return HeronError(
         code=UNREADABLE,
-        message=f"не читается {path}: {reason}",
+        message=Msg("output_paths_unreadable", path=path, reason=reason),
         path=str(path),
-        hint="проверьте права и диск: без этой папки сборка вышла бы неполной",
+        hint=Msg("output_paths_unreadable_hint"),
     )
 
 
@@ -204,10 +203,9 @@ def files(root: Path, *, where: str) -> Iterator[tuple[str, Path]]:
             if entry.is_symlink() and not inside(base, path):
                 raise HeronError(
                     code=CODE,
-                    message=f"символическая ссылка {path.relative_to(root).as_posix()} "
-                    "ведёт за пределы папки",
+                    message=Msg("output_paths_files_link", link=path.relative_to(root).as_posix()),
                     path=where,
-                    hint="положите сам файл в папку сайта вместо ссылки на него",
+                    hint=Msg("output_paths_files_link_hint"),
                 )
             if entry.is_dir():
                 stack.append((path, chain | {real}))
@@ -244,9 +242,9 @@ def rooted(root: Path, folders: list[Path]) -> None:
         if (folder.exists() or folder.is_symlink()) and not inside(root, folder):
             raise HeronError(
                 code=CODE,
-                message=f"папка {folder.name}/ — ссылка за пределы {root.name}/",
+                message=Msg("output_paths_folder_link", folder=folder.name, root=root.name),
                 path=str(folder),
-                hint="положите саму папку на место ссылки на неё",
+                hint=Msg("output_paths_folder_link_hint"),
             )
 
 
@@ -259,22 +257,22 @@ def layout(site_root: Path, dist: Path, cache: Path, sources: list[Path]) -> Non
     кэша.
     """
 
-    def fail(message: str, path: Path) -> None:
+    def fail(message: Msg, path: Path) -> None:
         raise HeronError(
             code=CODE,
             message=message,
             path=str(path),
-            hint="укажите --out в отдельную папку: не корень сайта, не папку исходников и не кэш",
+            hint=Msg("output_paths_layout_hint"),
         )
 
     root = site_root.resolve()
     out = dist.resolve()
     if out == root or root.is_relative_to(out):
-        fail("папка сборки совпадает с папкой сайта или содержит её", dist)
+        fail(Msg("output_paths_layout_contains"), dist)
     for folder in sources:
         if folder.exists() and overlaps(out, folder):
-            fail(f"папка сборки пересекается с исходниками: {folder.name}/", dist)
+            fail(Msg("output_paths_layout_dist_overlap", folder=folder.name), dist)
         if folder.exists() and overlaps(cache, folder):
-            fail(f"кэш пересекается с исходниками: {folder.name}/", cache)
+            fail(Msg("output_paths_layout_cache_overlap", folder=folder.name), cache)
     if overlaps(out, cache):
-        fail("кэш и папка сборки пересекаются", cache)
+        fail(Msg("output_paths_layout_cache_dist"), cache)

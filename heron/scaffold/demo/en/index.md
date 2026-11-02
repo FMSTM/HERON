@@ -11,8 +11,8 @@ Replace the texts with yours, delete the pages you do not need, add new ones as 
 ## What next {#next}
 
 - **Page blocks.** Every kind of block the theme draws is on the page [«Blocks»](/blocks/).
-- **The look.** Change the theme in the configurator or with a command — [«Themes»](/themes/).
-- **Help.** The main commands and where to read the documentation — [«Documentation»](/docs/).
+- **The look.** Change the theme in the configurator or with a command - [«Themes»](/themes/).
+- **Help.** The main commands and where to read the documentation - [«Documentation»](/docs/).
 
 ## Questions {#faq}
 

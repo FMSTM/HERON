@@ -82,6 +82,7 @@ on:
 jobs:
   image:
     name: образ сайта
+    timeout-minutes: 30
     runs-on: ubuntu-26.04
     outputs:
       image: ${{ steps.names.outputs.image }}

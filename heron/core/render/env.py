@@ -141,9 +141,7 @@ def load_strings(theme_dir: Path, lang: str, collector: Collector) -> Strings:
                 del loaded[key]
             values = loaded
     else:
-        collector.warn(
-            Msg("render_i18n_missing", lang=lang), path=str(path), kind="переводы"
-        )
+        collector.warn(Msg("render_i18n_missing", lang=lang), path=str(path), kind="переводы")
     return Strings(values, lang, collector)
 
 
@@ -263,7 +261,9 @@ def media_url(
         if variants is None:
             variants = rendition.sources.get("origin") or next(iter(rendition.sources.values()), [])
         if not variants:
-            collector.warn(Msg("render_no_rendition_files", ratio=ratio, name=clean), kind="картинки")
+            collector.warn(
+                Msg("render_no_rendition_files", ratio=ratio, name=clean), kind="картинки"
+            )
             return f"/{clean}"
 
         chosen = next((path for w, path in variants if w >= width), variants[-1][1])

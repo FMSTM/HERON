@@ -480,9 +480,7 @@ def verify(
     try:
         json.loads(render(page, config, theme, site) or "{}")
     except ValueError as error:
-        collector.error(
-            "E020", Msg("markup_json_unparsable", error=error), path=page.source
-        )
+        collector.error("E020", Msg("markup_json_unparsable", error=error), path=page.source)
         return []
 
     kinds = [str(node.get("@type")) for node in graph if node.get("@type")]

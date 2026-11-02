@@ -90,7 +90,12 @@ def collect(site: Site, collector: Collector, config: SiteConfig | None = None) 
             if twin is not None and (twin != old or plan.moved[twin] != page.url):
                 collector.error(
                     "E009",
-                    Msg("redirects_two_targets", written=written, first=plan.moved[twin], second=page.url)
+                    Msg(
+                        "redirects_two_targets",
+                        written=written,
+                        first=plan.moved[twin],
+                        second=page.url,
+                    )
                     if twin == old
                     else Msg("redirects_slash_twin", written=written, twin=twin),
                     path=page.source,

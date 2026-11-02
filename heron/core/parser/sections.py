@@ -18,9 +18,9 @@ from markdown_it import MarkdownIt
 from markdown_it.token import Token
 
 from heron.core.errors import HeronError
-from heron.messages import Msg
 from heron.core.models import Section
 from heron.core.parser import markdown
+from heron.messages import Msg
 
 SECTION_ID = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\Z")
 

@@ -478,3 +478,56 @@ def test_removing_key_keeps_detached_section_drops_adjacent_comment(tmp_path):
     assert "# превью для правок" not in after
     assert "# временно" not in after
     assert _resave(root) == after
+
+
+def test_inline_only_comments_survive_save_without_lost_flag(tmp_path):
+    # ни одной строки-комментария: только комментарии в конце строк
+    text = "".join(x for x in MANUAL.splitlines(keepends=True) if not x.lstrip().startswith("#"))
+    root = _manual(tmp_path, text)
+    before = _comments(text)
+    assert before
+    assert comments._has_comment(text.splitlines())
+    data = read(setup.raw_config(root)).model_dump()
+    _rename(data)
+    result = setup.apply(root, setup.Answers.model_validate(data))
+    assert "comments_lost" not in result.warnings
+    after = _text(root)
+    assert _config(root)["site"]["name"] == "Renamed Example"
+    assert _comments(after.removeprefix(setup.HEADER["en"])) == before
+    assert "  name: Renamed Example   # имя в шапке\n" in after
+    assert _resave(root) == after
+
+
+def test_apostrophe_value_with_inline_comment_survives_save(tmp_path):
+    line = "name: It's ours   # слоган"
+    root = _manual(tmp_path, MANUAL.replace("name: Dr. Example   # имя в шапке", line))
+    assert yaml.safe_load(_text(root))["site"]["name"] == "It's ours"
+    before = _comments(_text(root))
+    after = _resave(root, lambda data: data["site"].update(default_lang="en", name="It's ours"))
+    assert f"  {line}\n" in after
+    assert ("# слоган", "site.name") in _comments(after)
+    assert _comments(after) == before
+    # смена значения с апострофом: комментарий остаётся при ключе
+    changed = _resave(root, lambda data: data["site"].update(name="It's theirs"))
+    assert yaml.safe_load(changed)["site"]["name"] == "It's theirs"
+    assert ("# слоган", "site.name") in _comments(changed)
+    assert _resave(root) == changed
+
+
+def test_split_comment_respects_quotes():
+    assert comments._split_comment("name: It's ours   # слоган") == ("name: It's ours", "   # слоган")
+    assert comments._split_comment("name: 'a # b'   # c") == ("name: 'a # b'", "   # c")
+
+
+def test_file_without_comments_output_equals_header_plus_dump(tmp_path):
+    root = _scaffold(tmp_path, "en")
+    data = _config(root)
+    (root / "site.yaml").write_text(
+        yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8"
+    )
+    assert not _comments(_text(root))
+    after = _resave(root, _rename)
+    expected = yaml.safe_load(after)
+    assert after == setup.HEADER["en"] + setup.dump(expected)
+    assert expected["site"]["name"] == "Renamed Example"
+    assert _resave(root) == after

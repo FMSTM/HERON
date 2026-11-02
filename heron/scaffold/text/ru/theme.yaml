@@ -7,7 +7,7 @@ requires: []
 
 modules: [prose, list, checklist, steps, table, facts, faq, timeline, callout, gallery, tabs, breadcrumbs, children]
 
-# Тип страницы → секции, которые он использует. Шаблон — templates/<тип>.html.
+# Тип страницы → секции, которые он использует. Шаблон - templates/<тип>.html.
 # После двоеточия можно назвать ожидаемую форму: "how:steps"
 types:
   home:
@@ -23,5 +23,5 @@ images:
   ratios: ["1:1", "16:9"]
   formats: [avif, webp]
   fallback_width: 800
-  # ↑ запасной PNG/JPEG для <img src> — одна ширина. В сборку режется только
+  # ↑ запасной PNG/JPEG для <img src> - одна ширина. В сборку режется только
   #   то, что шаблоны попросили через picture() и media_url()

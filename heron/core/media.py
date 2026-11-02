@@ -1028,7 +1028,11 @@ def plan(
                     hint=Msg("media_missing_on_disk_hint"),
                 )
             else:
-                collector.warn(Msg("media_no_file", src=src), path=_owner(declared, src), kind="картинки")
+                collector.warn(
+                    Msg("media_no_file", src=src),
+                    path=_owner(declared, src),
+                    kind="картинки",
+                )
             continue
 
         _weigh(source, src, declared, collector)
@@ -1213,16 +1217,28 @@ def finish(
     )
 
     placed = [
-        Placed(rel, manifest.cached[rel], True, Msg("media_placed_slices", src=manifest.planned[rel][0]))
+        Placed(
+            rel,
+            manifest.cached[rel],
+            True,
+            Msg("media_placed_slices", src=manifest.planned[rel][0]),
+        )
         for rel in sorted(wanted)
     ]
     # Мастер рядом с нарезками — только по ссылке: «открыть целиком»,
     # og:image, картинка из текста. Без ссылки это мегабайты в каждой сборке.
     placed += [
-        Placed(src, paths.source(site_root, src), False, Msg("media_placed_file", src=src)) for src in sorted(masters)
+        Placed(
+            src,
+            paths.source(site_root, src),
+            False,
+            Msg("media_placed_file", src=src),
+        )
+        for src in sorted(masters)
     ]
     placed += [
-        Placed(src, source, False, Msg("media_placed_file", src=src)) for src, source in sorted(manifest.copies.items())
+        Placed(src, source, False, Msg("media_placed_file", src=src))
+        for src, source in sorted(manifest.copies.items())
     ]
     return placed
 

@@ -205,7 +205,11 @@ def check(site: Site, collector: Collector, now: datetime | None = None) -> None
         for name, moment in (("date", page.date_at), ("updated", page.updated_at)):
             if moment is not None and moment > now:
                 collector.warn(
-                    Msg("links_dates_future", name=name, moment=moment.isoformat(timespec="seconds")),
+                    Msg(
+                        "links_dates_future",
+                        name=name,
+                        moment=moment.isoformat(timespec="seconds"),
+                    ),
                     path=page.source,
                     kind="даты",
                 )

@@ -372,9 +372,7 @@ def detect(md: MarkdownIt, section: Section) -> tuple[str, Any, list[Warning_]]:
                 stray = _stray_lines(section.raw)
                 if stray:
                     warnings.append(
-                        Warning_(
-                            Msg("blocks_stray_lines", section=repr(section.id), stray=stray)
-                        )
+                        Warning_(Msg("blocks_stray_lines", section=repr(section.id), stray=stray))
                     )
             return ("facts", rows) if rows is not None else None
         if kind == "timeline":
@@ -548,9 +546,7 @@ def intro_parts(md: MarkdownIt, intro: Section) -> list[Warning_]:
         intro.promise = md.render(chunks[1]).strip()
     intro.links = links_of(intro.html)
     if len(chunks) > 2:
-        return [
-            Warning_(Msg("blocks_intro_long", count=len(chunks) - 2), kind="контент")
-        ]
+        return [Warning_(Msg("blocks_intro_long", count=len(chunks) - 2), kind="контент")]
     return []
 
 

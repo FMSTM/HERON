@@ -471,9 +471,7 @@ class SiteConfig(BaseModel):
         for form_name, form in self.forms.items():
             unknown = [s for s in form.sinks if s not in self.sinks]
             if unknown:
-                raise MsgError(
-                    "site_form_sinks", form=repr(form_name), sinks=", ".join(unknown)
-                )
+                raise MsgError("site_form_sinks", form=repr(form_name), sinks=", ".join(unknown))
         return self
 
     @property

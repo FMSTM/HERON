@@ -12,6 +12,7 @@ from heron.core import build as pipeline
 from heron.core.media import Manifest, Rendition
 from heron.core.models import Page, Section
 from heron.core.render import env as envmod
+from heron.messages import rendered
 from heron.scaffold import create
 from tests import sites
 
@@ -320,7 +321,8 @@ def _check_site(tmp_path, default_image: bool):
 
 def test_check_warns_pages_without_cover(tmp_path):
     result = _check_site(tmp_path, default_image=False)
-    messages = [w.message for w in result.collector.warnings if "without a cover" in w.message]
+    messages = [rendered(w.message, "en") for w in result.collector.warnings]
+    messages = [text for text in messages if "without a cover" in text]
     # noindex-страница не считается: две индексируемые без обложки
     assert messages == ["pages without a cover: 2 (no og:image and no primaryImageOfPage)"]
     assert not [e for e in result.collector.errors if "cover" in e.message]

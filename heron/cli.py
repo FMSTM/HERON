@@ -606,7 +606,12 @@ def _check_json(
     old_section = None
     try:
         result = pipeline.check(
-            path, drafts=drafts, strict=strict, env=env, allow_schema=list(allow_schema)
+            path,
+            drafts=drafts,
+            strict=strict,
+            env=env,
+            allow_schema=list(allow_schema),
+            notes_lang=lang,
         )
         if old_urls is not None:
             listed = report_module.read_old_urls(old_urls)
@@ -1265,6 +1270,7 @@ def check(
             strict=strict,
             env=env,
             allow_schema=list(allow_schema),
+            notes_lang=lang,
         )
     except HeronError as error:
         _fail(error, lang)
@@ -1326,6 +1332,7 @@ def build(
             progress=_Terminal(lang),
             workers=workers,
             allow_schema=list(allow_schema),
+            notes_lang=lang,
         )
     except HeronError as error:
         _fail(error, lang)

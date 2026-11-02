@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+from heron.messages import say
+
 ROOT = Path(__file__).resolve().parents[1]
 
 # Где ищем: всё, что уходит пользователю или агенту. tests/ не входит — там
@@ -165,11 +167,12 @@ def test_demo_site_links_follow_the_channel(tmp_path: Path, monkeypatch, channel
 
 def test_e033_hint_names_existing_spec() -> None:
     """Подсказка E033 называет файл спецификации, который есть в дереве."""
-    source = (ROOT / "heron/core/render/pages.py").read_text(encoding="utf-8")
-    hints = re.findall(r"вызовы из (\S+\.md)", source)
-    assert hints, "подсказка E033 не найдена в heron/core/render/pages.py"
-    for path in hints:
-        assert (ROOT / path).is_file(), path
+    for lang in ("ru", "en"):
+        hint = say(lang, "render_sandbox_hint")
+        paths = re.findall(r"\S+\.md", hint)
+        assert paths, f"подсказка E033 ({lang}) не называет файл спецификации: {hint}"
+        for path in paths:
+            assert (ROOT / path).is_file(), path
 
 
 # Комментарии шаблонов скелета: кладутся в site.yaml и theme.yaml каждого

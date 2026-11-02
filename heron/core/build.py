@@ -219,8 +219,11 @@ def run(
     progress: Progress | None = None,
     workers: int | None = None,
     allow_schema: Sequence[str] = (),
+    notes_lang: str | None = None,
 ) -> Result:
     """Собрать сайт целиком.
+
+    `notes_lang` - язык запуска: на нём пишутся находки разметки schema.org.
 
     Процессов на нарезку: аргумент `workers` (флаг `--workers`), затем
     переменная `HERON_WORKERS`, затем `build.workers` из `site.yaml`.
@@ -418,7 +421,9 @@ def run(
 
         # Всё, что может забраковать сборку, — до записи: отчёт, разметка,
         # nginx -t. Строгая сборка с предупреждением не трогает прошлую версию.
-        result.report = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
+        result.report = report.build(
+            site, config, theme, theme_dir=theme_dir, site_root=site_root, lang=notes_lang
+        )
         collector.warnings.extend(report.nav_empty(site, config))
         collector.warnings.extend(report.duplicate_titles(site, config))
         collector.warnings.extend(report.nav_in_html(_homes(outputs, config), site, config))
@@ -609,6 +614,7 @@ def check(
     strict: bool = False,
     env: BuildEnv | None = None,
     allow_schema: Sequence[str] = (),
+    notes_lang: str | None = None,
 ) -> Result:
     """Обойти и проверить, ничего не собирая.
 
@@ -634,7 +640,9 @@ def check(
     media.verify_covers(site, site_root, collector, theme.images, config)
     redirects.generate(site, collector, config)
 
-    built = report.build(site, config, theme, theme_dir=theme_dir, site_root=site_root)
+    built = report.build(
+        site, config, theme, theme_dir=theme_dir, site_root=site_root, lang=notes_lang
+    )
     collector.warnings.extend(report.nav_empty(site, config))
     collector.warnings.extend(report.duplicate_titles(site, config))
     collector.warnings.extend(report.pages_without_cover(site, config))

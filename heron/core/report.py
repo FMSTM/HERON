@@ -216,7 +216,7 @@ class Report:
     nginx_test: tuple[bool, str] | None = None
     # None — сведение о комплекте не собиралось (build/serve); считает только check
     kit: KitStatus | None = None
-    # язык пояснений (build.notes): на нём печатается строка о комплекте
+    # язык запуска, а без него язык сайта: для render() и kit_line() без аргумента
     notes_lang: str = "en"
 
     def kit_line(self, lang: str | None = None) -> str:
@@ -382,10 +382,15 @@ def build(
     theme: ThemeConfig,
     theme_dir=None,
     site_root=None,
+    lang: str | None = None,
 ) -> Report:
-    """Собрать отчёт по обойдённому сайту."""
+    """Собрать отчёт по обойдённому сайту.
+
+    `lang` - язык запуска от вызывающего. Без него (прямой вызов мимо CLI) отчёт
+    помнит язык сайта только как умолчание для `render()` и `kit_line()`.
+    """
     report = Report()
-    report.notes_lang = config.build.notes
+    report.notes_lang = lang or config.build.notes
 
     for page in site.pages:
         report.pages_by_lang[page.lang] += 1
@@ -720,7 +725,8 @@ def summary(collector: Collector, full: Path | None = None, lang: str = "en") ->
             full.write_text(
                 "\n".join(
                     f"{getattr(w, 'kind', '') or 'прочее'}\t"
-                    f"{w.path or ''}{f':{w.line}' if w.path and w.line else ''}\t{rendered(w.message, lang)}"
+                    f"{w.path or ''}{f':{w.line}' if w.path and w.line else ''}\t"
+                    f"{rendered(w.message, lang)}"
                     for w in collector.warnings
                 )
                 + "\n",
@@ -746,6 +752,7 @@ def _error_text(error, lang: str) -> str:
 
 
 # --- старые адреса: heron check --old-urls ------------------------------------------
+
 
 def read_old_urls(path: Path) -> list[str]:
     """Адреса из файла: по строке на адрес или выгрузка Search Console (CSV).
@@ -782,7 +789,7 @@ def _looks_like_url(line: str) -> bool:
 
 
 def old_urls(urls: list[str], site: Site, config: SiteConfig) -> tuple[list[Warning_], str]:
-    """Предупреждения по адресам без пути и строка сводки (на языке build.notes)."""
+    """Предупреждения по адресам без пути и строка сводки (Msg, язык при показе)."""
     warnings: list[Warning_] = []
     seen: set[str] = set()
     for url in urls:

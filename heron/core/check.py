@@ -34,7 +34,7 @@ from heron.contracts.site import SiteConfig
 from heron.core import paths
 from heron.core.errors import Collector, HeronError
 from heron.core.render import env as envmod
-from heron.messages import say
+from heron.messages import Msg
 
 CODE = "E033"
 
@@ -104,7 +104,6 @@ def mutations(
     if not theme_dir.is_dir():
         return
     env = envmod.make(theme_dir, config, hooks)
-    lang = config.build.notes
     root = Path(site_root).resolve() if site_root is not None else None
 
     queue = sorted(_candidates(theme_dir))
@@ -123,10 +122,10 @@ def mutations(
             collector.errors.append(
                 HeronError(
                     code=CODE,
-                    message=say(lang, "sandbox_mutation", call=call),
+                    message=Msg("sandbox_mutation", call=call),
                     path=shown,
                     line=line,
-                    hint=say(lang, _hint_key(method)),
+                    hint=Msg(_hint_key(method)),
                 )
             )
 

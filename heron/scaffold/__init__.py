@@ -129,26 +129,26 @@ DEMO_TITLES = {
     },
     "ru": {
         "index": (
-            "{name} — сайт на HERON",
+            "{name} - сайт на HERON",
             "{name}",
             "Демонстрационный сайт белой темы HERON: как устроены страницы и что править.",
             "Главная",
         ),
         "blocks": (
-            "Блоки страницы — что умеет тема",
+            "Блоки страницы - что умеет тема",
             "Блоки страницы",
             "Все виды блоков HERON на одной странице: список, шаги, таблица, факты, "
             "вопросы, вкладки и другие.",
             "Блоки",
         ),
         "themes": (
-            "Темы — как сменить внешний вид",
+            "Темы - как сменить внешний вид",
             "Темы",
             "Как сменить тему сайта на HERON и что приезжает вместе с ней.",
             "Темы",
         ),
         "docs": (
-            "Документация — главные команды HERON",
+            "Документация - главные команды HERON",
             "Документация",
             "Главные команды HERON: создать, настроить, посмотреть, проверить, собрать.",
             "Документация",
@@ -156,26 +156,26 @@ DEMO_TITLES = {
     },
     "en": {
         "index": (
-            "{name} — a site on HERON",
+            "{name} - a site on HERON",
             "{name}",
             "The demo site of the HERON white theme: how pages are made and what to edit.",
             "Home",
         ),
         "blocks": (
-            "Page blocks — what the theme draws",
+            "Page blocks - what the theme draws",
             "Page blocks",
             "Every kind of HERON block on one page: list, steps, table, facts, "
             "questions, tabs and more.",
             "Blocks",
         ),
         "themes": (
-            "Themes — how to change the look",
+            "Themes - how to change the look",
             "Themes",
             "How to change the theme of a HERON site and what comes with it.",
             "Themes",
         ),
         "docs": (
-            "Documentation — the main HERON commands",
+            "Documentation - the main HERON commands",
             "Documentation",
             "The main HERON commands: create, set up, look, check, build.",
             "Documentation",
@@ -407,7 +407,7 @@ NAV_HOME = {"uk": "Головна", "ru": "Главная", "en": "Home"}
 STARTER = {
     "uk": {
         "home": (
-            "{name} — головна",
+            "{name} - головна",
             "{name}",
             "Головна сторінка сайту {name}",
             "Перший абзац: хто ви і чим корисні.\n\nДругий абзац: що людина отримає.\n\n"
@@ -423,7 +423,7 @@ STARTER = {
     },
     "ru": {
         "home": (
-            "{name} — главная",
+            "{name} - главная",
             "{name}",
             "Главная страница сайта {name}",
             "Первый абзац: кто вы и чем полезны.\n\nВторой абзац: что человек получит.\n\n"
@@ -439,7 +439,7 @@ STARTER = {
     },
     "en": {
         "home": (
-            "{name} — home",
+            "{name} - home",
             "{name}",
             "Home page of {name}",
             "First paragraph: who you are and how you help.\n\n"

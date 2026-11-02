@@ -24,13 +24,13 @@ SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\Z")
 # TODO — метка, по которой автор находит недописанное, она не переводится.
 BODY = {
     "ru": {
-        "intro": "Вводный абзац — то, что попадёт в сниппет.",
+        "intro": "Вводный абзац - то, что попадёт в сниппет.",
         "heading": "TODO заголовок",
         "content": "TODO содержимое.",
         "description": "TODO: что человек получит на странице",
     },
     "en": {
-        "intro": "Intro paragraph — what goes into the search snippet.",
+        "intro": "Intro paragraph - what goes into the search snippet.",
         "heading": "TODO heading",
         "content": "TODO content.",
         "description": "TODO: what the visitor gets",

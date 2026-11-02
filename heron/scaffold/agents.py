@@ -296,9 +296,9 @@ def fields(root: Path, declared: dict[str, Any] | None, lang: str) -> dict[str, 
     name = declared.get("name") or site.get(f"name_{default_lang}") or site.get("name")
     return {
         "name": _line(name or Path(root).resolve().name),
-        "domain": _line(declared.get("domain") or site.get("domain") or "—"),
-        "languages": ", ".join(languages) or "—",
-        "default_lang": default_lang or "—",
+        "domain": _line(declared.get("domain") or site.get("domain") or "-"),
+        "languages": ", ".join(languages) or "-",
+        "default_lang": default_lang or "-",
         "notes": lang,
         "version": heron.__version__,
         "channel": channel(),

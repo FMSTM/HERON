@@ -34,7 +34,7 @@ analytics: |-
      Counter numbers come from site.yaml (analytics.*) and reach the page
      code through tojson: they are data, not markup. #}
 css.tokens: |-
-  /* HERON starter — white, plain, readable. Change the tokens below and it is yours. */
+  /* HERON starter - white, plain, readable. Change the tokens below and it is yours. */
 css.dark: |-
   /* Dark theme: by the system setting or by the button in the header (data-theme). */
 css.tabs: |-

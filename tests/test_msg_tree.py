@@ -42,12 +42,12 @@ def test_scan_errors_ru_and_en(tmp_path):
     name = [e for e in by_code["E005"] if "имя файла" in e.message][0]
     assert name.message.text("en") == "invalid file name 'Bad_Name.md'"
     _check(name.message, "недопустимое имя файла 'Bad_Name.md'")
-    _check(name.hint, "слаг — латиница, цифры и дефис: getting-started.md")
+    _check(name.hint, "слаг - латиница, цифры и дефис: getting-started.md")
     assert not CYR.search(name.hint.text("en"))
 
     segment = [e for e in by_code["E005"] if "сегмент" in e.message][0]
     _check(segment.message, "недопустимый сегмент адреса 'Bad Dir' (имя папки или slug раздела)")
-    _check(segment.hint, "папки — латиница, цифры и дефис; или задайте slug в _index.md раздела")
+    _check(segment.hint, "папки - латиница, цифры и дефис; или задайте slug в _index.md раздела")
 
     clash = by_code["E004"][0]
     assert clash.message.text("en").startswith("address /same/ is already taken by file")
@@ -124,7 +124,7 @@ def test_plugin_bad_name_and_not_installed(tmp_path):
     with pytest.raises(HeronError) as exc:
         resolver.plugins(tmp_path, ["-bad"], Hooks())
     _check(exc.value.message, "плагин '-bad': недопустимое имя")
-    _check(exc.value.hint, "имя плагина — латиница, цифры, _ и -, не с дефиса")
+    _check(exc.value.hint, "имя плагина - латиница, цифры, _ и -, не с дефиса")
     assert exc.value.message.text("en") == "plugin '-bad': invalid name"
 
     with pytest.raises(HeronError) as exc:

@@ -31,15 +31,15 @@ def _err(call, *args):
 @pytest.mark.parametrize(
     "entry,ru,en",
     [
-        ("old", "gone: 'old' — ожидается путь от корня, например /old-page/",
+        ("old", "gone: 'old' - ожидается путь от корня, например /old-page/",
          "gone: 'old' - expected a path from the root, for example /old-page/"),
-        ("/a#b", "gone: '/a#b' — якорь серверу не приходит, уберите #…",
+        ("/a#b", "gone: '/a#b' - якорь серверу не приходит, уберите #…",
          "gone: '/a#b' - the server never receives an anchor, remove the #..."),
-        ("/?p", "gone: '/?p' — параметр пишется одной парой: /?p=* или /?p=12",
+        ("/?p", "gone: '/?p' - параметр пишется одной парой: /?p=* или /?p=12",
          "gone: '/?p' - write the parameter as a single pair: /?p=* or /?p=12"),
-        ("/?p=1*", "gone: '/?p=1*' — звёздочка заменяет значение целиком: /?p=*",
+        ("/?p=1*", "gone: '/?p=1*' - звёздочка заменяет значение целиком: /?p=*",
          "gone: '/?p=1*' - the asterisk replaces the whole value: /?p=*"),
-        ("/w*p/*", "gone: '/w*p/*' — звёздочка допустима только в конце: /wp/*",
+        ("/w*p/*", "gone: '/w*p/*' - звёздочка допустима только в конце: /wp/*",
          "gone: '/w*p/*' - the asterisk is allowed only at the end: /wp/*"),
     ],
 )
@@ -56,7 +56,7 @@ def test_site_block_errors_through_describe(tmp_path):
         load_site(path)
     msg = caught.value.message
     assert isinstance(msg, Msg)
-    assert "имя темы — латиница, цифры, дефис и подчёркивание" in msg.text("ru")
+    assert "имя темы - латиница, цифры, дефис и подчёркивание" in msg.text("ru")
     assert "the theme name is Latin letters, digits, hyphen and underscore" in msg.text("en")
     assert not CYRILLIC.search(msg.text("en"))
 
@@ -104,5 +104,5 @@ def test_theme_validators():
     with pytest.raises(Exception) as caught:
         ThemeConfig.model_validate({**base, "name": "bad name"})
     msg = caught.value.errors()[0]["ctx"]["error"].args[0]
-    assert msg.text("ru") == "имя темы — латиница, цифры, дефис и подчёркивание"
+    assert msg.text("ru") == "имя темы - латиница, цифры, дефис и подчёркивание"
     assert msg.text("en") == "the theme name is Latin letters, digits, hyphen and underscore"

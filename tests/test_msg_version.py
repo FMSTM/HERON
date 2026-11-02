@@ -89,7 +89,7 @@ def test_wiring_engine_too_old():
     with pytest.raises(HeronError) as ei:
         wiring.verify_engine(_theme(heron=">=99"))
     assert ei.value.code == "E012"
-    assert ei.value.message.text("ru") == f"тема 't' требует движок >=99, а этот — {__version__}"
+    assert ei.value.message.text("ru") == f"тема 't' требует движок >=99, а этот - {__version__}"
     assert "requires engine >=99" in _en_ok(ei.value)
 
 

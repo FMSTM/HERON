@@ -8,10 +8,10 @@ TEXT: dict[str, dict[str, str]] = {
         "tree_symlink_escape": "символическая ссылка ведёт за пределы content/",
         "tree_symlink_escape_hint": "положите сам файл в content/ вместо ссылки на него",
         "tree_bad_file_name": "недопустимое имя файла {name!r}",
-        "tree_bad_file_name_hint": "слаг — латиница, цифры и дефис: getting-started.md",
+        "tree_bad_file_name_hint": "слаг - латиница, цифры и дефис: getting-started.md",
         "tree_bad_url_segment": "недопустимый сегмент адреса {segment!r} (имя папки или slug раздела)",
         "tree_bad_url_segment_hint": (
-            "папки — латиница, цифры и дефис; или задайте slug в _index.md раздела"
+            "папки - латиница, цифры и дефис; или задайте slug в _index.md раздела"
         ),
         "tree_url_taken": "адрес {url} уже занят файлом {source}",
         "tree_url_taken_hint": "переименуйте файл или задайте другой slug во фронтматтере",
@@ -21,7 +21,7 @@ TEXT: dict[str, dict[str, str]] = {
         ),
         "tree_home_key": (
             "ключ home в подстановках schema означает главную: "
-            "эта страница через pages.home недоступна — переименуйте файл"
+            "эта страница через pages.home недоступна - переименуйте файл"
         ),
         "tree_empty_lang": "в языке {lang!r} нет ни одной страницы",
         "tree_theme_local": "локальная",
@@ -39,7 +39,7 @@ TEXT: dict[str, dict[str, str]] = {
             "сделайте {folder}/ настоящей папкой внутри сайта вместо ссылки"
         ),
         "tree_plugin_bad_name": "плагин {name!r}: недопустимое имя",
-        "tree_plugin_bad_name_hint": "имя плагина — латиница, цифры, _ и -, не с дефиса",
+        "tree_plugin_bad_name_hint": "имя плагина - латиница, цифры, _ и -, не с дефиса",
         "tree_plugin_local": "локальный",
         "tree_plugin_load_failed": "плагин {name!r} упал при загрузке: {error}",
         "tree_plugin_not_installed": "плагин {name!r} не установлен и не найден в {folder}/",

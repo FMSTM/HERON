@@ -41,7 +41,7 @@ def test_build_many_complaints_two_at_once(tmp_path):
     assert ru == (
         "не проходит проверку (2):\n"
         "    name: поле обязательно, его нет в файле\n"
-        "    typo: такого поля нет в контракте — опечатка в имени?"
+        "    typo: такого поля нет в контракте - опечатка в имени?"
     )
     en = err.message.text("en")
     assert en.startswith("failed validation (2):\n")
@@ -92,8 +92,8 @@ def test_frontmatter_validator_messages_keep_ru_and_translate(tmp_path):
     msg = caught.value.message
     ru = msg.text("ru")
     assert "title: Value error, поле не может быть пустым" in ru
-    assert "slug: Value error, слаг — латиница, цифры и дефис, без слешей и подчёркиваний" in ru
-    assert "redirect_from: Value error, 'x' — ожидается путь от корня, например /services/old/" in ru
+    assert "slug: Value error, слаг - латиница, цифры и дефис, без слешей и подчёркиваний" in ru
+    assert "redirect_from: Value error, 'x' - ожидается путь от корня, например /services/old/" in ru
     en = msg.text("en")
     assert "title: the field must not be empty" in en
     assert "'x' - a path from the root is expected" in en

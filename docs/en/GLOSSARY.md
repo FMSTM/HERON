@@ -126,3 +126,5 @@ Terms of the HERON documentation and their English equivalents. The source is `d
 | граница публикации | publication boundary | `roles/builder.md` |
 | группы предупреждений (`картинки`, `связи`, …) | as the engine prints them in English: `images`, `relations`, `links`, `menu`, `translations`, `languages`, `content`, `other` | `roles/builder.md` |
 | перевод | translation | `README.md` |
+| сообщение движка | engine message | `spec/21-engine.md` |
+| язык сообщений | message language | `spec/21-engine.md` |

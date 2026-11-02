@@ -322,12 +322,18 @@ def test_dist_carries_no_comment_of_the_other_language(tmp_path, lang):
     result = pipeline.run(root)
     assert not result.failed, [str(e) for e in result.collector.errors]
     dist = root / "dist"
-    for page in dist.rglob("*.html"):
+    pages = list(dist.rglob("*.html"))
+    assert pages
+    for page in pages:
         html = page.read_text(encoding="utf-8")
-        # комментарий скрипта темы — Jinja-комментарий: в HTML его нет ни на каком языке
-        assert "//" not in html.split("<script>", 1)[1].split("</script>", 1)[0], page
+        # инлайн-скриптов нет: JSON-LD это данные, остальное только по src
+        for attrs in re.findall(r"<script\b([^>]*)>", html):
+            assert "src=" in attrs or 'type="application/ld+json"' in attrs, (page, attrs)
         if lang == "en":
             assert not CYRILLIC.search(html), page
+    # скрипт темы без комментариев ни на каком языке; `//` в адресах счётчиков не комментарий
+    script = (dist / "assets" / "site.js").read_text(encoding="utf-8")
+    assert not re.search(r"(?<!:)//", script)
     css = (dist / "assets" / "site.css").read_text(encoding="utf-8")
     css_comments = re.findall(r"/\*.*?\*/", css, re.S)
     assert css_comments

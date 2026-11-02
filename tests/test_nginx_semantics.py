@@ -8,11 +8,15 @@
 
 from __future__ import annotations
 
+import socket
+
+import pytest
 import yaml
 
 from heron.core import build as pipeline
 from heron.modules import nginx
 from heron.scaffold import create
+from tests import nginx_server
 from tests.nginx_server import needs_nginx, serve
 
 PAGE = "---\ntitle: {t}\nh1: {t}\ndescription: D\n{extra}---\n\nText.\n"
@@ -190,3 +194,75 @@ def test_security_headers_and_healthz_are_served(tmp_path):
     assert not pipeline.run(root).failed
     with serve(root / "dist", tmp_path / "nginx") as get:  # serve сам делает nginx -t
         assert get("/healthz")[0] == 200
+
+
+# --- заголовки на живом ответе (E15.S1.T20) --------------------------------------
+
+
+def _headers(port, path):
+    """Код и заголовки ответа: `get` из nginx_server отдаёт только код и Location."""
+    with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:
+        sock.sendall(f"GET {path} HTTP/1.0\r\nHost: x\r\n\r\n".encode())
+        data = b""
+        while chunk := sock.recv(65536):
+            data += chunk
+    head = data.partition(b"\r\n\r\n")[0].decode("latin-1").split("\r\n")
+    pairs = (line.split(":", 1) for line in head[1:])
+    return int(head[0].split()[1]), {k.strip().lower(): v.strip() for k, v in pairs}
+
+
+def _directive(csp, name):
+    """Значения директивы CSP, без её имени."""
+    for part in csp.split(";"):
+        words = part.split()
+        if words and words[0] == name:
+            return words[1:]
+    raise AssertionError(f"{name} нет в {csp}")
+
+
+@pytest.fixture
+def spy_port(monkeypatch):
+    """Порт, который `serve` выбрал для nginx: самому `serve` он не нужен снаружи."""
+    ports = []
+    real = nginx_server._free_port
+
+    def spy():
+        ports.append(real())
+        return ports[-1]
+
+    monkeypatch.setattr(nginx_server, "_free_port", spy)
+    return ports
+
+
+@needs_nginx
+def test_live_response_has_strict_csp_and_security_headers(tmp_path, spy_port):
+    root = make(tmp_path)
+    assert not pipeline.run(root).failed
+    with serve(root / "dist", tmp_path / "nginx") as get:
+        assert get("/healthz")[0] == 200
+        for path in ("/", "/assets/site.js"):
+            status, headers = _headers(spy_port[0], path)
+            assert status == 200, path
+            csp = headers["content-security-policy"]
+            assert _directive(csp, "script-src") == ["'self'"], path
+            assert "unsafe-inline" not in " ".join(_directive(csp, "script-src"))
+            assert headers["x-content-type-options"] == "nosniff"
+            assert "max-age=" in headers["strict-transport-security"]
+            assert headers["server"] == "nginx"  # без версии
+        # при nosniff браузер не исполнит скрипт с другим типом
+        assert "javascript" in _headers(spy_port[0], "/assets/site.js")[1]["content-type"]
+
+
+@needs_nginx
+def test_live_csp_allows_only_the_enabled_counter(tmp_path, spy_port):
+    root = make(tmp_path)
+    conf = yaml.safe_load((root / "site.yaml").read_text(encoding="utf-8"))
+    conf["analytics"] = {"metrika": 10000001}
+    (root / "site.yaml").write_text(yaml.safe_dump(conf, allow_unicode=True), "utf-8")
+    assert not pipeline.run(root).failed
+    with serve(root / "dist", tmp_path / "nginx"):
+        csp = _headers(spy_port[0], "/")[1]["content-security-policy"]
+    for name in ("script-src", "connect-src", "img-src"):
+        assert "https://mc.yandex.ru" in _directive(csp, name), name
+    assert "unsafe-inline" not in " ".join(_directive(csp, "script-src"))
+    assert "google" not in csp

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 
-from heron.contracts.site import SiteConfig
+from heron.contracts.site import AnalyticsBlock, SiteConfig
 from heron.messages import Msg
 from heron.modules.redirects import Plan
 
@@ -117,22 +117,53 @@ def _comments(text: str, lang: str) -> str:
     )
 
 
-# Заголовки безопасности (спецификация 22, раздел 5). CSP строгий: скрипты
-# только свои, внешних нет. HSTS на http-ответе браузер игнорирует, а за
-# TLS-прокси он нужен, поэтому ставится всегда.
-SECURITY = (
-    'add_header X-Content-Type-Options "nosniff" always;\n'
-    'add_header Referrer-Policy "strict-origin-when-cross-origin" always;\n'
-    "add_header Content-Security-Policy \"default-src 'self'; script-src 'self'; "
-    "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; "
-    "object-src 'none'; base-uri 'self'; frame-ancestors 'self'\" always;\n"
-    'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;\n'
+# Домены счётчиков по ключам `analytics` в site.yaml. Google Tag Manager и GA4
+# загружают и шлют данные через одни и те же домены.
+GOOGLE_COUNTER = (
+    "https://*.googletagmanager.com",
+    "https://*.google-analytics.com",
+    "https://*.analytics.google.com",
 )
+COUNTER_DOMAINS = {
+    "gtm": GOOGLE_COUNTER,
+    "ga4": GOOGLE_COUNTER,
+    "metrika": ("https://mc.yandex.ru",),
+}
 
 
-def _security(indent: int) -> str:
+def _counter_domains(analytics: AnalyticsBlock) -> str:
+    """Домены включённых счётчиков, через пробел и с пробелом впереди."""
+    enabled = [
+        domain
+        for key, domains in COUNTER_DOMAINS.items()
+        if getattr(analytics, key)
+        for domain in domains
+    ]
+    return "".join(f" {domain}" for domain in dict.fromkeys(enabled))
+
+
+def _csp(analytics: AnalyticsBlock) -> str:
+    """CSP строгий: скрипты только свои, чужие домены — только включённых счётчиков."""
+    extra = _counter_domains(analytics)
+    connect = f"connect-src 'self'{extra}; " if extra else ""
+    return (
+        f"default-src 'self'; script-src 'self'{extra}; {connect}"
+        f"style-src 'self' 'unsafe-inline'; img-src 'self' data:{extra}; font-src 'self'; "
+        "object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+    )
+
+
+# Заголовки безопасности (спецификация 22, раздел 5). HSTS на http-ответе браузер
+# игнорирует, а за TLS-прокси он нужен, поэтому ставится всегда.
+def _security(indent: int, analytics: AnalyticsBlock) -> str:
     pad = " " * indent
-    return "".join(f"{pad}{line}\n" for line in SECURITY.splitlines())
+    lines = (
+        'add_header X-Content-Type-Options "nosniff" always;',
+        'add_header Referrer-Policy "strict-origin-when-cross-origin" always;',
+        f'add_header Content-Security-Policy "{_csp(analytics)}" always;',
+        'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;',
+    )
+    return "".join(f"{pad}{line}\n" for line in lines)
 
 
 HEAD = """#@built
@@ -354,8 +385,8 @@ def generate(config: SiteConfig, plan: Plan | None = None) -> dict[str, str]:
     notes = config.build.notes
     head = (
         _comments(HEAD, notes)
-        .replace("@SECURITY8@\n", _security(8))
-        .replace("@SECURITY@\n", _security(4))
+        .replace("@SECURITY8@\n", _security(8, config.analytics))
+        .replace("@SECURITY@\n", _security(4, config.analytics))
     )
     head = head.replace(
         "    absolute_redirect off;\n",

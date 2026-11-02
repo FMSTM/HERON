@@ -1,9 +1,5 @@
 {# heron:note analytics #}
-{% set counters = {} %}
-{% if site.analytics.gtm %}{% set counters = dict(counters, gtm=site.analytics.gtm) %}{% endif %}
-{% if site.analytics.ga4 %}{% set counters = dict(counters, ga4=site.analytics.ga4) %}{% endif %}
-{% if site.analytics.metrika %}{% set counters = dict(counters, metrika=site.analytics.metrika|string) %}{% endif %}
-{% if counters %}
+{% if site.analytics.gtm or site.analytics.ga4 or site.analytics.metrika %}
 <div class="consent" data-consent hidden role="dialog" aria-live="polite" aria-label="{{ t.consent_title }}">
   <p>{{ t.consent_text }}</p>
   <div class="consent-actions">
@@ -11,57 +7,4 @@
     <button type="button" class="quiet" data-consent-decline>{{ t.consent_decline }}</button>
   </div>
 </div>
-<script>
-  (function () {
-    var COUNTERS = {{ counters|tojson }};
-    var KEY = "heron-consent";
-    var box = document.querySelector("[data-consent]");
-    function read() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
-    function write(value) { try { localStorage.setItem(KEY, value); } catch (e) {} }
-    function script(src) {
-      var s = document.createElement("script");
-      s.async = true; s.src = src;
-      document.head.appendChild(s);
-    }
-    var loaded = false;
-    function load() {
-      if (loaded) return;
-      loaded = true;
-{% if 'gtm' in counters %}
-      if (COUNTERS.gtm) {
-        window.dataLayer = window.dataLayer || [];
-        window.dataLayer.push({ "gtm.start": new Date().getTime(), event: "gtm.js" });
-        script("https://www.googletagmanager.com/gtm.js?id=" + encodeURIComponent(COUNTERS.gtm));
-      }
-{% endif %}{% if 'ga4' in counters %}
-      if (COUNTERS.ga4) {
-        window.dataLayer = window.dataLayer || [];
-        window.gtag = function () { window.dataLayer.push(arguments); };
-        window.gtag("js", new Date());
-        window.gtag("config", COUNTERS.ga4);
-        script("https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(COUNTERS.ga4));
-      }
-{% endif %}{% if 'metrika' in counters %}
-      if (COUNTERS.metrika) {
-        window.ym = window.ym || function () { (window.ym.a = window.ym.a || []).push(arguments); };
-        window.ym.l = 1 * new Date();
-        window.ym(Number(COUNTERS.metrika), "init", { clickmap: true, trackLinks: true, accurateTrackBounce: true });
-        script("https://mc.yandex.ru/metrika/tag.js");
-      }
-{% endif %}
-    }
-    function show() { if (box) box.hidden = false; }
-    function hide() { if (box) box.hidden = true; }
-    var choice = read();
-    if (choice === "yes") load();
-    else if (choice !== "no") show();
-    document.addEventListener("click", function (event) {
-      var target = event.target;
-      if (!(target instanceof Element)) return;
-      if (target.closest("[data-consent-accept]")) { write("yes"); hide(); load(); }
-      else if (target.closest("[data-consent-decline]")) { write("no"); hide(); }
-      else if (target.closest("[data-consent-open]")) { show(); }
-    });
-  })();
-</script>
 {% endif %}

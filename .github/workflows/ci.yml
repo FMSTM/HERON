@@ -74,10 +74,26 @@ jobs:
       - name: зависимости
         run: uv sync --group dev
 
+      - name: версия Playwright для ключа кеша
+        id: pw
+        run: echo "version=1.63.0" >> "$GITHUB_OUTPUT"
+
+      - name: кеш Chromium (Playwright)
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
       - name: Chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         # ubuntu-26.04 Playwright знает с 1.61; версия ниже падает на
         # `install --with-deps`: «does not support chromium on ubuntu26.04».
         run: uv run --with playwright==1.63.0 playwright install --with-deps chromium
+
+      - name: системные зависимости Chromium (браузер из кеша)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: uv run --with playwright==1.63.0 playwright install-deps chromium
 
       - name: JSON-LD, заголовки и согласие на счётчики в браузере
         env:

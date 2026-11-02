@@ -17,7 +17,7 @@ TEXT = {
     },
     "en": {
         "blocks_unknown_class": "section {section}: unknown class {name}, detecting it from the content",
-        "blocks_stray_lines": "section {section}: lines without the \"|\" separator were skipped ({stray})",
+        "blocks_stray_lines": 'section {section}: lines without the "|" separator were skipped ({stray})',
         "blocks_class_mismatch": (
             "section {section}: class {name} does not fit the content, rendering it as prose"
         ),

@@ -239,13 +239,21 @@ jobs:
             -v "$HERON_OUT/dist/.heron-nginx.conf:/etc/nginx/conf.d/default.conf:ro" \
             "$NGINX_IMAGE" nginx -t
 
+      - uses: docker/setup-buildx-action@v4
+
       - name: образ
-        env:
-          IMAGE: ${{ steps.names.outputs.image }}
-        run: |
-          docker build -f .heron/Dockerfile.site \
-            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
-            -t "$IMAGE" "$HERON_OUT/dist"
+        # Кеш слоёв в GitHub Actions, отдельный scope от образа движка: слой
+        # nginx и его конфиг не пересобираются, пока dist/ не изменился.
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ env.HERON_OUT }}/dist
+          file: .heron/Dockerfile.site
+          load: true
+          push: false
+          tags: ${{ steps.names.outputs.image }}
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha,scope=heron-site
+          cache-to: type=gha,mode=max,scope=heron-site
 
       - name: дымовая проверка
         # Проверяется ровно тот образ, который уйдёт в реестр.

@@ -170,8 +170,8 @@ jobs:
             HERON_REVISION=${{ github.sha }}
             HERON_BUILT=${{ steps.stamp.outputs.built }}
             SOURCE_DATE_EPOCH=${{ steps.stamp.outputs.epoch }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=heron-engine
+          cache-to: type=gha,mode=max,scope=heron-engine
 
       - name: дымовая проверка кандидата
         # Временный сайт: new, затем строгая прод-сборка — с теми же

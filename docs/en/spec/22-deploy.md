@@ -179,11 +179,11 @@ A Chromium cache hit skips the browser download, but system libraries are still 
 
 **How to reset a cache.**
 
-- Change the version in the key. For Chromium this is the `версия Playwright для ключа кеша` step (version `1.63.0` in `ci.yml`, the same number must be changed in the `playwright` commands); for nginx `.deb` files, the `ubuntu-26.04` label in the key; for uv, changing `uv.lock` is enough. The old cache is no longer found and is evicted over time.
+- Change the version in the key. For Chromium this is the step that sets the Playwright version for the cache key (version `1.63.0` in `ci.yml`, the same number must be changed in the `playwright` commands); for nginx `.deb` files, the `ubuntu-26.04` label in the key; for uv, changing `uv.lock` is enough. The old cache is no longer found and is evicted over time.
 - Delete selectively: `gh cache list`, then `gh cache delete <id or key>`; everything at once - `gh cache delete --all`.
 - By hand in the UI: the repository, the Actions tab, the Caches section on the left, the delete button next to the entry.
 
-Docker layers live in the same GitHub Actions cache storage under keys with `scope=heron-engine` and `scope=heron-site`: they show up in `gh cache list` and are deleted the same ways. The storage limit is 10 GB per repository; above it GitHub evicts the oldest entries.
+Docker layers live in the same GitHub Actions cache storage (the `scope=heron-engine` and `scope=heron-site` index entries; the blocks themselves are stored under hash keys, so filtering `gh cache list` by scope does not find everything): they show up in `gh cache list` and are deleted the same ways. The `heron-site` cache belongs to the site repository, not the engine one. The storage limit is 10 GB per repository; above it GitHub evicts the oldest entries.
 
 ## 5. nginx
 

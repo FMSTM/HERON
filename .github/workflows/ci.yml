@@ -117,14 +117,14 @@ jobs:
           HERON_REQUIRE_BROWSER: "1"
         run: uv run --with playwright==1.63.0 pytest tests -k browser -rs
 
-  image:
-    name: образ движка
-    needs: [quality, browser]
+  # Сборка и дымовая проверка образа не зависят от quality и browser, поэтому
+  # идут параллельно с ними. Здесь ничего не публикуется: права только на чтение.
+  image-build:
+    name: образ движка (сборка и проверка)
     if: github.event_name == 'push'
     runs-on: ubuntu-26.04
     permissions:
       contents: read
-      packages: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -153,8 +153,8 @@ jobs:
           echo "built=$(date -u -d "@$epoch" '+%Y-%m-%d %H:%M UTC')" >> "$GITHUB_OUTPUT"
 
       - name: сборка кандидата
-        # Образ собирается один раз и грузится в локальный докер: проверяется
-        # и публикуется именно он, а не пересобранный заново.
+        # Образ собирается и проверяется здесь БЕЗ push; слои уходят в кеш gha
+        # (scope heron-engine), из которого их берёт publish.
         uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: ${{ steps.stamp.outputs.epoch }}
@@ -179,6 +179,61 @@ jobs:
         env:
           SOURCE_DATE_EPOCH: ${{ steps.stamp.outputs.epoch }}
         run: bash scripts/smoke-engine.sh heron:candidate "$GITHUB_SHA"
+
+  # Публикация только после трёх зелёных job. Образ пересобирается из кеша gha
+  # (scope heron-engine), заполненного image-build: те же вход и build-args,
+  # поэтому все слои берутся из кеша, и уходит ровно проверенное дерево.
+  # packages: write есть только у этого job.
+  publish:
+    name: публикация образа
+    needs: [quality, browser, image-build]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: теги
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-') }}
+            type=sha,format=short
+
+      - name: время сборки — время коммита
+        id: stamp
+        run: |
+          epoch="$(git log -1 --format=%ct)"
+          echo "epoch=$epoch" >> "$GITHUB_OUTPUT"
+          echo "built=$(date -u -d "@$epoch" '+%Y-%m-%d %H:%M UTC')" >> "$GITHUB_OUTPUT"
+
+      - name: сборка из кеша image-build
+        # Только чтение кеша (cache-to нет): пересборка быстрая, слои те же.
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: ${{ steps.stamp.outputs.epoch }}
+        with:
+          context: .
+          load: true
+          push: false
+          tags: heron:candidate
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            HERON_CHANNEL=${{ github.ref_name }}
+            HERON_REVISION=${{ github.sha }}
+            HERON_BUILT=${{ steps.stamp.outputs.built }}
+            SOURCE_DATE_EPOCH=${{ steps.stamp.outputs.epoch }}
+          cache-from: type=gha,scope=heron-engine
 
       - name: вход в ghcr
         uses: docker/login-action@v4

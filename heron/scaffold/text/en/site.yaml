@@ -1,6 +1,6 @@
 # The single source of truth about the site. Everything written here
 # drives both the build and the folder layout: languages and theme come from here.
-# Fill this file in, then run `heron init` — the folders will follow the config.
+# Fill this file in, then run `heron init` - the folders will follow the config.
 # All keys are described in `heron docs contract`, section 5
 # (in the engine repository: docs/ru/spec/20-data-contract.md).
 
@@ -16,13 +16,13 @@ site:
   theme: {theme}
   default_lang: {default_lang}
   languages: [{languages}]
-  # ↑ add languages here, then run `heron init` — content/<lang>/ with starter
+  # ↑ add languages here, then run `heron init` - content/<lang>/ with starter
   #   pages and theme/i18n/<lang>.yaml will appear.
   #   default_lang is served from the root and must be in the list.
 
 seo:
   title_suffix: ""
-  # ↑ appended to every page <title>: " — Site name"
+  # ↑ appended to every page <title>: " - Site name"
   og_default_image: media/cover.png
   # ↑ default cover for pages without their own image (og:image)
   llms_txt: true
@@ -44,7 +44,7 @@ build:
   notes: en
   # ↑ language of comments and hints written by heron init and heron page: ru or en. Override: --notes or HERON_NOTES
   agents: {agents}
-  # ↑ instruction kit for AI agents in agents/: true — full, kit — without guides and specs, false — do not place it
+  # ↑ instruction kit for AI agents in agents/: true - full, kit - without guides and specs, false - do not place it
   fail_on_warning: false
   allow_raw_html: false
 

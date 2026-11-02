@@ -3,7 +3,7 @@
 title: {title}
 # ↑ <title> in search results, up to 60 characters. The theme appends the site suffix (seo.title_suffix)
 h1: {h1}
-# ↑ heading on the page — for someone who has already opened it; not a copy of title
+# ↑ heading on the page - for someone who has already opened it; not a copy of title
 description: {description}
 # ↑ meta description, up to 155 characters: what the visitor gets here
 # nav_title:                 # short name in menus and breadcrumbs
@@ -15,17 +15,17 @@ description: {description}
 # main:
 # additional:
 # total: 0
-# The engine does not read this group. One intent — one page
+# The engine does not read this group. One intent - one page
 
 # ================= 3. OPEN GRAPH =================
-# og_title:                  # empty — title is used
-# og_description:            # empty — description is used
-# og_image:                  # empty — seo.og_default_image from site.yaml
+# og_title:                  # empty - title is used
+# og_description:            # empty - description is used
+# og_image:                  # empty - seo.og_default_image from site.yaml
 # og_image_alt:
 # ↑ page cover: og_image, then image, then the first picture in the text, then the hero picture, then seo.og_default_image. Make the cover opaque, 1200 px wide or more
 
 # ================= 4. TWITTER / X =================
-# twitter_title:             # empty — taken from Open Graph
+# twitter_title:             # empty - taken from Open Graph
 # twitter_description:
 # twitter_image:
 
@@ -40,9 +40,9 @@ order: {order}
 {type_line}
 # ================= 7. SERVICE =================
 # date:                      # publication date, YYYY-MM-DD
-# updated:                   # last edit date; without it — build.updated_from from site.yaml
+# updated:                   # last edit date; without it - build.updated_from from site.yaml
 published: true
-# ↑ false — the page is not built
+# ↑ false - the page is not built
 # noindex: true              # hide from search engines and drop from the sitemap
 
 # ================= 8. RELATIONS =================

@@ -3,11 +3,11 @@
 title: {title}
 # ↑ <title> в выдаче, до 60 знаков. Суффикс сайта (seo.title_suffix) добавит тема
 h1: {h1}
-# ↑ заголовок на странице — для того, кто её уже открыл; не копия title
+# ↑ заголовок на странице - для того, кто её уже открыл; не копия title
 description: {description}
 # ↑ meta description, до 155 знаков: что человек получит на странице
 # nav_title:                 # короткое имя в меню и хлебных крошках
-# slug:                      # адрес, если должен отличаться от имени файла. Ключ — имя файла
+# slug:                      # адрес, если должен отличаться от имени файла. Ключ - имя файла
 # canonical:                 # не заполнять: движок ставит канонический адрес сам
 # robots:                    # не заполнять: индексацию решает noindex
 
@@ -15,17 +15,17 @@ description: {description}
 # основной:
 # дополнительные:
 # всего: 0
-# Движок эту группу не читает. Один интент — одна страница
+# Движок эту группу не читает. Один интент - одна страница
 
 # ================= 3. OPEN GRAPH =================
-# og_title:                  # пусто — берётся title
-# og_description:            # пусто — берётся description
-# og_image:                  # пусто — seo.og_default_image из site.yaml
+# og_title:                  # пусто - берётся title
+# og_description:            # пусто - берётся description
+# og_image:                  # пусто - seo.og_default_image из site.yaml
 # og_image_alt:
 # ↑ обложка страницы: og_image, затем image, затем первая картинка текста, затем картинка героя, затем seo.og_default_image. Делайте обложку непрозрачной, от 1200 px по ширине
 
 # ================= 4. TWITTER / X =================
-# twitter_title:             # пусто — из Open Graph
+# twitter_title:             # пусто - из Open Graph
 # twitter_description:
 # twitter_image:
 
@@ -40,9 +40,9 @@ order: {order}
 {type_line}
 # ================= 7. СЛУЖЕБНОЕ =================
 # date:                      # дата публикации, ГГГГ-ММ-ДД
-# updated:                   # дата правки; без неё — build.updated_from из site.yaml
+# updated:                   # дата правки; без неё - build.updated_from из site.yaml
 published: true
-# ↑ false — страница не собирается
+# ↑ false - страница не собирается
 # noindex: true              # закрыть от поисковиков и убрать из sitemap
 
 # ================= 8. СВЯЗИ =================

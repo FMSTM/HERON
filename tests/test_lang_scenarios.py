@@ -30,7 +30,7 @@ import yaml
 from click.testing import CliRunner
 
 from heron.cli import main
-from heron.messages import Msg
+from heron.messages import Msg, say
 from heron.scaffold import create
 
 CYRILLIC = re.compile(r"[А-Яа-яЁё]")
@@ -181,6 +181,11 @@ def untranslated(root: Path, tmp: Path) -> str:
     return ""
 
 
+def no_site(root: Path, tmp: Path) -> str:
+    (root / "site.yaml").unlink()
+    return ""
+
+
 def many_warnings(root: Path, tmp: Path) -> str:
     edit_site(root, lambda data: data["site"].__setitem__("languages", ["en", "fr"]))
     for index in range(15):
@@ -210,6 +215,7 @@ OTHER: dict[str, Callable[[Path, Path], str]] = {
     "no-home": no_home,
     "untranslated": untranslated,
     "many-warnings": many_warnings,
+    "no-site": no_site,
 }
 SCENARIOS = {**ERRORS, **BUILD_ONLY, **OTHER}
 
@@ -281,6 +287,26 @@ def test_check_json_en_warnings_have_no_cyrillic(tmp_path, name):
     data = parse_json(result.output)
     found = list(strings(data))
     assert not [text for text in found if CYRILLIC.search(text)], found
+
+
+@pytest.mark.parametrize("flags", [[], ["--json"]])
+def test_no_site_en_check_points_to_heron_new_without_cyrillic(tmp_path, flags):
+    root, _ = prepared(tmp_path, "no-site")
+    result = run("check", str(root), *flags, "--notes", "en")
+    assert result.exit_code == 1, result.output
+    assert result.output.strip()
+    assert "site.yaml" in result.output
+    assert "heron new" in result.output
+    assert not CYRILLIC.search(result.output), result.output
+
+
+@pytest.mark.parametrize("flags", [[], ["--json"]])
+def test_no_site_ru_check_says_it_in_russian(tmp_path, flags):
+    root, _ = prepared(tmp_path, "no-site")
+    result = run("check", str(root), *flags, "--notes", "ru")
+    assert result.exit_code == 1, result.output
+    assert say("ru", "no_site", path=root) in result.output
+    assert CYRILLIC.search(result.output)
 
 
 @pytest.mark.parametrize("name", SCENARIOS)

@@ -20,7 +20,7 @@ RUN python -m pip install --no-cache-dir --require-hashes --no-deps \
       --target /install -r requirements.lock \
  && python -m pip install --no-cache-dir --require-hashes -r requirements-build.lock
 # Dockerfile.site едет в пакет: `heron recipe` отдаёт рецепт образа сайта этой версии
-COPY pyproject.toml README.md README.ru.md AGENTS.md Dockerfile.site ./
+COPY pyproject.toml README.md README.ru.md AGENTS.md LICENSE Dockerfile.site ./
 COPY heron ./heron
 # текст документации для `heron docs` (docs/ru, docs/en, docs/translation.yaml)
 # и навыки — их пакует force-include. Папка docs целиком: docs/en может ещё не
@@ -44,6 +44,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     HERON_IN_CONTAINER=1
 
 COPY --from=build /install /opt/heron
+COPY LICENSE /opt/heron/LICENSE
 
 # Гит нужен ровно для одного: узнать дату последнего изменения файла
 # (`build.updated_from: git`). Без него движок соберёт сайт, но даты

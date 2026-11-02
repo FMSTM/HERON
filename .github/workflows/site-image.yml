@@ -190,13 +190,19 @@ jobs:
             || { echo "::error::не удалось прочитать версию движка"; exit 1; }
           engine docs --export /out/agents --all-langs
           # схемы: английские описания основные, русские рядом в ru/ ($id у них общий)
-          engine schema --export "/out/schema/$version" --lang en
-          engine schema --export "/out/schema/$version/ru" --lang ru
+          # образ старого движка может не знать --lang: тогда одна схема без ru/
+          if engine schema --help | grep -q -- '--lang'; then
+            engine schema --export "/out/schema/$version" --lang en
+            engine schema --export "/out/schema/$version/ru" --lang ru
+          else
+            echo "::warning::образ движка без schema --lang: схемы без русской версии"
+            engine schema --export "/out/schema/$version"
+          fi
           # тема agents — AGENTS.md репозитория движка этой версии, байт в байт
           engine docs agents > "$static/AGENTS.md"
-          for f in agents/ru/README.md agents/en/README.md \
-                   "schema/$version/site.schema.json" \
-                   "schema/$version/ru/site.schema.json" AGENTS.md; do
+          need=(agents/ru/README.md agents/en/README.md "schema/$version/site.schema.json" AGENTS.md)
+          [ -d "$static/schema/$version/ru" ] && need+=("schema/$version/ru/site.schema.json")
+          for f in "${need[@]}"; do
             [ -s "$site/static/$f" ] || { echo "::error::нет static/$f"; exit 1; }
           done
 

@@ -235,3 +235,10 @@ def test_broken_template_ref_is_reported(tmp_path: Path, line: str, needle: str)
     assert len(problems) == 1
     assert problems[0].startswith("site.yaml:1: ")
     assert needle in problems[0]
+
+
+def test_site_image_export_docs_falls_back_without_schema_lang() -> None:
+    text = (ROOT / ".github/workflows/site-image.yml").read_text("utf-8")
+    assert "engine schema --help | grep -q -- '--lang'" in text
+    assert "::warning::образ движка без schema --lang" in text
+    assert re.search(r'else\n(?:.*\n)*?\s+engine schema --export "/out/schema/\$version"\n', text)

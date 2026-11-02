@@ -65,7 +65,8 @@ def test_mutation_dash_in_body_is_detected(monkeypatch) -> None:
     body = {lang: dict(items) for lang, items in page.BODY.items()}
     body["en"]["intro"] = "Intro — text"
     monkeypatch.setattr(page, "BODY", body)
-    assert any(_has_dash(t) for t in _strings(page.BODY))
+    with pytest.raises(AssertionError):
+        test_page_body_has_no_dashes()
 
 
 # Файлы заготовки, которые ложатся в сайт пользователя (E15.S2.T56).

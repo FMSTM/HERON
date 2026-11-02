@@ -1,7 +1,7 @@
-# plugins — build extensions
+# plugins - build extensions
 
 Plugins for this site: custom build steps, generators, processors. They are
-switched on in `site.yaml` — sitting here is not enough, the engine only takes
+switched on in `site.yaml` - sitting here is not enough, the engine only takes
 what is declared.
 
 ## Belongs here

@@ -515,7 +515,10 @@ def test_apostrophe_value_with_inline_comment_survives_save(tmp_path):
 
 
 def test_split_comment_respects_quotes():
-    assert comments._split_comment("name: It's ours   # слоган") == ("name: It's ours", "   # слоган")
+    assert comments._split_comment("name: It's ours   # слоган") == (
+        "name: It's ours",
+        "   # слоган",
+    )
     assert comments._split_comment("name: 'a # b'   # c") == ("name: 'a # b'", "   # c")
 
 

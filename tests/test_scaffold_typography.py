@@ -77,7 +77,11 @@ TEXT_SUFFIXES = {".md", ".yaml", ".yml", ".txt", ".html", ".css", ".js", ".json"
 def _dash_files(root: Path) -> list[str]:
     bad = []
     for path in sorted(root.rglob("*")):
-        if path.is_file() and path.suffix in TEXT_SUFFIXES and _has_dash(path.read_text(encoding="utf-8")):
+        if (
+            path.is_file()
+            and path.suffix in TEXT_SUFFIXES
+            and _has_dash(path.read_text(encoding="utf-8"))
+        ):
             bad.append(str(path.relative_to(root)))
     return bad
 
@@ -87,9 +91,7 @@ def test_scaffold_demo_and_text_files_have_no_dashes() -> None:
     for sub in ("demo", "text"):
         base = SCAFFOLD_ROOT / sub
         assert base.is_dir(), base
-        checked += sum(
-            1 for p in base.rglob("*") if p.is_file() and p.suffix in TEXT_SUFFIXES
-        )
+        checked += sum(1 for p in base.rglob("*") if p.is_file() and p.suffix in TEXT_SUFFIXES)
         assert _dash_files(base) == [], sub
     assert checked > 0
 

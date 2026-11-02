@@ -218,6 +218,12 @@ OTHER: dict[str, Callable[[Path, Path], str]] = {
     "no-site": no_site,
 }
 SCENARIOS = {**ERRORS, **BUILD_ONLY, **OTHER}
+# Исключения: признак в выводе build не совпадает с возвратом сценария (для check).
+# Состав установлен прогоном: остальные сценарии дают в сборке свой признак.
+BUILD_MARKS: dict[str, str] = {
+    "no-template": "E008",  # odd.md дал бы чужое предупреждение: title и h1 в md() одинаковы
+    "E007": "media/missing-cover.png",  # сборка в dev сообщает о нём предупреждением без кода
+}
 
 
 # --- запуск ---------------------------------------------------------------------------
@@ -256,8 +262,10 @@ def is_error(code: str) -> bool:
 
 
 def messages_of(data: dict, code: str) -> list[str]:
-    """message находок сценария: по полю code, по коду в тексте или по маркеру в path."""
+    """message находок сценария: код E только по полю code, иной признак ещё по тексту и path."""
     items = [*data.get("errors", []), *data.get("warnings", [])]
+    if is_error(code):
+        return [item["message"] for item in items if item.get("code") == code]
     return [
         item["message"]
         for item in items
@@ -265,6 +273,18 @@ def messages_of(data: dict, code: str) -> list[str]:
         or code in item.get("message", "")
         or code in (item.get("path") or "")
     ]
+
+
+def test_messages_of_error_code_ignores_other_findings():
+    data = {
+        "errors": [{"code": "E007", "path": "en/pic.md", "message": "своя"}],
+        "warnings": [
+            {"code": "E003", "path": "en/pic.md", "message": "тот же path"},
+            {"code": "E003", "path": "en/pic.md", "message": "упоминает E007"},
+            {"code": None, "path": "en/E007.md", "message": "код в path"},
+        ],
+    }
+    assert messages_of(data, "E007") == ["своя"]
 
 
 def prepared(tmp_path: Path, name: str):
@@ -333,9 +353,11 @@ def test_build_en_has_no_cyrillic(tmp_path, name):
     result = run("build", str(root), "--notes", "en")
     assert not CYRILLIC.search(result.output), result.output
     full = root / ".heron-cache" / "warnings.txt"
-    if not is_error(code) and name != "no-site":  # в dev E007 и др. идут предупреждением без кода
-        body = result.output + (full.read_text(encoding="utf-8") if full.is_file() else "")
-        assert code in body, (name, result.output)
+    mark = BUILD_MARKS.get(name, code)
+    body = result.output + (full.read_text(encoding="utf-8") if full.is_file() else "")
+    assert mark in body, (name, result.output)
+    if is_error(mark) or name == "no-site":
+        assert result.exit_code == 1, result.output
     if full.is_file():
         for line in full.read_text(encoding="utf-8").splitlines():
             kind, where, message = line.split("\t", 2)

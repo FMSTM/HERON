@@ -1359,7 +1359,7 @@ def build(
     )
     click.secho(say(lang, "build_done", count=len(result.written), target=target), fg="green")
     for notice in result.notices:
-        click.secho(notice, fg="yellow", err=True)
+        click.secho(rendered(notice, lang), fg="yellow", err=True)
     if result.finish_errors:
         for problem in result.finish_errors:
             _err(say(lang, "finish_failed", problem=problem))

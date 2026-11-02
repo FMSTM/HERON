@@ -165,3 +165,30 @@ def test_setup_save_renders_error_in_page_language(tmp_path, monkeypatch, lang, 
     finally:
         urllib.request.urlopen(post("/api/stop", {}), timeout=5).read()
         thread.join(timeout=5)
+
+
+_NOTICE_PLUGIN = """
+def register(hooks):
+    hooks.on("on_build_finished", lambda site, config, dist: {"late.txt": "x"})
+"""
+
+
+@pytest.mark.parametrize(
+    ("lang", "text"),
+    [
+        ("en", "a plugin returned files from on_build_finished"),
+        ("ru", "плагин вернул файлы из on_build_finished"),
+    ],
+)
+def test_build_notice_follows_language(tmp_path, lang, text):
+    root = _site(tmp_path)
+    plugin = root / "plugins" / "late"
+    plugin.mkdir(parents=True)
+    (plugin / "__init__.py").write_text(_NOTICE_PLUGIN, encoding="utf-8")
+    config = root / "site.yaml"
+    config.write_text(config.read_text(encoding="utf-8") + "\nplugins: [late]\n", encoding="utf-8")
+    result = CliRunner().invoke(cli.main, ["build", str(root), "--notes", lang])
+    assert result.exit_code == 0, result.output
+    assert text in result.output
+    if lang == "en":
+        assert not re.search("[А-Яа-яЁё]", result.output)

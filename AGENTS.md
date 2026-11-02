@@ -1,20 +1,18 @@
 # HERON для агентов · HERON for agents
 
-**RU.** Это репозиторий движка статических сайтов HERON. Инструкция для агента, который делает **сайт** на HERON, — [`docs/ru/README.md`](docs/ru/README.md): роли (архитектор, контент и SEO, дизайнер, сборщик), общие правила, границы полномочий, критерии «готово», карта документации. Та же папка лежит в каждом сайте как `agents/` и в образе движка:
+**RU.** Это репозиторий движка статических сайтов HERON. Инструкция для агента, который делает **сайт** на HERON, — [`docs/ru/README.md`](https://github.com/FMSTM/HERON/blob/prod/docs/ru/README.md): роли (архитектор, контент и SEO, дизайнер, сборщик), общие правила, границы полномочий, критерии «готово», карта документации. Та же папка лежит в каждом сайте как `agents/` и в образе движка:
 
 ```bash
 docker run --rm ghcr.io/fmstm/heron:prod docs --lang ru        # оглавление
 docker run --rm ghcr.io/fmstm/heron:prod docs --lang ru kit    # инструкция для агента
 ```
 
-**EN.** This is the repository of HERON, a static site engine. The instruction for an agent that builds a **site** on HERON is [`docs/en/README.md`](docs/en/README.md): roles (architect, content and SEO, designer, builder), common rules, what the agent may decide alone, done criteria, a map of the documentation. The same folder sits in every site as `agents/` and inside the engine image:
+**EN.** This is the repository of HERON, a static site engine. The instruction for an agent that builds a **site** on HERON is [`docs/en/README.md`](https://github.com/FMSTM/HERON/blob/prod/docs/en/README.md): roles (architect, content and SEO, designer, builder), common rules, what the agent may decide alone, done criteria, a map of the documentation. The same folder sits in every site as `agents/` and inside the engine image:
 
 ```bash
 docker run --rm ghcr.io/fmstm/heron:prod docs --lang en        # table of contents
 docker run --rm ghcr.io/fmstm/heron:prod docs --lang en kit    # the instruction for agents
 ```
-
-Пока английский перевод не завершён, `docs/en/` может отставать от `docs/ru/`: состояние — `docs/translation.yaml`, пометку печатает `heron docs`. · Until the English translation is complete, `docs/en/` may lag behind `docs/ru/`: see `docs/translation.yaml`; `heron docs` prints a notice.
 
 | Что нужно · What you need | Где · Where |
 |---|---|
@@ -23,7 +21,7 @@ docker run --rm ghcr.io/fmstm/heron:prod docs --lang en kit    # the instruction
 | гайды · guides | `docs/<lang>/guide/01–06` |
 | контракт, движок, развёртывание, поставка · spec | `docs/<lang>/spec/20–23` |
 | машиночитаемые схемы · JSON Schema | `heron schema --export <папка>` |
-| навыки · skills | [`skills/`](skills/) — `npx skills add FMSTM/HERON` |
+| навыки · skills | [`skills/`](https://github.com/FMSTM/HERON/tree/prod/skills) — `npx skills add FMSTM/HERON` |
 
 ## Если меняешь сам движок · If you change the engine itself
 

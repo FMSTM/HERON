@@ -160,7 +160,14 @@ class _Validator:
         elif isinstance(value, (int, float)):
             numeric = self._kind_in(ranges, _NUMBERLIKE + ("Text",))
             if not (numeric or "QuantitativeValue" in ranges):
-                self.add("SCH004", path, str(value), prop=prop, got=Msg("markup_got_number"), expected=rstr)
+                self.add(
+                    "SCH004",
+                    path,
+                    str(value),
+                    prop=prop,
+                    got=Msg("markup_got_number"),
+                    expected=rstr,
+                )
         elif isinstance(value, str):
             self.string(prop, value, path, ranges, rstr)
         elif isinstance(value, dict):
@@ -173,13 +180,27 @@ class _Validator:
         data = self._datatypes(ranges)
         if data and data <= {"Boolean"}:
             if value.strip().lower() not in ("true", "false"):
-                self.add("SCH004", path, value, prop=prop, got=Msg("markup_got_string"), expected=rstr)
+                self.add(
+                    "SCH004",
+                    path,
+                    value,
+                    prop=prop,
+                    got=Msg("markup_got_string"),
+                    expected=rstr,
+                )
             return
         if data and data <= set(_NUMBERLIKE):
             try:
                 float(value)
             except ValueError:
-                self.add("SCH004", path, value, prop=prop, got=Msg("markup_got_string"), expected=rstr)
+                self.add(
+                    "SCH004",
+                    path,
+                    value,
+                    prop=prop,
+                    got=Msg("markup_got_string"),
+                    expected=rstr,
+                )
             return
         enums = [r for r in ranges if v.is_enum(r)]
         if enums and not any(v.is_member(e, value) for e in enums):

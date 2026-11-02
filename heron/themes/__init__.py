@@ -118,7 +118,9 @@ def _entry(name: str) -> dict[str, Any]:
         with urllib.request.urlopen(url, timeout=TIMEOUT) as response:  # noqa: S310
             data = json.loads(response.read(2 * 1024 * 1024).decode("utf-8"))
     except Exception as error:
-        raise _fail(Msg("themes_catalog_unreachable", error=error), Msg("themes_catalog_unreachable_hint")) from error
+        raise _fail(
+            Msg("themes_catalog_unreachable", error=error), Msg("themes_catalog_unreachable_hint")
+        ) from error
     for item in data.get("themes", []) if isinstance(data, dict) else []:
         if isinstance(item, dict) and item.get("name") == name:
             if not str(item.get("url", "")).startswith("https://"):

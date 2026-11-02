@@ -456,10 +456,9 @@ def apply(
     text, lost = comments.carry(current, dump(new), HEADER[lang], new)
     if lost:
         result.warnings.append("comments_lost")
-    if path.is_file():
-        if current != text:
-            saved = backup(root, SITE_YAML, current.encode("utf-8"))
-            result.backup = saved.relative_to(root).as_posix()
+    if path.is_file() and current != text:
+        saved = backup(root, SITE_YAML, current.encode("utf-8"))
+        result.backup = saved.relative_to(root).as_posix()
     if not path.is_file() or path.read_text(encoding="utf-8") != text:
         path.write_text(text, encoding="utf-8")
         result.written.append(SITE_YAML)

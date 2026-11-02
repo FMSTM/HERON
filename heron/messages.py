@@ -219,11 +219,11 @@ TEXT: dict[str, dict[str, str]] = {
         "bad_notes_site_hint": "build.notes in site.yaml takes ru or en",
         "site_not_utf8": "site.yaml is not UTF-8, the folder is left alone",
         "site_not_utf8_hint": "save site.yaml as UTF-8; heron check shows the same error",
-        "site_not_block": "site.yaml: {value} — not a block of keys, the folder is left alone",
+        "site_not_block": "site.yaml: {value} - not a block of keys, the folder is left alone",
         "site_not_block_hint": (
             "site.yaml is a set of keys (site:, theme:, build:); heron check shows the same error"
         ),
-        "site_languages_not_list": "site.languages: {value} — not a list, the folder is left alone",
+        "site_languages_not_list": "site.languages: {value} - not a list, the folder is left alone",
         "site_languages_not_list_hint": (
             "languages go in a list, e.g. languages: [ru, en]; heron check shows the same error"
         ),
@@ -237,14 +237,14 @@ TEXT: dict[str, dict[str, str]] = {
         "plan_content": "content {code}: {files}",
         "plan_home": "home page",
         "plan_404": "404 page",
-        "plan_theme": "theme: {count} {count:file|files} — theme.yaml, templates, modules, styles",
+        "plan_theme": "theme: {count} {count:file|files} - theme.yaml, templates, modules, styles",
         "plan_i18n": "theme interface strings: {langs}",
         "plan_folders": "empty folders: {folders}",
-        "plan_notes": "heron-readme.md notes: {count} — what goes into each folder",
+        "plan_notes": "heron-readme.md notes: {count} - what goes into each folder",
         "plan_other": "other: {files}",
         "plan_kept": "Left untouched (already there): {files}",
         "plan_kept_many": (
-            "Left untouched (already there): {count} {count:file|files} — list: --verbose"
+            "Left untouched (already there): {count} {count:file|files} - list: --verbose"
         ),
         "plan_nothing": "Nothing to create: everything is already in place.",
         "new_title": "New site in {path}",
@@ -254,19 +254,19 @@ TEXT: dict[str, dict[str, str]] = {
             "Folder {path} is not empty, it contains: {files}\n"
             "  new builds a site from scratch and never touches other files. Git service\n"
             "  files ({service}) are fine.\n"
-            "  what to do: if this is already a site folder, run `heron init {path}` —\n"
+            "  what to do: if this is already a site folder, run `heron init {path}` -\n"
             "  it adds what is missing and overwrites nothing. Otherwise pick an empty folder."
         ),
         "site_exists": (
             "Folder {path} already has a site: site.yaml, languages {langs}.\n"
-            "  new is not needed — it starts a site from scratch and leaves a ready folder alone.\n"
+            "  new is not needed - it starts a site from scratch and leaves a ready folder alone.\n"
             "  what to do:\n"
-            "    add what is missing — `heron init {path}`\n"
-            "    check and build — `heron check {path}`, `heron build {path}`\n"
-            "    start over — remove the site files, keeping .git and .gitignore;\n"
+            "    add what is missing - `heron init {path}`\n"
+            "    check and build - `heron check {path}`, `heron build {path}`\n"
+            "    start over - remove the site files, keeping .git and .gitignore;\n"
             "    if they are not committed: `git clean -dn` lists them, `git clean -d -f` removes"
         ),
-        "found_langs": "content/ already has languages: {langs} — I will suggest them.",
+        "found_langs": "content/ already has languages: {langs} - I will suggest them.",
         "no_questions": (
             "No questions asked: not running in a terminal. Values come from flags or defaults.\n"
             "  For the questionnaire run it in a terminal; with docker, add -it."
@@ -279,7 +279,7 @@ TEXT: dict[str, dict[str, str]] = {
         "ask_name_help": "what people call the site: header, <title>, structured data",
         "ask_domain": "Domain",
         "ask_domain_help": (
-            "no https:// and no slashes, e.g. example.com. Not sure — Enter keeps a placeholder"
+            "no https:// and no slashes, e.g. example.com. Not sure - Enter keeps a placeholder"
         ),
         "ask_langs": "Site languages",
         "ask_langs_help": (
@@ -293,38 +293,38 @@ TEXT: dict[str, dict[str, str]] = {
         "bad_domain": "a domain has no scheme and no path: example.com",
         "bad_langs": "need at least one code like en, ru, en-gb; not valid: {bad}",
         "bad_default": "the main language must be one of: {langs}",
-        "placeholder": "placeholder — replace it in site.yaml",
+        "placeholder": "placeholder - replace it in site.yaml",
         "next_title": "What next:",
         "next_config": (
-            "Set the site up with the questionnaire: `heron setup {path}` — name, domain, "
+            "Set the site up with the questionnaire: `heron setup {path}` - name, domain, "
             "who you are, publishing. Or by hand in {path}/site.yaml."
         ),
         "next_domain": (
-            "The domain is a placeholder {domain} — put the real one in the questionnaire "
+            "The domain is a placeholder {domain} - put the real one in the questionnaire "
             "or in site.yaml."
         ),
-        "next_home": "Home page — {files}: SEO block on top (title, h1, description), text below.",
+        "next_home": "Home page - {files}: SEO block on top (title, h1, description), text below.",
         "next_page": "New page: `heron page page about {path}`",
-        "next_build": "Build: `heron build {path}` — output in {path}/dist/",
+        "next_build": "Build: `heron build {path}` - output in {path}/dist/",
         "next_check": "Check without building: `heron check {path}`",
-        "next_langs": "Added a language to site.yaml — run `heron init {path}` again",
+        "next_langs": "Added a language to site.yaml - run `heron init {path}` again",
         "next_docker": (
-            "With docker — the same commands after `docker run … ghcr.io/fmstm/heron:<tag>`;\n"
+            "With docker - the same commands after `docker run … ghcr.io/fmstm/heron:<tag>`;\n"
             "  the site path is relative to the current folder: `.` if you are in it."
         ),
         "page_done": "Page created: {path}",
         "page_next": "Fill in the SEO block and the sections, then `heron build {root}`",
         "no_path": "There is no folder {path}.",
         "no_site": (
-            "Folder {path} has no site.yaml — it is not a site folder.\n"
-            "  what to do: create a site here — `heron new {path}`; complete an\n"
-            "  existing folder — `heron init {path}`."
+            "Folder {path} has no site.yaml - it is not a site folder.\n"
+            "  what to do: create a site here - `heron new {path}`; complete an\n"
+            "  existing folder - `heron init {path}`."
         ),
         "container_path": (
             "  why: the engine runs in a container and sees only the folder mounted\n"
-            "  at /site — your current folder. The path {path} from your computer\n"
+            "  at /site - your current folder. The path {path} from your computer\n"
             "  does not exist inside the container.\n"
-            "  what to do: pass the path relative to the current folder — `.` if you\n"
+            "  what to do: pass the path relative to the current folder - `.` if you\n"
             "  are in the site folder, or the name of a subfolder."
         ),
         "path_hint": "  what to do: check the path; it is relative to the current folder.",
@@ -336,7 +336,7 @@ TEXT: dict[str, dict[str, str]] = {
         "crash_text": "  {text}",
         "crash_hint": (
             "  what to do: run again with --debug to see the details and send them to\n"
-            "  the engine developers — this is an engine bug, not a problem with your site."
+            "  the engine developers - this is an engine bug, not a problem with your site."
         ),
         "denied": "No permission to write: {path}",
         "denied_hint": (
@@ -372,7 +372,7 @@ TEXT: dict[str, dict[str, str]] = {
         "build_strict": (
             "Build stopped: strict mode (--strict or build.fail_on_warning), "
             "{count} {count:warning|warnings}. "
-            "The output folder is untouched — it still holds the last good build."
+            "The output folder is untouched - it still holds the last good build."
         ),
         "check_strict": (
             "Check: strict mode (--strict or build.fail_on_warning), "
@@ -576,7 +576,7 @@ TEXT["en"].update(
             "the preview is open to the whole network: anyone on it sees the drafts "
             "at this computer's address and port {port}"
         ),
-        "serve_changed": "changes ({files}) — rebuilding",
+        "serve_changed": "changes ({files}) - rebuilding",
         "serve_more": " and {count} more",
         "serve_stopped": "stopped",
         "serve_busy": "cannot open the preview on {host}:{port}: {problem}",
@@ -615,7 +615,7 @@ TEXT["ru"].update(
 TEXT["en"].update(
     {
         "setup_open": (
-            "The questionnaire is open: {url}  — open the whole address, "
+            "The questionnaire is open: {url}  - open the whole address, "
             "with the key after “#”. Ctrl+C to stop."
         ),
         "setup_done": "Settings written.",
@@ -624,9 +624,9 @@ TEXT["en"].update(
         "setup_removed": "removed (the publishing way changed): {files}",
         "setup_kept": "left alone, not written by the configurator: {files}",
         "setup_backup": "previous version: {file}",
-        "setup_next": "Next: `heron serve {path}` — look at the site.",
+        "setup_next": "Next: `heron serve {path}` - look at the site.",
         "setup_bad": "the answers did not pass the check: {problem}",
-        "setup_no_site": "There is no site.yaml in {path} — no site here, nothing to set up.",
+        "setup_no_site": "There is no site.yaml in {path} - no site here, nothing to set up.",
         "setup_no_site_hint": (
             "Go to the site folder (cd site-name) and run setup there, "
             "or create a site: heron new site-name"
@@ -696,18 +696,18 @@ TEXT["ru"].update(
 )
 TEXT["en"].update(
     {
-        "kit_created": "agent instructions: agents/, AGENTS.md — {code}, {n} {n:file|files}",
+        "kit_created": "agent instructions: agents/, AGENTS.md - {code}, {n} {n:file|files}",
         "kit_updated": "agent instructions updated ({code}): {updated} replaced, {created} added",
-        "kit_in_place": "agent instructions already in place — update: heron init --agents",
+        "kit_in_place": "agent instructions already in place - update: heron init --agents",
         "kit_off": (
-            "agent instructions not placed (build.agents: false) — enable: heron init --agents"
+            "agent instructions not placed (build.agents: false) - enable: heron init --agents"
         ),
         "kit_skipped_edited": "edited by you, left as is: {files}",
-        "kit_forced": "edited by you — overwritten (--force): {files}",
+        "kit_forced": "edited by you - overwritten (--force): {files}",
         "kit_current": "agent instructions already up to date ({code})",
-        "kit_bad_value": "build.agents: {value} — not understood, the kit is left alone",
+        "kit_bad_value": "build.agents: {value} - not understood, the kit is left alone",
         "kit_bad_value_hint": "allowed: true, kit or false; heron check shows the same error",
-        "build_not_block": "build: {value} — not a block of keys, the folder is left alone",
+        "build_not_block": "build: {value} - not a block of keys, the folder is left alone",
         "build_not_block_hint": (
             "build is an indented block of keys (notes: en, agents: true); "
             "heron check shows the same error"
@@ -716,16 +716,16 @@ TEXT["en"].update(
         "kit_fallback": "no {want} translation yet, placed in {have}: {n} {n:file|files}",
         "kit_about_placeholder": "<about the project: the architect fills this in>",
         "kit_manifest_head": "# Agent kit manifest. Written by the engine, not edited by hand.",
-        "kit_manifest_damaged": "agents/heron-kit.yaml could not be read — written anew",
+        "kit_manifest_damaged": "agents/heron-kit.yaml could not be read - written anew",
         "kit_found": (
             "`agents/`: agent instructions, engine {engine}, {code}; not part of the build"
         ),
         "kit_unreadable": (
             "`agents/`: agent instructions, manifest unreadable; not part of the build"
         ),
-        "kit_outdated": "kit from {kit}, engine {engine} — update: `heron init --agents`",
+        "kit_outdated": "kit from {kit}, engine {engine} - update: `heron init --agents`",
         "kit_disabled": "agent kit disabled",
-        "kit_missing": "no agent kit — `heron init`",
+        "kit_missing": "no agent kit - `heron init`",
         "agents_conflict": "--agents and --no-agents cannot be used together: pick one",
         # Пометка фолбэка — буквально как в 21 §10 на обоих языках: её ищут агенты и тесты.
         "docs_start_with": "Start with {path}",
@@ -855,38 +855,38 @@ TEXT["ru"].update(
 )
 TEXT["en"].update(
     {
-        "report_pages": "Pages — {count} ({by_lang})",
-        "report_types": "Types — {by_type}",
+        "report_pages": "Pages - {count} ({by_lang})",
+        "report_types": "Types - {by_type}",
         "report_untranslated": "Not translated:",
         "report_missing": "The theme expects a section the file does not have:",
-        "report_missing_line": "  {section:12} — {count} {count:page|pages}: {shown}",
+        "report_missing_line": "  {section:12} - {count} {count:page|pages}: {shown}",
         "report_format": "A section is not in the form the theme expects (not an error):",
-        "report_format_line": "  {source}: {section} — expected {want}, got {got}",
+        "report_format_line": "  {source}: {section} - expected {want}, got {got}",
         "report_format_fix": (
             "  how to fix: if by meaning it is the expected form, set it with a class "
             "in the section anchor: `## Heading {{#anchor .checklist}}`; if the markup is "
             "right, change the form in the type's `uses` in theme.yaml: `anchor:form`"
         ),
-        "report_nameless": "In the menu without a short name — the file name will show:",
+        "report_nameless": "In the menu without a short name - the file name will show:",
         "report_unused_sections": "Sections the theme does not use (a typo in the anchor?):",
         "report_unused_modules": "Theme modules no template calls: {names}",
         "report_broken": "Links to nowhere:",
         "report_orphans": "No page links to these: {urls}",
-        "report_schema": "schema.org markup — {by_kind}",
-        "report_unused_media": "Files in media nothing expects — {count}:",
-        "report_static_media": "Content sits in static — it belongs in media:",
+        "report_schema": "schema.org markup - {by_kind}",
+        "report_unused_media": "Files in media nothing expects - {count}:",
+        "report_static_media": "Content sits in static - it belongs in media:",
         "report_uneven": "A field only some list items have (the template must allow for it):",
-        "report_uneven_line": "  {owner}: {where} — {field} in {have} of {total}",
+        "report_uneven_line": "  {owner}: {where} - {field} in {have} of {total}",
         "report_list": "list",
         "report_nginx_ok": "nginx -t on the built config: passed",
         "report_manual_dates": (
             "A manual updated date on {manual} of {total} {total:page|pages} overrides "
-            "updated_from: {mode} — these pages do not take the date from {mode}. "
+            "updated_from: {mode} - these pages do not take the date from {mode}. "
             "Where the date should update by itself, remove updated from the front matter."
         ),
         "report_notes_missing": "No explanatory note (not an error): {folders}",
         "report_root": "root",
-        "summary_warnings": "Warnings — {count}:",
+        "summary_warnings": "Warnings - {count}:",
         "summary_more": "    … and {count} more",
         "summary_full": "  full list: {path}",
         "summary_unknown_file": "<unknown file>",
@@ -908,7 +908,7 @@ TEXT["en"].update(
         "kit_lang_changed": "kit language changed: {old} → {new} (build.notes)",
         "kit_lang_kept": (
             "the kit stays in {kit}, build.notes is {notes}: "
-            "to switch the kit language — heron init --agents"
+            "to switch the kit language - heron init --agents"
         ),
     }
 )
@@ -930,16 +930,16 @@ TEXT["ru"].update(
 TEXT["en"].update(
     {
         "write_dangling": (
-            "a symbolic link that leads nowhere stands where a folder should be — "
+            "a symbolic link that leads nowhere stands where a folder should be - "
             "nothing can be written into it"
         ),
         "write_not_folder": (
             "a file or a link to something other than a folder stands where a folder "
-            "should be — nothing can be written into it"
+            "should be - nothing can be written into it"
         ),
         "write_folder_hint": "remove the link or the file, or name another folder",
         "write_not_file": (
-            "a link or a folder stands where a file should be — nothing is written through it"
+            "a link or a folder stands where a file should be - nothing is written through it"
         ),
         "write_not_file_hint": "remove or rename it and run the command again",
     }
@@ -1151,7 +1151,7 @@ TEXT["ru"].update(
 TEXT["en"].update(
     {
         "help_main": (
-            "HERON — a file-based site engine.\n\n"
+            "HERON - a file-based site engine.\n\n"
             "Language of help and messages: --notes ru|en, else HERON_NOTES, else "
             "build.notes from site.yaml in the current folder, else en."
         ),
@@ -1182,7 +1182,7 @@ TEXT["en"].update(
             "The configurator: a questionnaire that writes site.yaml, the CI workflow "
             "and scripts.\n\n"
             "Without flags it opens the questionnaire in a browser (the address is on "
-            "screen). With --answers it applies answers from a file — the same fields "
+            "screen). With --answers it applies answers from a file - the same fields "
             "and the same check."
         ),
         "help_schema": (
@@ -1198,7 +1198,7 @@ TEXT["en"].update(
             "The nginx image recipe for a built site (Dockerfile) of this HERON version; "
             "its comments are in the notes language.\n\n"
             "`heron recipe > /tmp/Dockerfile && docker build -f /tmp/Dockerfile dist` "
-            "— a site image without a HERON clone and without a Dockerfile in the site folder."
+            "- a site image without a HERON clone and without a Dockerfile in the site folder."
         ),
         "help_theme": "Themes: install by name, link or archive, show the catalog, pack your own.",
         "help_theme_get": (
@@ -1209,13 +1209,13 @@ TEXT["en"].update(
         ),
         "help_theme_list": "The HERON theme catalog.",
         "help_theme_pack": (
-            "Pack the site's theme together with its content — demo pages for heron theme get."
+            "Pack the site's theme together with its content - demo pages for heron theme get."
         ),
         "help_page": "A page draft with every section of its type.",
         "help_docs": (
             "Documentation of this engine version (21 §10): contents, topic, search, "
             "export.\n\n"
-            "No file in the language asked for — the file in the other language is "
+            "No file in the language asked for - the file in the other language is "
             "printed, with a notice on the first line.\n\n"
             "\b\n"
             "heron docs                        contents\n"
@@ -1243,12 +1243,12 @@ TEXT["en"].update(
         ),
         "help_opt_force": "Overwrite existing files.",
         "help_opt_agents": (
-            "Agent instructions only: update by the manifest agents/heron-kit.yaml — "
+            "Agent instructions only: update by the manifest agents/heron-kit.yaml - "
             "replace untouched files, keep and name edited ones (--force replaces them too)."
         ),
         "help_opt_strict": "Treat warnings as errors.",
         "help_opt_drafts": "Include pages with `published: false`.",
-        "help_opt_json": "Errors and warnings as JSON — for an agent and CI.",
+        "help_opt_json": "Errors and warnings as JSON - for an agent and CI.",
         "help_opt_old_urls": (
             "File with old URLs (one per line or a Search Console CSV): each must lead to a "
             "page, a redirect_from or gone."
@@ -1258,7 +1258,7 @@ TEXT["en"].update(
             "Build environment: `prod` opens indexing and counters, anything else does not."
         ),
         "help_opt_workers": (
-            "Processes for image renditions; 0 — one per core, 1 — no pool. "
+            "Processes for image renditions; 0 - one per core, 1 - no pool. "
             "Overrides HERON_WORKERS and build.workers."
         ),
         "help_opt_port": "Port.",
@@ -1292,7 +1292,7 @@ TEXT["en"].update(
         ),
         "help_opt_search": "Search the documentation.",
         "help_opt_docs_export": (
-            "Write the documentation into a folder — the same that a site gets in agents/."
+            "Write the documentation into a folder - the same that a site gets in agents/."
         ),
         "help_opt_all_langs": (
             "With --export: both languages, folders ru/ and en/ (for the engine's site)."

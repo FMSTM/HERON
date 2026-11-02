@@ -580,7 +580,7 @@ def test_russian_counters_agree_with_the_number(count, text):
     assert say("ru", "plan_theme", count=count).startswith(text)
     assert say("ru", "serve_built", count=count) == "собрано: " + text[6:-2]
     assert say("en", "plan_theme", count=count).startswith(
-        f"theme: {count} {'file' if count == 1 else 'files'} —"
+        f"theme: {count} {'file' if count == 1 else 'files'} -"
     )
 
 

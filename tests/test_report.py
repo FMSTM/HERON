@@ -231,12 +231,12 @@ def test_render_in_english_has_no_russian_frame():
     text = _full_report().render("en")
     assert not CYRILLIC.search(text), [line for line in text.splitlines() if CYRILLIC.search(line)]
     for needle in (
-        "Pages — 2 (en: 2)",
-        "Types — page: 2",
+        "Pages - 2 (en: 2)",
+        "Types - page: 2",
         "Not translated:",
         "The theme expects a section the file does not have:",
-        "faq          — 1 page: en/a.md",
-        "en/a.md: steps — expected timeline, got prose",
+        "faq          - 1 page: en/a.md",
+        "en/a.md: steps - expected timeline, got prose",
         "how to fix:",
         "In the menu without a short name",
         "Sections the theme does not use",
@@ -244,10 +244,10 @@ def test_render_in_english_has_no_russian_frame():
         "Links to nowhere:",
         "en/a.md:3 -> /nowhere/",
         "No page links to these: /lost/",
-        "schema.org markup — Article: 1",
-        "Files in media nothing expects — 1:",
+        "schema.org markup - Article: 1",
+        "Files in media nothing expects - 1:",
         "Content sits in static",
-        "data/docs: list — place in 1 of 2",
+        "data/docs: list - place in 1 of 2",
         "nginx -t on the built config: passed",
         "overrides updated_from: git",
         "No explanatory note (not an error): root, content/",
@@ -278,7 +278,7 @@ def test_render_in_russian_keeps_the_text():
         assert needle in text, needle
 
 
-@pytest.mark.parametrize(("notes", "head"), [("en", "Pages — 4"), ("ru", "Страниц — 4")])
+@pytest.mark.parametrize(("notes", "head"), [("en", "Pages - 4"), ("ru", "Страниц — 4")])
 def test_render_follows_build_notes_of_the_site(built, notes, head):
     site, _, theme, _ = built
     config = sites.config(build={"notes": notes})
@@ -305,7 +305,7 @@ def test_summary_in_english(tmp_path):
     text = report.summary(_collector(), full=target, lang="en")
     assert "E001 a.md:2: битый YAML\n  what to do: поправьте отступ" in text
     assert "E011 <unknown file>: без файла" in text
-    assert "Warnings — 9:" in text
+    assert "Warnings - 9:" in text
     assert "  images — 8:" in text
     assert "    … and 2 more" in text
     assert f"  full list: {target}" in text
@@ -373,8 +373,8 @@ def test_cli_check_and_build_on_english_site(cli):
     for command in (("check", "site"), ("build", "site")):
         result = cli(*command)
         assert result.exit_code == 0, result.output
-        assert "Pages — " in result.output and "Types — " in result.output
-        assert "Warnings — " in result.output
+        assert "Pages - " in result.output and "Types - " in result.output
+        assert "Warnings - " in result.output
         assert "Страниц" not in result.output and "Типы —" not in result.output
         assert "Предупреждений" not in result.output
 
@@ -386,14 +386,14 @@ def test_cli_check_on_russian_site(cli):
     assert result.exit_code == 0, result.output
     assert "Страниц — " in result.output and "Типы — " in result.output
     assert "Предупреждений — " in result.output
-    assert "Pages —" not in result.output
+    assert "Pages -" not in result.output
 
 
 def test_cli_notes_env_overrides_site_notes_for_the_report(cli, monkeypatch):
     assert cli("new", "site", "--notes", "ru", "-y").exit_code == 0
     monkeypatch.setenv("HERON_NOTES", "en")
     result = cli("check", "site")
-    assert "Pages — " in result.output and "Страниц" not in result.output
+    assert "Pages - " in result.output and "Страниц" not in result.output
 
 
 def test_cli_check_errors_frame_follows_notes(cli):
@@ -465,7 +465,7 @@ def test_missing_section_line_agrees_with_the_number(count):
     ru, en = MISSING[count]
     fields = {"section": "faq", "count": count, "shown": "en/a.md"}
     assert say("ru", "report_missing_line", **fields) == f"  faq          — {count} {ru}: en/a.md"
-    assert say("en", "report_missing_line", **fields) == f"  faq          — {count} {en}: en/a.md"
+    assert say("en", "report_missing_line", **fields) == f"  faq          - {count} {en}: en/a.md"
 
 
 # После «из» — родительный падеж: «из 1 страницы», «из 21 страницы» (единственное
@@ -500,6 +500,6 @@ def test_render_of_one_missing_page_reads_naturally():
     ru = _full_report().render("ru")
     en = _full_report().render("en")
     assert "— 1 страница:" in ru and "— 1 страниц:" not in ru
-    assert "— 1 page:" in en and "— 1 pages:" not in en
+    assert "- 1 page:" in en and "- 1 pages:" not in en
     assert "у 1 из 2 страниц перекрывает" in ru
     assert "on 1 of 2 pages overrides" in en

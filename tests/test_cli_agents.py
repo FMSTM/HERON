@@ -87,7 +87,7 @@ def test_new_en_uses_english_or_marks_fallback(here):
     assert data["lang"] == "en"
     text = (root / "AGENTS.md").read_text(encoding="utf-8")
     assert text.startswith("# site — for agents")
-    assert "agent instructions: agents/, AGENTS.md — en" in result.output
+    assert "agent instructions: agents/, AGENTS.md - en" in result.output
     if HAS_EN:
         assert (root / "agents/README.md").read_bytes() == (
             docs.root() / "docs/en/README.md"
@@ -372,7 +372,7 @@ def test_kit_lines_come_from_messages(tmp_path):
         return Report(kit=kit, notes_lang=lang).kit_line()
 
     assert line(KitStatus(), "ru") == "комплекта нет — `heron init`"
-    assert line(KitStatus(), "en") == "no agent kit — `heron init`"
+    assert line(KitStatus(), "en") == "no agent kit - `heron init`"
     assert line(KitStatus(disabled=True), "ru") == "комплект отключён"
     assert line(KitStatus(present=True), "ru") == (
         "`agents/`: инструкции для агентов, манифест не прочитан; в сборку не входит"
@@ -382,7 +382,7 @@ def test_kit_lines_come_from_messages(tmp_path):
         f"комплект от 0.0.1, движок {heron.__version__} — обновить: `heron init --agents`"
     )
     assert line(old, "en") == (
-        f"kit from 0.0.1, engine {heron.__version__} — update: `heron init --agents`"
+        f"kit from 0.0.1, engine {heron.__version__} - update: `heron init --agents`"
     )
     from heron.core import report
 

@@ -62,7 +62,7 @@ def test_check_reports_and_exits_zero(run):
     run(main, ["new", "demo"])
     result = run(main, ["check", "demo"])
     assert result.exit_code == 0, result.output
-    assert "Pages —" in result.output  # build.notes: en — отчёт по-английски
+    assert "Pages -" in result.output  # build.notes: en — отчёт по-английски
 
 
 def test_strict_turns_warnings_into_failure(run):

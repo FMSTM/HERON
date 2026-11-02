@@ -10,6 +10,7 @@ import yaml
 
 from heron import setup
 from heron.scaffold import create
+from heron.setup import comments
 from heron.setup.answers import read
 
 KEY = re.compile(r"^(\s*)(?:- )?(\"[^\"]*\"|'[^']*'|[^\s#:\"'\-][^:#]*?):(?:\s|$)")
@@ -41,6 +42,28 @@ contact:
 # пустой раздел, наполню позже
 custom:
 
+# адреса, которых больше нет
+gone:
+  # старые страницы
+  - /sample-page/   # снята
+  - /wp-*
+
+# формы: правлю руками
+forms:
+  # заявка с главной
+  callback:
+    # поля формы
+    fields: [name, phone]   # без почты
+
+# свой блок темы
+my_block:
+  # подпись в подвале
+  footer_note: "Работаем по записи"   # короткая
+  links:
+    # первая ссылка
+    - /about/
+  # конец своего блока
+
 # разметка, анкета её не трогает
 schema:
   entity:
@@ -52,6 +75,39 @@ schema:
       - https://profile.example.test/x  # профиль
 
 # финальный комментарий файла
+"""
+
+# Те же разделы контактов, но каналы уже записаны и прокомментированы автором.
+CHANNELS = """\
+contact:
+  phone: "+00 000 000 00 00"
+  channels:
+    # основной телефон
+    - type: phone   # звонки
+      # только будни
+      purpose: support
+      value: "+00 000 000 00 00"   # основной
+    # почта для документов
+    - type: email
+      value: hello@example.test   # ответ за день
+"""
+
+CONTACT = """\
+contact:
+  phone: "+00 000 000 00 00"
+  # адрес приёма
+  street: Main street 1
+"""
+
+LONG_NAME = " ".join(["Studio of Example and Partners"] * 4)
+
+DOMAINS = """\
+  domain: example.test
+  domains:
+    prod: example.test
+    # превью для правок
+    dev: preview.example.test   # временно
+    # конец блока доменов
 """
 
 
@@ -122,10 +178,29 @@ def _scaffold(tmp_path: Path, notes: str) -> Path:
     return root
 
 
-def _manual(tmp_path: Path) -> Path:
+def _manual(tmp_path: Path, text: str = MANUAL) -> Path:
     root = _scaffold(tmp_path, "en")
-    (root / "site.yaml").write_text(MANUAL, encoding="utf-8")
+    (root / "site.yaml").write_text(text, encoding="utf-8")
     return root
+
+
+def _with_channels(tmp_path: Path) -> Path:
+    assert CONTACT in MANUAL
+    return _manual(tmp_path, MANUAL.replace(CONTACT, CHANNELS))
+
+
+def _with_domains(tmp_path: Path, block: str = DOMAINS) -> Path:
+    assert "  domain: example.test\n" in MANUAL
+    return _manual(tmp_path, MANUAL.replace("  domain: example.test\n", block))
+
+
+def _set_preview(data: dict, value: str = "") -> None:
+    data["site"]["preview_domain"] = value
+
+
+def _section(start: str, end: str) -> str:
+    """Кусок MANUAL от начала ключа до конца строки с `end` включительно."""
+    return MANUAL[MANUAL.index(start) : MANUAL.index(end) + len(end)]
 
 
 @pytest.mark.parametrize("notes", ["ru", "en"])
@@ -180,4 +255,182 @@ def test_file_without_comments_saved_as_before(tmp_path):
     after = _resave(root, _rename)
     assert _config(root)["site"]["name"] == "Renamed Example"
     assert after.startswith(setup.HEADER["en"])
+    assert _resave(root) == after
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        pytest.param(("gone:\n", "  - /wp-*\n"), id="gone"),
+        pytest.param(("forms:\n", "# без почты\n"), id="forms"),
+        pytest.param(("my_block:\n", "    - /about/\n"), id="own"),
+    ],
+)
+def test_unmanaged_blocks_byte_for_byte(tmp_path, block):
+    root = _manual(tmp_path)
+    section = _section(*block)
+    before = _config(root)
+    after = _resave(root, _rename)
+    assert section in after
+    name = block[0].rstrip(":\n")
+    assert yaml.safe_load(after)[name] == before[name]
+
+
+def test_end_of_block_comment_follows_neighbour_when_blocks_reorder(tmp_path):
+    # ordered ставит свой блок после schema; комментарий в конце блока по устройству
+    # carry привязан к следующему ключу: остаётся в файле над ним, не теряется
+    root = _manual(tmp_path)
+    after = _resave(root, _rename)
+    assert after.index("# конец своего блока") < after.index("schema:\n")
+    assert after.index("schema:\n") < after.index("my_block:\n")
+    assert after.count("# конец своего блока") == 1
+
+
+def test_own_block_in_place_keeps_end_comment_byte_for_byte(tmp_path):
+    section = _section("# свой блок темы\n", "# конец своего блока\n")
+    text = MANUAL.replace(section + "\n", "").replace(
+        "# финальный комментарий", section + "\n# финальный комментарий"
+    )
+    root = _manual(tmp_path, text)
+    after = _resave(root, _rename)
+    assert section in after
+    assert after.endswith(section + "\n# финальный комментарий файла\n")
+
+
+def test_changed_channel_keeps_comments_inside_item(tmp_path):
+    root = _with_channels(tmp_path)
+    before = _text(root)
+
+    def change(data: dict) -> None:
+        data["about"]["contacts"][0]["value"] = "+00 000 000 00 99"
+
+    after = _resave(root, change)
+    channels = yaml.safe_load(after)["contact"]["channels"]
+    assert channels[0]["value"] == "+00 000 000 00 99"
+    assert channels[1]["value"] == "hello@example.test"
+    assert _comments(after) == _comments(before)
+    assert re.search(r'value: "?\+00 000 000 00 99"?\s+# основной', after)
+    assert re.search(r"- type: phone\s+# звонки", after)
+    assert _resave(root) == after
+
+
+def test_channel_unchanged_item_stays_byte_for_byte(tmp_path):
+    root = _with_channels(tmp_path)
+
+    def change(data: dict) -> None:
+        data["about"]["contacts"][0]["value"] = "+00 000 000 00 99"
+
+    after = _resave(root, change)
+    assert (
+        "    # почта для документов\n"
+        "    - type: email\n"
+        "      value: hello@example.test   # ответ за день\n"
+    ) in after
+
+
+def test_long_value_with_inline_comment_changed(tmp_path):
+    text = MANUAL.replace("name: Dr. Example   # имя в шапке", f"name: {LONG_NAME}   # имя в шапке")
+    assert len(LONG_NAME) > 100
+    root = _manual(tmp_path, text)
+    before = _text(root)
+    new_name = LONG_NAME.replace("Partners", "Colleagues")
+
+    def change(data: dict) -> None:
+        data["site"]["name"] = new_name
+
+    after = _resave(root, change)
+    assert _config(root)["site"]["name"] == new_name
+    assert _comments(after) == _comments(before)
+    assert _resave(root) == after
+
+
+def test_long_value_with_inline_comment_unchanged(tmp_path):
+    line = f"name: {LONG_NAME}   # имя в шапке"
+    root = _manual(tmp_path, MANUAL.replace("name: Dr. Example   # имя в шапке", line))
+    after = _resave(root)
+    assert f"  {line}\n" in after
+
+
+def test_normal_save_has_no_lost_flag(tmp_path):
+    root = _manual(tmp_path)
+    answers = setup.Answers.model_validate(read(setup.raw_config(root)).model_dump())
+    result = setup.apply(root, answers)
+    assert "comments_lost" not in result.warnings
+
+
+def _diverge(_old: list[str], _new: list[str], _top: bool) -> tuple[list[str], list[str]]:
+    return ["broken: true"], []
+
+
+def _explode(_old: list[str], _new: list[str], _top: bool) -> tuple[list[str], list[str]]:
+    raise ValueError("отступ не совпал")
+
+
+@pytest.mark.parametrize("broken", [_diverge, _explode], ids=["diverged", "parse_error"])
+def test_lost_flag_when_merge_fails(tmp_path, monkeypatch, broken):
+    root = _manual(tmp_path)
+    data = read(setup.raw_config(root)).model_dump()
+    _rename(data)
+    monkeypatch.setattr(comments, "_merge", broken)
+    result = setup.apply(root, setup.Answers.model_validate(data))
+    assert "comments_lost" in result.warnings
+    # данные важнее комментариев: файл без них, но верный, прежний текст в резервной копии
+    after = _text(root)
+    assert after.startswith(setup.HEADER["en"])
+    assert "# Мой сайт" not in after
+    assert "broken" not in _config(root)
+    assert _config(root)["site"]["name"] == "Renamed Example"
+    assert _config(root)["schema"]["entity"]["sameAs"]
+    assert result.backup
+    assert (root / result.backup).read_text("utf-8") == MANUAL
+
+
+def test_carry_reports_lost_when_data_differ():
+    body = "site:\n  name: A\n"
+    old = "# мой\nsite:\n  name: A\n"
+    text, lost = comments.carry(old, body, "# шапка\n", {"site": {"name": "B"}})
+    assert lost is True
+    assert text == "# шапка\n" + body
+
+
+def test_carry_not_lost_when_data_match():
+    body = "site:\n  name: A\n"
+    old = "# мой\nsite:\n  name: A\n"
+    text, lost = comments.carry(old, body, "# шапка\n", {"site": {"name": "A"}})
+    assert lost is False
+    assert text == "# мой\n" + body
+
+
+def test_removing_last_key_of_nested_block(tmp_path):
+    root = _with_domains(tmp_path)
+    before = _text(root)
+    assert _config(root)["site"]["domains"]["dev"] == "preview.example.test"
+    after = _resave(root, _set_preview)
+    domains = yaml.safe_load(after)["site"]["domains"]
+    assert domains == {"prod": "example.test"}
+    assert "preview.example.test" not in after
+    # комментарии над ключом и в его строке уходят вместе с ним, остальные остаются
+    assert "# превью для правок" not in after
+    assert "# временно" not in after
+    assert "# конец блока доменов" in after
+    gone = {"# превью для правок", "# временно"}
+    kept = [item for item in _comments(before) if item[0] not in gone]
+    assert sorted(c for c, _ in _comments(after)) == sorted(c for c, _ in kept)
+    assert _resave(root) == after
+
+
+def test_removing_only_key_removes_block_keeps_neighbours(tmp_path):
+    block = (
+        "  domain: example.test\n"
+        "  domains:\n"
+        "    # превью для правок\n"
+        "    dev: preview.example.test\n"
+        "  # после доменов\n"
+    )
+    root = _with_domains(tmp_path, block)
+    after = _resave(root, _set_preview)
+    assert "domains" not in yaml.safe_load(after)["site"]
+    assert "# превью для правок" not in after
+    assert "# после доменов" in after
+    assert "# конец блока site" in after
     assert _resave(root) == after

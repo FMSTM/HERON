@@ -107,18 +107,6 @@ ALLOWED_CYRILLIC: tuple[Allowed, ...] = (
         "old-addresses-cyrillic",
     ),
     Allowed(
-        r"^\s*- /старая-страница/",
-        "guide/05: кириллический старый адрес - суть примера нормализации (percent-форма рядом без кириллицы)",
-        "guide/05-seo.md",
-        "migrate-from-old-site",
-    ),
-    Allowed(
-        r"^На каком языке вам удобнее работать: подсказки, сообщения, комментарии в файлах$",
-        "guide/02: дословная ru-строка подсказки `new` (движок печатает её второй строкой, cli.py)",
-        "guide/02-first-site.md",
-        "1. Create a site",
-    ),
-    Allowed(
         r"\"Записаться\"",
         "21 §7: ru-строка интерфейса темы рядом с английской",
         "spec/21-engine.md",
@@ -677,8 +665,6 @@ REDIRECTS = '### redirects <a id="redirects"></a>'
         (SPEC21, f"{REDIRECTS}\nmap `/кредит/  /credits/;`\n"),
         (SPEC21, '## 10. CLI\n- "Pages — N" / "Страниц — N", `Error`/"Ошибка"\n'),
         (SPEC21, "## 10. CLI\n`[en: перевода на ru пока нет]`, `(откроется на en)`\n"),
-        (SEO05, f"{MIGRATE}\n```yaml\nredirect_from:\n  - /старая-страница/\n```\n"),
-        (FIRST02, f"{CREATE}\n```\n{PROMPT_RU}\n```\n"),
     ],
 )
 def test_scoped_rules_allow_their_literals(rel: str, text: str) -> None:

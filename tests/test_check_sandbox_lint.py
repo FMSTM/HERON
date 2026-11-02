@@ -23,6 +23,7 @@ from heron.core import check as lint
 from heron.core.errors import Collector, HeronError
 from heron.core.hooks import Hooks
 from heron.core.render import env as envmod
+from heron.messages import rendered
 from heron.scaffold import create
 from tests import sites
 
@@ -449,7 +450,7 @@ def test_message_follows_build_notes(tmp_path):
         root = _site(tmp_path / notes, notes=notes)
         _page(root, body)
         (error,) = _lint(pipeline.check(root))
-        texts[notes] = (error.message, error.hint)
+        texts[notes] = (rendered(error.message, notes), rendered(error.hint, notes))
     assert "changes data in place" in texts["en"][0]
     assert "namespace" in texts["en"][1]
     assert "меняет данные на месте" in texts["ru"][0]

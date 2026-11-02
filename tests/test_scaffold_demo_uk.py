@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+import yaml
 from click.testing import CliRunner
 
 from heron import scaffold
@@ -36,8 +37,10 @@ def test_uk_demo_pages_come_from_demo_uk(tmp_path):
         expected = _demo_links((DEMO / "uk" / f"{page}.md").read_text(encoding="utf-8"))
         assert body.strip() == expected.strip()
         assert UK_LETTERS.search(body)
-        title, h1, _desc, _nav = (p.format(name="site") for p in DEMO_TITLES["uk"][page])
-        assert title in head and h1 in head
+        title, h1, _desc, _nav = (p.format(name="my-site") for p in DEMO_TITLES["uk"][page])
+        meta = yaml.safe_load(head)
+        assert meta["title"] == title
+        assert meta["h1"] == h1
 
 
 def test_uk_site_builds_strict(tmp_path):

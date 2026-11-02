@@ -167,7 +167,7 @@ def e033(root: Path, tmp: Path) -> str:
 
 def no_template(root: Path, tmp: Path) -> str:
     write(root, "content/en/odd.md", md("Odd", extra="type: no-such-type\n"))
-    return "odd.md"
+    return "E008"  # находка check о типе страницы без шаблона в теме
 
 
 def no_home(root: Path, tmp: Path) -> str:
@@ -221,7 +221,6 @@ SCENARIOS = {**ERRORS, **BUILD_ONLY, **OTHER}
 # Исключения: признак в выводе build не совпадает с возвратом сценария (для check).
 # Состав установлен прогоном: остальные сценарии дают в сборке свой признак.
 BUILD_MARKS: dict[str, str] = {
-    "no-template": "E008",  # odd.md дал бы чужое предупреждение: title и h1 в md() одинаковы
     "E007": "media/missing-cover.png",  # сборка в dev сообщает о нём предупреждением без кода
 }
 
@@ -304,7 +303,7 @@ def test_check_en_has_no_cyrillic(tmp_path, name):
         assert result.exit_code == 1, result.output
 
 
-@pytest.mark.parametrize("name", ERRORS)
+@pytest.mark.parametrize("name", [*ERRORS, "no-template"])
 def test_check_json_en_has_no_cyrillic(tmp_path, name):
     root, code = prepared(tmp_path, name)
     result = run("check", str(root), "--json", "--notes", "en")
@@ -316,7 +315,7 @@ def test_check_json_en_has_no_cyrillic(tmp_path, name):
     assert code in json.dumps(data)
 
 
-@pytest.mark.parametrize("name", ["many-warnings", "untranslated", "no-template", "no-home"])
+@pytest.mark.parametrize("name", ["many-warnings", "untranslated", "no-home"])
 def test_check_json_en_warnings_have_no_cyrillic(tmp_path, name):
     root, code = prepared(tmp_path, name)
     result = run("check", str(root), "--json", "--notes", "en")

@@ -20,6 +20,7 @@ from heron.core import notes, paths
 from heron.core.errors import Collector, HeronError
 from heron.core.models import Page, Site
 from heron.core.parser import blocks, frontmatter, markdown, sections
+from heron.messages import Msg
 
 SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\Z")
 INDEX = "_index.md"
@@ -161,7 +162,7 @@ def scan(
         lang_root = content_root / lang
         if not lang_root.is_dir():
             collector.warn(
-                f"нет дерева контента для языка {lang!r}",
+                Msg("tree_no_lang_tree", lang=lang),
                 path=f"content/{lang}",
                 kind="языки",
             )
@@ -177,9 +178,9 @@ def scan(
             if not paths.inside(content_root, path):
                 collector.error(
                     paths.CODE,
-                    "символическая ссылка ведёт за пределы content/",
+                    Msg("tree_symlink_escape"),
                     path=rel,
-                    hint="положите сам файл в content/ вместо ссылки на него",
+                    hint=Msg("tree_symlink_escape_hint"),
                 )
                 continue
             parts = list(path.relative_to(lang_root).parts)
@@ -197,9 +198,9 @@ def scan(
             if name != INDEX and not SLUG.match(_slug_of(name)):
                 collector.error(
                     "E005",
-                    f"недопустимое имя файла {name!r}",
+                    Msg("tree_bad_file_name", name=name),
                     path=rel,
-                    hint="слаг — латиница, цифры и дефис: getting-started.md",
+                    hint=Msg("tree_bad_file_name_hint"),
                 )
                 continue
 
@@ -262,9 +263,9 @@ def scan(
             if bad:
                 collector.error(
                     "E005",
-                    f"недопустимый сегмент адреса {bad[0]!r} (имя папки или slug раздела)",
+                    Msg("tree_bad_url_segment", segment=bad[0]),
                     path=rel,
-                    hint="папки — латиница, цифры и дефис; или задайте slug в _index.md раздела",
+                    hint=Msg("tree_bad_url_segment_hint"),
                 )
                 continue
 
@@ -287,9 +288,9 @@ def scan(
             if clash is not None:
                 collector.error(
                     "E004",
-                    f"адрес {page.url} уже занят файлом {clash.source}",
+                    Msg("tree_url_taken", url=page.url, source=clash.source),
                     path=rel,
-                    hint="переименуйте файл или задайте другой slug во фронтматтере",
+                    hint=Msg("tree_url_taken_hint"),
                 )
                 continue
             twin = site.by_key.get((lang, key))
@@ -299,10 +300,9 @@ def scan(
                 # затирали друг друга: ссылки и переводы вели не туда.
                 collector.error(
                     "E029",
-                    f"ключ страницы {key!r} ({lang}) уже у файла {twin.source}",
+                    Msg("tree_key_taken", page_key=key, lang=lang, source=twin.source),
                     path=rel,
-                    hint="у страницы и раздела одного уровня не может быть одного имени; "
-                    "переименуйте файл",
+                    hint=Msg("tree_key_taken_hint"),
                 )
                 continue
 
@@ -311,8 +311,7 @@ def scan(
             site.by_key[(lang, key)] = page
             if key == "home":
                 collector.warn(
-                    "ключ home в подстановках schema означает главную: "
-                    "эта страница через pages.home недоступна — переименуйте файл",
+                    Msg("tree_home_key"),
                     path=rel,
                     kind="прочее",
                 )
@@ -322,7 +321,7 @@ def scan(
         # пустой язык обнаруживается по 404 на его главной.
         if not any(p.lang == lang for p in site.pages):
             collector.warn(
-                f"в языке {lang!r} нет ни одной страницы",
+                Msg("tree_empty_lang", lang=lang),
                 path=f"content/{lang}",
                 kind="языки",
             )

@@ -19,6 +19,7 @@ from pathlib import Path
 from heron.core import paths
 from heron.core.errors import HeronError
 from heron.core.hooks import Hooks
+from heron.messages import Msg
 
 THEME_GROUP = "heron.themes"
 PLUGIN_GROUP = "heron.plugins"
@@ -37,7 +38,7 @@ def theme(site_root: Path, name: str) -> Found:
     """Найти тему: локальная папка, затем установленный пакет."""
     local = site_root / LOCAL_THEME
     if (local / "theme.yaml").is_file():
-        return Found(name=name, path=local, source="локальная")
+        return Found(name=name, path=local, source=Msg("tree_theme_local"))
 
     for entry in entry_points(group=THEME_GROUP):
         if entry.name != name:
@@ -47,26 +48,26 @@ def theme(site_root: Path, name: str) -> Found:
         except Exception as exc:  # noqa: BLE001 — чужой код, причину показываем как есть
             raise HeronError(
                 code="E013",
-                message=f"тема {name!r} установлена, но не загружается: {exc}",
+                message=Msg("tree_theme_load_failed", name=name, error=exc),
                 path="site.yaml",
             ) from exc
         if (path / "theme.yaml").is_file():
-            return Found(name=name, path=path, source=f"пакет {entry.value}")
+            return Found(name=name, path=path, source=Msg("tree_package", value=entry.value))
 
     raise HeronError(
         code="E013",
-        message=f"тема {name!r} не найдена ни локально, ни среди установленных",
+        message=Msg("tree_theme_not_found", name=name),
         path="site.yaml",
-        hint=f"положите её в {LOCAL_THEME}/ или установите пакет heron-theme-{name}",
+        hint=Msg("tree_theme_not_found_hint", folder=LOCAL_THEME, name=name),
     )
 
 
 def _escape(name: str, path: Path) -> HeronError:
     return HeronError(
         code=paths.CODE,
-        message=f"плагин {name!r} ведёт за пределы plugins/ через ссылку",
+        message=Msg("tree_plugin_escape", name=name),
         path=str(path),
-        hint="положите папку плагина в plugins/ вместо ссылки",
+        hint=Msg("tree_plugin_escape_hint"),
     )
 
 
@@ -89,7 +90,7 @@ def _load_local(path: Path, name: str, hooks: Hooks) -> bool:
     if register is None:
         raise HeronError(
             code="E014",
-            message=f"в плагине {name!r} нет функции register(hooks)",
+            message=Msg("tree_plugin_no_register", name=name),
             path=str(path),
         )
     register(hooks)
@@ -108,32 +109,32 @@ def plugins(site_root: Path, names: list[str], hooks: Hooks) -> list[Found]:
         # Сама папка plugins/ ведёт наружу: до исполнения кода плагина.
         raise HeronError(
             code=paths.CODE,
-            message=f"папка {LOCAL_PLUGINS}/ ведёт за пределы сайта через ссылку",
+            message=Msg("tree_plugins_dir_escape", folder=LOCAL_PLUGINS),
             path=str(plugins_dir),
-            hint=f"сделайте {LOCAL_PLUGINS}/ настоящей папкой внутри сайта вместо ссылки",
+            hint=Msg("tree_plugins_dir_escape_hint", folder=LOCAL_PLUGINS),
         )
 
     for name in names:
         if not paths.NAME_RE.match(name):
             raise HeronError(
                 code="E014",
-                message=f"плагин {name!r}: недопустимое имя",
+                message=Msg("tree_plugin_bad_name", name=name),
                 path="site.yaml",
-                hint="имя плагина — латиница, цифры, _ и -, не с дефиса",
+                hint=Msg("tree_plugin_bad_name_hint"),
             )
         local = plugins_dir / name
         if local.is_symlink() or (local.is_dir() and not paths.inside(plugins_dir, local)):
             raise _escape(name, local)
         try:
             if local.is_dir() and _load_local(local, name, hooks):
-                found.append(Found(name=name, path=local, source="локальный"))
+                found.append(Found(name=name, path=local, source=Msg("tree_plugin_local")))
                 continue
         except HeronError:
             raise
         except Exception as exc:  # noqa: BLE001
             raise HeronError(
                 code="E014",
-                message=f"плагин {name!r} упал при загрузке: {exc}",
+                message=Msg("tree_plugin_load_failed", name=name, error=exc),
                 path=str(local),
             ) from exc
 
@@ -141,9 +142,9 @@ def plugins(site_root: Path, names: list[str], hooks: Hooks) -> list[Found]:
         if entry is None:
             raise HeronError(
                 code="E014",
-                message=f"плагин {name!r} не установлен и не найден в {LOCAL_PLUGINS}/",
+                message=Msg("tree_plugin_not_installed", name=name, folder=LOCAL_PLUGINS),
                 path="site.yaml",
-                hint=f"уберите из plugins или установите пакет, дающий {name!r}",
+                hint=Msg("tree_plugin_not_installed_hint", name=name),
             )
         try:
             register = entry.load()
@@ -151,14 +152,14 @@ def plugins(site_root: Path, names: list[str], hooks: Hooks) -> list[Found]:
         except Exception as exc:  # noqa: BLE001
             raise HeronError(
                 code="E014",
-                message=f"плагин {name!r} упал при загрузке: {exc}",
+                message=Msg("tree_plugin_load_failed", name=name, error=exc),
                 path="site.yaml",
             ) from exc
         found.append(
             Found(
                 name=name,
                 path=Path(str(import_module(entry.module).__file__ or "")),
-                source=f"пакет {entry.value}",
+                source=Msg("tree_package", value=entry.value),
             )
         )
 

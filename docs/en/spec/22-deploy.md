@@ -161,6 +161,30 @@ The same applies to a build from an archive or from a copy of the folder without
 
 Item 3 is not a formality. It is the only thing that protects the index when migrating from an old system.
 
+### Engine CI: caches, jobs and cache reset
+
+The engine repository workflow `ci.yml` has four jobs. `quality` (lint and tests), `browser` (Chromium checks) and `image-build` (image build and check, push only) run **in parallel**. `publish` (image publishing, push only) waits for all of them: `needs: [quality, browser, image-build]`. The runner is pinned explicitly, `ubuntu-26.04`.
+
+**Concurrency.** Group `${{ github.workflow }}-${{ github.ref }}`: one active run per branch or pull request. A stale run is cancelled by a new one only for pull requests and the `dev` branch. On `beta`, `prod` and tags cancellation is off: the image is published there.
+
+| What is cached | Where | Key |
+|---|---|---|
+| Python dependencies (uv) | `quality`, `browser`: `astral-sh/setup-uv`, `enable-cache` | hash of `uv.lock` (`cache-dependency-glob`) |
+| nginx `.deb` packages | `quality`: `~/.apt-archives` | `apt-nginx-<OS>-<arch>-ubuntu-26.04` |
+| Playwright Chromium | `browser`: `~/.cache/ms-playwright` | `playwright-<OS>-<Playwright version>` |
+| Docker layers (buildx, gha backend) | `image-build` writes and reads, `publish` only reads | `scope=heron-engine` |
+| Site image Docker layers | `site-image.yml` | `scope=heron-site` |
+
+A Chromium cache hit skips the browser download, but system libraries are still installed (`playwright install-deps`). The cache affects speed only: a miss does not change the result, the build is just cold.
+
+**How to reset a cache.**
+
+- Change the version in the key. For Chromium this is the `версия Playwright для ключа кеша` step (version `1.63.0` in `ci.yml`, the same number must be changed in the `playwright` commands); for nginx `.deb` files, the `ubuntu-26.04` label in the key; for uv, changing `uv.lock` is enough. The old cache is no longer found and is evicted over time.
+- Delete selectively: `gh cache list`, then `gh cache delete <id or key>`; everything at once - `gh cache delete --all`.
+- By hand in the UI: the repository, the Actions tab, the Caches section on the left, the delete button next to the entry.
+
+Docker layers live in the same GitHub Actions cache storage under keys with `scope=heron-engine` and `scope=heron-site`: they show up in `gh cache list` and are deleted the same ways. The storage limit is 10 GB per repository; above it GitHub evicts the oldest entries.
+
 ## 5. nginx
 
 The minimum the config must have:

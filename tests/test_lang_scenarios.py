@@ -332,11 +332,10 @@ def test_build_en_has_no_cyrillic(tmp_path, name):
     root, code = prepared(tmp_path, name)
     result = run("build", str(root), "--notes", "en")
     assert not CYRILLIC.search(result.output), result.output
-    if not is_error(code) and name != "no-site":  # в dev E007 и др. идут предупреждением без кода
-        full_text = (root / ".heron-cache" / "warnings.txt")
-        body = result.output + (full_text.read_text(encoding="utf-8") if full_text.is_file() else "")
-        assert code in body, (name, result.output)
     full = root / ".heron-cache" / "warnings.txt"
+    if not is_error(code) and name != "no-site":  # в dev E007 и др. идут предупреждением без кода
+        body = result.output + (full.read_text(encoding="utf-8") if full.is_file() else "")
+        assert code in body, (name, result.output)
     if full.is_file():
         for line in full.read_text(encoding="utf-8").splitlines():
             kind, where, message = line.split("\t", 2)

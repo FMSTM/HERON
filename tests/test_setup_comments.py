@@ -434,3 +434,47 @@ def test_removing_only_key_removes_block_keeps_neighbours(tmp_path):
     assert "# после доменов" in after
     assert "# конец блока site" in after
     assert _resave(root) == after
+
+
+def test_removing_first_channel_keeps_comments_of_second(tmp_path):
+    root = _with_channels(tmp_path)
+
+    def change(data: dict) -> None:
+        del data["about"]["contacts"][0]
+
+    after = _resave(root, change)
+    channels = yaml.safe_load(after)["contact"]["channels"]
+    assert [item["type"] for item in channels] == ["email"]
+    # комментарии второго канала остаются при нём, а не на месте удалённого по индексу
+    assert (
+        "    # почта для документов\n"
+        "    - type: email\n"
+        "      value: hello@example.test   # ответ за день\n"
+    ) in after
+    # комментарии удалённого канала не переезжают к соседу
+    found = [text for text, _ in _comments(after)]
+    for gone in ("# основной телефон", "# звонки", "# только будни", "# основной"):
+        assert gone not in found
+    assert _resave(root) == after
+
+
+def test_removing_key_keeps_detached_section_drops_adjacent_comment(tmp_path):
+    block = (
+        "  domain: example.test\n"
+        "  domains:\n"
+        "    prod: example.test\n"
+        "    # раздел превью\n"
+        "\n"
+        "    # превью для правок\n"
+        "    dev: preview.example.test   # временно\n"
+    )
+    root = _with_domains(tmp_path, block)
+    after = _resave(root, _set_preview)
+    assert yaml.safe_load(after)["site"]["domains"] == {"prod": "example.test"}
+    assert "preview.example.test" not in after
+    # отдалённый пустой строкой раздел остаётся вместе с пустой строкой
+    assert "    prod: example.test\n    # раздел превью\n\n" in after
+    # комментарий вплотную к ключу и в его строке уходит вместе с ним
+    assert "# превью для правок" not in after
+    assert "# временно" not in after
+    assert _resave(root) == after

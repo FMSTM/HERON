@@ -9,10 +9,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from heron.messages import Msg
 from heron.schemaorg import Vocab, short
 from heron.schemaorg import vocab as _load_vocab
 
-_NO_REPLACEMENT = "нет замены, уберите"
+_NO_REPLACEMENT = Msg("markup_no_replacement")
 _TEXTLIKE = ("Text", "Date", "DateTime", "Time")
 _NUMBERLIKE = ("Number", "Integer", "Float")
 
@@ -124,7 +125,7 @@ class _Validator:
                         name,
                         suggest="",
                         enum=owners[0],
-                        hint=f"это значение перечисления {owners[0]}, не тип",
+                        hint=Msg("markup_enum_member_hint", enum=owners[0]),
                     )
                 else:
                     self.add("SCH001", tpath, name, suggest=", ".join(v.suggest(n, "type")))
@@ -159,7 +160,7 @@ class _Validator:
         elif isinstance(value, (int, float)):
             numeric = self._kind_in(ranges, _NUMBERLIKE + ("Text",))
             if not (numeric or "QuantitativeValue" in ranges):
-                self.add("SCH004", path, str(value), prop=prop, got="число", expected=rstr)
+                self.add("SCH004", path, str(value), prop=prop, got=Msg("markup_got_number"), expected=rstr)
         elif isinstance(value, str):
             self.string(prop, value, path, ranges, rstr)
         elif isinstance(value, dict):
@@ -172,13 +173,13 @@ class _Validator:
         data = self._datatypes(ranges)
         if data and data <= {"Boolean"}:
             if value.strip().lower() not in ("true", "false"):
-                self.add("SCH004", path, value, prop=prop, got="строка", expected=rstr)
+                self.add("SCH004", path, value, prop=prop, got=Msg("markup_got_string"), expected=rstr)
             return
         if data and data <= set(_NUMBERLIKE):
             try:
                 float(value)
             except ValueError:
-                self.add("SCH004", path, value, prop=prop, got="строка", expected=rstr)
+                self.add("SCH004", path, value, prop=prop, got=Msg("markup_got_string"), expected=rstr)
             return
         enums = [r for r in ranges if v.is_enum(r)]
         if enums and not any(v.is_member(e, value) for e in enums):

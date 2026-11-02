@@ -30,6 +30,7 @@ from heron.contracts.theme import ThemeConfig
 from heron.core import paths
 from heron.core.models import Page, stamp
 from heron.core.urls import absolute
+from heron.messages import Msg
 
 # Подстановка целиком в значении: {{ contact.city }}. Внутри строки тоже
 # работает, но тогда результат всегда строка.
@@ -480,7 +481,7 @@ def verify(
         json.loads(render(page, config, theme, site) or "{}")
     except ValueError as error:
         collector.error(
-            "E020", f"разметка страницы не разбирается как JSON: {error}", path=page.source
+            "E020", Msg("markup_json_unparsable", error=error), path=page.source
         )
         return []
 
@@ -491,9 +492,9 @@ def verify(
         if want not in kinds:
             collector.error(
                 "E020",
-                f"тема ждёт разметку {want}, а в графе её нет",
+                Msg("markup_theme_expects", want=want),
                 path=page.source,
-                hint="проверьте блок schema в site.yaml и во фронтматтере страницы",
+                hint=Msg("markup_theme_expects_hint"),
             )
 
     declared = config.extras.get("schema", {})
@@ -502,7 +503,7 @@ def verify(
         mark = str(declared.get("@id", ""))
         node = next((n for n in graph if str(n.get("@id", "")).endswith(mark)), None)
         if node is None:
-            collector.error("E020", "нет сквозного узла сайта", path=page.source)
+            collector.error("E020", Msg("markup_no_entity"), path=page.source)
         else:
             # Адрес и координаты проверяются, только если узел их объявил:
             # объявленное, но пустое — это данные, которые забыли заполнить,
@@ -520,10 +521,9 @@ def verify(
             if (wants_address and not locality) or ("geo" in declared and geo_empty):
                 collector.error(
                     "E020",
-                    "в сквозном узле объявлены адрес или координаты, а значения пустые",
+                    Msg("markup_entity_empty"),
                     path=page.source,
-                    hint="заполните в site.yaml то, на что ссылается schema.entity: "
-                    "например contact.city и contact.geo",
+                    hint=Msg("markup_entity_empty_hint"),
                 )
 
     if not config.seo.allow_prices:
@@ -531,10 +531,9 @@ def verify(
         if money:
             collector.error(
                 "E020",
-                "в разметке есть поля про деньги: " + ", ".join(money),
+                Msg("markup_money", fields=", ".join(money)),
                 path=page.source,
-                hint="сайт не публикует цены (seo.allow_prices: false) — уберите эти поля "
-                "из блока schema или разрешите цены в site.yaml",
+                hint=Msg("markup_money_hint"),
             )
 
     if schema_check is not None:

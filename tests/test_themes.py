@@ -67,8 +67,9 @@ def test_pack_and_get_roundtrip(site: Path, tmp_path: Path):
 def test_archive_is_checked(site: Path, tmp_path: Path, entries, problem):
     path = tmp_path / "bad.tgz"
     path.write_bytes(_tar(entries))
-    with pytest.raises(HeronError, match=problem):
+    with pytest.raises(HeronError) as raised:
         install(site, "file", archive=path)
+    assert re.search(problem, raised.value.message.text("en"))
     assert (site / "theme" / "theme.yaml").is_file()  # тема сайта цела
 
 
@@ -80,8 +81,9 @@ def test_zip_with_symlink_is_refused(site: Path, tmp_path: Path):
         archive.writestr(info, "/etc/passwd")
     path = tmp_path / "link.zip"
     path.write_bytes(blob.getvalue())
-    with pytest.raises(HeronError, match="link"):
+    with pytest.raises(HeronError) as raised:
         install(site, "file", archive=path)
+    assert "link" in raised.value.message.text("en")
 
 
 def test_checksum_from_link_is_verified(site: Path, monkeypatch):
@@ -89,8 +91,9 @@ def test_checksum_from_link_is_verified(site: Path, monkeypatch):
 
     blob = _tar({"theme/theme.yaml": b"name: x\n"})
     monkeypatch.setattr(themes, "_download", lambda url: blob)
-    with pytest.raises(HeronError, match="checksum"):
+    with pytest.raises(HeronError) as raised:
         install(site, "url", "https://example.com/t.tgz#sha256=" + "0" * 64)
+    assert "checksum" in raised.value.message.text("en")
 
 
 def test_cli_theme_get_starter(site: Path):
@@ -116,7 +119,7 @@ def test_damaged_archive_is_e032(kind: str):
         themes._members(_damaged()[kind])
     assert exc.value.code == "E032"
     if kind != "corrupt gzip body":  # заголовок битый — «не архив темы», тоже E032
-        assert "damaged or truncated" in str(exc.value)
+        assert "damaged or truncated" in exc.value.message.text("en")
 
 
 def test_install_of_damaged_zip_is_e032_and_theme_stays(site: Path, tmp_path: Path):

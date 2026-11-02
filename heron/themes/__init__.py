@@ -46,6 +46,7 @@ import yaml
 
 from heron.core import paths
 from heron.core.errors import HeronError
+from heron.messages import Msg
 
 CATALOG_ENV = "HERON_THEMES_URL"
 CATALOG_URL = "https://raw.githubusercontent.com/FMSTM/heron-themes/main/catalog.json"
@@ -71,7 +72,7 @@ class Installed:
     backup: str = ""
 
 
-def _fail(message: str, hint: str = "") -> HeronError:
+def _fail(message: Msg, hint: Msg | None = None) -> HeronError:
     return HeronError(code="E032", message=message, hint=hint)
 
 
@@ -117,30 +118,30 @@ def _entry(name: str) -> dict[str, Any]:
         with urllib.request.urlopen(url, timeout=TIMEOUT) as response:  # noqa: S310
             data = json.loads(response.read(2 * 1024 * 1024).decode("utf-8"))
     except Exception as error:
-        raise _fail(
-            f"theme catalog is not reachable: {error}",
-            "check the network or take the theme by link or archive: heron theme get <url|file>",
-        ) from error
+        raise _fail(Msg("themes_catalog_unreachable", error=error), Msg("themes_catalog_unreachable_hint")) from error
     for item in data.get("themes", []) if isinstance(data, dict) else []:
         if isinstance(item, dict) and item.get("name") == name:
             if not str(item.get("url", "")).startswith("https://"):
-                raise _fail(f"theme {name!r}: the catalog gives no https address")
+                raise _fail(Msg("themes_catalog_no_https", name=name))
             return item
     names = ", ".join(str(i.get("name")) for i in data.get("themes", []) if isinstance(i, dict))
-    raise _fail(f"no theme {name!r} in the catalog", f"known: {STARTER}, {names}".rstrip(", "))
+    raise _fail(
+        Msg("themes_not_in_catalog", name=name),
+        Msg("themes_not_in_catalog_hint", known=f"{STARTER}, {names}".rstrip(", ")),
+    )
 
 
 def _download(url: str) -> bytes:
     if not url.startswith("https://"):
-        raise _fail(f"{url}: only https addresses", "a file on disk is taken as a path")
+        raise _fail(Msg("themes_only_https", url=url), Msg("themes_only_https_hint"))
     request = urllib.request.Request(url, headers={"User-Agent": "heron-theme"})
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT) as response:  # noqa: S310
             body = response.read(MAX_TOTAL + 1)
     except Exception as error:
-        raise _fail(f"cannot download {url}: {error}") from error
+        raise _fail(Msg("themes_download_failed", url=url, error=error)) from error
     if len(body) > MAX_TOTAL:
-        raise _fail(f"{url}: the archive is larger than {MAX_TOTAL // (1024 * 1024)} MB")
+        raise _fail(Msg("themes_url_archive_big", url=url, mb=MAX_TOTAL // (1024 * 1024)))
     return body
 
 
@@ -153,16 +154,16 @@ def _members(blob: bytes) -> list[tuple[str, bytes]]:
         nonlocal total
         path = PurePosixPath(name.replace("\\", "/"))
         if path.is_absolute() or ".." in path.parts or not path.parts:
-            raise _fail(f"archive entry {name!r} leaves the archive folder")
+            raise _fail(Msg("themes_entry_leaves", name=name))
         if any(part in FORBIDDEN_PARTS for part in path.parts):
-            raise _fail(f"archive entry {name!r}: build code is not allowed in a theme")
+            raise _fail(Msg("themes_entry_code", name=name))
         if path.suffix.lower() in FORBIDDEN_SUFFIXES:
-            raise _fail(f"archive entry {name!r}: scripts are not allowed in a theme")
+            raise _fail(Msg("themes_entry_script", name=name))
         if size > MAX_FILE:
-            raise _fail(f"archive entry {name!r} is larger than {MAX_FILE // (1024 * 1024)} MB")
+            raise _fail(Msg("themes_entry_big", name=name, mb=MAX_FILE // (1024 * 1024)))
         total += size
         if total > MAX_TOTAL or len(files) >= MAX_FILES:
-            raise _fail("the archive is too large or has too many files")
+            raise _fail(Msg("themes_archive_limits"))
         files.append((path.as_posix(), read()))
 
     try:
@@ -173,19 +174,19 @@ def _members(blob: bytes) -> list[tuple[str, bytes]]:
                         continue
                     mode = (info.external_attr >> 16) & 0o170000
                     if mode and mode != 0o100000:
-                        raise _fail(f"archive entry {info.filename!r} is a link or a device")
+                        raise _fail(Msg("themes_entry_link", name=info.filename))
                     take(info.filename, info.file_size, lambda i=info: archive.read(i))
             return files
         try:
             archive = tarfile.open(fileobj=io.BytesIO(blob), mode="r:*")  # noqa: SIM115
         except tarfile.TarError as error:
-            raise _fail("not a theme archive: zip or tar.gz expected") from error
+            raise _fail(Msg("themes_not_archive")) from error
         with archive:
             for member in archive.getmembers():
                 if member.isdir():
                     continue
                 if not member.isfile():
-                    raise _fail(f"archive entry {member.name!r} is a link or a device")
+                    raise _fail(Msg("themes_entry_link", name=member.name))
                 handle = archive.extractfile(member)
                 take(member.name, member.size, lambda h=handle: h.read() if h else b"")
     except (
@@ -197,8 +198,8 @@ def _members(blob: bytes) -> list[tuple[str, bytes]]:
         ValueError,
     ) as error:
         raise _fail(
-            f"the archive is damaged or truncated: {type(error).__name__}",
-            "download or pack it again",
+            Msg("themes_archive_damaged", kind=type(error).__name__),
+            Msg("themes_archive_damaged_hint"),
         ) from error
     return files
 
@@ -215,7 +216,7 @@ def _strip_root(files: list[tuple[str, bytes]]) -> list[tuple[str, bytes]]:
 def _unpack(blob: bytes, target: Path) -> dict[str, Any]:
     files = _strip_root(_members(blob))
     if not any(name.startswith("theme/") for name, _ in files):
-        raise _fail("the archive has no theme/ folder", "a theme archive holds theme/ and demo/")
+        raise _fail(Msg("themes_no_theme_folder"), Msg("themes_no_theme_folder_hint"))
     for name, data in files:
         out = target / name
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -237,13 +238,13 @@ def _check_theme(theme_dir: Path, manifest: dict[str, Any]) -> str:
 
     theme_yaml = theme_dir / "theme.yaml"
     if not theme_yaml.is_file():
-        raise _fail("theme/theme.yaml is missing in the archive")
+        raise _fail(Msg("themes_yaml_missing"))
     config = build(ThemeConfig, read_yaml(theme_yaml), theme_yaml)
     wanted = str(manifest.get("heron") or "")
     if wanted and not satisfies(__version__, wanted):
         raise _fail(
-            f"the theme wants HERON {wanted}, this is {__version__}",
-            "take a theme version made for this HERON",
+            Msg("themes_wants_heron", wanted=wanted, current=__version__),
+            Msg("themes_wants_heron_hint"),
         )
     return config.name
 
@@ -291,7 +292,7 @@ def _backup_dir(root: Path) -> Path:
         except FileExistsError:
             continue
         return candidate
-    raise _fail("too many theme backups in one second")
+    raise _fail(Msg("themes_too_many_backups"))
 
 
 def _place(root: Path, stage: Path, result: Installed) -> None:
@@ -384,7 +385,7 @@ def install(
         else:
             if source == "name":
                 if not NAME_RE.match(value):
-                    raise _fail(f"theme name {value!r}: latin letters, digits, dash")
+                    raise _fail(Msg("themes_bad_name", value=value))
                 entry = _entry(value)
                 blob = _download(str(entry["url"]))
                 expected = str(entry.get("sha256") or "")
@@ -398,26 +399,25 @@ def install(
                     if value.strip().startswith(("/", "\\")) or Path(value).is_absolute():
                         raise HeronError(
                             code="E024",
-                            message=f"путь {value!r} выходит за пределы папки сайта",
+                            message=Msg("themes_path_outside", value=value),
                             path="answers.theme.value",
-                            hint="положите архив в папку сайта и укажите путь от неё, "
-                            "либо поставьте тему командой `heron theme get`",
+                            hint=Msg("themes_path_outside_hint"),
                         )
                     path = paths.source(root, value, where="answers.theme.value")
                 if not path.is_file():
-                    raise _fail(f"no archive at {value}")
+                    raise _fail(Msg("themes_no_archive", value=value))
                 if path.stat().st_size > MAX_TOTAL:
-                    raise _fail("the archive is too large")
+                    raise _fail(Msg("themes_archive_too_large"))
                 blob = path.read_bytes()
                 expected = ""
             else:
-                raise _fail(f"unknown theme source {source!r}")
+                raise _fail(Msg("themes_unknown_source", source=source))
             if expected:
                 actual = hashlib.sha256(blob).hexdigest()
                 if actual != expected:
                     raise _fail(
-                        "the archive checksum does not match: changed on the way or at the source",
-                        f"expected {expected}, got {actual}",
+                        Msg("themes_checksum"),
+                        Msg("themes_checksum_hint", expected=expected, actual=actual),
                     )
             manifest = _unpack(blob, stage)
         _demo_languages(stage, languages)

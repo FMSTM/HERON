@@ -105,7 +105,7 @@ def test_unused_theme_modules(tmp_path):
 def test_render_is_readable(built):
     site, config, theme, _ = built
     text = report.build(site, config, theme).render("ru")
-    assert "Страниц —" in text
+    assert "Страниц -" in text
     assert "Тема ждёт секцию, а в файле её нет:" in text
     assert "contra" in text
 
@@ -258,19 +258,19 @@ def test_render_in_english_has_no_russian_frame():
 def test_render_in_russian_keeps_the_text():
     text = _full_report().render("ru")
     for needle in (
-        "Страниц — 2 (en: 2)",
-        "Типы — page: 2",
+        "Страниц - 2 (en: 2)",
+        "Типы - page: 2",
         "Не переведено:",
         "Тема ждёт секцию, а в файле её нет:",
-        "faq          — 1 страница: en/a.md",
-        "en/a.md: steps — ждали timeline, пришло prose",
+        "faq          - 1 страница: en/a.md",
+        "en/a.md: steps - ждали timeline, пришло prose",
         "как исправить: если по смыслу это форма из «ждали»",
         "`## Заголовок {#якорь .checklist}`",
         "Ссылки в никуда:",
         "На эти страницы никто не ссылается: /lost/",
-        "Разметка schema.org — Article: 1",
-        "Файлы в media, которых никто не ждёт — 1:",
-        "data/docs: список — place у 1 из 2",
+        "Разметка schema.org - Article: 1",
+        "Файлы в media, которых никто не ждёт - 1:",
+        "data/docs: список - place у 1 из 2",
         "nginx -t на собранном конфиге: прошёл",
         "Ручная дата updated у 1 из 2 страниц перекрывает updated_from: git",
         "Без пояснительной записки (это не ошибка): корень, content/",
@@ -278,7 +278,7 @@ def test_render_in_russian_keeps_the_text():
         assert needle in text, needle
 
 
-@pytest.mark.parametrize(("notes", "head"), [("en", "Pages - 4"), ("ru", "Страниц — 4")])
+@pytest.mark.parametrize(("notes", "head"), [("en", "Pages - 4"), ("ru", "Страниц - 4")])
 def test_render_follows_build_notes_of_the_site(built, notes, head):
     site, _, theme, _ = built
     config = sites.config(build={"notes": notes})
@@ -324,7 +324,7 @@ def test_summary_in_russian_is_unchanged(tmp_path):
     assert "\n  что сделать: поправьте отступ" in text
     assert str(collector.errors[0]) in text  # как str(HeronError)
     assert "E011 <неизвестный файл>: без файла" in text
-    assert "Предупреждений — 9:" in text
+    assert "Предупреждений - 9:" in text
     assert "  картинки — 8:" in text
     assert "    … и ещё 2" in text
     assert f"  полный список: {target}" in text
@@ -375,7 +375,7 @@ def test_cli_check_and_build_on_english_site(cli):
         assert result.exit_code == 0, result.output
         assert "Pages - " in result.output and "Types - " in result.output
         assert "Warnings - " in result.output
-        assert "Страниц" not in result.output and "Типы —" not in result.output
+        assert "Страниц" not in result.output and "Типы -" not in result.output
         assert "Предупреждений" not in result.output
 
 
@@ -384,8 +384,8 @@ def test_cli_check_on_russian_site(cli):
     _page_with_warning(Path("site"))
     result = cli("check", "site")
     assert result.exit_code == 0, result.output
-    assert "Страниц — " in result.output and "Типы — " in result.output
-    assert "Предупреждений — " in result.output
+    assert "Страниц - " in result.output and "Типы - " in result.output
+    assert "Предупреждений - " in result.output
     assert "Pages -" not in result.output
 
 
@@ -464,7 +464,7 @@ def test_missing_section_line_agrees_with_the_number(count):
 
     ru, en = MISSING[count]
     fields = {"section": "faq", "count": count, "shown": "en/a.md"}
-    assert say("ru", "report_missing_line", **fields) == f"  faq          — {count} {ru}: en/a.md"
+    assert say("ru", "report_missing_line", **fields) == f"  faq          - {count} {ru}: en/a.md"
     assert say("en", "report_missing_line", **fields) == f"  faq          - {count} {en}: en/a.md"
 
 
@@ -499,7 +499,7 @@ def test_render_of_one_missing_page_reads_naturally():
     """Тот самый случай из ревью: одна страница без секции."""
     ru = _full_report().render("ru")
     en = _full_report().render("en")
-    assert "— 1 страница:" in ru and "— 1 страниц:" not in ru
+    assert "- 1 страница:" in ru and "- 1 страниц:" not in ru
     assert "- 1 page:" in en and "- 1 pages:" not in en
     assert "у 1 из 2 страниц перекрывает" in ru
     assert "on 1 of 2 pages overrides" in en

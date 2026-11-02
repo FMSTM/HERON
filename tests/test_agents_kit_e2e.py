@@ -311,7 +311,7 @@ def test_init_on_an_old_site_adds_the_kit_and_overwrites_nothing(here):
     )
     before = snapshot(site)
     result = run("init", "site", "-y")
-    assert "agents/, AGENTS.md — ru" in result.output
+    assert "agents/, AGENTS.md - ru" in result.output
     after = snapshot(site)
     assert {k: after[k] for k in before} == before  # ничего не перезаписано
     added = set(after) - set(before)

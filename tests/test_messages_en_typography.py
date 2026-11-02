@@ -29,11 +29,12 @@ def test_report_pages_en_uses_hyphen():
     assert " - " in out and not any(d in out for d in DASHES)
 
 
-def test_plan_notes_en_uses_hyphen_and_ru_keeps_dash():
+def test_plan_notes_en_uses_hyphen_and_ru_has_no_dash():
     out = messages.say("en", "plan_notes", count=2)
     assert " - " in out and not any(d in out for d in DASHES)
-    assert "—" in messages.say("ru", "plan_notes", count=2)
-    assert "—" in messages.say("ru", "report_pages", count=3, by_lang="en: 3")
+    assert not any(d in messages.say("ru", "plan_notes", count=2) for d in DASHES)
+    ru_pages = messages.say("ru", "report_pages", count=3, by_lang="en: 3")
+    assert not any(d in ru_pages for d in DASHES)
 
 
 @pytest.mark.parametrize("dash", DASHES)

@@ -28,11 +28,11 @@ TEXT: dict[str, dict[str, str]] = {
         "bad_notes_site_hint": "в build.notes из site.yaml нужно ru или en",
         "site_not_utf8": "site.yaml не в кодировке UTF-8, папка не тронута",
         "site_not_utf8_hint": "пересохраните site.yaml в UTF-8; heron check покажет ту же ошибку",
-        "site_not_block": "site.yaml: {value} — не блок ключей, папка не тронута",
+        "site_not_block": "site.yaml: {value} - не блок ключей, папка не тронута",
         "site_not_block_hint": (
             "site.yaml - набор ключей (site:, theme:, build:); heron check покажет ту же ошибку"
         ),
-        "site_languages_not_list": "site.languages: {value} — не список, папка не тронута",
+        "site_languages_not_list": "site.languages: {value} - не список, папка не тронута",
         "site_languages_not_list_hint": (
             "языки списком, например languages: [ru, en]; heron check покажет ту же ошибку"
         ),
@@ -46,15 +46,15 @@ TEXT: dict[str, dict[str, str]] = {
         "plan_home": "главная",
         "plan_404": "страница 404",
         "plan_theme": (
-            "тема: {count} {count:файл|файла|файлов} — theme.yaml, шаблоны, модули, стили"
+            "тема: {count} {count:файл|файла|файлов} - theme.yaml, шаблоны, модули, стили"
         ),
         "plan_i18n": "строки интерфейса темы: {langs}",
         "plan_folders": "пустые папки: {folders}",
-        "plan_notes": "записки heron-readme.md: {count} — что класть в каждую папку",
+        "plan_notes": "записки heron-readme.md: {count} - что класть в каждую папку",
         "plan_other": "прочее: {files}",
         "plan_kept": "Не тронуто (уже было): {files}",
         "plan_kept_many": (
-            "Не тронуто (уже было): {count} {count:файл|файла|файлов} — список: --verbose"
+            "Не тронуто (уже было): {count} {count:файл|файла|файлов} - список: --verbose"
         ),
         "plan_nothing": "Ничего создавать не понадобилось: всё уже на месте.",
         # --- new ---
@@ -65,62 +65,62 @@ TEXT: dict[str, dict[str, str]] = {
             "Папка {path} не пуста, в ней есть: {files}\n"
             "  new создаёт сайт с нуля и чужие файлы не трогает. Служебные файлы git\n"
             "  ({service}) не мешают.\n"
-            "  что сделать: если это уже папка сайта — `heron init {path}`, он дополнит\n"
+            "  что сделать: если это уже папка сайта - `heron init {path}`, он дополнит\n"
             "  её недостающим и ничего не перезапишет. Иначе выберите пустую папку."
         ),
         "site_exists": (
             "В папке {path} уже есть сайт: site.yaml, языки {langs}.\n"
-            "  new не нужен — он заводит сайт с нуля и готовую папку не трогает.\n"
+            "  new не нужен - он заводит сайт с нуля и готовую папку не трогает.\n"
             "  что сделать:\n"
-            "    дополнить недостающим — `heron init {path}`\n"
-            "    проверить и собрать — `heron check {path}`, `heron build {path}`\n"
-            "    начать заново — уберите файлы сайта, оставив .git и .gitignore;\n"
+            "    дополнить недостающим - `heron init {path}`\n"
+            "    проверить и собрать - `heron check {path}`, `heron build {path}`\n"
+            "    начать заново - уберите файлы сайта, оставив .git и .gitignore;\n"
             "    если они не закоммичены: `git clean -dn` покажет список, `git clean -d -f` удалит"
         ),
-        "found_langs": "В content/ уже есть языки: {langs} — предложу их.",
+        "found_langs": "В content/ уже есть языки: {langs} - предложу их.",
         "no_questions": (
-            "Вопросов не задаю: запуск без терминала. Значения — из флагов или по умолчанию.\n"
-            "  Для опроса запустите в терминале; в докере — с ключом -it."
+            "Вопросов не задаю: запуск без терминала. Значения - из флагов или по умолчанию.\n"
+            "  Для опроса запустите в терминале; в докере - с ключом -it."
         ),
         # --- опрос ---
         "ask_intro": (
-            "Несколько вопросов о сайте. Enter — принять значение в скобках.\n"
+            "Несколько вопросов о сайте. Enter - принять значение в скобках.\n"
             "Всё это потом правится в site.yaml."
         ),
         "ask_name": "Название сайта",
         "ask_name_help": "как сайт называется для людей: в шапке, в <title>, в разметке",
         "ask_domain": "Домен",
         "ask_domain_help": (
-            "без https:// и слешей, например example.com. Не знаете — Enter, останется заглушка"
+            "без https:// и слешей, например example.com. Не знаете - Enter, останется заглушка"
         ),
         "ask_langs": "Языки сайта",
-        "ask_langs_help": "коды через запятую: en или en, ru. Каждый язык — папка content/<код>/",
+        "ask_langs_help": "коды через запятую: en или en, ru. Каждый язык - папка content/<код>/",
         "ask_default": "Основной язык",
-        "ask_default_help": "отдаётся из корня (/about/), остальные — с префиксом (/ru/about/)",
+        "ask_default_help": "отдаётся из корня (/about/), остальные - с префиксом (/ru/about/)",
         "ask_confirm": "Создать сайт?",
         "ask_summary": "Итого:",
         "ask_cancelled": "Отменено, ничего не создано.",
         "bad_domain": "домен пишется без схемы и пути: example.com",
         "bad_langs": "нужен хотя бы один код вида en, ru, en-gb; не подошло: {bad}",
         "bad_default": "основной язык должен быть в списке: {langs}",
-        "placeholder": "заглушка — замените в site.yaml",
+        "placeholder": "заглушка - замените в site.yaml",
         # --- что дальше ---
         "next_title": "Что дальше:",
         "next_config": (
-            "Настройте сайт анкетой: `heron setup {path}` — название, домен, кто вы, "
+            "Настройте сайт анкетой: `heron setup {path}` - название, домен, кто вы, "
             "публикация. Или руками в {path}/site.yaml."
         ),
         "next_domain": (
-            "Домен сейчас заглушка {domain} — впишите настоящий в анкете или в site.yaml."
+            "Домен сейчас заглушка {domain} - впишите настоящий в анкете или в site.yaml."
         ),
-        "next_home": "Главная — {files}: SEO-блок наверху (title, h1, description), ниже текст.",
+        "next_home": "Главная - {files}: SEO-блок наверху (title, h1, description), ниже текст.",
         "next_page": "Новая страница: `heron page page about {path}`",
-        "next_build": "Собрать: `heron build {path}` — результат в {path}/dist/",
+        "next_build": "Собрать: `heron build {path}` - результат в {path}/dist/",
         "next_check": "Проверить без сборки: `heron check {path}`",
-        "next_langs": "Добавили язык в site.yaml — снова `heron init {path}`",
+        "next_langs": "Добавили язык в site.yaml - снова `heron init {path}`",
         "next_docker": (
-            "В докере — те же команды после `docker run … ghcr.io/fmstm/heron:<тег>`;\n"
-            "  путь к сайту — относительно текущей папки: `.`, если вы в ней."
+            "В докере - те же команды после `docker run … ghcr.io/fmstm/heron:<тег>`;\n"
+            "  путь к сайту - относительно текущей папки: `.`, если вы в ней."
         ),
         # --- page ---
         "page_done": "Создана страница: {path}",
@@ -128,15 +128,15 @@ TEXT: dict[str, dict[str, str]] = {
         # --- пути ---
         "no_path": "Папки {path} нет.",
         "no_site": (
-            "В папке {path} нет site.yaml — это не папка сайта.\n"
-            "  что сделать: создать сайт здесь — `heron new {path}`; дополнить\n"
-            "  существующую папку — `heron init {path}`."
+            "В папке {path} нет site.yaml - это не папка сайта.\n"
+            "  что сделать: создать сайт здесь - `heron new {path}`; дополнить\n"
+            "  существующую папку - `heron init {path}`."
         ),
         "container_path": (
             "  почему: движок работает в контейнере и видит только папку,\n"
-            "  смонтированную в /site, — это ваша текущая папка. Путь {path}\n"
+            "  смонтированную в /site, - это ваша текущая папка. Путь {path}\n"
             "  с вашего компьютера внутри контейнера не существует.\n"
-            "  что сделать: передайте путь относительно текущей папки — `.`, если\n"
+            "  что сделать: передайте путь относительно текущей папки - `.`, если\n"
             "  вы в папке сайта, или имя вложенной папки."
         ),
         "path_hint": "  что сделать: проверьте путь; он считается от текущей папки.",
@@ -149,7 +149,7 @@ TEXT: dict[str, dict[str, str]] = {
         "crash_text": "  {text}",
         "crash_hint": (
             "  что сделать: повторите с --debug, чтобы увидеть подробности, и пришлите\n"
-            "  их разработчикам движка — это ошибка движка, а не вашего сайта."
+            "  их разработчикам движка - это ошибка движка, а не вашего сайта."
         ),
         "denied": "Нет прав на запись: {path}",
         "denied_hint": (
@@ -184,7 +184,7 @@ TEXT: dict[str, dict[str, str]] = {
         "check_failed": "Проверка нашла ошибок: {count}. Сборка с ними не пройдёт.",
         "build_strict": (
             "Сборка остановлена: строгий режим (--strict или build.fail_on_warning), "
-            "предупреждений {count}. Папка сборки не тронута — в ней прошлая удачная версия."
+            "предупреждений {count}. Папка сборки не тронута - в ней прошлая удачная версия."
         ),
         "check_strict": (
             "Проверка: строгий режим (--strict или build.fail_on_warning), предупреждений {count}."
@@ -541,7 +541,7 @@ TEXT["ru"].update(
         "serve_built": "собрано: {count} {count:файл|файла|файлов}",
         "serve_warnings": "предупреждений: {count}",
         "serve_dist": "собрано в {dist}",
-        "serve_open": "открыто: {url}  (Ctrl+C — выход)",
+        "serve_open": "открыто: {url}  (Ctrl+C - выход)",
         "serve_container": (
             "HERON работает в контейнере: откройте адрес на своём компьютере. "
             "Порт {port} должен быть проброшен в docker run только на эту машину: "
@@ -551,7 +551,7 @@ TEXT["ru"].update(
             "просмотр открыт для всей сети: любой в ней увидит черновики "
             "по адресу этого компьютера и порту {port}"
         ),
-        "serve_changed": "изменения ({files}) — пересобираю",
+        "serve_changed": "изменения ({files}) - пересобираю",
         "serve_more": " и ещё {count}",
         "serve_stopped": "остановлено",
         "serve_busy": "не удалось открыть просмотр на {host}:{port}: {problem}",
@@ -592,7 +592,7 @@ TEXT["en"].update(
 TEXT["ru"].update(
     {
         "setup_open": (
-            "Анкета открыта: {url}  — откройте адрес целиком, с ключом после «#». Ctrl+C — выход."
+            "Анкета открыта: {url}  - откройте адрес целиком, с ключом после «#». Ctrl+C - выход."
         ),
         "setup_done": "Настройки записаны.",
         "setup_written": "записано: {files}",
@@ -600,9 +600,9 @@ TEXT["ru"].update(
         "setup_removed": "убрано (способ публикации сменился): {files}",
         "setup_kept": "не тронуто, файл не от конфигуратора: {files}",
         "setup_backup": "прежняя версия: {file}",
-        "setup_next": "Дальше: `heron serve {path}` — посмотреть сайт.",
+        "setup_next": "Дальше: `heron serve {path}` - посмотреть сайт.",
         "setup_bad": "ответы не прошли проверку: {problem}",
-        "setup_no_site": "В папке {path} нет site.yaml — здесь нет сайта, настраивать нечего.",
+        "setup_no_site": "В папке {path} нет site.yaml - здесь нет сайта, настраивать нечего.",
         "setup_no_site_hint": (
             "Перейдите в папку сайта (cd имя-сайта) и запустите setup там, "
             "или создайте сайт: heron new имя-сайта"
@@ -642,30 +642,30 @@ TEXT["en"].update(
 TEXT["ru"].update(
     {
         # сводка new/init
-        "kit_created": "инструкции для агентов: agents/, AGENTS.md — {code}, файлов {n}",
+        "kit_created": "инструкции для агентов: agents/, AGENTS.md - {code}, файлов {n}",
         "kit_updated": (
             "инструкции для агентов обновлены ({code}): заменено {updated}, добавлено {created}"
         ),
-        "kit_in_place": "инструкции для агентов уже на месте — обновить: heron init --agents",
+        "kit_in_place": "инструкции для агентов уже на месте - обновить: heron init --agents",
         "kit_off": (
-            "инструкции для агентов не положены (build.agents: false) — "
+            "инструкции для агентов не положены (build.agents: false) - "
             "включить: heron init --agents"
         ),
         "kit_skipped_edited": "правлен вами, не тронут: {files}",
-        "kit_forced": "правлен вами — перезаписан (--force): {files}",
+        "kit_forced": "правлен вами - перезаписан (--force): {files}",
         "kit_current": "инструкции для агентов уже актуальны ({code})",
-        "kit_bad_value": "build.agents: {value} — не понято, комплект не тронут",
+        "kit_bad_value": "build.agents: {value} - не понято, комплект не тронут",
         "kit_bad_value_hint": "допустимо true, kit или false; heron check покажет ту же ошибку",
-        "build_not_block": "build: {value} — не блок ключей, папка не тронута",
+        "build_not_block": "build: {value} - не блок ключей, папка не тронута",
         "build_not_block_hint": (
-            "build — блок ключей с отступом (notes: ru, agents: true); "
+            "build - блок ключей с отступом (notes: ru, agents: true); "
             "heron check покажет ту же ошибку"
         ),
         "kit_orphan": "нет в новом комплекте, оставлен: {files}",
         "kit_fallback": "без перевода на {want}, положены на {have}: файлов {n}",
         "kit_about_placeholder": "<о проекте: заполняет архитектор>",
         "kit_manifest_head": "# Манифест комплекта для агентов. Пишет движок, руками не правят.",
-        "kit_manifest_damaged": "манифест agents/heron-kit.yaml не прочитан — переписан заново",
+        "kit_manifest_damaged": "манифест agents/heron-kit.yaml не прочитан - переписан заново",
         # сведение check (21 §12)
         "kit_found": (
             "`agents/`: инструкции для агентов, движок {engine}, {code}; в сборку не входит"
@@ -673,9 +673,9 @@ TEXT["ru"].update(
         "kit_unreadable": (
             "`agents/`: инструкции для агентов, манифест не прочитан; в сборку не входит"
         ),
-        "kit_outdated": "комплект от {kit}, движок {engine} — обновить: `heron init --agents`",
+        "kit_outdated": "комплект от {kit}, движок {engine} - обновить: `heron init --agents`",
         "kit_disabled": "комплект отключён",
-        "kit_missing": "комплекта нет — `heron init`",
+        "kit_missing": "комплекта нет - `heron init`",
         "agents_conflict": "--agents и --no-agents вместе не задаются: выберите одно",
         # heron docs
         "docs_start_with": "Начать с {path}",
@@ -754,14 +754,14 @@ TEXT["ru"].update(
         ),
         "sandbox_hint_add": (
             "стройте новый список вместо изменения: `{{% set xs = xs + [item] %}}`; "
-            "накопление в цикле — через namespace: `{{% set acc = namespace(xs=[]) %}}` … "
-            "`{{% set acc.xs = acc.xs + [item] %}}`; отбор — фильтры selectattr/rejectattr, "
-            "без повторов — `unique(case_sensitive=True, attribute='url')`; "
+            "накопление в цикле - через namespace: `{{% set acc = namespace(xs=[]) %}}` … "
+            "`{{% set acc.xs = acc.xs + [item] %}}`; отбор - фильтры selectattr/rejectattr, "
+            "без повторов - `unique(case_sensitive=True, attribute='url')`; "
             "рецепты: heron docs theme"
         ),
         "sandbox_hint_keys": (
             "стройте новый словарь вместо изменения: `{{% set d = dict(d, key=value) %}}`; "
-            "в цикле — через namespace: `{{% set acc = namespace(d={{}}) %}}` … "
+            "в цикле - через namespace: `{{% set acc = namespace(d={{}}) %}}` … "
             "`{{% set acc.d = dict(acc.d, key=value) %}}`; рецепты: heron docs theme"
         ),
         "sandbox_hint_remove": (
@@ -814,40 +814,40 @@ TITLES["en"].update(
 # --- отчёт check и build, сводка ошибок и предупреждений (heron/core/report.py) ----
 TEXT["ru"].update(
     {
-        "report_pages": "Страниц — {count} ({by_lang})",
-        "report_types": "Типы — {by_type}",
+        "report_pages": "Страниц - {count} ({by_lang})",
+        "report_types": "Типы - {by_type}",
         "report_untranslated": "Не переведено:",
         "report_missing": "Тема ждёт секцию, а в файле её нет:",
         "report_missing_line": (
-            "  {section:12} — {count} {count:страница|страницы|страниц}: {shown}"
+            "  {section:12} - {count} {count:страница|страницы|страниц}: {shown}"
         ),
         "report_format": "Формат секции не тот, которого ждёт тема (это не ошибка):",
-        "report_format_line": "  {source}: {section} — ждали {want}, пришло {got}",
+        "report_format_line": "  {source}: {section} - ждали {want}, пришло {got}",
         "report_format_fix": (
-            "  как исправить: если по смыслу это форма из «ждали» — задайте её "
+            "  как исправить: если по смыслу это форма из «ждали» - задайте её "
             "классом в якоре секции: `## Заголовок {{#якорь .checklist}}`; если права "
-            "разметка — поменяйте форму в `uses` типа в theme.yaml: `якорь:форма`"
+            "разметка - поменяйте форму в `uses` типа в theme.yaml: `якорь:форма`"
         ),
-        "report_nameless": "В меню, но без короткого имени — покажется имя файла:",
+        "report_nameless": "В меню, но без короткого имени - покажется имя файла:",
         "report_unused_sections": "Секции, которых тема не использует (опечатка в якоре?):",
         "report_unused_modules": "Модули темы, которые не зовёт ни один шаблон: {names}",
         "report_broken": "Ссылки в никуда:",
         "report_orphans": "На эти страницы никто не ссылается: {urls}",
-        "report_schema": "Разметка schema.org — {by_kind}",
-        "report_unused_media": "Файлы в media, которых никто не ждёт — {count}:",
-        "report_static_media": "В static лежит контент — его место в media:",
+        "report_schema": "Разметка schema.org - {by_kind}",
+        "report_unused_media": "Файлы в media, которых никто не ждёт - {count}:",
+        "report_static_media": "В static лежит контент - его место в media:",
         "report_uneven": "Поле есть не у всех элементов списка (шаблон обязан это учесть):",
-        "report_uneven_line": "  {owner}: {where} — {field} у {have} из {total}",
+        "report_uneven_line": "  {owner}: {where} - {field} у {have} из {total}",
         "report_list": "список",
         "report_nginx_ok": "nginx -t на собранном конфиге: прошёл",
         "report_manual_dates": (
             "Ручная дата updated у {manual} из {total} {total:страницы|страниц|страниц} "
-            "перекрывает updated_from: {mode} — у этих страниц дата из {mode} не берётся. "
+            "перекрывает updated_from: {mode} - у этих страниц дата из {mode} не берётся. "
             "Где дата должна обновляться сама, уберите updated из фронтматтера."
         ),
         "report_notes_missing": "Без пояснительной записки (это не ошибка): {folders}",
         "report_root": "корень",
-        "summary_warnings": "Предупреждений — {count}:",
+        "summary_warnings": "Предупреждений - {count}:",
         "summary_more": "    … и ещё {count}",
         "summary_full": "  полный список: {path}",
         "summary_unknown_file": "<неизвестный файл>",
@@ -898,8 +898,8 @@ TEXT["ru"].update(
     {
         "kit_lang_changed": "язык комплекта сменился: {old} → {new} (build.notes)",
         "kit_lang_kept": (
-            "комплект оставлен на {kit}, build.notes — {notes}: "
-            "сменить язык комплекта — heron init --agents"
+            "комплект оставлен на {kit}, build.notes - {notes}: "
+            "сменить язык комплекта - heron init --agents"
         ),
     }
 )
@@ -919,11 +919,11 @@ TEXT["en"].update(
 TEXT["ru"].update(
     {
         "write_dangling": (
-            "на месте папки символическая ссылка, которая никуда не ведёт — записать в неё нельзя"
+            "на месте папки символическая ссылка, которая никуда не ведёт - записать в неё нельзя"
         ),
-        "write_not_folder": "на месте папки файл или ссылка не на папку — записать в неё нельзя",
+        "write_not_folder": "на месте папки файл или ссылка не на папку - записать в неё нельзя",
         "write_folder_hint": "уберите ссылку или файл либо назовите другую папку",
-        "write_not_file": "на месте файла ссылка или папка — запись через неё не делается",
+        "write_not_file": "на месте файла ссылка или папка - запись через неё не делается",
         "write_not_file_hint": "уберите или переименуйте её и повторите команду",
     }
 )
@@ -977,7 +977,7 @@ def kind(lang: str, name: str) -> str:
 TEXT["ru"].update(
     {
         "help_main": (
-            "HERON — файловый движок сайтов.\n\n"
+            "HERON - файловый движок сайтов.\n\n"
             "Язык справки и сообщений: --notes ru|en, иначе HERON_NOTES, иначе "
             "build.notes из site.yaml текущей папки, иначе en."
         ),
@@ -988,17 +988,17 @@ TEXT["ru"].update(
             "спрашивает: значения из флагов или по умолчанию.\n\n"
             "Папка может быть под git: .git, .gitignore, README и прочее служебное "
             "не мешают. Кладёт и инструкции для агентов на языке пояснений: agents/ "
-            "и корневые указатели на них (сборка их не видит); --no-agents — без них."
+            "и корневые указатели на них (сборка их не видит); --no-agents - без них."
         ),
         "help_init": (
             "Дополнить папку недостающим по тому, что написано в site.yaml.\n\n"
-            "Ничего не перезаписывает без --force. Нет site.yaml — значит, сайт "
+            "Ничего не перезаписывает без --force. Нет site.yaml - значит, сайт "
             "только заводится: в терминале те же вопросы, что у `new`, языки по "
-            "умолчанию — папки, которые уже лежат в content/. Язык пояснений: "
+            "умолчанию - папки, которые уже лежат в content/. Язык пояснений: "
             "--notes, иначе HERON_NOTES, иначе build.notes из site.yaml, иначе en.\n\n"
-            "Инструкции для агентов (agents/, AGENTS.md): без флагов — только "
-            "недостающие файлы, если build.agents не `false`; --agents — обновление "
-            "по манифесту; --no-agents — не класть и записать `build.agents: false` "
+            "Инструкции для агентов (agents/, AGENTS.md): без флагов - только "
+            "недостающие файлы, если build.agents не `false`; --agents - обновление "
+            "по манифесту; --no-agents - не класть и записать `build.agents: false` "
             "(21 §10)."
         ),
         "help_check": "Проверить контент и конфиг, ничего не собирая.",
@@ -1006,8 +1006,8 @@ TEXT["ru"].update(
         "help_serve": "Локальный просмотр с пересборкой при изменениях.",
         "help_setup": (
             "Конфигуратор: анкета, которая пишет site.yaml, сценарий для CI и скрипты.\n\n"
-            "Без флагов открывает анкету в браузере (адрес — на экране). С --answers "
-            "применяет ответы из файла — те же поля и та же проверка."
+            "Без флагов открывает анкету в браузере (адрес - на экране). С --answers "
+            "применяет ответы из файла - те же поля и та же проверка."
         ),
         "help_schema": (
             "JSON Schema контрактов этой версии: для редактора, агента и CI (21 §10).\n\n"
@@ -1019,9 +1019,9 @@ TEXT["ru"].update(
         ),
         "help_recipe": (
             "Рецепт образа nginx для собранного сайта (Dockerfile) этой версии HERON; "
-            "комментарии в нём — на языке пояснений.\n\n"
+            "комментарии в нём - на языке пояснений.\n\n"
             "`heron recipe > /tmp/Dockerfile && docker build -f /tmp/Dockerfile dist` "
-            "— образ сайта без клона HERON и без Dockerfile в папке сайта."
+            "- образ сайта без клона HERON и без Dockerfile в папке сайта."
         ),
         "help_theme": (
             "Темы: поставить по имени, ссылке или архиву, показать каталог, упаковать свою."
@@ -1034,12 +1034,12 @@ TEXT["ru"].update(
         ),
         "help_theme_list": "Каталог тем HERON.",
         "help_theme_pack": (
-            "Упаковать тему сайта вместе с его контентом — демо-страницами для heron theme get."
+            "Упаковать тему сайта вместе с его контентом - демо-страницами для heron theme get."
         ),
         "help_page": "Заготовка страницы со всеми секциями своего типа.",
         "help_docs": (
             "Документация этой версии движка: оглавление, тема, поиск, выгрузка (21 §10).\n\n"
-            "Нет файла на нужном языке — печатается файл другого языка с пометкой "
+            "Нет файла на нужном языке - печатается файл другого языка с пометкой "
             "первой строкой.\n\n"
             "\b\n"
             "heron docs                        оглавление\n"
@@ -1052,7 +1052,7 @@ TEXT["ru"].update(
         # параметры
         "help_opt_help": "Показать эту справку и выйти.",
         "help_opt_version": "Показать версию и выйти.",
-        "help_opt_debug": "Показать трейсбек непредвиденной ошибки. То же — HERON_DEBUG=1.",
+        "help_opt_debug": "Показать трейсбек непредвиденной ошибки. То же - HERON_DEBUG=1.",
         "help_opt_notes": (
             "Язык комментариев в файлах сайта, справки и сообщений на экране: ru или en. "
             "Иначе HERON_NOTES, иначе build.notes из site.yaml, иначе en."
@@ -1060,7 +1060,7 @@ TEXT["ru"].update(
         "help_opt_verbose": "Перечислить каждый созданный файл.",
         "help_opt_name": "Название сайта.",
         "help_opt_domain": "Домен без схемы: example.com.",
-        "help_opt_langs": "Языки через запятую, первый — основной: en или en,ru.",
+        "help_opt_langs": "Языки через запятую, первый - основной: en или en,ru.",
         "help_opt_yes": "Не задавать вопросов: флаги и значения по умолчанию.",
         "help_opt_no_agents": (
             "Не класть инструкции для агентов (agents/, AGENTS.md) и запомнить это: "
@@ -1068,32 +1068,32 @@ TEXT["ru"].update(
         ),
         "help_opt_force": "Перезаписывать существующие файлы.",
         "help_opt_agents": (
-            "Только инструкции для агентов: обновить по манифесту agents/heron-kit.yaml — "
-            "нетронутые заменить, правленые оставить и назвать (--force — заменить и их)."
+            "Только инструкции для агентов: обновить по манифесту agents/heron-kit.yaml - "
+            "нетронутые заменить, правленые оставить и назвать (--force - заменить и их)."
         ),
         "help_opt_strict": "Считать предупреждения ошибками.",
         "help_opt_drafts": "Включить страницы с `published: false`.",
-        "help_opt_json": "Ошибки и предупреждения в JSON — для агента и CI.",
+        "help_opt_json": "Ошибки и предупреждения в JSON - для агента и CI.",
         "help_opt_old_urls": (
             "Файл со старыми адресами (по строке на адрес или выгрузка из поисковой консоли): "
             "каждый должен вести на страницу, в redirect_from или в раздел «удалено»."
         ),
         "help_opt_out": "Куда собирать.",
         "help_opt_env": (
-            "Окружение сборки: `prod` открывает индексацию и счётчики, всё прочее — нет."
+            "Окружение сборки: `prod` открывает индексацию и счётчики, всё прочее - нет."
         ),
         "help_opt_workers": (
-            "Процессов на нарезку; 0 — по ядрам, 1 — без пула. "
+            "Процессов на нарезку; 0 - по ядрам, 1 - без пула. "
             "Сильнее HERON_WORKERS и build.workers."
         ),
         "help_opt_port": "Порт.",
         "help_opt_host": (
-            "Где слушать. По умолчанию 127.0.0.1, а в образе HERON — 0.0.0.0, "
+            "Где слушать. По умолчанию 127.0.0.1, а в образе HERON - 0.0.0.0, "
             "чтобы проброшенный порт открывался снаружи контейнера."
         ),
         "help_opt_serve_drafts": "Показывать черновики (`published: false`); по умолчанию да.",
         "help_opt_answers": (
-            "Ответы анкеты из YAML или JSON без браузера (агент, CI). «-» — из stdin."
+            "Ответы анкеты из YAML или JSON без браузера (агент, CI). «-» - из stdin."
         ),
         "help_opt_dump": "Напечатать записанные ответы в YAML и выйти.",
         "help_opt_setup_host": "Где слушать: как у heron serve.",
@@ -1116,7 +1116,7 @@ TEXT["ru"].update(
         ),
         "help_opt_search": "Найти в документации.",
         "help_opt_docs_export": (
-            "Выложить документацию в папку — то же, что сайт получает в agents/."
+            "Выложить документацию в папку - то же, что сайт получает в agents/."
         ),
         "help_opt_all_langs": "С --export: оба языка, папки ru/ и en/ (для сайта движка).",
         # подписи значений

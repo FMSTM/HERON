@@ -566,12 +566,12 @@ def test_plural_forms(count, ru, en):
 @pytest.mark.parametrize(
     ("count", "text"),
     [
-        (1, "тема: 1 файл —"),
-        (2, "тема: 2 файла —"),
-        (5, "тема: 5 файлов —"),
-        (11, "тема: 11 файлов —"),
-        (21, "тема: 21 файл —"),
-        (24, "тема: 24 файла —"),
+        (1, "тема: 1 файл -"),
+        (2, "тема: 2 файла -"),
+        (5, "тема: 5 файлов -"),
+        (11, "тема: 11 файлов -"),
+        (21, "тема: 21 файл -"),
+        (24, "тема: 24 файла -"),
     ],
 )
 def test_russian_counters_agree_with_the_number(count, text):
@@ -588,7 +588,7 @@ def test_counters_keep_other_format_specs():
     from heron.messages import say
 
     line = say("ru", "report_missing_line", section="blog", count=5, shown="a, b, c")
-    assert line == "  blog         — 5 страниц: a, b, c"
+    assert line == "  blog         - 5 страниц: a, b, c"
     assert say("ru", "found_content", pages=21, langs="ru") == "content/: 21 страница, языки: ru"
 
 
@@ -597,7 +597,7 @@ def test_new_summary_in_russian_agrees_with_the_number(here):
 
     result = run("new", "s", "--notes", "ru", "-y")
     assert result.exit_code == 0, result.output
-    found = re.search(r"тема: (\d+) (\S+) —", result.output)
+    found = re.search(r"тема: (\d+) (\S+) -", result.output)
     assert found, result.output
     from heron.messages import plural
 

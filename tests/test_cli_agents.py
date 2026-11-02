@@ -68,7 +68,7 @@ def test_new_ru_lays_out_the_kit(here):
     assert (root / "GEMINI.md").read_text(encoding="utf-8") == "@AGENTS.md\n"
     assert config(root)["build"]["agents"] is True
     # одна строка сводки, а не тридцать путей agents/…
-    assert "инструкции для агентов: agents/, AGENTS.md — ru, файлов" in result.output
+    assert "инструкции для агентов: agents/, AGENTS.md - ru, файлов" in result.output
     assert "agents/roles" not in result.output
 
 
@@ -182,7 +182,7 @@ def test_init_agents_skips_edited_and_force_replaces(here):
     assert result.exit_code == 0, result.output
     assert (root / "AGENTS.md").read_bytes() == fresh
     assert "правлен вами, не тронут" not in result.output
-    assert "правлен вами — перезаписан (--force): AGENTS.md" in result.output
+    assert "правлен вами - перезаписан (--force): AGENTS.md" in result.output
 
 
 def test_init_agents_replaces_untouched_older_file(here):
@@ -371,7 +371,7 @@ def test_kit_lines_come_from_messages(tmp_path):
     def line(kit: KitStatus, lang: str) -> str:
         return Report(kit=kit, notes_lang=lang).kit_line()
 
-    assert line(KitStatus(), "ru") == "комплекта нет — `heron init`"
+    assert line(KitStatus(), "ru") == "комплекта нет - `heron init`"
     assert line(KitStatus(), "en") == "no agent kit - `heron init`"
     assert line(KitStatus(disabled=True), "ru") == "комплект отключён"
     assert line(KitStatus(present=True), "ru") == (
@@ -379,7 +379,7 @@ def test_kit_lines_come_from_messages(tmp_path):
     )
     old = KitStatus(present=True, engine="0.0.1", lang="ru", current=False)
     assert line(old, "ru") == (
-        f"комплект от 0.0.1, движок {heron.__version__} — обновить: `heron init --agents`"
+        f"комплект от 0.0.1, движок {heron.__version__} - обновить: `heron init --agents`"
     )
     assert line(old, "en") == (
         f"kit from 0.0.1, engine {heron.__version__} - update: `heron init --agents`"
@@ -510,7 +510,7 @@ def test_cli_init_agents_with_escaping_manifest_entry(here):
     path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
     result = run("init", "site", "--agents")
     assert result.exit_code == 0, result.output
-    assert "манифест agents/heron-kit.yaml не прочитан — переписан заново" in result.output
+    assert "манифест agents/heron-kit.yaml не прочитан - переписан заново" in result.output
     assert not (here / "evil.md").exists()
     assert "evil" not in path.read_text(encoding="utf-8")
 
@@ -538,7 +538,7 @@ CHANGED = {
     "en": "kit language changed: {old} → {new} (build.notes)",
 }
 KEPT = {
-    "ru": "комплект оставлен на {kit}, build.notes — {notes}",
+    "ru": "комплект оставлен на {kit}, build.notes - {notes}",
     "en": "the kit stays in {kit}, build.notes is {notes}",
 }
 

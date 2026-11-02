@@ -167,30 +167,30 @@ def e033(root: Path, tmp: Path) -> str:
 
 def no_template(root: Path, tmp: Path) -> str:
     write(root, "content/en/odd.md", md("Odd", extra="type: no-such-type\n"))
-    return ""
+    return "odd.md"
 
 
 def no_home(root: Path, tmp: Path) -> str:
     for home in (root / "content/en").glob("index.md"):
         home.unlink()
-    return ""
+    return "content/en/index.md"
 
 
 def untranslated(root: Path, tmp: Path) -> str:
     edit_site(root, lambda data: data["site"].__setitem__("languages", ["en", "fr"]))
-    return ""
+    return "content/fr"
 
 
 def no_site(root: Path, tmp: Path) -> str:
     (root / "site.yaml").unlink()
-    return ""
+    return "site.yaml"
 
 
 def many_warnings(root: Path, tmp: Path) -> str:
     edit_site(root, lambda data: data["site"].__setitem__("languages", ["en", "fr"]))
     for index in range(15):
         write(root, f"content/en/page-{index}.md", md(f"Page {index}"))
-    return ""
+    return "page-0.md"
 
 
 ERRORS: dict[str, Callable[[Path, Path], str]] = {
@@ -251,6 +251,22 @@ def parse_json(output: str):
     return json.JSONDecoder().raw_decode(output[start:])[0]
 
 
+def is_error(code: str) -> bool:
+    return code.startswith("E")
+
+
+def messages_of(data: dict, code: str) -> list[str]:
+    """message находок сценария: по полю code, по коду в тексте или по маркеру в path."""
+    items = [*data.get("errors", []), *data.get("warnings", [])]
+    return [
+        item["message"]
+        for item in items
+        if item.get("code") == code
+        or code in item.get("message", "")
+        or code in (item.get("path") or "")
+    ]
+
+
 def prepared(tmp_path: Path, name: str):
     root = site(tmp_path)
     code = SCENARIOS[name](root, tmp_path)
@@ -263,9 +279,9 @@ def test_check_en_has_no_cyrillic(tmp_path, name):
     result = run("check", str(root), "--notes", "en")
     assert result.output.strip(), name
     assert not CYRILLIC.search(result.output), result.output
-    if code:
+    assert code in result.output, (name, result.output)
+    if is_error(code) or name == "no-site":
         assert result.exit_code == 1, result.output
-        assert code in result.output
 
 
 @pytest.mark.parametrize("name", ERRORS)
@@ -282,10 +298,12 @@ def test_check_json_en_has_no_cyrillic(tmp_path, name):
 
 @pytest.mark.parametrize("name", ["many-warnings", "untranslated", "no-template", "no-home"])
 def test_check_json_en_warnings_have_no_cyrillic(tmp_path, name):
-    root, _ = prepared(tmp_path, name)
+    root, code = prepared(tmp_path, name)
     result = run("check", str(root), "--json", "--notes", "en")
     data = parse_json(result.output)
     found = list(strings(data))
+    assert data["warnings"], json.dumps(data)
+    assert messages_of(data, code), (name, json.dumps(data))
     assert not [text for text in found if CYRILLIC.search(text)], found
 
 
@@ -311,9 +329,13 @@ def test_no_site_ru_check_says_it_in_russian(tmp_path, flags):
 
 @pytest.mark.parametrize("name", SCENARIOS)
 def test_build_en_has_no_cyrillic(tmp_path, name):
-    root, _ = prepared(tmp_path, name)
+    root, code = prepared(tmp_path, name)
     result = run("build", str(root), "--notes", "en")
     assert not CYRILLIC.search(result.output), result.output
+    if not is_error(code) and name != "no-site":  # в dev E007 и др. идут предупреждением без кода
+        full_text = (root / ".heron-cache" / "warnings.txt")
+        body = result.output + (full_text.read_text(encoding="utf-8") if full_text.is_file() else "")
+        assert code in body, (name, result.output)
     full = root / ".heron-cache" / "warnings.txt"
     if full.is_file():
         for line in full.read_text(encoding="utf-8").splitlines():
@@ -324,7 +346,10 @@ def test_build_en_has_no_cyrillic(tmp_path, name):
 def test_full_warnings_file_is_written_for_many_warnings(tmp_path):
     root, _ = prepared(tmp_path, "many-warnings")
     result = run("build", str(root), "--notes", "en")
-    assert "and 9 more" in result.output or "more" in result.output, result.output
+    titles = 15  # page-0 .. page-14: «title and h1 are the same»
+    shown = len(re.findall(r"en/page-\d+\.md:", result.output))
+    assert 0 < shown < titles, result.output
+    assert f"and {titles - shown} more" in result.output, result.output
     full = root / ".heron-cache" / "warnings.txt"
     assert full.is_file(), result.output
     lines = full.read_text(encoding="utf-8").splitlines()
@@ -360,22 +385,33 @@ def test_old_urls_without_path_en_has_no_cyrillic(tmp_path):
 # --- парные сценарии на русском -------------------------------------------------------
 
 
-@pytest.mark.parametrize("name", ERRORS)
+RU_SCENARIOS = [n for n in SCENARIOS if n not in BUILD_ONLY]
+
+
+@pytest.mark.parametrize("name", RU_SCENARIOS)
 def test_check_ru_details_are_russian(tmp_path, name):
     root, code = prepared(tmp_path, name)
     result = run("check", str(root), "--notes", "ru")
-    assert result.exit_code == 1, result.output
-    assert code in result.output
+    assert code in result.output, result.output
+    if is_error(code) or name == "no-site":
+        assert result.exit_code == 1, result.output
     assert CYRILLIC.search(result.output), result.output
+    if name == "no-site":
+        assert say("ru", "no_site", path=root) in result.output, result.output
 
 
-@pytest.mark.parametrize("name", ERRORS)
+@pytest.mark.parametrize("name", RU_SCENARIOS)
 def test_check_json_ru_message_is_russian(tmp_path, name):
     root, code = prepared(tmp_path, name)
+    if name == "no-site":  # JSON не печатается: проверяем текст
+        result = run("check", str(root), "--json", "--notes", "ru")
+        assert say("ru", "no_site", path=root) in result.output, result.output
+        return
     result = run("check", str(root), "--json", "--notes", "ru")
     data = parse_json(result.output)
-    messages = [text for text in strings(data) if CYRILLIC.search(text)]
-    assert messages, json.dumps(data, ensure_ascii=False)
+    found = messages_of(data, code)
+    assert found, json.dumps(data, ensure_ascii=False)
+    assert all(CYRILLIC.search(text) for text in found), found
 
 
 def test_ru_text_of_e007_matches_the_message(tmp_path):
@@ -472,10 +508,6 @@ def assert_stderr_and_file_clean(root: Path, result) -> None:
         assert not CYRILLIC.search(where + message), message
 
 
-def is_error(code: str) -> bool:
-    return code.startswith("E")
-
-
 @pytest.mark.parametrize("name", CROSS_RU_SITE)
 def test_ru_site_check_en_has_no_cyrillic(tmp_path, name):
     root = ru_site(tmp_path)
@@ -532,15 +564,6 @@ def test_ru_site_old_urls_without_path_en_has_no_cyrillic(tmp_path):
     found = list(strings(parse_json(as_json.stdout)))
     assert any("gone-page" in item for item in found), found
     assert not [item for item in found if CYRILLIC.search(item)], found
-
-
-def messages_of(data: dict, code: str) -> list[str]:
-    items = [*data.get("errors", []), *data.get("warnings", [])]
-    return [
-        item["message"]
-        for item in items
-        if item.get("code") == code or code in item.get("message", "")
-    ]
 
 
 @pytest.mark.parametrize("name", CROSS_EN_SITE)

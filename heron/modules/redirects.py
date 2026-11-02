@@ -24,6 +24,7 @@ from heron.contracts.site import SiteConfig, parse_gone
 from heron.core.errors import Collector
 from heron.core.models import Site
 from heron.core.urls import canonical_path
+from heron.messages import Msg
 
 
 @dataclass(slots=True)
@@ -70,9 +71,9 @@ def collect(site: Site, collector: Collector, config: SiteConfig | None = None) 
             if CONTROL & set(old):
                 collector.error(
                     "E009",
-                    f"redirect_from {written!r}: управляющий символ в адресе",
+                    Msg("redirects_from_control", written=written),
                     path=page.source,
-                    hint="такой адрес не придёт от браузера и ломает карты",
+                    hint=Msg("redirects_control_hint"),
                 )
                 continue
             if not ok:
@@ -80,20 +81,20 @@ def collect(site: Site, collector: Collector, config: SiteConfig | None = None) 
             if old in site.by_url or _stem(old) in pages:
                 collector.error(
                     "E009",
-                    f"redirect_from {written!r} совпадает с существующим адресом {old}",
+                    Msg("redirects_from_exists", written=written, old=old),
                     path=page.source,
-                    hint="страница по этому адресу уже есть, редирект перекрыл бы её",
+                    hint=Msg("redirects_from_exists_hint"),
                 )
                 continue
             twin = moved_stems.get(_stem(old))
             if twin is not None and (twin != old or plan.moved[twin] != page.url):
                 collector.error(
                     "E009",
-                    f"{written!r} ведёт сразу в два места: {plan.moved[twin]} и {page.url}"
+                    Msg("redirects_two_targets", written=written, first=plan.moved[twin], second=page.url)
                     if twin == old
-                    else f"{written!r} и {twin!r} — один адрес для сервера (со слешем и без)",
+                    else Msg("redirects_slash_twin", written=written, twin=twin),
                     path=page.source,
-                    hint=f"первый раз объявлен в {owner[twin]}",
+                    hint=Msg("redirects_first_declared", owner=owner[twin]),
                 )
                 continue
             plan.moved[old] = page.url
@@ -104,9 +105,9 @@ def collect(site: Site, collector: Collector, config: SiteConfig | None = None) 
         if target in plan.moved:
             collector.error(
                 "E009",
-                f"цепочка редиректов: {old} ведёт на {target}, который сам перенаправляется",
+                Msg("redirects_chain", old=old, target=target),
                 path=owner[old],
-                hint="направьте сразу на конечный адрес",
+                hint=Msg("redirects_chain_hint"),
             )
 
     # Источники 410: ключ `gone` в site.yaml и — по старой памяти — поле
@@ -118,7 +119,7 @@ def collect(site: Site, collector: Collector, config: SiteConfig | None = None) 
     for page in site.pages:
         if page.meta.gone:
             collector.warn(
-                "поле gone на странице устарело: перенесите адреса в gone в site.yaml",
+                Msg("redirects_page_gone"),
                 path=page.source,
                 kind="прочее",
             )
@@ -131,9 +132,9 @@ def collect(site: Site, collector: Collector, config: SiteConfig | None = None) 
         if CONTROL & set(path):
             collector.error(
                 "E022",
-                f"gone {entry!r}: управляющий символ в адресе",
+                Msg("redirects_gone_control", entry=entry),
                 path=source,
-                hint="такой адрес не придёт от браузера и ломает карты",
+                hint=Msg("redirects_control_hint"),
             )
             continue
         if (
@@ -143,13 +144,13 @@ def collect(site: Site, collector: Collector, config: SiteConfig | None = None) 
         ):
             collector.error(
                 "E022",
-                f"gone {entry!r}: этот адрес уже есть в gone со слешем или без",
+                Msg("redirects_gone_twin", entry=entry),
                 path=source,
-                hint="оставьте одну запись",
+                hint=Msg("redirects_gone_twin_hint"),
             )
             continue
         if (kind, path, name, value) in seen:
-            collector.warn(f"gone: {entry!r} указан дважды", path=source, kind="прочее")
+            collector.warn(Msg("redirects_gone_twice", entry=entry), path=source, kind="прочее")
             continue
         seen.add((kind, path, name, value))
         if not ok:
@@ -167,18 +168,17 @@ def collect(site: Site, collector: Collector, config: SiteConfig | None = None) 
         if hit:
             collector.error(
                 "E022",
-                f"gone {entry!r} закрывает существующую страницу {hit[0]}",
+                Msg("redirects_gone_hides", entry=entry, page=hit[0]),
                 path=source,
-                hint="уберите адрес из gone или страницу из контента",
+                hint=Msg("redirects_gone_hides_hint"),
             )
             continue
         if moved:
             collector.error(
                 "E022",
-                f"gone {entry!r} пересекается с redirect_from {moved[0]} "
-                f"(объявлен в {owner[moved[0]]})",
+                Msg("redirects_gone_overlap", entry=entry, moved=moved[0], owner=owner[moved[0]]),
                 path=source,
-                hint="адрес либо переехал (301), либо исчез (410) — выберите одно",
+                hint=Msg("redirects_gone_overlap_hint"),
             )
             continue
         (plan.gone_prefixes if kind == "prefix" else plan.gone).append(path)
@@ -214,18 +214,18 @@ def _reserved(plan: Plan, collector: Collector, config: SiteConfig | None) -> No
             plan.gone_prefixes.remove(path)
             collector.error(
                 "E022",
-                f"gone {path}* закрывает служебный путь сайта",
+                Msg("redirects_reserved_prefix", path=path),
                 path="site.yaml",
-                hint="410 на всю папку ресурсов или язык закрыл бы сайт; уточните адрес",
+                hint=Msg("redirects_reserved_prefix_hint"),
             )
     stems = {_stem(path) for path in exact}
     for path in [*plan.gone, *plan.moved]:
         if _stem(path) in stems:
             collector.error(
                 "E022",
-                f"{path} — служебный адрес сайта, 301 и 410 на нём невозможны",
+                Msg("redirects_reserved_exact", path=path),
                 path="site.yaml",
-                hint="уберите адрес из gone или redirect_from",
+                hint=Msg("redirects_reserved_exact_hint"),
             )
 
 

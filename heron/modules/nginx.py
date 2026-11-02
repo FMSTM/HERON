@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 
 from heron.contracts.site import SiteConfig
+from heron.messages import Msg
 from heron.modules.redirects import Plan
 
 NAME = ".heron-nginx.conf"
@@ -456,8 +457,12 @@ def check(conf: str | None, collector=None) -> tuple[bool, str] | None:
     passed = done.returncode == 0
     if not passed and collector is not None:
         collector.warn(
-            "nginx -t не принял собранный конфиг: "
-            + " ".join(line.strip() for line in output.splitlines() if "emerg" in line)[:400],
+            Msg(
+                "redirects_nginx_rejected",
+                emerg=" ".join(line.strip() for line in output.splitlines() if "emerg" in line)[
+                    :400
+                ],
+            ),
             path=NAME,
             kind="прочее",
         )

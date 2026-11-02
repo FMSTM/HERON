@@ -736,6 +736,12 @@ def test_readme_pair_is_listed() -> None:
 def test_readme_pair_has_same_structure() -> None:
     ru_text = (ROOT / "README.ru.md").read_text(encoding="utf-8")
     en_text = (ROOT / "README.md").read_text(encoding="utf-8")
+    # ссылки в README каждого языка ведут в свою ветку docs/<язык>/ - это не расхождение
+    ru_text = ru_text.replace("docs/ru/", "docs/<lang>/")
+    en_text = en_text.replace("docs/en/", "docs/<lang>/")
+    # переключатель языка: каждая README ссылается на парную
+    ru_text = ru_text.replace("](README.md)", "](<other>)")
+    en_text = en_text.replace("](README.ru.md)", "](<other>)")
     problems = _md_problems(ru_text, en_text)
     assert not problems, "README.ru.md и README.md расходятся:\n" + "\n".join(problems)
 

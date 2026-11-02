@@ -28,7 +28,12 @@ def verify_engine(theme: ThemeConfig, theme_path: str = "theme.yaml") -> None:
     if theme.heron and not version_contract.satisfies(__version__, theme.heron):
         raise HeronError(
             code="E012",
-            message=Msg("version_wiring_engine_too_old", theme=theme.name, required=theme.heron, actual=__version__),
+            message=Msg(
+                "version_wiring_engine_too_old",
+                theme=theme.name,
+                required=theme.heron,
+                actual=__version__,
+            ),
             path=theme_path,
             hint=Msg("version_wiring_engine_too_old_hint"),
         )
@@ -39,7 +44,10 @@ def verify_engine(theme: ThemeConfig, theme_path: str = "theme.yaml") -> None:
         raise HeronError(
             code="E023",
             message=Msg(
-                "version_wiring_unknown_fields", theme=theme.name, actual=__version__, fields="\n    ".join(unknown)
+                "version_wiring_unknown_fields",
+                theme=theme.name,
+                actual=__version__,
+                fields="\n    ".join(unknown),
             ),
             path=theme_path,
             hint=Msg("version_wiring_unknown_fields_hint"),
@@ -57,7 +65,11 @@ def verify(theme: ThemeConfig, site: SiteConfig, site_path: str = "site.yaml") -
     if missing:
         raise HeronError(
             code="E011",
-            message=Msg("version_wiring_missing_values", theme=theme.name, values="\n    ".join(missing)),
+            message=Msg(
+                "version_wiring_missing_values",
+                theme=theme.name,
+                values="\n    ".join(missing),
+            ),
             path=site_path,
             hint=Msg("version_wiring_missing_values_hint"),
         )
@@ -66,7 +78,11 @@ def verify(theme: ThemeConfig, site: SiteConfig, site_path: str = "site.yaml") -
     if unknown_forms:
         raise HeronError(
             code="E011",
-            message=Msg("version_wiring_unknown_forms", theme=theme.name, forms=", ".join(unknown_forms)),
+            message=Msg(
+                "version_wiring_unknown_forms",
+                theme=theme.name,
+                forms=", ".join(unknown_forms),
+            ),
             path=site_path,
             hint=Msg("version_wiring_unknown_forms_hint"),
         )

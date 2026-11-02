@@ -149,13 +149,19 @@ class PageMeta(BaseModel):
         """Мягкие замечания. Сборку не останавливают, попадают в отчёт check."""
         out: list[Warning_] = []
         if len(self.title) > TITLE_MAX:
-            out.append(Warning_(
+            out.append(
+                Warning_(
                     Msg("loader_fm_title_long", max=TITLE_MAX, length=len(self.title)), path=path
-                ))
+                )
+            )
         if len(self.description) > DESCRIPTION_MAX:
             out.append(
                 Warning_(
-                    Msg("loader_fm_description_long", max=DESCRIPTION_MAX, length=len(self.description)),
+                    Msg(
+                        "loader_fm_description_long",
+                        max=DESCRIPTION_MAX,
+                        length=len(self.description),
+                    ),
                     path=path,
                 )
             )

@@ -103,7 +103,11 @@ def check_version(required: str | None, actual: str, site_yaml: str = "site.yaml
     except ValueError as exc:
         raise HeronError(
             code="E011",
-            message=exc.args[0] if exc.args and isinstance(exc.args[0], Msg) else Msg("version_raw", text=str(exc)),
+            message=(
+                exc.args[0]
+                if exc.args and isinstance(exc.args[0], Msg)
+                else Msg("version_raw", text=str(exc))
+            ),
             path=site_yaml,
             hint=Msg("version_bad_spec_hint"),
         ) from exc

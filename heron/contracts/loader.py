@@ -63,7 +63,12 @@ def describe(error: dict[str, Any]) -> Msg:
     reason: str | Msg
     if kind in FIELD_HINTS:
         reason = Msg(FIELD_HINTS[kind])
-    elif kind == "value_error" and cause is not None and cause.args and isinstance(cause.args[0], Msg):
+    elif (
+        kind == "value_error"
+        and cause is not None
+        and cause.args
+        and isinstance(cause.args[0], Msg)
+    ):
         reason = Msg("loader_value_error", reason=cause.args[0])
     else:
         reason = error.get("msg") or Msg("loader_bad_value")

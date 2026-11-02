@@ -251,7 +251,7 @@ Branches: `dev` is development, each feature in its own branch; `beta` is trying
 
 Version 0.1. Until 1.0 the contract of `site.yaml` and `theme.yaml` may change in minor versions; a site pins a version range in `site.yaml` and moves deliberately.
 
-The license has not been chosen yet: until it appears, all rights are reserved.
+The project is licensed under Apache-2.0; the full text is in the [LICENSE](LICENSE) file.
 
 ## Third-party data
 

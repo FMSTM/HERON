@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 
 from heron.core.errors import HeronError
+from heron.messages import Msg, MsgError
 
 _NUM = r"[0-9]+(?:\.[0-9]+)*"
 _CLAUSE = re.compile(rf"^(~=|>=|<=|==|!=|>|<)\s*({_NUM})(\.\*)?$")
@@ -21,7 +22,7 @@ _CLAUSE = re.compile(rf"^(~=|>=|<=|==|!=|>|<)\s*({_NUM})(\.\*)?$")
 def parse(version: str) -> tuple[int, ...]:
     """Разобрать версию в кортеж чисел. `0.4.1` -> `(0, 4, 1)`."""
     if not re.fullmatch(_NUM, version.strip()):
-        raise ValueError(f"не версия: {version!r}")
+        raise MsgError("version_not_version", version=version)
     return tuple(int(p) for p in version.strip().split("."))
 
 
@@ -34,13 +35,13 @@ def _clause_ok(got: tuple[int, ...], op: str, want: tuple[int, ...], wildcard: b
     if wildcard:
         # `==0.4.*` — совпадает префикс; другие операторы шаблон не принимают
         if op not in ("==", "!="):
-            raise ValueError(f"шаблон `.*` допустим только с == и !=, а не с {op}")
+            raise MsgError("version_wildcard_op", op=op)
         same = _pad(got, want)[0][: len(want)] == want
         return same if op == "==" else not same
     if op == "~=":
         # `~=0.4.1` = `>=0.4.1, ==0.4.*`; одна цифра в требовании недопустима
         if len(want) < 2:
-            raise ValueError("для ~= нужна версия хотя бы из двух чисел, например ~=0.4")
+            raise MsgError("version_compat_short")
         prefix = want[:-1]
         left, right = _pad(got, want)
         return left >= right and _pad(got, prefix)[0][: len(prefix)] == prefix
@@ -60,11 +61,11 @@ def satisfies(actual: str, spec: str) -> bool:
     got = parse(actual)
     clauses = [c.strip() for c in spec.split(",") if c.strip()]
     if not clauses:
-        raise ValueError(f"пустое требование версии: {spec!r}")
+        raise MsgError("version_empty_spec", spec=spec)
     for clause in clauses:
         m = _CLAUSE.match(clause)
         if not m:
-            raise ValueError(f"не разобрать требование версии: {clause!r}")
+            raise MsgError("version_bad_clause", clause=clause)
         op, want_raw, star = m.groups()
         if not _clause_ok(got, op, parse(want_raw), bool(star)):
             return False
@@ -93,29 +94,29 @@ def check_version(required: str | None, actual: str, site_yaml: str = "site.yaml
     if not required:
         raise HeronError(
             code="E011",
-            message="в site.yaml нет обязательного ключа `heron` с требуемой версией движка",
+            message=Msg("version_missing_key"),
             path=site_yaml,
-            hint='добавьте первой строкой, например: heron: ">=0.1,<0.2"',
+            hint=Msg("version_missing_key_hint"),
         )
     try:
         ok = satisfies(actual, required)
     except ValueError as exc:
         raise HeronError(
             code="E011",
-            message=str(exc),
+            message=exc.args[0] if exc.args and isinstance(exc.args[0], Msg) else Msg("version_raw", text=str(exc)),
             path=site_yaml,
-            hint='формат требования — как в pip, например ">=0.4,<0.5"',
+            hint=Msg("version_bad_spec_hint"),
         ) from exc
     if not ok:
         wanted = _wanted_tag(required)
-        need = f"нужен образ heron:{wanted}" if wanted else "нужен образ под это требование"
         raise HeronError(
             code="E012",
-            message=f"движок версии {actual} не удовлетворяет требованию {required!r}",
+            message=Msg("version_unsatisfied", actual=actual, required=required),
             path=site_yaml,
-            hint=(
-                f"{need} (текущий даёт heron:{_major_minor(actual)}) "
-                "или поднимите требование в site.yaml, проверив совместимость"
+            hint=Msg(
+                "version_unsatisfied_hint_tag" if wanted else "version_unsatisfied_hint_any",
+                wanted=wanted,
+                current=_major_minor(actual),
             ),
         )
 

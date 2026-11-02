@@ -13,6 +13,7 @@ from heron.contracts.frontmatter import PageMeta
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core.errors import HeronError, Warning_
+from heron.messages import Msg
 
 
 def verify_engine(theme: ThemeConfig, theme_path: str = "theme.yaml") -> None:
@@ -27,9 +28,9 @@ def verify_engine(theme: ThemeConfig, theme_path: str = "theme.yaml") -> None:
     if theme.heron and not version_contract.satisfies(__version__, theme.heron):
         raise HeronError(
             code="E012",
-            message=(f"тема {theme.name!r} требует движок {theme.heron}, а этот — {__version__}"),
+            message=Msg("version_wiring_engine_too_old", theme=theme.name, required=theme.heron, actual=__version__),
             path=theme_path,
-            hint="обновите образ движка или ослабьте требование `heron` в theme.yaml",
+            hint=Msg("version_wiring_engine_too_old_hint"),
         )
 
     known = set(PageMeta.model_fields)
@@ -37,17 +38,11 @@ def verify_engine(theme: ThemeConfig, theme_path: str = "theme.yaml") -> None:
     if unknown:
         raise HeronError(
             code="E023",
-            message=(
-                f"в `fields` темы {theme.name!r} поля, которых движок {__version__} "
-                "не знает:\n    " + "\n    ".join(unknown)
+            message=Msg(
+                "version_wiring_unknown_fields", theme=theme.name, actual=__version__, fields="\n    ".join(unknown)
             ),
             path=theme_path,
-            hint=(
-                "в `fields` перечисляются только поля самого движка. Свои поля "
-                "фронтматтера объявлять не нужно — уберите их отсюда, в шаблоне "
-                "они доступны как page.meta.get('поле'). Если же это поле движка, "
-                "его знает более новая версия — обновите образ"
-            ),
+            hint=Msg("version_wiring_unknown_fields_hint"),
         )
 
 
@@ -62,24 +57,18 @@ def verify(theme: ThemeConfig, site: SiteConfig, site_path: str = "site.yaml") -
     if missing:
         raise HeronError(
             code="E011",
-            message=(
-                f"тема {theme.name!r} требует значения, которых нет в site.yaml:\n    "
-                + "\n    ".join(missing)
-            ),
+            message=Msg("version_wiring_missing_values", theme=theme.name, values="\n    ".join(missing)),
             path=site_path,
-            hint="добавьте их в site.yaml или уберите из requires в theme.yaml",
+            hint=Msg("version_wiring_missing_values_hint"),
         )
 
     unknown_forms = [name for name in theme.forms if name not in site.forms]
     if unknown_forms:
         raise HeronError(
             code="E011",
-            message=(
-                f"тема {theme.name!r} рисует формы, которых нет в site.yaml: "
-                + ", ".join(unknown_forms)
-            ),
+            message=Msg("version_wiring_unknown_forms", theme=theme.name, forms=", ".join(unknown_forms)),
             path=site_path,
-            hint="опишите форму в блоке forms или уберите её из темы",
+            hint=Msg("version_wiring_unknown_forms_hint"),
         )
 
     warnings: list[Warning_] = []
@@ -87,7 +76,7 @@ def verify(theme: ThemeConfig, site: SiteConfig, site_path: str = "site.yaml") -
     if unused:
         warnings.append(
             Warning_(
-                "формы описаны в site.yaml, но тема их не рисует: " + ", ".join(unused),
+                Msg("version_wiring_unused_forms", forms=", ".join(unused)),
                 path=site_path,
             )
         )

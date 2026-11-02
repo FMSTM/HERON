@@ -262,7 +262,7 @@ class Report:
             lines.append(say(lang, "report_untranslated"))
             for code, pages in sorted(self.untranslated.items()):
                 shown = ", ".join(pages[:5]) + (" …" if len(pages) > 5 else "")
-                lines.append(f"  {code} — {len(pages)}: {shown}")
+                lines.append(f"  {code} - {len(pages)}: {shown}")
 
         if self.missing_sections:
             lines.append("")
@@ -709,7 +709,7 @@ def summary(collector: Collector, full: Path | None = None, lang: str = "en") ->
         batch = groups.get(kind)
         if not batch:
             continue
-        lines.append(f"  {kind_label(lang, kind)} — {len(batch)}:")
+        lines.append(f"  {kind_label(lang, kind)} - {len(batch)}:")
         for warning in batch[:EXAMPLES]:
             where = warning.path or ""
             if where and warning.line:

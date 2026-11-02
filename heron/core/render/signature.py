@@ -20,7 +20,7 @@ import re
 GENERATOR = "HERON"
 COMMENT = (
     "<!--\n"
-    "\tBuilt with HERON — a fast static site generator by FAMOUS.TEAM\n"
+    "\tBuilt with HERON - a fast static site generator by FAMOUS.TEAM\n"
     "\tHERON: https://github.com/FMSTM/HERON\n"
     "\tFAMOUS.TEAM: https://famous.team\n"
     "-->\n"

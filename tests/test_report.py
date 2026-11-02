@@ -127,9 +127,9 @@ def test_summary_groups_warnings_by_kind():
     collector.warn("нет файла img/a.png", path="uk/index.md", kind="картинки")
 
     text = report.summary(collector, lang="ru")
-    assert "картинки — 1:" in text
-    assert "переводы — 40:" in text
-    assert text.index("картинки —") < text.index("переводы —")
+    assert "картинки - 1:" in text
+    assert "переводы - 40:" in text
+    assert text.index("картинки -") < text.index("переводы -")
     assert "uk/index.md: нет файла img/a.png" in text
 
 
@@ -306,10 +306,10 @@ def test_summary_in_english(tmp_path):
     assert "E001 a.md:2: битый YAML\n  what to do: поправьте отступ" in text
     assert "E011 <unknown file>: без файла" in text
     assert "Warnings - 9:" in text
-    assert "  images — 8:" in text
+    assert "  images - 8:" in text
     assert "    … and 2 more" in text
     assert f"  full list: {target}" in text
-    assert "  плагин-x — 1:" in text  # вид, которого нет в таблице, — как есть
+    assert "  плагин-x - 1:" in text  # вид, которого нет в таблице, — как есть
     # тексты замечаний движок пока пишет по-русски (21 §10); рамка — по-английски
     assert "Предупреждений" not in text and "что сделать" not in text
     # файл для разбора — с видами как в коде
@@ -325,7 +325,7 @@ def test_summary_in_russian_is_unchanged(tmp_path):
     assert str(collector.errors[0]) in text  # как str(HeronError)
     assert "E011 <неизвестный файл>: без файла" in text
     assert "Предупреждений - 9:" in text
-    assert "  картинки — 8:" in text
+    assert "  картинки - 8:" in text
     assert "    … и ещё 2" in text
     assert f"  полный список: {target}" in text
 

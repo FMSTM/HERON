@@ -865,7 +865,7 @@ def _ask(lang: str, key: str, default: str, check) -> str:
     """Один вопрос: подсказка, значение по умолчанию, повтор до годного ответа."""
     click.echo(
         click.style(say(lang, key), bold=True)
-        + click.style(f" — {say(lang, key + '_help')}", dim=True)
+        + click.style(f" - {say(lang, key + '_help')}", dim=True)
     )
     while True:
         answer = click.prompt("  ›", default=default, show_default=True, prompt_suffix=" ")
@@ -885,7 +885,7 @@ def _check_langs(lang: str):
         codes = _parse_langs(text)
         bad = [x for x in codes if not LANG_RE.match(x)]
         if not codes or bad:
-            return say(lang, "bad_langs", bad=", ".join(bad) or "—")
+            return say(lang, "bad_langs", bad=", ".join(bad) or "-")
         return None
 
     return check
@@ -903,7 +903,7 @@ def _questionnaire(
 ) -> tuple[str, str, list[str], str] | None:
     """Опрос в терминале. Отказ на последнем шаге — None, ничего не создаётся."""
     click.echo(say(lang, "ask_intro") + "\n")
-    name = _ask(lang, "ask_name", name, lambda text: None if text else "—")
+    name = _ask(lang, "ask_name", name, lambda text: None if text else "-")
     domain = _ask(lang, "ask_domain", domain or placeholder_domain(name), _check_domain(lang))
     domain = site_contract.domain(domain) or domain.lower()
     raw = _ask(lang, "ask_langs", ", ".join(languages), _check_langs(lang))
@@ -961,7 +961,7 @@ def _existing_site(path: Path, notes: str | None) -> None:
     from heron.scaffold import _declared
 
     declared = _declared(path / "site.yaml") or {}
-    langs = ", ".join(declared.get("languages") or []) or "—"
+    langs = ", ".join(declared.get("languages") or []) or "-"
     _err(say(lang, "site_exists", path=_shown(path), langs=langs), "yellow")
     sys.exit(1)
 
@@ -1001,7 +1001,7 @@ def _start_site(
     languages = _parse_langs(langs) if langs else (present or ["en"])
     bad = [x for x in languages if not LANG_RE.match(x)]
     if bad or not languages:
-        _err(say(lang, "bad_langs", bad=", ".join(bad) or "—"))
+        _err(say(lang, "bad_langs", bad=", ".join(bad) or "-"))
         sys.exit(2)
     if domain and not site_contract.domain(domain):
         _err(say(lang, "bad_domain"))
@@ -1691,7 +1691,7 @@ def theme_list(notes: str | None) -> None:
     _lang(notes, Path.cwd())  # язык рамки ошибок click в этом запуске
     for item in themes.catalog():
         title = item.get("title") or item["name"]
-        tail = f" — {item['description']}" if item.get("description") else ""
+        tail = f" - {item['description']}" if item.get("description") else ""
         click.echo(f"{item['name']:<16} {title}{tail}")
 
 

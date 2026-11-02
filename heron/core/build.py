@@ -633,6 +633,7 @@ def check(
     # уронит сборку (E033), видно и по разбору шаблона — говорим заранее
     templates_check.mutations(site_root, theme_dir, config, collector, hooks)
     site = content(site_root, config, theme, theme_dir, hooks, collector, drafts)
+    templates_check.missing_templates(site, theme, theme_dir, config, collector, hooks)
     _roots(site, config, collector, prod=False)
     media.folder(site_root, collector)
     media.check_video(site, collector)

@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from jinja2 import Environment, nodes
-from jinja2.exceptions import TemplateSyntaxError
+from jinja2.exceptions import TemplateNotFound, TemplateSyntaxError
 from jinja2.sandbox import modifies_known_mutable
 
 from heron.contracts.site import SiteConfig
@@ -299,3 +299,38 @@ def _shown(theme_dir: Path, rel: str, root: Path | None) -> str:
         except ValueError:
             pass
     return path.as_posix()
+
+
+def missing_templates(
+    site,
+    theme,
+    theme_dir: Path,
+    config: SiteConfig,
+    collector: Collector,
+    hooks=None,
+) -> None:
+    """Сказать `E008` о странице, у типа которой в теме нет шаблона.
+
+    Имя шаблона берётся так же, как при сборке (`pages.template_name`),
+    наличие проверяется тем же загрузчиком темы. Шаблон не рендерится.
+    Одна находка на страницу.
+    """
+    from heron.core.render import pages as pagesmod
+
+    theme_dir = Path(theme_dir)
+    env = envmod.make(theme_dir, config, hooks)
+    for page in site.pages:
+        name = pagesmod.template_name(page, theme)
+        try:
+            env.loader.get_source(env, name)
+        except TemplateNotFound:
+            collector.errors.append(
+                HeronError(
+                    code="E008",
+                    message=Msg("render_template_missing", type=page.type, name=name),
+                    path=page.source,
+                    hint=Msg("render_template_missing_hint", name=name),
+                )
+            )
+        except HeronError:
+            continue

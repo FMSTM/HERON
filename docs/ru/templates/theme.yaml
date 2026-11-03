@@ -12,9 +12,11 @@ requires:                      # пути site.yaml, без которых те�
   - site.name
 fields: [nav_title]            # поля фронтматтера, к которым обращаются шаблоны
 
-modules: [breadcrumbs, prose, list, alert-list, steps, faq, facts, checklist, cards]
+# Список modules движок с файлами не сверяет: перечисляйте только модули, файлы которых есть в теме.
+modules: [breadcrumbs, prose, list, steps, faq, facts, checklist, children]
 
-types:                         # тип страницы → секции и разметка; шаблон templates/<тип>.html
+types:                         # тип страницы → секции и разметка; шаблон templates/<тип>.html.
+                               # Тип, которого здесь нет, даёт E008 (в стартовой теме только home, page, 404)
   home:
     uses: [intro, "why:list", "how:steps", "faq:faq"]
     jsonld: [WebSite]

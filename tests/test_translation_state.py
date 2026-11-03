@@ -192,7 +192,7 @@ def test_readme_ru_without_entry(tmp_path: Path) -> None:
     done = _run(_tree(tmp_path, pair=False), "beta")
     assert done.returncode == 1
     assert (
-        "README.ru.md: файла нет в translation.yaml — добавьте запись в root_files" in done.stderr
+        "README.ru.md: файла нет в translation.yaml - добавьте запись в root_files" in done.stderr
     )
     assert _run(_tree(tmp_path / "dev", pair=False), "dev").returncode == 0
 
@@ -200,7 +200,7 @@ def test_readme_ru_without_entry(tmp_path: Path) -> None:
 def test_entry_without_readme_ru(tmp_path: Path) -> None:
     done = _run(_tree(tmp_path, readme_ru=None), "beta")
     assert done.returncode == 1
-    assert "README.ru.md: запись есть, файла в корне нет — уберите запись" in done.stderr
+    assert "README.ru.md: запись есть, файла в корне нет - уберите запись" in done.stderr
 
 
 def test_current_entry_without_english_readme(tmp_path: Path) -> None:
@@ -221,7 +221,7 @@ def test_tree_without_pair_and_without_readme_ru_is_unchanged(tmp_path: Path) ->
     [
         (_pair(ru="OTHER.ru.md"), "root_files, запись 1: ждём ru: README.ru.md"),
         (_pair(en="OTHER.md"), "root_files, запись 1: ждём ru: README.ru.md"),
-        (_pair(ru_sha256="abc"), "README.ru.md: ru_sha256 — не 64 шестнадцатеричных"),
+        (_pair(ru_sha256="abc"), "README.ru.md: ru_sha256 - не 64 шестнадцатеричных"),
         (_pair(en_status="done"), "README.ru.md: en_status 'done'"),
     ],
 )
@@ -236,8 +236,8 @@ def test_root_files_must_be_a_list_of_mappings_without_duplicates(tmp_path: Path
     root = _tree(tmp_path)
     data = yaml.safe_load((root / "docs" / "translation.yaml").read_text(encoding="utf-8"))
     for bad, text in (
-        ("README.ru.md", "root_files — не список"),
-        (["README.ru.md"], "root_files, запись 1 — не словарь"),
+        ("README.ru.md", "root_files - не список"),
+        (["README.ru.md"], "root_files, запись 1 - не словарь"),
         ([_pair(), _pair()], "README.ru.md: запись повторяется"),
     ):
         _write(root, data | {"root_files": bad})

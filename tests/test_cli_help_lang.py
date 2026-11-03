@@ -259,7 +259,7 @@ def test_click_errors_follow_the_language(here, args, ru_part, en_part):
 def test_file_where_a_folder_is_expected(here):
     (here / "file.txt").write_text("x", encoding="utf-8")
     ru = run("build", "file.txt", "--notes", "ru")
-    assert ru.exit_code == 2 and "путь 'file.txt' — файл, а нужна папка" in ru.output
+    assert ru.exit_code == 2 and "путь 'file.txt' - файл, а нужна папка" in ru.output
     en = run("build", "file.txt", "--notes", "en")
     assert "Directory 'file.txt' is a file." in en.output
 

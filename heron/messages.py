@@ -1366,15 +1366,15 @@ CLICK_RU: dict[str, str] = {
     "Value must be an iterable.": "нужен список значений.",
     "Takes {nargs} values but 1 was given.": "нужно значений: {nargs}, передано: 1.",
     "Takes {nargs} values but {len} were given.": "нужно значений: {nargs}, передано: {len}.",
-    "{value!r} is not {choice}.": "{value!r} — не {choice}.",
-    "{value!r} is not one of {choices}.": "{value!r} — не из списка: {choices}.",
+    "{value!r} is not {choice}.": "{value!r} - не {choice}.",
+    "{value!r} is not one of {choices}.": "{value!r} - не из списка: {choices}.",
     "Choose from:\n\t{choices}": "Выберите из:\n\t{choices}",
-    "{value} is not in the range {range}.": "{value} — вне диапазона {range}.",
-    "{value!r} is not a valid {number_type}.": "{value!r} — не число.",
+    "{value} is not in the range {range}.": "{value} - вне диапазона {range}.",
+    "{value!r} is not a valid {number_type}.": "{value!r} - не число.",
     "{value!r} is not a valid boolean. Recognized values: {states}": (
-        "{value!r} — не да или нет. Подходят: {states}"
+        "{value!r} - не да или нет. Подходят: {states}"
     ),
-    "{value!r} is not a valid UUID.": "{value!r} — не UUID.",
+    "{value!r} is not a valid UUID.": "{value!r} - не UUID.",
     "{value!r} does not match the format {format}.": "{value!r} не подходит под формат {format}.",
     "{value!r} does not match the formats {formats}.": (
         "{value!r} не подходит ни под один формат: {formats}."
@@ -1386,8 +1386,8 @@ CLICK_RU: dict[str, str] = {
         "нужно значений: {len_type}, передано: {len_value}."
     ),
     "{name} {filename!r} does not exist.": "путь {filename!r} не существует.",
-    "{name} {filename!r} is a file.": "путь {filename!r} — файл, а нужна папка.",
-    "{name} {filename!r} is a directory.": "путь {filename!r} — папка, а нужен файл.",
+    "{name} {filename!r} is a file.": "путь {filename!r} - файл, а нужна папка.",
+    "{name} {filename!r} is a directory.": "путь {filename!r} - папка, а нужен файл.",
     "{name} {filename!r} is not readable.": "путь {filename!r} не читается.",
     "{name} {filename!r} is not writable.": "путь {filename!r} закрыт для записи.",
     "{name} {filename!r} is not executable.": "путь {filename!r} не запускается.",

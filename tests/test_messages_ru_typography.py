@@ -1,6 +1,7 @@
 """Строки интерфейса ru: без длинного и короткого тире (AGENTS.md, «Типографика»).
 
-Проверяются все значения messages.TEXT["ru"] и ru-значения групп heron.texts.
+Проверяются все значения messages.TEXT["ru"], ru-значения групп heron.texts и
+значения messages.CLICK_RU (переводы сообщений click: их видит человек).
 """
 
 from __future__ import annotations
@@ -28,6 +29,11 @@ def test_ru_own_values_have_no_long_or_short_dash(name):
     assert not bad, f"{name}['ru']: тире в ключах {bad}"
 
 
+def test_click_ru_values_have_no_dash():
+    bad = _bad_keys(messages.CLICK_RU)
+    assert not bad, f"CLICK_RU: тире в ключах {bad}"
+
+
 def test_all_group_ru_values_have_no_dash():
     bad = [
         f"{group}.{k}"
@@ -53,6 +59,15 @@ def test_summary_warnings_ru_uses_hyphen():
 def test_report_pages_ru_uses_hyphen():
     out = messages.say("ru", "report_pages", count=3, by_lang="en: 3")
     assert " - " in out and not any(d in out for d in DASHES)
+
+
+@pytest.mark.parametrize("dash", DASHES)
+def test_mutation_dash_in_click_ru_value_fails_the_check(monkeypatch, dash):
+    key = "{value!r} is not a valid UUID."
+    assert key in messages.CLICK_RU
+    monkeypatch.setitem(messages.CLICK_RU, key, f"{{value!r}} {dash} не UUID.")
+    with pytest.raises(AssertionError, match=r"CLICK_RU.*not a valid UUID"):
+        test_click_ru_values_have_no_dash()
 
 
 @pytest.mark.parametrize("dash", DASHES)

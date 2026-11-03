@@ -23,7 +23,7 @@ if command -v uv >/dev/null 2>&1; then
 else
   run() { python3 -m "$@"; }
   py()  { python3 "$@"; }
-  note "uv не найден — гоню через python3 -m"
+  note "uv не найден - гоню через python3 -m"
 fi
 
 note "граница ядра"

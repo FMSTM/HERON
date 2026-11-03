@@ -2,29 +2,29 @@
 
     python scripts/check_translation.py [--root <корень репозитория>]
 
-Описание — docs/ru/spec/23-distribution.md, §10 «Два языка документации».
+Описание - docs/ru/spec/23-distribution.md, §10 «Два языка документации».
 Для каждого файла docs/ru пересчитывается sha256 и сверяется с ``ru_sha256``
 записи. Расхождение по смыслу статуса:
 
-- ``current`` — русский изменился, перевод устарел;
-- ``missing`` — перевода нет, но хеш ведётся тем же коммитом, что и правка;
-- ``stale`` — хеш по определению от старого русского текста, не сверяется.
+- ``current`` - русский изменился, перевод устарел;
+- ``missing`` - перевода нет, но хеш ведётся тем же коммитом, что и правка;
+- ``stale`` - хеш по определению от старого русского текста, не сверяется.
 
 Сам статус ``missing`` или ``stale`` нарушением не считается: перевод ещё не
-сделан. Файл docs/ru без записи и запись без файла — тоже расхождение.
+сделан. Файл docs/ru без записи и запись без файла - тоже расхождение.
 
 Пара README репозитория: английский ``README.md`` и русский ``README.ru.md``
 лежат в корне, не в docs/. Она ведётся отдельным списком ``root_files`` в том же
 translation.yaml (ключ ``files`` остаётся перечнем docs/ru, его читает и ``heron
-docs``): запись ``ru: README.ru.md``, ``en: README.md``, ``ru_sha256`` — хеш
-README.ru.md, ``en_status`` — как у остальных; проверяется по тем же правилам.
-Есть README.ru.md без записи или запись без файла — расхождение. Списка нет и
-README.ru.md нет — пара не проверяется.
+docs``): запись ``ru: README.ru.md``, ``en: README.md``, ``ru_sha256`` - хеш
+README.ru.md, ``en_status`` - как у остальных; проверяется по тем же правилам.
+Есть README.ru.md без записи или запись без файла - расхождение. Списка нет и
+README.ru.md нет - пара не проверяется.
 
-На ветках beta и prod расхождение — ошибка (код 1), на остальных —
-предупреждение (код 0). Ветка — переменная HERON_BRANCH (её задаёт CI, вид
+На ветках beta и prod расхождение - ошибка (код 1), на остальных -
+предупреждение (код 0). Ветка - переменная HERON_BRANCH (её задаёт CI, вид
 ``refs/heads/<ветка>`` тоже принимается), иначе ``git branch --show-current``.
-Повреждённый translation.yaml и нечитаемый файл docs/ru — ошибка всегда.
+Повреждённый translation.yaml и нечитаемый файл docs/ru - ошибка всегда.
 """
 
 from __future__ import annotations
@@ -102,7 +102,7 @@ def load(root: Path) -> dict:
 def _sha_status(label: str, item: dict) -> tuple[str, str]:
     sha, status = item.get("ru_sha256"), item.get("en_status")
     if not isinstance(sha, str) or not SHA256.match(sha):
-        raise Broken(f"{label}: ru_sha256 — не 64 шестнадцатеричных символа")
+        raise Broken(f"{label}: ru_sha256 - не 64 шестнадцатеричных символа")
     if status not in STATUSES:
         raise Broken(f"{label}: en_status {status!r}, ждём current | stale | missing")
     return sha, status
@@ -113,7 +113,7 @@ def entries(root: Path) -> dict[str, tuple[str, str]]:
     result: dict[str, tuple[str, str]] = {}
     for number, item in enumerate(load(root)["files"], start=1):
         if not isinstance(item, dict):
-            raise Broken(f"запись {number} — не словарь")
+            raise Broken(f"запись {number} - не словарь")
         rel = item.get("path")
         if not isinstance(rel, str) or not rel:
             raise Broken(f"запись {number}: нет path")
@@ -131,11 +131,11 @@ def root_entries(root: Path) -> dict[str, tuple[str, str]]:
     """
     items = load(root).get("root_files", [])
     if not isinstance(items, list):
-        raise Broken("root_files — не список")
+        raise Broken("root_files - не список")
     result: dict[str, tuple[str, str]] = {}
     for number, item in enumerate(items, start=1):
         if not isinstance(item, dict):
-            raise Broken(f"root_files, запись {number} — не словарь")
+            raise Broken(f"root_files, запись {number} - не словарь")
         if item.get("ru") != ROOT_RU or item.get("en") != ROOT_EN:
             raise Broken(
                 f"root_files, запись {number}: ждём ru: {ROOT_RU} и en: {ROOT_EN}, "
@@ -148,7 +148,7 @@ def root_entries(root: Path) -> dict[str, tuple[str, str]]:
 
 
 def root_real(root: Path) -> dict[str, str]:
-    """Русский README корня → sha256; нет файла — пусто."""
+    """Русский README корня → sha256; нет файла - пусто."""
     path = root / ROOT_RU
     if not path.is_file():
         return {}
@@ -169,21 +169,21 @@ def _compare(
     found: list[str] = []
     for rel, digest in real.items():
         if rel not in listed:
-            found.append(f"{rel}: файла нет в translation.yaml — {entry_hint}")
+            found.append(f"{rel}: файла нет в translation.yaml - {entry_hint}")
             continue
         sha, status = listed[rel]
         if status == "stale" or sha == digest:
             continue
         if status == "current":
             found.append(
-                f"{rel}: русский текст изменился, а запись current — перевод устарел; "
+                f"{rel}: русский текст изменился, а запись current - перевод устарел; "
                 f"переведите и обновите ru_sha256 или поставьте stale"
             )
         else:
             found.append(f"{rel}: ru_sha256 не совпадает с файлом, сейчас {digest}")
     for rel in listed:
         if rel not in real:
-            found.append(f"{rel}: запись есть, файла в {where} нет — уберите запись")
+            found.append(f"{rel}: запись есть, файла в {where} нет - уберите запись")
     return found
 
 

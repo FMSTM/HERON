@@ -1,27 +1,12 @@
 # HERON - engine distribution
 
-**Date:** 2026-09-14 · **Status:** for development
+**Status:** in force for engine 0.1; sections marked "Target scheme" are not implemented. The change history is in `CHANGELOG.md`.
 **Document 4 of 4.** Previous: `20-data-contract.md` (data contract), `21-engine.md` (engine), `22-deploy.md` (site deployment).
 
-The document records the concept approved by the owner on 2026-09-14: **the engine is distributed separately from the sites**. Revision 2026-10-04: sections 3-5 are aligned with the code - commands, the contents of the site folder, packing into an image through `scripts/site.sh`. Revision 2026-10-25: documentation by language in the package and the image (§2), the agent kit as part of `new`/`init` (§4), MIME types of raw files (§5), the agent in the security model (§9), translation state (§10), delivery channels of instructions to agents (§12).
+The document records the concept: **the engine is distributed separately from the sites**.
 
 ---
 
-
-### The engine version and the site environment are different things <a id="engine-version-vs-site-environment"></a>
-
-The site environment (`SITE_ENV`) answers the question of what the SITE will be: dev
-is closed to indexing and is built without analytics counters, production is open. The engine
-version answers the question of which CODE built it.
-
-These axes are independent, and they must not be tied together. A human who needs
-a site closed to indexing in order to work on the content in peace
-must not get a raw development branch of the engine and other people's
-bugs because of it. A dev site is built with a stable engine - this is a normal,
-expected combination.
-
-A raw engine is taken only when you work on the engine itself, and
-explicitly: `ENGINE=source` (the sources next to `scripts/site.sh`) or the full name of a branch image, for example `ENGINE=ghcr.io/fmstm/heron:beta`. The short `dev`, `beta`, `prod` are not accepted in `ENGINE`: they would be read as repository branches.
 
 ## 1. Why separately
 
@@ -35,14 +20,14 @@ There is exactly one artifact, in two packagings of the same code.
 
 | Packaging | Address | What for |
 |---|---|---|
-| Image | `ghcr.io/OWNER/heron:<version>` | a build on any machine without installing Python; production and CI |
+| Image | `ghcr.io/fmstm/heron:<version>` | a build on any machine without installing Python; production and CI |
 | Package | `pip install git+https://github.com/FMSTM/HERON.git@<channel>` | local development: editing content without Docker for every paragraph. The package is not published to PyPI yet |
 
-Inside the image: Python, the `heron` package, `ENTRYPOINT ["heron"]` and an unprivileged user. Nothing else.
+Inside the image: Python, the `heron` package with its dependencies, `git` (only for `build.updated_from: git`), the license file, `ENTRYPOINT ["heron"]` and an unprivileged user.
 
 **The documentation ships in the package** - and therefore in the image - of exactly the same version as the code: `docs/ru/` and `docs/en/` in full (the kit README, roles, samples, guides, specs, `architecture.md`), the repository `AGENTS.md`, `README.md`, the skills `skills/*/SKILL.md` and the templates of the site root pointers. All of it is text of about 1 MB for both languages; the images of `docs/brand/` do not ship. It is read with `heron docs --lang ru|en` (`21` §10) and goes into every new site as `agents/` (§4). The package and the image are the same: the image gets the documentation through the package, not through a separate `COPY` - otherwise `pip install heron` and `docker run heron` would give different `heron docs`.
 
-Themes and plugins are separate portable units, distributed as packages (including from git via `pip install git+...`). They are not built into the engine image.
+Themes and plugins are separate portable units, distributed as packages or as links. There is one exception: the starter theme `starter` ships with the engine, and `heron new` and `heron theme get starter` lay it out.
 
 ### Versions and compatibility
 
@@ -73,10 +58,12 @@ heron build my-site          # → my-site/dist/
 heron init my-site           # complete the folders for what is written
 
 # a folder with content already exists
-heron init ~/SOURCE/ready-content
-heron check ~/SOURCE/ready-content
-heron build ~/SOURCE/ready-content --env prod --out /tmp/site
+heron init ~/sites/ready-content
+heron check ~/sites/ready-content
+heron build ~/sites/ready-content --env prod --out /tmp/site
 ```
+
+The content images move together with it: `check` and a strict build count a missing image as error `E007`, a normal build builds the site with a warning.
 
 The same with the image - `docker run … ghcr.io/fmstm/heron:prod <command>` (README, "Quick start"), and for several sites - `scripts/site.sh` (section 5).
 
@@ -130,8 +117,8 @@ The output is chosen by the build command, not when the site is created.
 ```bash
 ./scripts/site.sh <site> new <path>              # create the site folder and env/.env.<site>.dev and .prod
 ./scripts/site.sh <site> init                    # complete the folder to match site.yaml
-./scripts/site.sh <site> check <environment>     # check the content without a build
-./scripts/site.sh <site> serve <environment>     # nginx on the built folder, port PORT (8080)
+./scripts/site.sh <site> check <environment>     # check the content without a build; STRICT does not apply here
+./scripts/site.sh <site> serve <environment>     # the site image on port PORT (8080); for fresh edits run build first
 ./scripts/site.sh <site> stop <environment>      # stop the preview
 ./scripts/site.sh <site> build <environment>   # → out/<site>-<environment>
 ./scripts/site.sh <site> image <environment>   # Dockerfile.site: nginx-unprivileged + static files + config
@@ -139,11 +126,28 @@ The output is chosen by the build command, not when the site is created.
 ./scripts/site.sh <site> push <environment>    # to the registry from REGISTRY
 ```
 
-The image build context is the already built folder `out/<site>-<environment>`, not the content folder: neither `.git` nor image sources can physically get into the image, and there is no engine in the running container. Settings are in `env/.env.<site>.<environment>` (an annotated example is `env/.env.example`): `SITE_PATH` (the path to the content), `SITE_ENV` (the environment name by default), `ENGINE` (`source` or a full image name), `IMAGE_NAME` (`heron-site-<site>` by default), `IMAGE_TAG` (the environment name by default), `STRICT` (`true` in prod), `PORT` (8080, for `serve` and `smoke`), `REGISTRY` (empty - `push` is forbidden), `REGISTRY_CONFIG` (a docker config folder with the registry login; `DOCKER_CONFIG` is not used).
+The image build context is the already built folder `out/<site>-<environment>`, not the content folder: neither `.git` nor image sources can physically get into the image, and there is no engine in the running container. Settings are in `env/.env.<site>.<environment>` (an annotated example is `env/.env.example`): `SITE_PATH` (the path to the content), `SITE_ENV` (the environment name by default), `SITE_INDEXABLE` and `SITE_ANALYTICS` (optional overrides of indexing and counters for a production-like preview), `ENGINE` (`source` or a full image name), `IMAGE_NAME` (`heron-site-<site>` by default), `IMAGE_TAG` (the environment name by default), `STRICT` (`false` by default; `site.sh new` writes `true` into the prod file), `PORT` (8080, for `serve`), `SMOKE_PORT` (18080, for `smoke`), `SOURCE_DATE_EPOCH` (the build timestamp), `HERON_NOTES` (the notes language for `new`), `REGISTRY` (empty - `push` is forbidden), `REGISTRY_CONFIG` (a docker config folder with the registry login; `DOCKER_CONFIG` from the environment file is accepted as a fallback value and removed from the environment).
+
+Without `ENGINE` the engine is chosen like this: the exact version `X.Y.Z` from `site.yaml`; otherwise the sources next to the script; otherwise `ghcr.io/fmstm/heron:prod`. A range does not count as a version.
 
 **From the site repository** the image is built by the reusable workflow `FMSTM/HERON/.github/workflows/site-image.yml`: a build with the engine from the image, `Dockerfile.site` of the same HERON branch, the smoke check `scripts/smoke-site.sh`, a push to the registry. How to connect it: `../guide/06-deploy.md`.
 
 **The engine has no packing command of its own and must not have one**: the docker socket is never passed into the build container (access to the socket equals root on the host), so `docker build` is run by the host.
+
+### The engine version and the site environment are different things <a id="engine-version-vs-site-environment"></a>
+
+The site environment (`SITE_ENV`) answers the question of what the SITE will be: dev
+is closed to indexing and is built without analytics counters, production is open. The engine
+version answers the question of which CODE built it.
+
+These axes are independent, and they must not be tied together. A human who needs
+a site closed to indexing in order to work on the content in peace
+must not get a raw development branch of the engine and other people's
+bugs because of it. A dev site can be built with a stable engine - this is a normal,
+expected combination. From a clone of the engine repository with an empty `ENGINE` the engine is built from the sources of the clone's current branch; a stable engine is set explicitly: `ENGINE=ghcr.io/fmstm/heron:prod`.
+
+A raw engine is taken only when you work on the engine itself, and
+explicitly: `ENGINE=source` (the sources next to `scripts/site.sh`) or the full name of a branch image, for example `ENGINE=ghcr.io/fmstm/heron:beta`. The short `dev`, `beta`, `prod` are not accepted in `ENGINE`: they would be read as repository branches.
 
 ### The 404 page and serving
 
@@ -158,7 +162,7 @@ Static files by themselves cannot answer 404: the server serves its own page by 
 * gzip compression for text, styles, scripts, svg, maps and markup; HTML - `Cache-Control: no-cache` (an edit is visible at once, a freshness check is almost free), `/media/` and `/assets/` - `public, max-age=86400`: rendition names do not change when the content is replaced, so a "forever" cache would show the old image;
 * **301 and 410** - with exact `location =` and prefix `location ^~`, case-sensitive; regex maps only for addresses with a parameter and broken percent addresses. There are no map hash tables, `map_hash_*` is not written (`nginx.hash_sizes` is obsolete). If the build machine has nginx, the final config (including one replaced through `build.overrides`) is checked with `nginx -t` before the result is written. The browser test of JSON-LD and headers is a separate mandatory CI job with Chromium (`uv run --with playwright`, `HERON_REQUIRE_BROWSER=1` - without a browser it fails, it is not skipped); the browser is not among the engine dependencies; the reusable site image workflow runs `nginx -t` on stock nginx before pushing the image. In the engine CI the tests with real nginx are mandatory (`HERON_REQUIRE_NGINX=1`): without nginx they are not skipped, they fail;
 * hidden files are not served at all - service files lie next to the static ones, and the folder may be laid out by hand on someone else's server. The ban is repeated inside every `location ^~` (languages, `media`, `assets`): such a location turns off the server-level regex rules. `/.well-known/` stays reachable, otherwise a certificate cannot be issued;
-* **file types the stock `mime.types` does not know** are declared in the config: `types { text/markdown md; application/yaml yaml yml; }` on top of `include mime.types` of the base image, with `charset utf-8`. Without this markdown from `static/` goes out as `application/octet-stream`, the browser offers to download it, and an agent's reading tool treats it as binary. This is how the engine site serves raw instructions (§12), and any site its own `llms.txt`-like markdown. The smoke check compares the `Content-Type` of `.md` if the build has such a file.
+* **file types the stock `mime.types` does not know** are declared in the config: `types { text/markdown md; application/yaml yaml yml; }` on top of `include mime.types` of the base image, with `charset utf-8`. Without this markdown from `static/` goes out as `application/octet-stream`, the browser offers to download it, and an agent's reading tool treats it as binary. This is how the engine site serves raw instructions (§12), and any site its own `llms.txt`-like markdown. The smoke check compares the `Content-Type` of the first `.md` and the first `.yaml`/`.yml` if the build has such files (`scripts/smoke-site.sh`).
 
 `heron serve` serves the same 404 with the same language rule: a local preview must not differ from what a visitor sees. It builds **not into the site folder** but into a temporary folder of the machine: the content folder is mounted read-only and belongs to whoever edits the text - a preview has no right to leave `dist` or a cache in it. `heron serve` does not imitate the 301 and 410 maps: it serves files. The server responses for `redirect_from` and `gone` are checked on the image - `scripts/site.sh <site> smoke <environment>` - or on any nginx with the built `.heron-nginx.conf`.
 
@@ -178,9 +182,13 @@ The check is not there out of love for automation: "the container dies at start"
 
 ### Image tags
 
-CI writes the branch, the commit and the build time into the image (`HERON_CHANNEL`, `HERON_REVISION`, `HERON_BUILT`), and `heron --version` shows them: `0.1.0 (beta, 55249f0, 2026-10-08 19:12 UTC)`. The CI smoke check verifies that the image carries the mark of exactly the commit that was built.
+CI writes the branch, the commit and the build time into the image (`HERON_CHANNEL`, `HERON_REVISION`, `HERON_BUILT`), and `heron --version` shows them: `heron, version 0.1.0 (beta, 55249f0, 2026-10-08 19:12 UTC)`. The CI smoke check verifies that the image carries the mark of exactly the commit that was built.
 
 Published: the branch name (`dev`, `beta`, `prod`), **the exact version** from the tag `vX.Y.Z`, `latest` only for a release tag without a hyphen (a prerelease `vX.Y.Z-rc1` does not get it) and the short sha like `sha-55249f0`. A moving `X.Y` is absent on purpose: the site declares its engine requirement in `site.yaml` and must be able to pin itself to something that will not move under it tomorrow.
+
+### Branches and release <a id="branches-and-release"></a>
+
+CI runs on a push to `dev`, `beta`, `prod` and on tags `v*`; the image is published only on a push. Publishing, tags and a push to `beta` and `prod` are done only by a human (`AGENTS.md`). The `dev` branch is engine development, `beta` is a release candidate, `prod` is the stable channel; edit branches get the checks but do not publish an image. A branch image is re-tagged without a rebuild (`22` §4). The order of promoting branches and the release steps are set by the owner, they are not in the code.
 
 ## 6. Theme and plugin resolver <a id="theme-plugin-resolver"></a>
 
@@ -189,13 +197,13 @@ One mechanism for both entities - we do not add a second one, otherwise you woul
 Resolution order, the first one found wins:
 
 1. **locally in the site folder** - `theme/` for the theme, `plugins/<name>/` for a plugin;
-2. **an installed package** - `heron-theme-<name>`; for a plugin - an entry point of the `heron.plugins` group.
+2. **an installed package** - an entry point of the `heron.themes` group for a theme, `heron.plugins` for a plugin; the package name `heron-theme-<name>` is a convention, the engine does not check it.
 
-A package from git is installed as an ordinary package - `pip install git+...` - and is then found by step 2; there is no separate git-link step and no field for it in `site.yaml`.
+There is no link in `site.yaml`: `theme` is only a name. A package from git is installed with an ordinary `pip install git+...` and is found by step 2; a theme from a link or an archive is put into `theme/` by the command `heron theme get`.
 
 Local always wins. A theme is developed right in the site, without a publication for every CSS edit; it can be moved into a package later without changing a single line of content.
 
-Plugins are ordinary pip packages, installed into the site image with one Dockerfile line. **The engine does not invent its own package format or its own loader.** The local `plugins/` folder is for one-off plugins of a particular site that there is no reason to publish.
+Plugins are ordinary pip packages, installed where the build runs: your own image based on the engine image, its full name goes into `ENGINE`; neither the engine nor plugins get into the site image. **The engine does not invent its own package format or its own loader.** The local `plugins/` folder is for one-off plugins of a particular site that there is no reason to publish.
 
 A theme not found - `E013`. A plugin from `plugins:` not installed or crashed at load time - `E014`.
 
@@ -208,11 +216,13 @@ The main distinction, which must not be blurred:
 - **Build-time** - build hooks. Own section types, own relations, own Jinja filters, own generators. They work inside the eight stages of the pipeline.
 - **Runtime** - everything that happens when the visitor is already on the site. There are no engine hooks here and there cannot be: at that moment the engine has finished and exited.
 
-"A forms plugin for a static generator" is a contradiction in terms. Receiving POST lives in `heron-relay`.
+"A forms plugin for a static generator" is a contradiction in terms. Receiving POST is expected in `heron-relay` (§8, the service is not implemented yet).
 
 ## 8. Forms and `heron-relay`
 
-A separate image, one process, **no database**. It appears on sites that have forms; a site without forms does not deploy it at all.
+**Target scheme: the service is not implemented yet.** The engine validates the form description in `site.yaml`, but nobody receives the POST. The form is drawn by the theme: it declares it in `forms` of `theme.yaml`, otherwise `heron check` warns and `--strict` fails. Below is what the service will be like.
+
+A separate image, one process, **no database**. It will appear on sites that have forms; a site without forms does not deploy it at all.
 
 Scheme: a static page sends POST → relay validates against the form description from `site.yaml` → antispam → sends to the sinks.
 
@@ -247,7 +257,7 @@ docker run --rm \
   --cap-drop=ALL --security-opt=no-new-privileges \
   --user "$(id -u):$(id -g)" \
   -v "$PWD:/site:ro" -v "$PWD/../out:/out" -w /site \
-  ghcr.io/OWNER/heron:0.1.0 build . --strict --out /out/dist
+  ghcr.io/fmstm/heron:0.1.0 build . --strict --out /out/dist
 ```
 
 | Measure | What it gives |
@@ -268,12 +278,12 @@ docker run --rm \
 
 - the dependencies are locked (`uv.lock`) and **exactly they are installed into the image**: `requirements.lock` is an export of `uv.lock` without the dev group, with hashes, `pip install --require-hashes`; the build backend is `requirements-build.lock`, also with hashes, built without isolation. `scripts/lock.sh` exports them, `scripts/check.sh` checks that they match `uv.lock` (when `uv` is installed; without it the step is skipped);
 - the base images are pinned by digest: python - in `Dockerfile`, `nginxinc/nginx-unprivileged:1.30.6-alpine` (nginx 1.30.6 stable, closes the nginx.org advisories published as of 2026-10-14) - in `Dockerfile.site`, stock nginx for `nginx -t` - in the `nginx_image` input of the site image workflow;
-- CI builds **a candidate** once (`load`), checks exactly it - `--version` with the commit and `scripts/smoke-engine.sh`: a temporary site with `new`, then `build --env prod --strict` with the restrictions from the table above - and publishes the same image by moving the tags, not by rebuilding;
+- CI builds **a candidate** once (`load`), checks exactly it - `--version` with the commit and `scripts/smoke-engine.sh`: a temporary site with `new`, then `build --env prod --strict` with the restrictions from the table above, plus the file set, open indexing, 13 section forms, a byte-for-byte rebuild, `setup` by the questionnaire and `recipe` - and publishes the same image: the `publish` job receives it as the `heron-candidate` artifact and applies the tags, without a rebuild (`22` §4);
 - the build time is the commit time (`SOURCE_DATE_EPOCH`): the `heron --version` stamp and the times in the layers are the same for two builds of one commit. The site image workflow takes the same `SOURCE_DATE_EPOCH` from the content commit.
 
-Then `heron:0.1.0` is reproducible, and it can be proven that it holds the same as git.
+Python dependencies, base images and timestamps are pinned. Only the `git` package in `Dockerfile` is unpinned, so a cold build may differ in that layer (`22` §4). The published image is not rebuilt, though: the one that passed the smoke check goes out.
 
-**The core boundary is checked by a machine.** The engine repository has a pre-commit hook that forbids a commit mentioning any of the sites on the engine, client names and phone numbers. The list is stored as hashes (`scripts/boundary-hashes.txt`) - the names themselves do not get into the public repository; adding a new site is an edit of this file, not of the hook. Discipline does not scale, a hook does. There is one exception - `heron/setup/classifier.yaml`: a shared classifier of business areas for the questionnaire (medicine, law, retail…), categories for any site, not data of a particular one.
+**The core boundary is checked by a machine.** In the engine repository the core boundary is checked by `scripts/check-boundaries.sh`: `scripts/check.sh` and CI call it, and locally the pre-commit hook does after `uv run pre-commit install`. The check forbids a commit mentioning any of the sites on the engine, client names and phone numbers. The list is stored as hashes (`scripts/boundary-hashes.txt`) - the names themselves do not get into the public repository; adding a new site is an edit of this file, not of the hook. Discipline does not scale, a hook does. The exceptions are listed in `scripts/check_boundaries.py`: `SKIP` (service files, `heron/setup/classifier.yaml` - the shared classifier of business areas for the questionnaire - and the schema.org index) and `SCHEMAORG_STANDARD` (files with terms of the schema.org vocabulary: words and phrases in them are not checked, the phone pattern applies). A new exception is the owner's decision and an edit of this file.
 
 **Commit messages** in the engine repository are about the work, not the tool: they have no assistant attribution lines (`Co-Authored-By` naming an AI model, "generated with …") and no names of companies that develop AI models. `scripts/check.sh` checks the messages of the branch commits that are not in `prod` yet (`scripts/check_commit_messages.sh`: the base is `origin/prod`, otherwise `prod`; without git history or without these branches the check is skipped with a notice), and fails on such a line, with the commit hash. The rule is repeated in the repository `AGENTS.md` and in the kit `README.md`: an agent that edits a site signs a commit with the content of the edit, not with itself.
 
@@ -297,9 +307,9 @@ An agent is one more performer that the engine trusts exactly as much as a human
 
 | Repository | Contents | Visibility |
 |---|---|---|
-| `HERON` | `heron/` (contracts, core, modules, cli, scaffold, setup, schemaorg, themes, docs), `tests/`, `docs/{ru,en}/`, `docs/translation.yaml`, `skills/`, `scripts/` (site.sh, check.sh, lock.sh, smoke-engine.sh, smoke-site.sh), `Dockerfile`, `Dockerfile.site` | public |
+| `HERON` | `heron/` (the engine package: contracts, core, modules, scaffold, setup, schemaorg, texts, themes, cli.py, docs.py), `tests/`, `docs/{ru,en}/`, `docs/translation.yaml`, `skills/`, `scripts/` (`site.sh` is the entry point; the checks `check.sh`, `check-boundaries.sh`, `check_boundaries.py`, `boundary-hashes.txt`, `check_commit_messages.sh`, `check_translation.py`; `lock.sh`; the smoke checks `smoke-engine.sh`, `smoke-site.sh`, `smoke_site.py`; the index generator `schemaorg_index.py`), `Dockerfile`, `Dockerfile.site` | public; Apache-2.0 license, text in `LICENSE`, a copy in the image |
 | site repository | content, data, images, theme, the `agents/` kit - without build tooling | at the site owner's discretion |
-| engine site (`sitebuilder.heron.software`) | an ordinary site on HERON: pages for humans and raw documentation files for agents (§12) | public |
+| engine site (`sitebuilder.heron.software`) | an ordinary site on HERON: pages for humans and raw documentation files for agents (§12; planned, the raw files are not published on the site yet) | public |
 
 To edit the engine next to a site, the engine is installed editable (`uv pip install -e ../HERON`) or built from sources through `ENGINE=source` in `scripts/site.sh`: edits are visible at once, without publishing an image.
 
@@ -341,6 +351,8 @@ The human gives the agent one link - to the site repository, to the engine repos
 
 **The source** is `docs/<lang>/` of the engine repository: `README.md` (the entry point of the kit: roles, rules, limits, "done when", where the latest is), `roles/`, `templates/`, `guide/`, `spec/`, `architecture.md`. The text is agent-neutral: it has no "such-and-such agent does…", only "agent" and a role. Names of specific tools are allowed in exactly two places: in the "Who reads which file" list of the kit `README.md` (and in the body of the site `AGENTS.md`: by `20` §1 it is the text of `agents/README.md`, the same list in the same place) and in the description of the root pointers in `20` §1 - the tree lines about `CLAUDE.md` and `GEMINI.md` and the "Root pointers" paragraph. The names of the pointer files (`CLAUDE.md`, `GEMINI.md`), the line `@AGENTS.md` and the names of tool folders (`.claude/` and the like, `20` §1) are not a mention of a tool. Names of the developer companies appear nowhere, these places included. The neutrality tests hold the same allowlist. The root `AGENTS.md` of the repository is a short bilingual pointer to both READMEs; `CLAUDE.md` and `GEMINI.md` are the line `@AGENTS.md`.
 
+The engine site channel will work after `site-image.yml` with `export_docs` is released to `prod` and the engine site is rebuilt; until then there are no raw files there.
+
 | Channel | What lies there | How it gets there | For whom |
 |---|---|---|---|
 | engine repository (GitHub) | `AGENTS.md` → `docs/{ru,en}/README.md` and the whole tree | a commit | an agent with a link to the engine repository; absolute links from site kits lead here, to the channel branch (`prod`, `beta`) |
@@ -357,6 +369,6 @@ For `prod` the full kit is `docs/<lang>/` byte for byte. The manifest stores the
 
 **Protection against divergence.** One source (`docs/<lang>/`), byte-for-byte copying (with the two substitutions above), a manifest with hashes in every site, the language parity test, the translation state (§10), a version stamp on the engine site pages and a CI step instead of manual sync. The HTML of the engine site is the only place written by hand; so each such page names the engine version it matches and leads to the raw file of the same version.
 
-**What the engine site tells AI models.** `seo.llms_note` holds facts: "Instructions for AI agents that build sites on HERON: https://sitebuilder.heron.software/AGENTS.md (raw markdown); JSON schemas: https://sitebuilder.heron.software/schema/0.1/". No imperatives (`20` §5, `llms_note`): this is information about where the instructions are, not instructions. There are no directives for AI model robots in `robots.txt`.
+**What the engine site tells AI models** (planned: the addresses answer after the raw files are published). `seo.llms_note` holds facts: "Instructions for AI agents that build sites on HERON: https://sitebuilder.heron.software/AGENTS.md (raw markdown); JSON schemas: https://sitebuilder.heron.software/schema/0.1/". No imperatives (`20` §5, `llms_note`): this is information about where the instructions are, not instructions. There are no directives for AI model robots in `robots.txt`.
 
 **Skills** (`skills/`) are thin English pointers to the same `heron docs` topics; they are installed from the engine repository (`npx skills add FMSTM/HERON`), ship in the package and the image (§2), and are not put into the site.

@@ -97,7 +97,9 @@ def test_heron_docs_output_has_no_dash(lang):
 
     result = CliRunner().invoke(main, ["docs", "--lang", lang])
     assert result.exit_code == 0, result.output
-    printed = [ln for ln in result.output.splitlines() if "heron docs" in ln or ln.startswith("- `")]
+    printed = [
+        ln for ln in result.output.splitlines() if "heron docs" in ln or ln.startswith("- `")
+    ]
     assert printed
     assert not [ln for ln in printed if any(d in ln for d in DASHES)]
 
@@ -132,7 +134,11 @@ SETUP_FILES = [
 def test_setup_literals_have_no_dash_except_separators(path):
     src = path.read_text(encoding="utf-8")
     # SEPARATORS - разбор ввода автора: тире там остаются (исключение с причиной)
-    bad = [(n, t) for n, t in dashed_literals(src) if not src.splitlines()[n - 1].startswith("SEPARATORS =")]
+    bad = [
+        (n, t)
+        for n, t in dashed_literals(src)
+        if not src.splitlines()[n - 1].startswith("SEPARATORS =")
+    ]
     assert not bad, f"{path.name}: тире в литералах: {bad}"
 
 
@@ -154,3 +160,78 @@ def test_setup_vocab_hints_and_labels_have_no_dash():
 
     walk_all(data)
     assert not found, found
+
+
+# --- Весь пакет heron/: обход всех *.py ---------------------------------------------------
+
+# Исключения: файл (путь от heron/) -> причина. Тире там не видит человек как текст сайта.
+WHOLE_FILE_EXCEPTIONS = {
+    "modules/nginx.py": "комментарии генерируемого nginx-конфига",
+    "setup/files.py": "комментарии генерируемых скриптов и workflow",
+}
+# Исключения по строке: (файл, начало строки) -> причина.
+LINE_EXCEPTIONS = {
+    ("core/parser/blocks.py", "LEAD_END"): "разбор: LEAD_END распознаёт тире в тексте автора",
+    ("setup/answers.py", "SEPARATORS"): "разбор ввода: SEPARATORS распознаёт тире в ответах автора",
+}
+
+
+def _package_findings(root: Path = ROOT) -> list[str]:
+    found: list[str] = []
+    for path in sorted(root.rglob("*.py")):
+        rel = path.relative_to(root).as_posix()
+        if rel in WHOLE_FILE_EXCEPTIONS:
+            continue
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for n, _text in dashed_literals("\n".join(lines) + "\n"):
+            line = lines[n - 1].lstrip()
+            if any(rel == f and line.startswith(start) for (f, start) in LINE_EXCEPTIONS):
+                continue
+            found.append(f"{rel}:{n}")
+    return found
+
+
+def test_whole_package_literals_have_no_dash_except_listed():
+    bad = _package_findings()
+    assert not bad, "тире в литералах вне списка исключений: " + ", ".join(bad)
+
+
+def test_exception_list_points_to_existing_files():
+    for rel in WHOLE_FILE_EXCEPTIONS:
+        assert (ROOT / rel).is_file(), rel
+    for rel, start in LINE_EXCEPTIONS:
+        lines = (ROOT / rel).read_text(encoding="utf-8").splitlines()
+        assert any(ln.lstrip().startswith(start) for ln in lines), (rel, start)
+
+
+def test_schemaorg_dictionary_is_not_walked():
+    # schemaorg-29.3.json - словарь schema.org как есть, обход смотрит только *.py
+    assert (ROOT / "schemaorg" / "schemaorg-29.3.json").is_file()
+
+
+def test_messages_tables_and_groups_have_no_dash():
+    from heron import messages
+    from heron.texts import groups
+
+    bad: list[str] = []
+    for name in ("TEXT", "TITLES", "KINDS"):
+        for lang, table in getattr(messages, name, {}).items():
+            bad += [f"{name}.{lang}.{k}" for k, v in table.items() if any(d in v for d in DASHES)]
+    for group, tables in groups().items():
+        for lang, table in tables.items():
+            bad += [f"{group}.{lang}.{k}" for k, v in table.items() if any(d in v for d in DASHES)]
+    assert not bad, bad
+
+
+def test_mutation_dash_in_cli_literal_is_found():
+    src = (ROOT / "cli.py").read_text(encoding="utf-8")
+    mutated = src + '\nBROKEN = "a — b"\n'
+    assert dashed_literals(mutated)[-1][1].count("—") == 1
+
+
+def test_mutation_dash_in_lead_end_is_allowed(tmp_path):
+    (tmp_path / "core" / "parser").mkdir(parents=True)
+    (tmp_path / "core" / "parser" / "blocks.py").write_text('LEAD_END = "—"\n', encoding="utf-8")
+    assert _package_findings(tmp_path) == []
+    (tmp_path / "cli.py").write_text('X = "—"\n', encoding="utf-8")
+    assert _package_findings(tmp_path) == ["cli.py:1"]

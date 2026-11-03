@@ -43,7 +43,7 @@ files:
     ru_sha256: "d93e6b5332daf38ecc8749e89f3e91d1c5a66ea288fec57bba9c6d5911e1960a"
     en_status: current
   - path: spec/20-data-contract.md
-    ru_sha256: "f7afd941e0dddb0d628249f076d953e59a55bbaee2ffe9efc19ff036857dd579"
+    ru_sha256: "adf6a9efb2db242377281b49c87ba364c717098462bff75d510894df20381f3f"
     en_status: current
   - path: spec/21-engine.md
     ru_sha256: "d696ed7c114a521489b22e2038bb6d93e234cd3de7eb0cd1eea677ca2c362622"

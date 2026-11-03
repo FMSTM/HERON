@@ -904,6 +904,8 @@ seo:
 | `seo.title_suffix` | `seo.title_suffix_<lang>` |
 | `seo.og_default_image` | `seo.og_default_image_<lang>` |
 
+A suffixed key whose value has a different type from the unsuffixed key (a string or a list of strings) is error E011.
+
 - `site.alternate_names` - a list of other spellings of the name (an old name, a transliteration, an abbreviation). It goes into `alternateName` of the `WebSite` node on the home page, so the site is found by any of the spellings. An empty list - no key in the markup:
 
 ```yaml

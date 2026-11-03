@@ -88,7 +88,10 @@ def _split_localized(data: Any, keys: tuple[str, ...]) -> Any:
     if not isinstance(data, dict):
         return data
     out = dict(data)
-    i18n: dict[str, dict[str, Any]] = {k: dict(v) for k, v in (out.get("i18n") or {}).items()}
+    raw = out.get("i18n") or {}
+    if not isinstance(raw, dict) or not all(isinstance(v, dict) for v in raw.values()):
+        raise MsgError("site_i18n_shape")
+    i18n: dict[str, dict[str, Any]] = {k: dict(v) for k, v in raw.items()}
     for name in list(out):
         match = SUFFIX_RE.match(str(name))
         if match and match.group("key") in keys:
@@ -96,6 +99,16 @@ def _split_localized(data: Any, keys: tuple[str, ...]) -> Any:
     if i18n:
         out["i18n"] = i18n
     return out
+
+
+def _check_i18n_value(key: str, lang: str, value: Any) -> None:
+    """Значение по языку того же типа, что у ключа без суффикса."""
+    if key == "alternate_names":
+        if not (isinstance(value, list) and all(isinstance(v, str) for v in value)):
+            raise MsgError("site_i18n_value", key=key, lang=lang, expected="list[str]")
+    elif key in ("name", "title_suffix", "og_default_image"):
+        if not isinstance(value, str):
+            raise MsgError("site_i18n_value", key=key, lang=lang, expected="str")
 
 
 class Strict(BaseModel):
@@ -437,6 +450,7 @@ class SiteConfig(BaseModel):
                             lang=lang,
                             languages=str(self.site.languages),
                         )
+                    _check_i18n_value(key, lang, values[lang])
         return self
 
     def for_lang(self, lang: str) -> SiteConfig:
@@ -501,6 +515,12 @@ def load_site(path: Path) -> SiteConfig:
         )
     # версия движка раньше строгой схемы: site.yaml под более новый движок
     # содержит ключи, которых здесь нет, и должен получить E012, а не E011
-    if isinstance(data["heron"], str):
-        version_contract.check_version(data["heron"], __version__, site_yaml=str(path))
+    if not isinstance(data["heron"], str):
+        raise HeronError(
+            code="E011",
+            message=Msg("site_heron_not_string", value=repr(data["heron"])),
+            path=str(path),
+            hint=Msg("site_heron_not_string_hint"),
+        )
+    version_contract.check_version(data["heron"], __version__, site_yaml=str(path))
     return build(SiteConfig, data, path)

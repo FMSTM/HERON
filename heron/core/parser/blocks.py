@@ -540,9 +540,7 @@ def structure(md: MarkdownIt, section: Section, references: dict | None = None) 
     section.links = links_of(section.html)
 
 
-def intro_parts(
-    md: MarkdownIt, intro: Section, references: dict | None = None
-) -> list[Warning_]:
+def intro_parts(md: MarkdownIt, intro: Section, references: dict | None = None) -> list[Warning_]:
     """Вводный блок: первый абзац — подводка, второй — обещание.
 
     Шаблон показывает ровно два: крупный первый абзац и один под ним.

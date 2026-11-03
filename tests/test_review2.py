@@ -208,7 +208,11 @@ def test_image_builds_site_when_out_dir_has_no_nginx_conf(tmp_path):
     )
     run = lambda: subprocess.run(  # noqa: E731
         ["bash", str(heron / "scripts/site.sh"), "demo", "image", "dev"],
-        capture_output=True, text=True, env=env, stdin=subprocess.DEVNULL, check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        check=False,
     )
     out.mkdir(parents=True)
     assert run().returncode == 0

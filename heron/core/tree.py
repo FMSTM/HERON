@@ -256,7 +256,9 @@ def scan(
             try:
                 # offset - число строк файла до тела: формулы считают +1 сами.
                 clean = markdown.strip_comments(body)
-                markdown.guard_raw_html(clean, rel, config.build.allow_raw_html, offset=body_line - 1)
+                markdown.guard_raw_html(
+                    clean, rel, config.build.allow_raw_html, offset=body_line - 1
+                )
                 markdown.forbidden_attrs(md, clean, rel, offset=body_line - 1)
                 intro, found = sections.split(md, clean, rel, offset=body_line - 1)
             except HeronError as exc:

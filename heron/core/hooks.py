@@ -73,9 +73,7 @@ class Hooks:
 
     def call(self, name: str, *args: Any, **kwargs: Any) -> list[Any]:
         """Вызвать всех подписчиков по порядку регистрации."""
-        return [
-            _guarded(name, handler, *args, **kwargs) for handler in self.handlers.get(name, [])
-        ]
+        return [_guarded(name, handler, *args, **kwargs) for handler in self.handlers.get(name, [])]
 
     def pipe(self, name: str, page: Any, value: str) -> str:
         """Пропустить значение через обработчики по очереди.

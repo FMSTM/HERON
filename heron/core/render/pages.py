@@ -118,9 +118,7 @@ def render_page(
     except Exception as exc:
         raise HeronError(
             code="E010",
-            message=Msg(
-                "render_theme_crash", name=name, kind=type(exc).__name__, detail=str(exc)
-            ),
+            message=Msg("render_theme_crash", name=name, kind=type(exc).__name__, detail=str(exc)),
             path=page.source,
             hint=Msg("render_theme_crash_hint"),
         ) from exc

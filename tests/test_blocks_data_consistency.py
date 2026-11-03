@@ -1,4 +1,4 @@
-"""Данные структурированных секций совпадают с их html: метки ссылок, шаги, ссылки на втором языке."""
+"""Данные структурированных секций совпадают с их html: метки, шаги, ссылки на втором языке."""
 
 from heron.core import links, tree
 from tests import sites
@@ -28,7 +28,8 @@ def test_reference_label_in_list_resolves_to_address(tmp_path):
 def test_reference_label_in_lead_resolves_to_address(tmp_path):
     sections = _scan(
         tmp_path,
-        "## Раздел {#sec}\n\nПодводка [текст][метка] здесь.\n\n- пункт\n- второй\n\n[метка]: /adres/\n",
+        "## Раздел {#sec}\n\nПодводка [текст][метка] здесь.\n\n"
+        "- пункт\n- второй\n\n[метка]: /adres/\n",
     )
     section = sections["sec"]
     assert "/adres/" in section.lead
@@ -71,7 +72,8 @@ def _resolved(tmp_path, ru_body: str):
 def test_step_more_links_are_localized_in_links(tmp_path):
     page = _resolved(
         tmp_path,
-        "## Как {#how}\n\n1. **Шаг.** Первый абзац.\n\n   Продолжение [дизайн](/services/design/).\n"
+        "## Как {#how}\n\n1. **Шаг.** Первый абзац.\n\n"
+        "   Продолжение [дизайн](/services/design/).\n"
         "2. **Второй.** Текст\n",
     )
     step = page.sections["how"].data[0]
@@ -82,7 +84,8 @@ def test_step_more_links_are_localized_in_links(tmp_path):
 def test_tabs_links_match_tabs_html_in_second_language(tmp_path):
     page = _resolved(
         tmp_path,
-        "## Вкладки {#t .tabs}\n\n### Первая\n\nСм. [дизайн](/services/design/).\n\n### Вторая\n\nТекст\n",
+        "## Вкладки {#t .tabs}\n\n### Первая\n\nСм. [дизайн](/services/design/).\n\n"
+        "### Вторая\n\nТекст\n",
     )
     tab = page.sections["t"].data[0]
     assert "/ru/services/design/" in tab["html"]

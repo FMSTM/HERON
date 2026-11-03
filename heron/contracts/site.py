@@ -106,9 +106,8 @@ def _check_i18n_value(key: str, lang: str, value: Any) -> None:
     if key == "alternate_names":
         if not (isinstance(value, list) and all(isinstance(v, str) for v in value)):
             raise MsgError("site_i18n_value", key=key, lang=lang, expected="list[str]")
-    elif key in ("name", "title_suffix", "og_default_image"):
-        if not isinstance(value, str):
-            raise MsgError("site_i18n_value", key=key, lang=lang, expected="str")
+    elif key in ("name", "title_suffix", "og_default_image") and not isinstance(value, str):
+        raise MsgError("site_i18n_value", key=key, lang=lang, expected="str")
 
 
 class Strict(BaseModel):

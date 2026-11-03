@@ -13,11 +13,11 @@ from heron.scaffold import create
 from heron.setup.answers import CONTACT_TYPES, contact_url
 
 VALUES = {
-    "phone": "+380 00 000 00 00",
+    "phone": "+00 000 000 00 00",
     "email": "info@example.com",
     "website": "example.com",
-    "whatsapp": "+380 00 000 00 00",
-    "viber": "+380 00 000 00 00",
+    "whatsapp": "+00 000 000 00 00",
+    "viber": "+00 000 000 00 00",
 }
 
 
@@ -49,7 +49,7 @@ def test_each_channel_links_like_the_questionnaire(tmp_path, kind):
     footer = _footer(tmp_path, [{"type": kind, "value": value}])
     expected = contact_url(kind, value)
     if kind == "phone":
-        expected = "tel:+380000000000"
+        expected = "tel:+000000000000"
     elif kind == "email":
         expected = "mailto:" + value
     if expected is None:

@@ -25,7 +25,7 @@ A site declares which engine it needs on the first line of `site.yaml`: `heron: 
 
 ## The contract
 
-The contract is the agreement between the engine and the site folder: which files live where, which fields a page has, which keys `site.yaml` has, what the engine does by itself and what it answers with an error. It is the same for all sites and is written in [`spec/20-data-contract.md`](../spec/20-data-contract.md). A contract violation is a clear error with a code, a file and a line (`E002`, `E006`...), not a silently broken page.
+The contract is the agreement between the engine and the site folder: which files live where, which fields a page has, which keys `site.yaml` has, what the engine does by itself and what it answers with an error. It is the same for all sites and is written in [`spec/20-data-contract.md`](../spec/20-data-contract.md). A contract violation is a clear error with a code and a file (`E002`, `E006`...), with the line given where it is known, not a silently broken page. The path to content in messages is counted from `content/`.
 
 ## Page, key and address
 

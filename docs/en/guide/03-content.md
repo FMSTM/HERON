@@ -84,7 +84,7 @@ The engine understands the form by the markup by itself and gives the theme pars
 | three or more `###` groups with lists | `checklist` |
 | `> quote` without a list | `callout` |
 
-Three more come by class in the anchor: `{#flags .alert}` is `alert-list`, `{#plan .timeline}` is `timeline`, `{#photos .gallery}` is `gallery`. The full table, the order of recognition and what exactly the theme receives: [`20` §4.4](../spec/20-data-contract.md#section-forms).
+Four more come only by class in the anchor: `{#flags .alert}` is `alert-list`, `{#plan .timeline}` is `timeline`, `{#photos .gallery}` is `gallery` (it needs a bulleted list of images: `- ![caption](media/a.png)`; a paragraph with an image gives prose and a warning), `{#options .tabs}` is `tabs` (`###` groups with any content). The full table, the order of recognition and what exactly the theme receives: [`20` §4.4](../spec/20-data-contract.md#section-forms).
 
 ### When the engine guesses wrong
 
@@ -96,6 +96,7 @@ The form is determined by the markup, and sometimes the markup says something ot
 | two `###` groups with lists | `two-lists`: "fits / does not fit" | a listing, for example documents in two groups | `## Documents {#docs .checklist}` |
 | `key \| value` lines | `facts` | a "period - event" scale | `## Recovery {#recovery .timeline}` |
 | a list and a quote under it | `list`, the quote goes to `section.callout` | - | works as intended |
+| a list and a paragraph under it | `list`, the paragraph goes to `section.note` | text on the page | the starter theme does not draw `note`: the text will not reach the page; put the paragraph before the list (`section.lead`) or output `section.note` in your own module |
 
 `facts` can have a lead-in: a paragraph before the "key | value" lines. The theme gets it as `section.lead`:
 
@@ -108,7 +109,7 @@ Format | in person
 Term   | about a month
 ```
 
-If the theme in `theme.yaml` expects another form (`uses: ["docs:checklist"]`), the report after the build will say "expected checklist, got two-lists": fix it with a class in the anchor or with the form in `uses`, depending on who is right.
+If the theme in `theme.yaml` expects another form (`uses: ["docs:checklist"]`), the report after the build will say "expected checklist, got two-lists": fix it with a class in the anchor or with the form in `uses`, depending on who is right. If a template calls the module of this form directly (for example, `mod.steps("how")` on a prose section), the build fails with `E010`.
 
 ## Links
 

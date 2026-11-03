@@ -11,6 +11,12 @@ H="docker run --rm -it -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id
 - `-it` lets `new` ask questions. Without it, it quietly takes the defaults;
 - `--user` is needed, otherwise the files end up owned by root and you will not be able to edit them.
 
+Without a terminal (an agent, CI) and for commands next to a running `serve` you need another variable: `-it` does not start without a terminal, and a second container with the same `-p` will not start while the port is busy.
+
+```bash
+H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"
+```
+
 ## 1. Create a site
 
 ```bash
@@ -29,21 +35,26 @@ Language you prefer to work in: hints, messages, comments in files
 Site name - what people call the site: header, <title>, structured data
   › [my-site] Workshop
 Domain - no https:// and no slashes, e.g. example.com. Not sure - Enter keeps a placeholder
-  › [workshop.example] workshop.com
+  › [workshop.example] workshop.example
 Site languages - comma-separated codes: en or en, ru. Each language is a content/<code>/ folder
   › [en] en, ru
 Main language - served from the root (/about/), the others with a prefix (/ru/about/)
   › [en] en
+Summary: ...
+Create the site? [Y/n]
 ```
 
+The main language is asked only if there are several languages. After the questions `new` prints a "Summary" block and asks for confirmation: Enter creates the site.
+
 - **working language** is the language you are more comfortable in: the comments in all files the engine creates and the messages on screen will be in it. It is saved in `site.yaml` (`build.notes`). To set it in advance: `--notes en` or `-e HERON_NOTES=en`;
-- **without questions**, with flags: `$H new my-site --notes en --name Workshop --domain workshop.com --lang en,ru -y`. This is how agents and CI work.
+- **without questions**, with flags: `$H new my-site --notes en --name Workshop --domain workshop.example --lang en,ru -y`. This is how agents and CI work; run the command through the `H` variable without `-it` (see above).
 
 At the end `new` prints what it created and a "What next" block with ready commands. What appeared:
 
 ```
 my-site/
 ├── site.yaml                  config with a comment on every key
+├── .gitignore                 what does not go into git
 ├── heron-readme.md            a note on what this folder is; every folder has one
 ├── AGENTS.md                  instructions for an AI agent: roles, rules, "done when"
 ├── CLAUDE.md  GEMINI.md       one line each, "@AGENTS.md", for agents with their own file names
@@ -55,7 +66,8 @@ my-site/
 ├── content/en/themes.md       "Themes", how to change the look,
 ├── content/en/docs.md         "Documentation", where to read and the main commands
 ├── content/ru/…               the same for each language from the answer
-├── media/demo/                two images for the gallery on the "Forms" page
+├── media/cover.png            default cover (seo.og_default_image)
+├── media/demo/                two images for the gallery on the "Blocks" page
 ├── data/  static/  plugins/
 └── theme/                     the starter theme: white, draws all forms: theme.yaml, templates, modules, styles
 ```
@@ -74,7 +86,7 @@ The easiest way is the questionnaire:
 $H setup my-site
 ```
 
-Open the address the engine printed, `http://localhost:8000/#key`, in full, with the key after `#`: without it the questionnaire will not open the settings. Then come the name and domains, languages, who the site is about (who you are, field and specialization by schema.org, address, contacts), search, AI assistants, analytics, the way of publication, keys, theme. "Save" writes `site.yaml` without erasing your comments and the keys the questionnaire does not manage, and, if you want, helpers: `.heron/scripts/build.sh`, `.heron/scripts/publish.sh`, `.gitignore` and a GitHub workflow. A repeated run shows what was written. An agent fills in the same fields with a file: `$H setup my-site --dump > answers.yaml`, edit, `$H setup my-site --answers answers.yaml`. In detail: [`21` §10](../spec/21-engine.md#heron-setup).
+Open the address the engine printed, `http://localhost:8000/#key`, in full, with the key after `#`: without it the questionnaire will not open the settings. Then come the name and domains, languages, who the site is about (who you are, field and specialization by schema.org, address, contacts), search, AI assistants, analytics, the way of publication, keys, theme. "Save" writes `site.yaml` without erasing your comments and the keys the questionnaire does not manage, and, if you want, helpers: `.heron/scripts/build.sh`, `.heron/scripts/publish.sh`, `.gitignore` and a GitHub workflow. A repeated run shows what was written; the previous version of the file is kept in `.heron-cache/setup/`. The questionnaire page is bilingual (EN and RU buttons). An agent fills in the same fields with a file: `$H setup my-site --dump > answers.yaml`, edit, `$H setup my-site --answers answers.yaml`. In detail: [`21` §10](../spec/21-engine.md#heron-setup).
 
 `site.yaml` is the single source of truth about the site, and you can edit it by hand too. The answers to the questions are already there; open it and add the rest: the name in the second language, the title suffix, the menu:
 
@@ -87,8 +99,8 @@ site:
   default_lang: en            # served from the root: /about/
   languages: [en, ru]         # the second language lives under /ru/
 seo:
-  title_suffix: " - Workshop"
-  title_suffix_ru: " - Мастерская"
+  title_suffix: " | Workshop"
+  title_suffix_ru: " | Мастерская"
 nav:
   main: ["/", about]          # page keys: home and about, each language has its own address
 ```
@@ -101,7 +113,7 @@ All keys with explanations: [`20` §5](../spec/20-data-contract.md#site-yaml) an
 $H init my-site
 ```
 
-`init` reads `site.yaml` and adds what is missing: if you added the language `de` to `languages`, `content/de/index.md`, `content/de/404.md` and `theme/i18n/de.yaml` appear. It does not touch existing files (to overwrite, use `--force`). If the site was created with the right languages from the start, this step is not needed.
+`init` reads `site.yaml` and adds what is missing: if you added the language `de` to `languages`, `content/de/` with the starter and demo pages of the theme and `theme/i18n/de.yaml` appear. It does not touch content, theme and config (to overwrite, use `--force`); `AGENTS.md`, where the site languages are written, is updated together with the manifest `agents/heron-kit.yaml`. If the site was created with the right languages from the start, this step is not needed.
 
 `init` in a folder without `site.yaml`, for example one with ready content from elsewhere, asks the same questions as `new` and suggests languages from the folders that already lie in `content/`.
 
@@ -124,7 +136,7 @@ We come to measure on the day you call.
 
 The Russian home page is `content/ru/index.md`: the same anchor `{#about}`, its own text. The anchor is the name of the section for the theme and is the same in all languages; the heading is translated.
 
-Which sections the home page draws and in what form is decided by the theme. The starter one outputs the intro and all sections in a row; on your own theme every section will have its own place and its own module: [04 · Theme and design](04-theme.md).
+Which sections the home page draws and in what form is decided by the theme. The starter one outputs the intro and all sections in a row, except `section.note` (a paragraph under a list is not drawn in the starter theme); on your own theme every section will have its own place and its own module: [04 · Theme and design](04-theme.md).
 
 ## 5. Add a page
 
@@ -153,10 +165,10 @@ With a rebuild on every save, use `$H serve my-site` and <http://localhost:8000>
 ```bash
 $H build my-site
 docker run --rm -p 127.0.0.1:8080:8080 -v "$PWD/my-site/dist:/usr/share/nginx/html:ro" \
-  nginxinc/nginx-unprivileged:1.27-alpine
+  nginxinc/nginx-unprivileged:1.30.6-alpine@sha256:782bb89768cc87b7f95c18b95baa1af250e5d451f26794f59363540161147c01
 ```
 
-Open <http://localhost:8080>. After the build the engine prints a report: how many pages per language, warnings by group (images, relations, links, translations...) and a summary of unfilled sections. Errors stop the build and name the file and the line.
+Open <http://localhost:8080>. After the build the engine prints a report: how many pages per language, warnings by group (images, relations, links, translations...) and a summary of unfilled sections. Errors stop the build and name the code and the file, and the line where it is known. This is a bare nginx without the site config: it has no own 404, 301 and 410, they are checked by `smoke` on the image: [06](06-deploy.md).
 
 `$H check my-site` is the same report without a build.
 
@@ -167,6 +179,10 @@ $H build my-site --env prod --strict
 ```
 
 `--env prod` opens indexing and turns on the counters from `analytics`. `--strict` turns warnings into errors: a site with a broken link or an image without `alt` will not go to production. The finished `dist/` folder goes to any hosting; for how to build an nginx image with the site, see [06 · Build and deploy](06-deploy.md).
+
+## Where to read next
+
+Documentation of the same version as the engine is in the image: `$H docs` is the table of contents, `$H docs --lang ru seo` is a topic, `$H docs --search E023` is a search. Contract schemas for the editor and the agent: `$H schema --export <folder>`.
 
 ---
 

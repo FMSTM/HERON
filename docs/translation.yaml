@@ -10,13 +10,13 @@ files:
     ru_sha256: "4e0caa366ceb78b76c4ed1c604b258a02950137dc40c40ee5c276b2ec59cfe6b"
     en_status: current
   - path: guide/01-concepts.md
-    ru_sha256: "f5556d4b6cfb71bf25af1e8feef1bc5f0c4a433677cf93cc9e7927b9594a02fe"
+    ru_sha256: "34c5180b977bdde69d04e0d39b666f1eb083f00a0e6ca1adc606c4140a2bbd1d"
     en_status: current
   - path: guide/02-first-site.md
-    ru_sha256: "8832311c669e47e2bb92d689b745831249b823d7b5d4b433a4359edf24f05f2b"
+    ru_sha256: "9eac054fdf79dc9ee3dc9b1924b2362654b94b8f977a3bc66fa29965d2182e1f"
     en_status: current
   - path: guide/03-content.md
-    ru_sha256: "c859a848359897c25051108a3abe80af324a4d6dd22f25601d5f58654bbbfe6a"
+    ru_sha256: "3b91d5cd7e60a39ea40427b4ccc15ab367e612011580fd230154ed4f7676544f"
     en_status: current
   - path: guide/04-theme.md
     ru_sha256: "60527ff12187446a34da0d023961275d8dabb05877bba134dd8d0536a474bf24"

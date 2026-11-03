@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from heron.scaffold.agents import KitPlan
 
 from heron import __version__
+from heron.contracts.site import LANG_RE
 from heron.core import paths
 from heron.core.errors import HeronError
 from heron.core.notes import NOTE
@@ -381,10 +382,19 @@ class Plan:
 
     created: list[str] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
+    # существовало и заменено по --force (в created не попадает)
+    overwritten: list[str] = field(default_factory=list)
     found: list[str] = field(default_factory=list)
     notes: str = "en"
     # что сделано с комплектом для агентов; None — не трогали
     kit: KitPlan | None = None
+
+
+def language_folders(content: Path) -> list[str]:
+    """Папки content/, имена которых годятся в код языка (LANG_RE); нет папки — пусто."""
+    if not content.is_dir():
+        return []
+    return sorted(p.name for p in content.iterdir() if p.is_dir() and LANG_RE.match(p.name))
 
 
 def slugify(name: str) -> str:
@@ -537,7 +547,7 @@ def _demo(root: Path, lang: str, name: str, plan: Plan, force: bool, notes: str)
         if image.name == COVER_NAME:
             continue  # обложка по умолчанию лежит в media/ сайта, а не в media/demo/
         rel = f"media/demo/{image.name}"
-        if rel not in plan.created:
+        if rel not in plan.created and rel not in plan.overwritten:
             _put_bytes(root, rel, image.read_bytes(), plan, force)
 
 
@@ -594,13 +604,14 @@ def _put_bytes(root: Path, rel: str, data: bytes, plan: Plan, force: bool) -> No
     # Ссылка наружу на файле или на папке по пути к нему — E024 до записи:
     # init и setup дописывают чужие папки сайта, а не только новые.
     path = paths.in_site(root, rel)
-    if path.exists() and not force:
+    existed = path.exists()
+    if existed and not force:
         plan.skipped.append(rel)
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     paths.in_site(root, rel)  # папки созданы — проверить ещё раз
     path.write_bytes(data)
-    plan.created.append(rel)
+    (plan.overwritten if existed else plan.created).append(rel)
 
 
 def _note(
@@ -701,7 +712,8 @@ def create(
     # Обложка по умолчанию нужна только новому site.yaml; чужой media/cover.png
     # не трогаем ни при init, ни при init --force.
     cover_rel = f"media/{COVER_NAME}"
-    if "site.yaml" in plan.created and not paths.in_site(root, cover_rel).exists():
+    site_yaml_written = "site.yaml" in (*plan.created, *plan.overwritten)
+    if site_yaml_written and not paths.in_site(root, cover_rel).exists():
         _put_bytes(root, cover_rel, (DEMO_MEDIA / COVER_NAME).read_bytes(), plan, force)
     _put(root, ".gitignore", GITIGNORE, plan, force)
     _note(root, "root", "", notes, plan, force, name=name, slug=slugify(name) or name)
@@ -930,7 +942,7 @@ def adopt(
     content = root / "content"
     present: list[str] = []
     if content.is_dir():
-        present = sorted(p.name for p in content.iterdir() if p.is_dir())
+        present = language_folders(content)
         pages = len([p for p in content.rglob("*.md") if p.name != NOTE])
         langs = ", ".join(present) or message(notes, "none")
         plan.found.append(message(notes, "found_content", pages=pages, langs=langs))
@@ -960,6 +972,7 @@ def adopt(
         )
         plan.created = made.created
         plan.skipped = made.skipped
+        plan.overwritten = made.overwritten
     if level != "false":
         if flag is not None:
             # init --agents — по манифесту, на языке build.notes (смена — lang_from)

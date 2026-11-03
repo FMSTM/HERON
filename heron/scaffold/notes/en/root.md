@@ -61,9 +61,6 @@ $HP serve .                      # look at it on localhost:8000
 $H build . --env prod --strict   # build the working version into dist/
 ```
 
-To look at the site, `serve` needs a published port: add
-`-p 127.0.0.1:8000:8000` to the `docker run` command in `H`.
-
 With several sites and a clone of the engine, from the HERON folder run
 `cp env/.env.example env/.env.{slug}.dev` once, fill it in, then work through
 `./scripts/site.sh {slug} <command>`.

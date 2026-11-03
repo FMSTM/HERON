@@ -185,7 +185,13 @@ def test_root_note_names_the_kit_and_the_pointers(tmp_path, lang):
 def test_root_note_works_through_the_image(tmp_path, lang):
     text = _root_note(tmp_path, lang)
     assert H_LINE in text
-    for command in ("$H init .", "$H check .", "$H serve .", "$H build . --env prod --strict"):
+    for command in (
+        "$HP setup .",
+        "$H init .",
+        "$H check .",
+        "$HP serve .",
+        "$H build . --env prod --strict",
+    ):
         assert command in text, command
     # путь через клон движка - одной строкой, не основной порядок работы
     assert text.count("scripts/site.sh") == 1

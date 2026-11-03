@@ -7,7 +7,8 @@ description: Build, check and publish a HERON site - heron check, serve, build w
 
 Read first: `$H docs --lang en kit` (role «Builder»), `$H docs first-site`, `$H docs deploy`, error codes in `$H docs engine` §11.
 Inside a HERON site the same documentation sits in `agents/` (start with `AGENTS.md`); your deliverables go to `agents/work/`.
-`H="docker run --rm -i -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"`
+`H="docker run --rm -i -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"
+HP="docker run --rm -i -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"  # only for `serve`: it publishes the port`
 
 **You may write:** anything the other roles may, when you lead them; plus `heron setup` answers for publishing.
 **You do not touch:** the engine. Add no Dockerfile, compose, `.env` or tokens to the site: Docker Hub uses `docker login`, GitHub builds with its own short-lived token.
@@ -15,8 +16,8 @@ Inside a HERON site the same documentation sits in `agents/` (start with `AGENTS
 Steps:
 
 1. `$H check .` — the report without a build; fix errors, sort warnings into content debt or fixes.
-2. `$H serve .` — preview on localhost:8000 with a rebuild on every save.
+2. `$HP serve .` — preview on localhost:8000 with a rebuild on every save.
 3. `$H build . --env prod --strict` — the final build into `dist/`.
-4. Publishing: `$H setup . --dump`, set `publish` (github, dockerhub, static), apply with `--answers`; then `.heron/scripts/publish.sh`, or `git push` for the git way.
+4. Publishing: `$H setup . --dump`, set `publish.way` (github, dockerhub, static), apply with `--answers`; then `.heron/scripts/publish.sh`, or `git push` for the git way.
 
 Report: what was done, content debt, questions, warnings left on purpose and why.

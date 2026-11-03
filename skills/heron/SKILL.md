@@ -8,22 +8,23 @@ description: Build or move a website on HERON, the markdown static site engine. 
 HERON builds a static site from a folder: `site.yaml`, `content/<lang>/*.md`, `media/`, `data/`, `theme/`. You never edit the engine; everything a site can do is in its documentation, shipped inside the image of the same version.
 
 ```bash
-H="docker run --rm -i -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"
+H="docker run --rm -i -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"
+HP="docker run --rm -i -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"  # only for `serve` and `setup`: they publish the port
 $H docs                      # table of contents
 $H docs architect            # one topic in full
 $H docs --search "E015"      # search
 ```
 
-Use `:prod` for a live site, `:beta` to try the next version. Read `$H docs --lang en kit` before the first step: it is the single instruction for agents and wins over this file if they ever differ.
+In zsh (the macOS default) run `setopt sh_word_split` first, otherwise `$H` will not start. Use `:prod` for a live site, `:beta` to try the next version. Read `$H docs --lang en kit` before the first step: it is the single instruction for agents and wins over this file if they ever differ.
 Inside a HERON site the same documentation sits in `agents/` (start with `AGENTS.md`); your deliverables go to `agents/work/`.
 
 ## The usual job: «here is a site, make the same on HERON»
 
 1. **Architect** (`heron-architect`). From the old site, its sitemap and texts, write the structure: page tree, keys, types, sections with their forms, languages, old address → new address or 410. Output: a structure document and the answers for the questionnaire.
-2. **Create and set up.** `$H new my-site -y --lang en,de`, then `$H setup my-site --dump > answers.yaml`, fill it from the structure (name, domains, type by schema.org and its fields, publishing), `$H setup my-site --answers answers.yaml`. Check the draft against `$H schema` / `$H schema --setup`.
+2. **Create and set up.** `$H new my-site -y --lang en,de` (add `--notes ru` for comments and the agent kit in Russian, default en), then `$H setup my-site --dump > answers.yaml`, fill it from the structure (name, domains, type by schema.org and its fields, publishing), `$H setup my-site --answers answers.yaml`. Check the draft against `$H schema` / `$H schema --setup`.
 3. **Content and SEO** (`heron-content`). One markdown file per page, the SEO block on top, sections `## Title {#anchor}`. The theme demo pages (`index.md`, `blocks.md`, `themes.md`, `docs.md` of the white theme) show every section form; replace it with the site's pages.
 4. **Designer** (`heron-designer`). Start from the starter theme or `$H theme get <name|url|archive> my-site`; change only `theme/`.
-5. **Builder** (`heron-builder`). `$H check my-site`, `$H serve my-site` (localhost:8000), `$H build my-site --env prod --strict`, then `.heron/scripts/publish.sh`.
+5. **Builder** (`heron-builder`). `$H check my-site`, `$HP serve my-site` (localhost:8000), `$H build my-site --env prod --strict`, then `.heron/scripts/publish.sh`.
 
 ## Rules for every role
 

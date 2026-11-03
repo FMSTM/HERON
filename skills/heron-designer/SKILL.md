@@ -7,10 +7,11 @@ description: Make or change the theme of a HERON site - Jinja2 templates per pag
 
 Read first: `$H docs --lang en kit` (role «Designer»), `$H docs theme`, `$H docs engine` (§6–7 what a template sees, §10 `heron theme`).
 Inside a HERON site the same documentation sits in `agents/` (start with `AGENTS.md`); your deliverables go to `agents/work/`.
-`H="docker run --rm -i -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"`
+`H="docker run --rm -i -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"
+HP="docker run --rm -i -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"  # only for `serve`: it publishes the port`
 
 **You may write:** `theme/` only.
-**You do not touch:** `content/`, `data/`, `site.yaml`, `scripts/`, `.github/`.
+**You do not touch:** `content/`, `data/`, `site.yaml`, `.heron/`, `.github/`.
 
 Start from what is there:
 
@@ -19,4 +20,4 @@ Start from what is there:
 
 Rules: no content text or site data in templates (texts are sections, details are `site.*`, interface strings are `t.*`); sections through `mod.<module>('<anchor>')`; images only through `picture()`; no scripts that load the text of the page.
 
-Check after every change: `$H serve .` and open localhost:8000; `$H build . --env prod --strict`. Done when every type has a template, every form in `uses` a module, and the report lists no missing `i18n` strings. Share the theme: `$H theme pack . --out theme.tar.gz`.
+Check after every change: `$HP serve .` and open localhost:8000; `$H build . --env prod --strict`. Done when every type has a template, every form in `uses` a module, and the report lists no missing `i18n` strings. Share the theme: `$H theme pack . --out theme.tar.gz`.

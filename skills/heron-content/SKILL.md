@@ -10,7 +10,7 @@ Inside a HERON site the same documentation sits in `agents/` (start with `AGENTS
 `H="docker run --rm -i -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"`
 
 **You may write:** `content/`, `media/`, `data/`.
-**You do not touch:** `theme/`, `scripts/`, `.github/`, the structure of `site.yaml` (languages, theme, menu). Contacts and company details belong in `site.yaml` through `heron setup`, not in page text.
+**You do not touch:** `theme/`, `.heron/`, `.github/`, the structure of `site.yaml` (languages, theme, menu). Contacts and company details belong in `site.yaml` through `heron setup`, not in page text.
 
 Rules:
 

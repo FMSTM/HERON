@@ -198,7 +198,7 @@ The minimum the config must have:
 - **no execution of anything**: the site is static, PHP and any handler are absent as a class
 - dot files are closed
 
-A strict CSP makes sense: the own scripts are a few kilobytes, there are no external ones. `script-src 'self'` with no exceptions. Sites with a form add `connect-src` to the relay address, and nothing else.
+A strict CSP makes sense: the own scripts are a few kilobytes, there are no external ones. `script-src 'self'` with no exceptions. Sites with a form add `connect-src` to the relay address. With counters enabled, `script-src` and `connect-src` also get their domains (as in `_csp`); nothing else.
 
 ## 6. Migration from an existing site <a id="migrate-existing-site"></a>
 

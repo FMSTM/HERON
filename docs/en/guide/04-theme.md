@@ -280,6 +280,14 @@ The engine gives renditions for the widths and proportions from `theme.yaml`, fi
 
 **Only what the template asked for is resized.** `ratios` in `theme.yaml` are the proportions that the theme *may* ask for; only those that the templates really called through `picture()` or `media_url()` get into the build. A card asks for 16:9, so its image in the build will have only 16:9. The fallback file in the source format (for browsers without AVIF and WebP) is one per proportion, with the width `images.fallback_width` (800 by default). If you need a bigger width, ask for it explicitly: `media_url(src, '16:9', 1200)` for og:image. → [`20` §7](../spec/20-data-contract.md#images)
 
+## Updating the theme to the strict CSP <a id="strict-csp"></a>
+
+Pages are served with `script-src 'self'`, so an inline script in the theme will not run. If your copy of the theme is older and contains one:
+
+1. move the code into a theme file (`assets/site.js`);
+2. pass data (counter numbers and the like) as `data-*` attributes on the `<script src="/assets/site.js">` tag, as in `base.html` of the starter theme;
+3. run `heron check`: it reports an inline script in the theme as a warning.
+
 ## How to check a theme
 
 - `heron build`: the theme renders on every page; template errors name the file and the line;

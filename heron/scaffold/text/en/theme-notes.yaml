@@ -31,8 +31,9 @@ analytics: |-
      next pages; "Decline" does not load them, and the banner is not shown
      again. The choice is kept in localStorage of this browser
      (heron-consent: yes | no); the button in the footer changes it.
-     Counter numbers come from site.yaml (analytics.*) and reach the page
-     code through tojson: they are data, not markup. #}
+     Counter numbers come from site.yaml (analytics.*) and reach the
+     <script src> tag as data-gtm, data-ga4, data-metrika attributes, and the
+     theme file reads them: they are data, not markup. #}
 css.tokens: |-
   /* HERON starter - white, plain, readable. Change the tokens below and it is yours. */
 css.dark: |-

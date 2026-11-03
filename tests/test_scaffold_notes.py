@@ -255,7 +255,6 @@ TOKENS = {
     "consent",
     "yes",
     "analytics",
-    "tojson",
     "data",
     "theme",
     "checklist",

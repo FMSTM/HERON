@@ -34,6 +34,7 @@ TEXT: dict[str, dict[str, str]] = {
         "themes_checksum_hint": "ожидалась {expected}, получена {actual}",
         "themes_path_outside": "путь {value!r} выходит за пределы папки сайта",
         "themes_path_outside_hint": "положите архив в папку сайта и укажите путь от неё, либо поставьте тему командой `heron theme get`",
+        "themes_starter_description": "Белая и простая: все формы секций, которые знает HERON. Встроенная.",
     },
     "en": {
         "themes_catalog_unreachable": "theme catalog is not reachable: {error}",
@@ -68,5 +69,6 @@ TEXT: dict[str, dict[str, str]] = {
         "themes_checksum_hint": "expected {expected}, got {actual}",
         "themes_path_outside": "path {value!r} leaves the site folder",
         "themes_path_outside_hint": "put the archive in the site folder and give the path from it, or install the theme with `heron theme get`",
+        "themes_starter_description": "White and plain: every section form HERON knows. Built in.",
     },
 }

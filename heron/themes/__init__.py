@@ -46,7 +46,7 @@ import yaml
 
 from heron.core import paths
 from heron.core.errors import HeronError
-from heron.messages import Msg
+from heron.messages import Msg, say
 
 CATALOG_ENV = "HERON_THEMES_URL"
 CATALOG_URL = "https://raw.githubusercontent.com/FMSTM/heron-themes/main/catalog.json"
@@ -96,7 +96,8 @@ def _catalog(url: str, timeout: float) -> list[dict[str, Any]]:
         {
             "name": STARTER,
             "title": "Starter",
-            "description": "White and plain: every section form HERON knows. Built in.",
+            "description": say("en", "themes_starter_description"),
+            "description_ru": say("ru", "themes_starter_description"),
             "builtin": True,
         }
     ]

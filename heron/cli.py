@@ -1688,10 +1688,11 @@ def theme_list(notes: str | None) -> None:
     """Каталог тем HERON."""
     from heron import themes
 
-    _lang(notes, Path.cwd())  # язык рамки ошибок click в этом запуске
+    lang = _lang(notes, Path.cwd())  # язык рамки ошибок click в этом запуске
     for item in themes.catalog():
         title = item.get("title") or item["name"]
-        tail = f" - {item['description']}" if item.get("description") else ""
+        text = (item.get("description_ru") if lang == "ru" else None) or item.get("description")
+        tail = f" - {text}" if text else ""
         click.echo(f"{item['name']:<16} {title}{tail}")
 
 

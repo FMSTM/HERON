@@ -96,7 +96,7 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
             elif not self._allowed():
                 self._json(403, {"error": say(lang, "srv_token")})
             elif self.path == "/api/state":
-                self._json(200, setup.state(root))
+                self._json(200, setup.state(root, lang=lang))
             else:
                 self._json(404, {"error": say(lang, "srv_not_found")})
 
@@ -172,7 +172,7 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
                     "warnings": result.warnings,
                     "dropped": result.dropped,
                     "excepted": result.excepted,
-                    "state": setup.state(root),
+                    "state": setup.state(root, lang=lang),
                 },
             )
 

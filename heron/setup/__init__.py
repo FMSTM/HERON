@@ -128,7 +128,7 @@ def notes_lang(data: dict[str, Any], flag: str | None = None) -> str:
     return value if value in ("ru", "en") else "en"
 
 
-def state(root: Path) -> dict[str, Any]:
+def state(root: Path, lang: str | None = None) -> dict[str, Any]:
     """Всё, что нужно странице анкеты: ответы, справочник, темы, репозиторий."""
     from heron import __version__, build_info
 
@@ -156,8 +156,11 @@ def state(root: Path) -> dict[str, Any]:
         "classifier": classifier(),
         "themes": themes,
         "site_theme": str((site.get("theme") if isinstance(site, dict) else "") or ""),
-        "notes": notes_lang(data),
-        "schema": {**schema_state(notes_lang(data)), "findings": _state_findings(data, answers)},
+        "notes": notes_lang(data, lang),
+        "schema": {
+            **schema_state(notes_lang(data, lang)),
+            "findings": _state_findings(data, answers),
+        },
         "engine": build_info.label(),
         "version": __version__,
         "exists": bool(data),

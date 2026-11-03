@@ -322,7 +322,7 @@ const PU = {
   ru: { main: "основной", sales: "продажи", marketing: "маркетинг", support: "поддержка", booking: "запись", press: "пресса" },
   en: { main: "main", sales: "sales", marketing: "marketing", support: "support", booking: "booking", press: "press" },
 };
-const PLACEHOLDER = { phone: "+00 000 000 00 00", email: "hello@example.com", website: "https://example.com", whatsapp: "+00 000 000 00 00", telegram: "@name или https://t.me/name", viber: "+00 000 000 00 00", signal: "+00 000 000 00 00", instagram: "@name", facebook: "https://facebook.com/name", linkedin: "https://linkedin.com/in/name", youtube: "@name", tiktok: "@name", x: "@name", other: "" };
+const PLACEHOLDER = { phone: "+00 000 000 00 00", email: "hello@example.com", website: "https://example.com", whatsapp: "+00 000 000 00 00", telegram: "@name / https://t.me/name", viber: "+00 000 000 00 00", signal: "+00 000 000 00 00", instagram: "@name", facebook: "https://facebook.com/name", linkedin: "https://linkedin.com/in/name", youtube: "@name", tiktok: "@name", x: "@name", other: "" };
 
 const HOURS_RE = new RegExp(String.raw`^(?:Mo|Tu|We|Th|Fr|Sa|Su)(?:-(?:Mo|Tu|We|Th|Fr|Sa|Su))?(?:,(?:Mo|Tu|We|Th|Fr|Sa|Su)(?:-(?:Mo|Tu|We|Th|Fr|Sa|Su))?)* (?:(?:[01]\d|2[0-3]):[0-5]\d|24:00)-(?:(?:[01]\d|2[0-3]):[0-5]\d|24:00)(?:,(?:(?:[01]\d|2[0-3]):[0-5]\d|24:00)-(?:(?:[01]\d|2[0-3]):[0-5]\d|24:00))*$`);
 const HOURS_SIMPLE = /^(Mo|Tu|We|Th|Fr|Sa|Su)(?:-(Mo|Tu|We|Th|Fr|Sa|Su))? (\d\d:\d\d)-(\d\d:\d\d)$/;
@@ -867,7 +867,7 @@ function gTheme() {
   const grid = h("div", { class: "grid", style: "margin-top:1rem" });
   if (th.source === "name") {
     const list = ST.themes || [];
-    const sel = h("select", { id: "theme.value" }, ...list.map((x) => h("option", { value: x.name, selected: th.value === x.name }, (x.title || x.name) + (x.description ? " - " + x.description : ""))));
+    const sel = h("select", { id: "theme.value" }, ...list.map((x) => h("option", { value: x.name, selected: th.value === x.name }, (x.title || x.name) + (((L === "ru" && x.description_ru) || x.description) ? " - " + ((L === "ru" && x.description_ru) || x.description) : ""))));
     if (!th.value && list.length) th.value = list[0].name;
     sel.addEventListener("change", () => (th.value = sel.value));
     grid.append(h("div", { class: "field wide" }, sel));

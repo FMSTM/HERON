@@ -60,7 +60,7 @@ def split(
     body = markdown.strip_comments(body)
     env: dict = {}
     tokens = md.parse(body, env)
-    lines = body.splitlines()
+    lines = markdown.split_lines(body)
 
     # Границы: индекс токена, уровень, id, классы, заголовок, строка
     marks: list[tuple[int, int, str, list[str], str, int]] = []

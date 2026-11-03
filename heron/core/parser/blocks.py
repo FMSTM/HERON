@@ -26,6 +26,7 @@ from markdown_it.token import Token
 from heron.contracts.theme import KINDS  # noqa: F401 — реэкспорт для модулей ядра
 from heron.core.errors import Warning_
 from heron.core.models import Pair, Section
+from heron.core.parser.markdown import split_lines
 from heron.messages import Msg
 
 # Порядок автоопределения, когда класса в якоре нет. Первая форма, которой
@@ -464,7 +465,7 @@ def structure(md: MarkdownIt, section: Section) -> None:
     """
     env: dict = {}
     tokens = md.parse(section.raw, env)
-    lines = section.raw.splitlines()
+    lines = split_lines(section.raw)
     if not lines:
         return
 

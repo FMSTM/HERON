@@ -25,7 +25,16 @@ ALLOWED_INLINE = re.compile(r"^\s*<(br|wbr)\s*/?>\s*$", re.I)
 
 
 COMMENT = re.compile(r"<!--.*?-->", re.S)
-FENCE = re.compile(r"(^```.*?^```|^~~~.*?^~~~)", re.S | re.M)
+
+
+def split_lines(text: str) -> list[str]:
+    """Разбить текст по переводам строк, как это делает карта токенов markdown-it.
+
+    `str.splitlines` режет ещё и по U+2028, U+2029, \\f и \\v, а разборщик
+    считает только `\\n`, `\\r\\n` и `\\r`: один U+2028 из Word сдвигал бы срезы.
+    Хвостовая пустая строка остаётся, как у любого `split`.
+    """
+    return text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
 
 
 def strip_comments(text: str) -> str:
@@ -36,10 +45,25 @@ def strip_comments(text: str) -> str:
     в контенте выключен по умолчанию, поэтому комментарий не исчезает, а
     экранируется и выезжает на страницу как видимая строка.
 
-    Внутри блоков кода комментарии не трогаем: там они и есть содержимое.
+    Комментарий заменяется тем же числом переводов строк, что в нём было:
+    номера строк дальше по файлу остаются настоящими. Комментарии внутри
+    кода (огороженные блоки и блоки с отступом, в том числе в списках,
+    и инлайн-код) не трогаем: там они и есть содержимое. Код определяется
+    токенами markdown-it, как в `without_code`.
     """
-    parts = FENCE.split(text)
-    return "".join(part if index % 2 else COMMENT.sub("", part) for index, part in enumerate(parts))
+    text = "\n".join(split_lines(text))
+    if "<!--" not in text:
+        return text
+    mask = without_code(text)
+    out: list[str] = []
+    pos = 0
+    for match in COMMENT.finditer(mask):
+        start, end = match.span()
+        out.append(text[pos:start])
+        out.append("\n" * text.count("\n", start, end))
+        pos = end
+    out.append(text[pos:])
+    return "".join(out)
 
 
 # Что можно повесить на заголовок хвостом `{…}` кроме `#id` и `.class`.
@@ -84,7 +108,7 @@ def forbidden_attrs(md: MarkdownIt, body: str, path: str, offset: int = 0) -> No
     Разбор токенами, а не строками: «заголовок» внутри блока кода — это
     код, и ругаться на него нельзя.
     """
-    lines = body.splitlines()
+    lines = split_lines(body)
     for token in md.parse(body):
         # Хвост `{…}` к этому моменту уже снят правилом заголовков, поэтому
         # смотрим исходную строку заголовка по карте токена.
@@ -241,7 +265,7 @@ def without_code(text: str) -> str:
 
 def raw_html(body: str) -> list[tuple[int, str]]:
     """Сырой HTML вне кода: (строка от начала тела, фрагмент)."""
-    lines = body.splitlines()
+    lines = split_lines(body)
     found: list[tuple[int, str]] = []
     for token in _HTML_FINDER.parse(body):
         start = token.map[0] if token.map else 0

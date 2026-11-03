@@ -110,7 +110,7 @@ def _links(md, body: str, offset: int) -> list[tuple[int, str]]:
     (`[текст][метка]` и `[метка]: /адрес/`), а «ссылка» в блоке кода
     ссылкой не считается.
     """
-    lines = body.splitlines()
+    lines = markdown.split_lines(body)
 
     def line_of(href: str, start: int, end: int) -> int:
         for index in range(start, min(end, len(lines))):
@@ -254,9 +254,11 @@ def scan(
                 page_type = meta.type or children_type or DEFAULT_TYPE
 
             try:
-                markdown.guard_raw_html(body, rel, config.build.allow_raw_html, offset=body_line)
-                markdown.forbidden_attrs(md, body, rel, offset=body_line)
-                intro, found = sections.split(md, body, rel, offset=body_line)
+                # offset - число строк файла до тела: формулы считают +1 сами.
+                clean = markdown.strip_comments(body)
+                markdown.guard_raw_html(clean, rel, config.build.allow_raw_html, offset=body_line - 1)
+                markdown.forbidden_attrs(md, clean, rel, offset=body_line - 1)
+                intro, found = sections.split(md, clean, rel, offset=body_line - 1)
             except HeronError as exc:
                 collector.errors.append(exc)
                 continue
@@ -289,7 +291,7 @@ def scan(
                 intro=intro,
                 url=url_for(lang, config.site.default_lang, url_parts),
                 type=page_type,
-                links=_links(md, body, body_line),
+                links=_links(md, clean, body_line),
             )
 
             if not meta.published and not drafts:

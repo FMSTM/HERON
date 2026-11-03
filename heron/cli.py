@@ -463,7 +463,8 @@ def _fail(error: HeronError, lang: str = "en") -> None:
     head = error.path if error.path in named else title(lang, error.code)
     _err(say(lang, "error_head", code=error.code, title=head))
     if error.path:
-        where = error.path if error.line is None else f"{error.path}:{error.line}"
+        shown = rendered(error.path, lang)
+        where = shown if error.line is None else f"{shown}:{error.line}"
         _err(say(lang, "error_where", where=where), None)
     _err(say(lang, "error_what", message=rendered(error.message, lang)), None)
     if error.hint:
@@ -595,7 +596,7 @@ def _check_json(
     def error(item: HeronError) -> dict:
         return {
             "code": item.code,
-            "path": item.path,
+            "path": rendered(item.path, lang),
             "line": item.line,
             "message": rendered(item.message, lang),
             "hint": rendered(item.hint, lang),
@@ -620,7 +621,7 @@ def _check_json(
             old_section = {
                 "summary": rendered(old_summary, lang),
                 "lost": [
-                    {"path": w.path, "line": w.line, "message": rendered(w.message, lang)}
+                    {"path": rendered(w.path, lang), "line": w.line, "message": rendered(w.message, lang)}
                     for w in lost
                 ],
             }
@@ -631,7 +632,7 @@ def _check_json(
         warnings = [
             {
                 "kind": w.kind,
-                "path": w.path,
+                "path": rendered(w.path, lang),
                 "line": w.line,
                 "message": rendered(w.message, lang),
             }

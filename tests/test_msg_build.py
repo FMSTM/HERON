@@ -117,3 +117,45 @@ def test_theme_asset_owner_stays_msg_in_conflict(tmp_path):
 
 def test_theme_asset_conflict_path_keeps_msg(tmp_path):
     _check(_claim_conflict(tmp_path).path, "тема assets/a.css")
+
+
+def _owner() -> Msg:
+    return Msg("media_owner_more", page="a.md", count=2)
+
+
+def test_error_with_msg_path_has_no_cyrillic_in_en(tmp_path):
+    from heron.core import report
+
+    error = _claim_conflict(tmp_path)
+    collector = Collector()
+    collector.errors.append(error)
+    assert not CYR.search(error.render("en"))
+    assert "тема assets/a.css" in error.render("ru")
+    assert not CYR.search(report._error_text(error, "en"))
+    assert "тема assets/a.css" in report._error_text(error, "ru")
+
+
+def test_warning_with_msg_path_in_summary_and_full_file(tmp_path):
+    from heron.core import report
+
+    collector = Collector()
+    collector.warn("text", path=_owner(), line=3, kind="media")
+    full = tmp_path / "full.txt"
+    en = report.summary(collector, full, lang="en")
+    assert not CYR.search(en.split("\n", 1)[1].replace("прочее", ""))
+    assert "a.md and 2 more:3" in en
+    assert "a.md and 2 more:3" in full.read_text(encoding="utf-8")
+    ru = report.summary(collector, tmp_path / "ru.txt", lang="ru")
+    assert "a.md и ещё 2:3" in ru
+
+
+def test_cli_fail_renders_msg_path_en(tmp_path, capsys):
+    from heron import cli
+
+    error = HeronError("E011", "plain", path=_owner(), line=4)
+    with pytest.raises(SystemExit):
+        cli._fail(error, "en")
+    assert "a.md and 2 more:4" in capsys.readouterr().err
+    with pytest.raises(SystemExit):
+        cli._fail(error, "ru")
+    assert "a.md и ещё 2:4" in capsys.readouterr().err

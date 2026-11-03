@@ -77,7 +77,7 @@ class HeronError(Exception):
         """Ошибка одной строкой на языке сообщений (подробность и подсказка по lang)."""
         from heron.messages import rendered, say
 
-        where = self.path or say(lang, "summary_unknown_file")
+        where = rendered(self.path, lang) or say(lang, "summary_unknown_file")
         if self.line is not None:
             where = f"{where}:{self.line}"
         text = f"{self.code} {where}: {rendered(self.message, lang)}"

@@ -711,7 +711,7 @@ def summary(collector: Collector, full: Path | None = None, lang: str = "en") ->
             continue
         lines.append(f"  {kind_label(lang, kind)} - {len(batch)}:")
         for warning in batch[:EXAMPLES]:
-            where = warning.path or ""
+            where = rendered(warning.path, lang) or ""
             if where and warning.line:
                 where = f"{where}:{warning.line}"
             where = f"{where}: " if where else ""
@@ -725,7 +725,7 @@ def summary(collector: Collector, full: Path | None = None, lang: str = "en") ->
             full.write_text(
                 "\n".join(
                     f"{getattr(w, 'kind', '') or 'прочее'}\t"
-                    f"{w.path or ''}{f':{w.line}' if w.path and w.line else ''}\t"
+                    f"{rendered(w.path, lang) or ''}{f':{w.line}' if w.path and w.line else ''}\t"
                     f"{rendered(w.message, lang)}"
                     for w in collector.warnings
                 )
@@ -742,7 +742,7 @@ def _error_text(error, lang: str) -> str:
     """Ошибка одной строкой, как `str(HeronError)`, но рамка — на языке сообщений."""
     from heron.messages import say
 
-    where = error.path or say(lang, "summary_unknown_file")
+    where = rendered(error.path, lang) or say(lang, "summary_unknown_file")
     if error.line is not None:
         where = f"{where}:{error.line}"
     text = f"{error.code} {where}: {rendered(error.message, lang)}"

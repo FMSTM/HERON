@@ -25,7 +25,7 @@ files:
     ru_sha256: "22307ca7bb5bf91b0d65b528ebb5f4c5d32103d99806dc24b8edf1d247a8fdee"
     en_status: current
   - path: guide/06-deploy.md
-    ru_sha256: "f1728aaabcef9fc342489fa9fa4e9545627d38c850aee5f5e4358a25e1b4952e"
+    ru_sha256: "d46ba50001cc2acd4c528450e542a9ba6973585d74935edb97b0b45dfad07200"
     en_status: current
   - path: roles/architect.md
     ru_sha256: "0f2fa54a6e5ab09ccead1abee2a5411641da7cb50976278f23516bc4234195f6"
@@ -43,7 +43,7 @@ files:
     ru_sha256: "f094fb07310b31091a0cc7332280e7a5ff3b7881faea31258fd3b7b113a05a4d"
     en_status: current
   - path: spec/20-data-contract.md
-    ru_sha256: "35422aa8295a4693840f3ec5bc84da6c8a92b84c4773944728ce9bf47316845b"
+    ru_sha256: "0c7b5ec545a889e85c756e72cc732f862e9b77d59db0d8a1907b2680fd50aa64"
     en_status: current
   - path: spec/21-engine.md
     ru_sha256: "5ce582bfd77f8b70ec80d2d089102fe0dd4b521957fcd85cefe39391d7904753"

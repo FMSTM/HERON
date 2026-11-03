@@ -60,9 +60,9 @@ sudo nginx -t && sudo systemctl reload nginx
 
 **Hidden files** (`/.git/…`, `/ru/.env`, `/media/.x`) answer 404 in the root, under every language, in `media/` and `assets/`; only `/.well-known/` is available.
 
-If nginx is present on the machine where the build runs, the engine runs `nginx -t` on the built config itself and writes the result to the report; if it fails, it is a warning, and with `--strict` an error.
-
 The config turns on HSTS for a year with subdomains (`Strict-Transport-Security`) and the `/healthz` address. If the domain is not on https yet or has subdomains without it, remove the `Strict-Transport-Security` line; details are in [`22`](../spec/22-deploy.md).
+
+If nginx is present on the machine where the build runs, the engine runs `nginx -t` on the built config itself and writes the result to the report; if it fails, it is a warning, and with `--strict` an error.
 
 To look locally, use `heron serve my-site` (in the image: `docker run --rm -p 127.0.0.1:8000:8000 -v "$PWD":/site -w /site ghcr.io/fmstm/heron:prod serve .`; in the container the preview listens on all interfaces by itself, so `--host 0.0.0.0` can be left out): the same 404 the visitor will see, a build into a temporary folder, the site folder stays clean. `heron serve` does not imitate 301, 410 and the closing of hidden files; `smoke` checks them on the image; `site.sh serve` starts a real nginx, where they work.
 
@@ -85,7 +85,7 @@ jobs:
       packages: write
     with:
       env: dev          # dev or prod
-      engine: prod      # engine tag: prod, beta or 0.1.0
+      engine: prod      # engine tag: prod, beta or X.Y.Z
 ```
 
 The workflow builds the site with the engine from the image, packs `dist/` into nginx by the recipe of the same HERON version, starts the image, runs a smoke check and pushes it to `ghcr.io/<owner>/<repository>:<environment>`. The workflow inputs:
@@ -101,6 +101,8 @@ The workflow builds the site with the engine from the image, packs `dist/` into 
 | `nginx_image` | stock nginx by digest | `nginx -t` runs on it before the image is built |
 | `export_docs` | `false` | raw documentation files into `static/` |
 | `push` | `true` | `false` - build and check without pushing |
+
+An exact version takes the image recipe and the smoke check from the tag vX.Y.Z. The tag v0.1.0 was released before scripts/smoke-site.sh appeared, so the workflow does not work with it: use prod or beta, or a newer version.
 
 The output `image` is the full image name with the tag. The input `export_docs` (`true`/`false`, `false` by default) is needed only for the engine's own site: before the build, the same engine image puts the raw documentation files of this version into the site's `static/` - `agents/{ru,en}/**`, `schema/<major.minor>/*.json` and `AGENTS.md`; only the `static/` folder is mounted writable for this. An ordinary site does not need to enable it ([`22` §4](../spec/22-deploy.md)). Until beta becomes prod, call `@beta` with `engine: beta`.
 

@@ -461,7 +461,7 @@ The "core" column says what the engine does with the field: **yes** - it reads a
 | `image` | path in `media/` | - | yes: a missing file is `E007` in a strict build (`--strict`, `build.fail_on_warning`), otherwise a warning | 6 | the preview in the catalog and in relation cards; second in the page cover choice, if there is no `og_image` |
 | `image_alt` | string | - | yes: a warning if there is `image` without `alt` | 6 | |
 | `nav_title` | string | file name, `h1` for the home page | yes | 1 | the short name in the menu and breadcrumbs (see below) |
-| `order` | integer | `999` | yes | 6 | the order in catalogs and menus, ascending |
+| `order` | integer | `999` | yes | 6 | the order in the section catalog and in links, ascending; the menu order is set by `nav.main` in `site.yaml` |
 | `type` | string | from the folder, see below | yes: the type must have a template (`E008`) | 6 | the page type - which template renders it |
 | `children_type` | string | - | yes; read only in `_index.md` | 6 | the type of the section's children |
 | `video` | path in `media/` or a full URL | - | yes: a missing file is `E007` in a strict build (`--strict`, `build.fail_on_warning`), otherwise a warning | 6 | the page video, `page.video` (section 7.5) |

@@ -20,6 +20,7 @@ Terms of the HERON documentation and their English equivalents. The source is `d
 |---|---|---|
 | агент | agent | `README.md` |
 | комплект (для агентов) | kit (agent kit) | `README.md` |
+| сокращённый комплект (`build.agents: kit`) | short kit | `README.md` |
 | роль | role | `README.md` |
 | архитектор | architect | `README.md` |
 | контент и SEO | content and SEO | `README.md` |

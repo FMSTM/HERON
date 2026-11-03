@@ -17,12 +17,12 @@ from __future__ import annotations
 from pathlib import Path, PurePath
 from typing import Any
 
-import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, TemplateNotFound
 from jinja2.sandbox import ImmutableSandboxedEnvironment
 from markupsafe import Markup, escape
 from pydantic import BaseModel
 
+from heron.contracts.loader import read_yaml
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core import paths, urls
@@ -127,19 +127,18 @@ def load_strings(theme_dir: Path, lang: str, collector: Collector) -> Strings:
             hint=Msg("render_symlink_hint"),
         )
     if path.is_file():
-        loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
-        if isinstance(loaded, dict):
-            # YAML читает голые off, on, yes, no как булевы значения, и строка
-            # 'off' тихо теряется. Молчать нельзя: в вёрстке останется имя
-            # ключа, а причина будет неочевидна до самого осмотра страницы.
-            for key in [k for k in loaded if not isinstance(k, str)]:
-                collector.warn(
-                    Msg("render_i18n_key_type", key=key, type=type(key).__name__),
-                    path=str(path),
-                    kind="переводы",
-                )
-                del loaded[key]
-            values = loaded
+        loaded = read_yaml(path, code="E008", allow_empty=True)
+        # YAML читает голые off, on, yes, no как булевы значения, и строка
+        # 'off' тихо теряется. Молчать нельзя: в вёрстке останется имя
+        # ключа, а причина будет неочевидна до самого осмотра страницы.
+        for key in [k for k in loaded if not isinstance(k, str)]:
+            collector.warn(
+                Msg("render_i18n_key_type", key=key, type=type(key).__name__),
+                path=str(path),
+                kind="переводы",
+            )
+            del loaded[key]
+        values = loaded
     else:
         collector.warn(Msg("render_i18n_missing", lang=lang), path=str(path), kind="переводы")
     return Strings(values, lang, collector)

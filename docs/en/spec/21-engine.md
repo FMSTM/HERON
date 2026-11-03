@@ -717,13 +717,13 @@ The detail and hint of an error and the text of a warning are in the language of
 | `E005` | an invalid slug |
 | `E006` | a relation field refers to a page that does not exist |
 | `E007` | the image is not on disk |
-| `E008` | a page type has no template in the theme |
+| `E008` | a page type has no template in the theme, or the strings file `theme/i18n/<language>.yaml` is unusable |
 | `E009` | `redirect_from` coincides with an existing URL |
-| `E010` | access to a variable that does not exist in a template |
+| `E010` | access to a variable that does not exist in a template, or an exception while a template runs |
 | `E011` | `site.yaml` does not pass validation; also an invalid value of `HERON_WORKERS` (outside 0-64 or not a number) |
 | `E012` | the engine version does not satisfy the `heron:` requirement in `site.yaml` |
 | `E013` | the theme is found neither locally nor among the installed packages |
-| `E014` | a plugin from `plugins:` is not installed, failed on loading or has an invalid name |
+| `E014` | a plugin from `plugins:` is not installed, failed on loading or in a hook, or has an invalid name |
 | `E015` | raw HTML in markdown with `build.allow_raw_html: false` |
 | `E016` | an invalid section identifier |
 | `E017` | a production build without a single page |

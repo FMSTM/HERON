@@ -113,6 +113,17 @@ def render_page(
             path=page.source,
             hint=Msg("render_undefined_hint"),
         ) from exc
+    except HeronError:
+        raise
+    except Exception as exc:
+        raise HeronError(
+            code="E010",
+            message=Msg(
+                "render_theme_crash", name=name, kind=type(exc).__name__, detail=str(exc)
+            ),
+            path=page.source,
+            hint=Msg("render_theme_crash_hint"),
+        ) from exc
 
 
 def render_site(
@@ -132,9 +143,14 @@ def render_site(
     он и идёт дальше; `None` — оставить как есть.
     """
     env = envmod.make(theme_dir, config, hooks)
-    strings = {
-        lang: envmod.load_strings(theme_dir, lang, collector) for lang in config.site.languages
-    }
+    strings = {}
+    for lang in config.site.languages:
+        try:
+            strings[lang] = envmod.load_strings(theme_dir, lang, collector)
+        except HeronError as error:
+            collector.errors.append(error)
+    if len(strings) < len(config.site.languages):
+        return {}
 
     out: dict[str, str] = {}
     for index, page in enumerate(site.pages, 1):

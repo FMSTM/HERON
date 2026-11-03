@@ -21,7 +21,7 @@ FIELD_HINTS: dict[str, str] = {
 }
 
 
-def read_yaml(path: Path, code: str = "E011") -> dict[str, Any]:
+def read_yaml(path: Path, code: str = "E011", allow_empty: bool = False) -> dict[str, Any]:
     """Прочитать YAML-файл в словарь. Битый YAML — остановка с номером строки."""
     if not path.is_file():
         raise HeronError(code=code, message=Msg("loader_file_missing"), path=str(path))
@@ -44,6 +44,8 @@ def read_yaml(path: Path, code: str = "E011") -> dict[str, Any]:
             hint=Msg("loader_bad_yaml_hint"),
         ) from exc
     if data is None:
+        if allow_empty:
+            return {}
         raise HeronError(code=code, message=Msg("loader_empty"), path=str(path))
     if not isinstance(data, dict):
         raise HeronError(

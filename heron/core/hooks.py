@@ -16,7 +16,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from heron.messages import MsgError
+from heron.core.errors import HeronError
+from heron.messages import Msg, MsgError
 
 NAMES = (
     "on_config",
@@ -28,6 +29,26 @@ NAMES = (
 )
 
 BLOCK = "block:"
+
+
+def _guarded(name: str, handler: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+    """Вызвать обработчик; чужое исключение превратить в ошибку с хуком и модулем."""
+    try:
+        return handler(*args, **kwargs)
+    except HeronError:
+        raise
+    except Exception as exc:
+        raise HeronError(
+            code="E014",
+            message=Msg(
+                "blocks_hook_crash",
+                hook=name,
+                plugin=getattr(handler, "__module__", "?"),
+                kind=type(exc).__name__,
+                detail=str(exc),
+            ),
+            hint=Msg("blocks_hook_crash_hint"),
+        ) from exc
 
 
 @dataclass(slots=True)
@@ -52,7 +73,9 @@ class Hooks:
 
     def call(self, name: str, *args: Any, **kwargs: Any) -> list[Any]:
         """Вызвать всех подписчиков по порядку регистрации."""
-        return [handler(*args, **kwargs) for handler in self.handlers.get(name, [])]
+        return [
+            _guarded(name, handler, *args, **kwargs) for handler in self.handlers.get(name, [])
+        ]
 
     def pipe(self, name: str, page: Any, value: str) -> str:
         """Пропустить значение через обработчики по очереди.
@@ -62,7 +85,7 @@ class Hooks:
         нетронутый HTML, и правки всех, кроме последнего, терялись.
         """
         for handler in self.handlers.get(name, []):
-            changed = handler(page, value)
+            changed = _guarded(name, handler, page, value)
             if isinstance(changed, str):
                 value = changed
         return value

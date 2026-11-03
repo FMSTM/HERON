@@ -17,6 +17,8 @@ TEXT: dict[str, dict[str, str]] = {
             "служебные атрибуты Python и изменение данных сайта закрыты"
         ),
         "render_undefined": "шаблон {name} обращается к тому, чего нет: {detail}",
+        "render_theme_crash": "шаблон {name} упал при исполнении ({kind}): {detail}",
+        "render_theme_crash_hint": "исправьте выражение в шаблоне темы; страница указана в пути",
         "render_undefined_hint": "опечатка в имени переменной или поле не заполнено во фронтматтере",
         "render_string_missing": "нет строки перевода {key!r} для языка {lang!r}",
         "render_module_missing": "тема вызывает модуль {name!r}, но {template} в ней нет",
@@ -48,6 +50,8 @@ TEXT: dict[str, dict[str, str]] = {
             "Python internals and changing site data are closed"
         ),
         "render_undefined": "template {name} refers to something that does not exist: {detail}",
+        "render_theme_crash": "template {name} crashed while running ({kind}): {detail}",
+        "render_theme_crash_hint": "fix the expression in the theme template; the page is given in the path",
         "render_undefined_hint": "a typo in the variable name or the field is empty in the front matter",
         "render_string_missing": "no translation string {key!r} for language {lang!r}",
         "render_module_missing": "the theme calls module {name!r}, but it has no {template}",

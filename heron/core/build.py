@@ -629,6 +629,11 @@ def check(
         raise
 
     rooted(site_root, theme_dir)
+    for lang in config.site.languages:
+        try:
+            render_env.load_strings(theme_dir, lang, Collector())
+        except HeronError as error:
+            collector.errors.append(error)
     # check шаблоны не рендерит; изменение данных, на котором песочница
     # уронит сборку (E033), видно и по разбору шаблона — говорим заранее
     templates_check.mutations(site_root, theme_dir, config, collector, hooks)

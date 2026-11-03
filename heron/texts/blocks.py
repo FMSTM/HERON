@@ -11,6 +11,8 @@ TEXT = {
             "вводный блок длиннее двух абзацев: третий и далее ({count}) не попадут в шаблон"
         ),
         "blocks_hook_unknown": "неизвестный хук {name}; доступны: {names}, block:<имя>",
+        "blocks_hook_crash": "хук {hook} плагина {plugin} упал ({kind}): {detail}",
+        "blocks_hook_crash_hint": "это ошибка плагина, а не сайта: исправьте плагин или отключите его в site.yaml",
         "blocks_symlink_outside": "символическая ссылка ведёт за пределы data/",
         "blocks_symlink_hint": "положите сам файл в data/ вместо ссылки на него",
         "blocks_data_unreadable": "справочник не читается: {error}",
@@ -26,6 +28,8 @@ TEXT = {
             "will not reach the template"
         ),
         "blocks_hook_unknown": "unknown hook {name}; available: {names}, block:<name>",
+        "blocks_hook_crash": "hook {hook} of plugin {plugin} crashed ({kind}): {detail}",
+        "blocks_hook_crash_hint": "this is a plugin error, not a site error: fix the plugin or disable it in site.yaml",
         "blocks_symlink_outside": "the symbolic link points outside data/",
         "blocks_symlink_hint": "put the file itself into data/ instead of linking to it",
         "blocks_data_unreadable": "the data file cannot be read: {error}",

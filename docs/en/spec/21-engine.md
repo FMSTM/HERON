@@ -538,7 +538,7 @@ The core builds what it really knows itself:
 | organization fields and other details | the `schema` block in `site.yaml` |
 | refinements for a specific page | the `schema` block in the frontmatter |
 | `BreadcrumbList` | the built breadcrumbs, always, except the home page |
-| `primaryImageOfPage` | the page cover: an `ImageObject` with `url`, `width`, `height` and `caption` from the cover `alt` (empty `width`/`height` are dropped); added to the types from the fixed list `WEBPAGE_TYPES` (`WebPage`, `AboutPage`, `CheckoutPage`, `CollectionPage`, `MediaGallery`, `ImageGallery`, `VideoGallery`, `ContactPage`, `FAQPage`, `ItemPage`, `MedicalWebPage`, `ProfilePage`, `QAPage`, `RealEstateListing`, `SearchResultsPage`) if the site did not set its own |
+| `primaryImageOfPage` | the page cover: an `ImageObject` with `url`, `width`, `height` and `caption` from the cover `alt` (empty `width`/`height` are dropped); added to the types from the fixed list `WEBPAGE_TYPES` (`WebPage`, `AboutPage`, `CheckoutPage`, `CollectionPage`, `MediaGallery`, `ImageGallery`, `VideoGallery`, `ContactPage`, `FAQPage`, `ItemPage`, `MedicalWebPage`, `ProfilePage`, `QAPage`, `RealEstateListing`, `SearchResultsPage`) if the site did not set its own. It appears only on nodes from the theme's `types.<type>.jsonld` and the `schema` block; the starter theme does not declare `WebPage`, and a `FAQPage` node assembled from a section does not get the image |
 | `alternateName` | `site.alternate_names` of the page language, in any `WebSite` node on any page where the theme or the page declared it |
 | `FAQPage` | a section parsed as `faq` |
 
@@ -632,7 +632,7 @@ Global options before the command: `-V/--version` (a string from `HERON_CHANNEL`
 | `2` | wrong invocation: invalid `--lang`/`--domain` for `new` and `init` without `site.yaml`, invalid `setup --answers` answers, an invalid `--allow-schema` key, `theme get` over `http://`, click `UsageError`, `heron` without a command |
 | `3` | for `build`: the site is written but `on_build_finished` failed (§15) |
 
-**Environment variables.** `SITE_ENV` - the environment for `check --env` and `build --env` (the flag, then `SITE_ENV`, then dev); `HERON_NOTES` - the notes language for all commands, including `init`, `setup`, `docs`, `schema`: help, messages, the error frame, the `check` and `build` report, the comments of `new` and `page`; `HERON_IN_CONTAINER=1` - the image mode (also enabled by the presence of the file `/.dockerenv`); `HERON_DEBUG=1` - same as `--debug`; `HERON_WORKERS` - cutting processes; `SOURCE_DATE_EPOCH` - the build time for `env.stamp` (§4); `HERON_THEMES_URL` - the theme catalog; `HERON_CHANNEL`, `HERON_REVISION`, `HERON_BUILT` - the `heron --version` string is built from them.
+**Environment variables.** `SITE_ENV` - the environment for `check --env` and `build --env` (the flag, then `SITE_ENV`, then dev); `HERON_NOTES` - the notes language for all commands, including `init`, `setup`, `docs`, `schema`: help, messages, the error frame, the `check` and `build` report, the comments and notes in the site files, the language of `docs` and `schema` when they have no `--lang` of their own; `HERON_IN_CONTAINER=1` - the image mode (also enabled by the presence of the file `/.dockerenv`); `HERON_DEBUG=1` - same as `--debug`; `HERON_WORKERS` - cutting processes; `SOURCE_DATE_EPOCH` - the build time for `env.stamp` (§4); `HERON_THEMES_URL` - the theme catalog; `HERON_CHANNEL`, `HERON_REVISION`, `HERON_BUILT` - the `heron --version` string is built from them.
 
 - `requires` in `theme.yaml` is a list of paths to the blocks and fields of `site.yaml` that the theme needs (`20` §2); if a path is missing, `heron check` reports it before the build;
 - `-v`, `--verbose` (on `new` and `init`) prints the whole file plan instead of a short summary; `-y`, `--yes` accepts the defaults without questions or confirmation;
@@ -898,7 +898,7 @@ Mandatory, the work is not accepted without them:
 - **documentation parity** (`23` §10): every `docs/ru/**` has a `docs/en/**` with the same path and vice versa (except `docs/en/GLOSSARY.md`); the same number of lines, of headings of each level, of list items, of tables and rows in them, of code blocks and lines in each; the same sequence of explicit heading anchors (`<a id="…"></a>`, `23` §10); the same set of relative links and their targets; in the `.yaml` samples and in the frontmatter of `page.md` - the same keys and values of non-string fields. Only literal tokens are compared byte for byte - commands, flags, keys, error codes, paths, file names; text, comments and captions inside code blocks are translated; on `beta` and `prod` - the translation does not lag behind the source according to `docs/translation.yaml`
 - the documentation and the kit contain no name of a specific agent or of an AI model developer company outside the list "which agent reads which file" (an allowlist in the test); the engine site is only `sitebuilder.heron.software`
 
-Separately, beyond unit tests: a run of the built site through Lighthouse in the site's CI. The thresholds are set by the site (`22-deploy.md` §4); the guideline is LCP under 2 seconds, CLS under 0.05.
+Separately, beyond unit tests: Lighthouse is not part of the engine delivery, the site itself sets up the run and the thresholds (`22-deploy.md` §4); the guideline is LCP under 2 seconds, CLS under 0.05.
 
 
 ---
@@ -907,7 +907,7 @@ Separately, beyond unit tests: a run of the built site through Lighthouse in the
 
 Modules from `heron/modules/` and external plugins are written against one set of hooks. The only difference is the delivery: a module lies in the core, a plugin is installed as a package and declared in `site.yaml`.
 
-A plugin is a function `register(hooks)`, called on loading, anew on every build and check (module state is not kept between builds).
+A plugin is a function `register(hooks)`, called on loading, anew on every build and check (module state is not kept between builds). A hook subscription is `hooks.on(<hook name>, function)`, a custom section type is `hooks.on("block:<name>", function)`. Example: in `plugins/<name>/__init__.py` - `def register(hooks): hooks.on("on_generate", f)`, in `site.yaml` - `plugins: [<name>]`.
 
 | Hook | When it is called | Arguments → result | `check` |
 |---|---|---|---|
@@ -924,6 +924,6 @@ A plugin is a function `register(hooks)`, called on loading, anew on every build
 
 We add nothing more at the start: an API invented for the future is always invented wrong.
 
-**Hooks act only at the build stage.** A plugin that "accepts a form" does not exist - at the moment of the POST the engine has already done its work and exited. Everything that lives at runtime is `heron-relay`, a separate service (see `23-distribution.md`).
+**Hooks act only at the build stage.** A plugin that "accepts a form" does not exist - at the moment of the POST the engine has already done its work and exited. Everything that lives at runtime will be accepted by a separate service, `heron-relay`; it is not implemented yet (see `23-distribution.md`).
 
-Plugin sources and the resolution order - `core/resolver.py`: the site's local folder `plugins/` → an installed package (an entry point of the group `heron.plugins`) → a git link. Local wins.
+Plugin sources and the resolution order - `core/resolver.py`: the site's local folder `plugins/` → an installed package (an entry point of the group `heron.plugins`). Local wins.

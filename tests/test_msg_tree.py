@@ -108,7 +108,10 @@ def test_theme_not_found(tmp_path):
         resolver.theme(tmp_path, "nope")
     err = exc.value
     _check(err.message, "тема 'nope' не найдена ни локально, ни среди установленных")
-    assert err.message.text("en") == "theme 'nope' is found neither locally nor among installed packages"
+    assert (
+        err.message.text("en")
+        == "theme 'nope' is found neither locally nor among installed packages"
+    )
     _check(err.hint, f"положите её в {resolver.LOCAL_THEME}/ или установите пакет heron-theme-nope")
 
 
@@ -129,7 +132,9 @@ def test_plugin_bad_name_and_not_installed(tmp_path):
 
     with pytest.raises(HeronError) as exc:
         resolver.plugins(tmp_path, ["ghost"], Hooks())
-    _check(exc.value.message, f"плагин 'ghost' не установлен и не найден в {resolver.LOCAL_PLUGINS}/")
+    _check(
+        exc.value.message, f"плагин 'ghost' не установлен и не найден в {resolver.LOCAL_PLUGINS}/"
+    )
     _check(exc.value.hint, "уберите из plugins или установите пакет, дающий 'ghost'")
 
 
@@ -170,7 +175,9 @@ def test_plugins_dir_symlink_escape(tmp_path):
     (site / resolver.LOCAL_PLUGINS).symlink_to(outside)
     with pytest.raises(HeronError) as exc:
         resolver.plugins(site, ["any"], Hooks())
-    _check(exc.value.message, f"папка {resolver.LOCAL_PLUGINS}/ ведёт за пределы сайта через ссылку")
+    _check(
+        exc.value.message, f"папка {resolver.LOCAL_PLUGINS}/ ведёт за пределы сайта через ссылку"
+    )
     assert rendered(exc.value.hint, "en") == (
         f"make {resolver.LOCAL_PLUGINS}/ a real folder inside the site instead of a link"
     )

@@ -47,7 +47,10 @@ def test_redirect_from_exists_and_chain():
     assert any("matches the existing address /b/" in t for t in ens)
     ru = [e.message.text("ru") for e in collector.errors]
     assert "redirect_from '/b/' совпадает с существующим адресом /b/" in ru
-    assert any(e.hint.text("ru") == "страница по этому адресу уже есть, редирект перекрыл бы её" for e in collector.errors)
+    assert any(
+        e.hint.text("ru") == "страница по этому адресу уже есть, редирект перекрыл бы её"
+        for e in collector.errors
+    )
 
 
 def test_two_targets_and_chain():
@@ -77,7 +80,7 @@ def test_gone_errors_and_warnings():
     assert any("covers the existing page /p/" in t for t in texts_en)
     assert any("covers a reserved site path" in t for t in texts_en)
     ru = [e.message.text("ru") for e in collector.errors]
-    assert any("gone '/p/' закрывает существующую страницу /p/" == t for t in ru)
+    assert any(t == "gone '/p/' закрывает существующую страницу /p/" for t in ru)
 
 
 def test_nginx_check_rejected(monkeypatch):
@@ -89,5 +92,11 @@ def test_nginx_check_rejected(monkeypatch):
     assert res is not None
     assert res[0] is False
     (w,) = collector.warnings
-    assert w.message.text("ru") == "nginx -t не принял собранный конфиг: nginx: [emerg] bad directive in x:1"
-    assert w.message.text("en") == "nginx -t rejected the built config: nginx: [emerg] bad directive in x:1"
+    assert (
+        w.message.text("ru")
+        == "nginx -t не принял собранный конфиг: nginx: [emerg] bad directive in x:1"
+    )
+    assert (
+        w.message.text("en")
+        == "nginx -t rejected the built config: nginx: [emerg] bad directive in x:1"
+    )

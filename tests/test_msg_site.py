@@ -13,7 +13,16 @@ CYRILLIC = re.compile("[А-Яа-яЁё]")
 
 
 def _site(**over):
-    data = {"heron": ">=0.1", "site": {"name": "S", "domain": "example.com", "theme": "t", "languages": ["ru"], "default_lang": "ru"}}
+    data = {
+        "heron": ">=0.1",
+        "site": {
+            "name": "S",
+            "domain": "example.com",
+            "theme": "t",
+            "languages": ["ru"],
+            "default_lang": "ru",
+        },
+    }
     data["site"].update(over.pop("site", {}))
     data.update(over)
     return data
@@ -31,16 +40,31 @@ def _err(call, *args):
 @pytest.mark.parametrize(
     "entry,ru,en",
     [
-        ("old", "gone: 'old' - ожидается путь от корня, например /old-page/",
-         "gone: 'old' - expected a path from the root, for example /old-page/"),
-        ("/a#b", "gone: '/a#b' - якорь серверу не приходит, уберите #…",
-         "gone: '/a#b' - the server never receives an anchor, remove the #..."),
-        ("/?p", "gone: '/?p' - параметр пишется одной парой: /?p=* или /?p=12",
-         "gone: '/?p' - write the parameter as a single pair: /?p=* or /?p=12"),
-        ("/?p=1*", "gone: '/?p=1*' - звёздочка заменяет значение целиком: /?p=*",
-         "gone: '/?p=1*' - the asterisk replaces the whole value: /?p=*"),
-        ("/w*p/*", "gone: '/w*p/*' - звёздочка допустима только в конце: /wp/*",
-         "gone: '/w*p/*' - the asterisk is allowed only at the end: /wp/*"),
+        (
+            "old",
+            "gone: 'old' - ожидается путь от корня, например /old-page/",
+            "gone: 'old' - expected a path from the root, for example /old-page/",
+        ),
+        (
+            "/a#b",
+            "gone: '/a#b' - якорь серверу не приходит, уберите #…",
+            "gone: '/a#b' - the server never receives an anchor, remove the #...",
+        ),
+        (
+            "/?p",
+            "gone: '/?p' - параметр пишется одной парой: /?p=* или /?p=12",
+            "gone: '/?p' - write the parameter as a single pair: /?p=* or /?p=12",
+        ),
+        (
+            "/?p=1*",
+            "gone: '/?p=1*' - звёздочка заменяет значение целиком: /?p=*",
+            "gone: '/?p=1*' - the asterisk replaces the whole value: /?p=*",
+        ),
+        (
+            "/w*p/*",
+            "gone: '/w*p/*' - звёздочка допустима только в конце: /wp/*",
+            "gone: '/w*p/*' - the asterisk is allowed only at the end: /wp/*",
+        ),
     ],
 )
 def test_parse_gone_ru_is_old_text_en_has_no_cyrillic(entry, ru, en):
@@ -51,7 +75,10 @@ def test_parse_gone_ru_is_old_text_en_has_no_cyrillic(entry, ru, en):
 
 def test_site_block_errors_through_describe(tmp_path):
     path = tmp_path / "site.yaml"
-    path.write_text("heron: '>=0.1'\nsite:\n  name: S\n  domain: example.com\n  theme: 'bad theme'\n  languages: [ru, ru]\n")
+    path.write_text(
+        "heron: '>=0.1'\nsite:\n  name: S\n  domain: example.com\n"
+        "  theme: 'bad theme'\n  languages: [ru, ru]\n"
+    )
     with pytest.raises(HeronError) as caught:
         load_site(path)
     msg = caught.value.message

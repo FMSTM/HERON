@@ -28,7 +28,10 @@ def _fail(tmp_path, data):
 def test_build_one_complaint_ru_is_old_text_en_has_no_cyrillic(tmp_path):
     err = _fail(tmp_path, {})
     assert isinstance(err.message, Msg)
-    assert err.message.text("ru") == "не проходит проверку:\n    name: поле обязательно, его нет в файле"
+    assert (
+        err.message.text("ru")
+        == "не проходит проверку:\n    name: поле обязательно, его нет в файле"
+    )
     assert err.message.text("en") == (
         "failed validation:\n    name: the field is required and is missing from the file"
     )
@@ -93,7 +96,9 @@ def test_frontmatter_validator_messages_keep_ru_and_translate(tmp_path):
     ru = msg.text("ru")
     assert "title: Value error, поле не может быть пустым" in ru
     assert "slug: Value error, слаг - латиница, цифры и дефис, без слешей и подчёркиваний" in ru
-    assert "redirect_from: Value error, 'x' - ожидается путь от корня, например /services/old/" in ru
+    assert (
+        "redirect_from: Value error, 'x' - ожидается путь от корня, например /services/old/" in ru
+    )
     en = msg.text("en")
     assert "title: the field must not be empty" in en
     assert "'x' - a path from the root is expected" in en

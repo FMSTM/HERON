@@ -38,14 +38,21 @@ def test_missing_key():
     with pytest.raises(HeronError) as ei:
         v.check_version(None, "0.4.1")
     assert "no required `heron` key" in _en_ok(ei.value)
-    assert ei.value.message.text("ru") == "в site.yaml нет обязательного ключа `heron` с требуемой версией движка"
+    assert (
+        ei.value.message.text("ru")
+        == "в site.yaml нет обязательного ключа `heron` с требуемой версией движка"
+    )
     assert ei.value.hint.text("ru") == 'добавьте первой строкой, например: heron: ">=0.1,<0.2"'
 
 
 @pytest.mark.parametrize(
     "spec,ru,en",
     [
-        ("abc", "не разобрать требование версии: 'abc'", "cannot parse the version requirement: 'abc'"),
+        (
+            "abc",
+            "не разобрать требование версии: 'abc'",
+            "cannot parse the version requirement: 'abc'",
+        ),
         ("==0.4.*x", "не разобрать требование версии: '==0.4.*x'", "cannot parse"),
         ("~=1", "для ~= нужна версия хотя бы из двух чисел, например ~=0.4", "~= needs a version"),
         ("<0.4.*", "шаблон `.*` допустим только с == и !=, а не с <", "wildcard is allowed only"),
@@ -81,7 +88,9 @@ def test_unsatisfied_with_and_without_tag():
     _en_ok(ei.value)
     with pytest.raises(HeronError) as ei:
         v.check_version("<0.4", "0.4.1")
-    assert ei.value.hint.text("ru").startswith("нужен образ под это требование (текущий даёт heron:0.4)")
+    assert ei.value.hint.text("ru").startswith(
+        "нужен образ под это требование (текущий даёт heron:0.4)"
+    )
     _en_ok(ei.value)
 
 
@@ -109,7 +118,10 @@ def test_wiring_site_errors_and_warning():
     site = SimpleNamespace(get_path=lambda p: None, forms={"a": 1, "b": 1})
     with pytest.raises(HeronError) as ei:
         wiring.verify(_theme(requires=["contact.phone"]), site)
-    assert ei.value.message.text("ru") == "тема 't' требует значения, которых нет в site.yaml:\n    contact.phone"
+    assert (
+        ei.value.message.text("ru")
+        == "тема 't' требует значения, которых нет в site.yaml:\n    contact.phone"
+    )
     assert "missing from site.yaml" in _en_ok(ei.value)
     site = SimpleNamespace(get_path=lambda p: "x", forms={"a": 1, "b": 1})
     with pytest.raises(HeronError) as ei:
@@ -118,4 +130,7 @@ def test_wiring_site_errors_and_warning():
     _en_ok(ei.value)
     warns = wiring.verify(_theme(forms=["a"]), site)
     assert warns[0].message.text("ru") == "формы описаны в site.yaml, но тема их не рисует: b"
-    assert warns[0].message.text("en") == "forms are described in site.yaml, but the theme does not render them: b"
+    assert (
+        warns[0].message.text("en")
+        == "forms are described in site.yaml, but the theme does not render them: b"
+    )

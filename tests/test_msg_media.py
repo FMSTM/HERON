@@ -28,7 +28,9 @@ def test_both_folders(tmp_path):
     err = raised.value
     assert err.message == "в сайте есть и media/, и img/ - движок не знает, какая настоящая"
     assert err.hint == "перенесите файлы в media/ и удалите img/"
-    assert _en_ok(err) == "the site has both media/ and img/: the engine cannot tell which one is real"
+    assert (
+        _en_ok(err) == "the site has both media/ and img/: the engine cannot tell which one is real"
+    )
 
 
 def test_same_address_clash(tmp_path):

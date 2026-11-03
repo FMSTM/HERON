@@ -1,7 +1,6 @@
 """Сообщения blocks, hooks, data: ru прежний, en без кириллицы."""
 
 import re
-from types import SimpleNamespace
 
 import pytest
 
@@ -53,14 +52,22 @@ def test_data_unreadable(tmp_path) -> None:
 
 def test_blocks_messages_ru_and_en() -> None:
     cases = [
-        (Msg("blocks_unknown_class", section="'a'", name="'z'"),
-         "секция 'a': неизвестный класс 'z', определяю по содержимому"),
-        (Msg("blocks_stray_lines", section="'a'", stray=2),
-         "секция 'a': строки без разделителя «|» пропущены (2)"),
-        (Msg("blocks_class_mismatch", section="'a'", name="'z'"),
-         "секция 'a': класс 'z' не подходит к содержимому, вывожу прозой"),
-        (Msg("blocks_intro_long", count=3),
-         "вводный блок длиннее двух абзацев: третий и далее (3) не попадут в шаблон"),
+        (
+            Msg("blocks_unknown_class", section="'a'", name="'z'"),
+            "секция 'a': неизвестный класс 'z', определяю по содержимому",
+        ),
+        (
+            Msg("blocks_stray_lines", section="'a'", stray=2),
+            "секция 'a': строки без разделителя «|» пропущены (2)",
+        ),
+        (
+            Msg("blocks_class_mismatch", section="'a'", name="'z'"),
+            "секция 'a': класс 'z' не подходит к содержимому, вывожу прозой",
+        ),
+        (
+            Msg("blocks_intro_long", count=3),
+            "вводный блок длиннее двух абзацев: третий и далее (3) не попадут в шаблон",
+        ),
     ]
     for msg, ru in cases:
         assert msg.text("ru") == ru == str(msg)
@@ -77,10 +84,16 @@ def test_no_cyrillic_literals_left() -> None:
         docs = {
             id(n.body[0].value)
             for n in ast.walk(tree)
-            if isinstance(n, (ast.Module, ast.FunctionDef, ast.ClassDef)) and n.body
-            and isinstance(n.body[0], ast.Expr) and isinstance(n.body[0].value, ast.Constant)
+            if isinstance(n, (ast.Module, ast.FunctionDef, ast.ClassDef))
+            and n.body
+            and isinstance(n.body[0], ast.Expr)
+            and isinstance(n.body[0].value, ast.Constant)
         }
         for n in ast.walk(tree):
-            if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docs:
-                if CYR.search(n.value):
-                    assert n.value == "контент" or "noqa" in src.splitlines()[n.lineno - 1], n.value
+            if (
+                isinstance(n, ast.Constant)
+                and isinstance(n.value, str)
+                and id(n) not in docs
+                and CYR.search(n.value)
+            ):
+                assert n.value == "контент" or "noqa" in src.splitlines()[n.lineno - 1], n.value

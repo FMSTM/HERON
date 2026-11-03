@@ -18,9 +18,7 @@ def test_keys_parity_and_en_clean():
 
 def test_summary_renders_msg_by_language(tmp_path):
     c = Collector()
-    c.error(
-        "E030", Msg("report_old_not_utf8", byte=3), hint=Msg("report_old_not_utf8_hint")
-    )
+    c.error("E030", Msg("report_old_not_utf8", byte=3), hint=Msg("report_old_not_utf8_hint"))
     c.warn(Msg("report_seo_no_cover", n=2), kind="seo")
     full = tmp_path / "w.txt"
     en = report.summary(c, full=full, lang="en")

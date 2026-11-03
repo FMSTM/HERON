@@ -50,7 +50,9 @@ _FORMATTER = string.Formatter()
 
 
 def _fields(template: str) -> set[str]:
-    return {name.split(".")[0].split("[")[0] for _, name, _, _ in _FORMATTER.parse(template) if name}
+    return {
+        name.split(".")[0].split("[")[0] for _, name, _, _ in _FORMATTER.parse(template) if name
+    }
 
 
 def _all_text_keys() -> set[str]:
@@ -99,7 +101,10 @@ def test_loaded_into_messages_text():
 
 
 def _calls():
-    """Все Msg("ключ", ...) и MsgError("ключ", ...) по heron/: (файл, строка, ключ, имена аргументов)."""
+    """Все Msg("ключ", ...) и MsgError("ключ", ...) по heron/.
+
+    Возвращает (файл, строка, ключ, имена аргументов).
+    """
     for path in sorted(PKG.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
@@ -119,7 +124,9 @@ def _calls():
 def test_every_msg_call_has_template_with_matching_fields():
     for path, line, key, given in _calls():
         where = f"{path.relative_to(PKG)}:{line}"
-        assert key in messages.TEXT["ru"] and key in messages.TEXT["en"], f"{where}: нет ключа {key}"
+        assert key in messages.TEXT["ru"] and key in messages.TEXT["en"], (
+            f"{where}: нет ключа {key}"
+        )
         for lang in ("ru", "en"):
             assert given == _fields(messages.TEXT[lang][key]), f"{where}: поля {key} ({lang})"
 

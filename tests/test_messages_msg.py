@@ -69,7 +69,9 @@ def test_plural_form_follows_language(table):
     assert Msg("t_n", n=2).text("en") == "2 files"
 
 
-@pytest.mark.parametrize("clone", [copy.copy, copy.deepcopy, lambda m: pickle.loads(pickle.dumps(m))])
+@pytest.mark.parametrize(
+    "clone", [copy.copy, copy.deepcopy, lambda m: pickle.loads(pickle.dumps(m))]
+)
 def test_copy_and_pickle_keep_key_and_fields(table, clone):
     msg = Msg("t_outer", inner=Msg("t_plain", url="/x"))
     other = clone(msg)
@@ -128,7 +130,9 @@ def test_kinds_has_redirects():
 
 
 def test_existing_say_is_unchanged():
-    assert say("ru", "sandbox_mutation", call="x.y") == messages.TEXT["ru"]["sandbox_mutation"].format(call="x.y")
+    assert say("ru", "sandbox_mutation", call="x.y") == messages.TEXT["ru"][
+        "sandbox_mutation"
+    ].format(call="x.y")
 
 
 def test_texts_package_found_by_pkgutil():

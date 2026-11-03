@@ -181,7 +181,10 @@ def test_damaged_theme_archive_gets_400_not_a_dropped_connection(tmp_path):
         assert status == 400, body
         payload = json.loads(body)
         assert payload["ok"] is False
-        assert "damaged or truncated" in payload["error"] or "повреждён или обрезан" in payload["error"]
+        assert (
+            "damaged or truncated" in payload["error"]
+            or "повреждён или обрезан" in payload["error"]
+        )
     finally:
         _stop(port, token, thread)
 

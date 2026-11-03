@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 from heron.core import dates, notfound
 from heron.core.errors import Collector
-from heron.messages import Msg, TEXT as _T  # noqa: F401
+from heron.messages import Msg  # noqa: F401
 
 CYR = re.compile("[а-яА-ЯёЁ]")
 

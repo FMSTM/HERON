@@ -46,9 +46,7 @@ def test_plan_bad_masters_give_e036(tmp_path):
     }
     for name, data in cases.items():
         sub = tmp_path / name
-        site, _ = _site(
-            sub, {"media/bad.jpg": data, "media/ok.jpg": good}, image="media/bad.jpg"
-        )
+        _site(sub, {"media/bad.jpg": data, "media/ok.jpg": good}, image="media/bad.jpg")
         content_text = (sub / "content/uk/index.md").read_text(encoding="utf-8")
         (sub / "content/uk/index.md").write_text(
             content_text.replace("Вступление.", "Вступление. ![](media/ok.jpg)", 1),
@@ -61,7 +59,9 @@ def test_plan_bad_masters_give_e036(tmp_path):
         assert len(errors) == 1, name
         assert "media/bad.jpg" in str(errors[0])
         assert "uk/index.md" in str(errors[0])
-        assert "media/bad.jpg" not in manifest.planned
+        assert collector.failed, name  # ошибка и без --strict, в отличие от E007
+        assert "media/bad.jpg" not in manifest.masters, name
+        assert "media/ok.jpg" in manifest.masters, name
         assert any(src == "media/ok.jpg" for src, *_ in manifest.planned.values()), name
 
 
@@ -77,9 +77,7 @@ def test_verify_covers_bad_cover_gives_e036(tmp_path):
 
 
 def test_good_master_unchanged(tmp_path):
-    site, config = _site(
-        tmp_path, {"media/cover.jpg": _good_bytes()}, image="media/cover.jpg"
-    )
+    site, config = _site(tmp_path, {"media/cover.jpg": _good_bytes()}, image="media/cover.jpg")
     manifest, collector = _plan(tmp_path, site, config)
     assert not collector.errors
     assert manifest.planned

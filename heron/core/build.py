@@ -634,6 +634,7 @@ def check(
     templates_check.mutations(site_root, theme_dir, config, collector, hooks)
     site = content(site_root, config, theme, theme_dir, hooks, collector, drafts)
     templates_check.missing_templates(site, theme, theme_dir, config, collector, hooks)
+    templates_check.inline_scripts(theme_dir, site_root, collector)
     _roots(site, config, collector, prod=False)
     media.folder(site_root, collector)
     media.check_video(site, collector)

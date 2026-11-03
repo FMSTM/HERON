@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -334,3 +335,50 @@ def missing_templates(
             )
         except HeronError:
             continue
+
+
+_COMMENTS = re.compile(r"\{#.*?#\}|<!--.*?-->", re.S)
+_SCRIPT = re.compile(r"<script\b([^>]*)>", re.I | re.S)
+_SRC = re.compile(r"(?<![\w-])src\s*=", re.I)
+_TYPE = re.compile(r"""(?<![\w-])type\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))""", re.I)
+_EXECUTABLE = {"", "text/javascript", "application/javascript", "module"}
+
+
+def _blank(match: re.Match[str]) -> str:
+    """Комментарий заменяется переводами строк: номера строк дальше не сдвигаются."""
+    return "\n" * match.group(0).count("\n")
+
+
+def inline_scripts(theme_dir: Path, site_root: Path | None, collector: Collector) -> None:
+    """Предупредить об инлайн-скрипте в теме: CSP сайта (`script-src 'self'`) его заблокирует.
+
+    Тема лежит в сайте копией и новых файлов от движка не получает, поэтому
+    заготовка до E15.S1.T20 с инлайн-кодом после пересборки теряет скрипт молча.
+    Не считаются теги с `src` и неисполняемые типы (`application/ld+json`,
+    `application/json` и другие). Комментарии `{# #}` и `<!-- -->` не читаются.
+    """
+    theme_dir = Path(theme_dir)
+    if not theme_dir.is_dir():
+        return
+    root = Path(site_root).resolve() if site_root is not None else None
+    for path in sorted(theme_dir.rglob("*.html")):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        text = _COMMENTS.sub(_blank, text)
+        rel = path.relative_to(theme_dir).as_posix()
+        for tag in _SCRIPT.finditer(text):
+            attrs = tag.group(1)
+            if _SRC.search(attrs):
+                continue
+            kind = _TYPE.search(attrs)
+            value = next((g for g in kind.groups() if g is not None), "") if kind else ""
+            if value.strip().lower() not in _EXECUTABLE:
+                continue
+            collector.warn(
+                Msg("theme_inline_script", line=text.count("\n", 0, tag.start()) + 1),
+                path=_shown(theme_dir, rel, root),
+                line=text.count("\n", 0, tag.start()) + 1,
+                kind="контент",
+            )

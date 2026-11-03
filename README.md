@@ -73,18 +73,20 @@ Eleven commands. The path to the site defaults to the current folder.
 | Command | What it does |
 |---|---|
 | `heron new <folder>` | creates a site: asks for the notes language, name, domain, languages and lays out the folder |
-| `heron init <folder>` | builds the missing folders after the languages in `site.yaml` changed |
+| `heron init <folder>` | builds the missing folders after the languages in `site.yaml` changed; `--agents` refreshes the instructions for agents |
 | `heron page <type> <slug>` | adds a page with a ready SEO block |
-| `heron check <folder>` | checks the site against the contract without building; `--strict` turns warnings into errors |
+| `heron check <folder>` | checks the site against the contract without building; `--strict` turns warnings into errors, `--json` - machine-readable output, `--old-urls` - a check of the old addresses |
 | `heron build <folder>` | builds `dist/`: HTML, sitemap, markup, redirects, nginx config; `--env prod` for a production build |
-| `heron serve <folder>` | local preview with rebuild, the port is set by `--port` |
-| `heron docs [topic]` | documentation of the same version as the engine; `--search <text>`, `--export <folder>` |
+| `heron serve <folder>` | local preview with rebuild, the port is set by `--port`, the address by `--host` |
+| `heron docs [topic]` | documentation of the same version as the engine; `--lang ru`/`--lang en`, `template <file>`, `--search <text>`, `--export <folder>`, `--all-langs` |
 | `heron setup <folder>` | questionnaire in the browser: domains, languages, schema.org, publishing, theme; `--answers file` without a browser, `--dump` - current answers |
 | `heron theme get\|list\|pack` | install a theme (starter, from the catalog, by link, from an archive), list, pack your own |
-| `heron schema` | JSON Schema of the contracts of this version; `--export <folder>` |
+| `heron schema` | JSON Schema of the contracts of this version: `--site`, `--theme`, `--frontmatter`, `--setup`, `--errors`; `--lang ru`/`--lang en`, `--export <folder>` |
 | `heron recipe` | Dockerfile of the nginx image for the built `dist/` |
 
-In a container it is the same call through `$H` from "Quick start". Error codes (`E002`, `E006`, `E012`...) and their causes are in [`docs/en/spec/21-engine.md`](docs/en/spec/21-engine.md).
+The full list of flags is `heron <command> --help`. The language of the help, the messages and the comments in files is `--notes ru|en`, otherwise `HERON_NOTES`, otherwise `build.notes` from `site.yaml`, otherwise English.
+
+In a container it is the same call through `$H` (for `setup` and `serve`, `$HP`) from "Quick start". Error codes (`E002`, `E006`, `E012`...) and their causes are in [`docs/en/spec/21-engine.md`](docs/en/spec/21-engine.md).
 
 ## The site folder contract
 
@@ -96,10 +98,13 @@ my-site/
 ├── data/           yaml reference data: reviews, team, requisites
 ├── static/         files at an exact address: favicon, .well-known
 ├── theme/          theme: Jinja2 templates, styles, interface strings
-└── plugins/        your own plugins, usually empty
+├── plugins/        your own plugins, usually empty
+├── agents/         instructions for agents, not part of the build (`--no-agents` turns it off)
+├── AGENTS.md, CLAUDE.md, GEMINI.md   pointers to it
+└── heron-readme.md notes on the folders
 ```
 
-The engine reads only these folders and writes only to `dist/` and `.heron-cache/`. What is allowed in each file is listed in the [data contract](docs/en/spec/20-data-contract.md).
+During a build the engine reads only these folders and writes only to the output folder (`dist/` or `--out`), to `.heron-cache/` and to the lock file `.<output folder>.heron-lock` next to it. What is allowed in each file is listed in the [data contract](docs/en/spec/20-data-contract.md).
 
 ## Theme
 
@@ -107,7 +112,7 @@ A theme is the `theme/` folder inside the site: `theme.yaml` (which page types a
 
 ## Plugins
 
-Plugins extend the **build**: your own section types, links between pages, Jinja filters, generators. They are ordinary pip packages (entry point group `heron.plugins`) installed into the site image with one Dockerfile line. For one-off needs of a single site, use the `plugins/<name>/` folder next to the content. A plugin from `site.yaml` that is not installed or failed on loading gives error `E014`. The engine has no runtime: form intake lives in a separate image, `heron-relay`. How themes and plugins are resolved: [`docs/en/spec/23-distribution.md`](docs/en/spec/23-distribution.md#theme-plugin-resolver).
+Plugins extend the **build**: your own section types, links between pages, Jinja filters, generators. They are ordinary pip packages (entry point group `heron.plugins`) installed into the site image with one Dockerfile line. For one-off needs of a single site, use the `plugins/<name>/` folder next to the content. A plugin from `site.yaml` that is not installed or failed on loading gives error `E014`. The engine has no runtime. Form intake is moved to a separate service, `heron-relay`, which is not implemented yet: the engine checks the form description in `site.yaml`, but nobody accepts the POST. How themes and plugins are resolved: [`docs/en/spec/23-distribution.md`](docs/en/spec/23-distribution.md#theme-plugin-resolver).
 
 ## Safe run
 
@@ -135,10 +140,12 @@ No network, a read-only root, no privileges, your own user, no `.env` and no doc
 | hreflang and the language switcher | images go into `media/`, the engine resizes them itself |
 | JSON-LD: page, breadcrumbs, FAQ, the site-wide node | data for the markup: the `schema` block in `site.yaml` |
 | `llms.txt` and full texts for AI models | the facts about the site for them: `seo.llms_note` |
+| page cover: `og:image`, `twitter:image`, images in `sitemap.xml`, large previews | which image: `og_image` or `image` of the page, `seo.og_default_image` of the site |
+| a check of the markup against the schema.org vocabulary (`SCH001`-`SCH006`) | fix the finding or record an exception in `schema_exceptions` |
 | image variants, WebP/AVIF, `srcset`, sizes | `alt` for images |
 | 301 from old addresses, 410 for deleted ones | old addresses go to `redirect_from`, deleted ones to `gone` |
 | a 404 page in every language, the nginx config | the 404 text: `content/<lang>/404.md` |
-| a dev build closed to indexing | `--env prod` for the production one |
+| a dev build closed to indexing | `--env prod` for the production one, `--out <folder>` to build somewhere other than `dist/` |
 | a check of all this with clear errors | fix what the report points at |
 
 What the engine can do, topic by topic: [`docs/en/roles/capabilities.md`](docs/en/roles/capabilities.md).
@@ -150,15 +157,16 @@ What the engine can do, topic by topic: [`docs/en/roles/capabilities.md`](docs/e
 The usual case is one site and the stable `:prod` image. All you need is docker.
 
 ```bash
-H="docker run --rm -it -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"
+H="docker run --rm -it -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"                                  # commands without network
+HP="docker run --rm -it -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"        # setup and serve: a port is needed
 
 $H new my-site         # asks for the working language, name, domain, languages, and lays out the folder
-$H setup my-site       # questionnaire: the address with a key is printed in the terminal: domains, schema.org, publication, theme
-$H serve my-site       # preview at localhost:8000 with a rebuild on every save
+$HP setup my-site      # questionnaire: the address with a key is printed in the terminal: domains, schema.org, publication, theme
+$HP serve my-site      # preview at localhost:8000 with a rebuild on every save
 $H build my-site       # → my-site/dist/
 ```
 
-The engine in the container sees only the current folder, so the path to the site is relative to it: `my-site`, or `.` if you are already in the site folder (for example in your own git repository: `.git` and `README` do not get in the way). Without questions, for agents and CI: `$H new my-site --notes en --name Workshop --domain workshop.com --lang en,ru -y`.
+The engine in the container sees only the current folder, so the path to the site is relative to it: `my-site`, or `.` if you are already in the site folder (for example in your own git repository: `.git` and `README` do not get in the way). Without questions, for agents and CI (no `-it`, no terminal needed): `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod new my-site --notes en --name Workshop --domain workshop.example --lang en,ru -y`.
 
 The answers go into `site.yaml`: comments written by hand and keys the questionnaire does not manage stay in place on save; the `setup` questionnaire adds the rest and puts the publication scripts, and you can edit `site.yaml` by hand too. If you changed the languages, `$H init my-site` builds up the folders. A new site comes with the white theme and its demo pages: the home page, "Blocks" (every kind of block), "Themes", "Documentation".
 
@@ -179,9 +187,11 @@ When there is more than one site or they need to be shipped as images, it is mor
 
 ```bash
 git clone https://github.com/FMSTM/HERON.git && cd HERON
+mkdir -p ~/sites                                 # site.sh new creates only the site folder, the parent must exist
 ./scripts/site.sh mysite new ~/sites/my-site     # create a site and its dev and prod environments
 ./scripts/site.sh mysite build dev               # build into out/mysite-dev
 ./scripts/site.sh mysite serve dev               # look at it on localhost:8080
+./scripts/site.sh mysite build prod             # build the production version
 ./scripts/site.sh mysite image prod              # pack into an nginx image
 ./scripts/site.sh mysite smoke prod              # start the image and check the answers: 200, 404, 301, 410
 ./scripts/site.sh mysite push prod               # push the image to the registry
@@ -201,6 +211,8 @@ How it differs from one site:
 | Site image | build by hand | `site.sh image`, check with `site.sh smoke` |
 
 **The engine version is pinned in the site itself**: the first line of `site.yaml` is `heron: ">=0.1,<0.2"`. An engine that does not fit refuses to build (`E012`). This way two sites can live on different versions, and updating the engine is changing one line.
+
+`image`, `serve`, `smoke` and `push` pack what is already in `out/` and build the site themselves only on the first run. If you edited the content, run `build` first.
 
 **Which images exist.** Sites are built with the tag `:prod` or an exact version `:X.Y.Z`. `:beta` and `:dev` are development branches of the engine itself; a dev build of a site is the `--env` flag, not a different image.
 
@@ -233,19 +245,22 @@ The documentation in a branch corresponds to the image with the same name: `prod
 | [23 · Distribution](docs/en/spec/23-distribution.md) | image, commands, site image, themes and plugins, security |
 | [Architecture](docs/en/architecture.md) | what consists of what, on one page |
 
-**For agents:** [`AGENTS.md`](AGENTS.md) is the instruction by roles: architect, content and SEO, designer, builder.
+What changed: [CHANGELOG.md](CHANGELOG.md).
+
+**For agents:** [`AGENTS.md`](AGENTS.md) is the pointer; the instruction by roles (architect, content and SEO, designer, builder) is in [`docs/en/README.md`](docs/en/README.md).
 
 ## Engine development
 
 ```bash
 git clone git@github.com:FMSTM/HERON.git && cd HERON
 uv sync --group dev
-./scripts/check.sh          # core boundary, format, linter, tests: the same as in CI
+uv run pre-commit install   # core boundary and ruff on every commit
+./scripts/check.sh          # core boundary, commit messages, translation, lock file, format, linter, tests: the same set of checks as the CI job; the browser test and the image are checked by CI separately
 ```
 
-Branches: `dev` is development, each feature in its own branch; `beta` is trying out on live sites; `prod` is what the sites run on. A release is the tag `vX.Y.Z`.
+Branches: `dev` is development, each feature in its own branch; `beta` is trying out on live sites; `prod` is what the sites run on. A release is the tag `vX.Y.Z`. Branches move forward without merges (`dev` → `beta` → `prod`); pushes to branches, tags and image publishing are done only by the repository owner.
 
-**The core boundary:** the engine knows nothing about any particular site: no names, no domains, no sections. It is checked by `scripts/check-boundaries.sh` on every commit and in CI.
+**The core boundary:** the engine knows nothing about any particular site: no names, no domains, no sections. It is checked by `scripts/check-boundaries.sh`: always in CI, on a commit if pre-commit is installed.
 
 ## Status and license
 

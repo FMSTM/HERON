@@ -64,6 +64,44 @@ def test_site_sh_new_runs_before_engine_settings_are_needed(tmp_path):
     assert (heron / "env/.env.demo.dev").is_file()  # всё — внутри временной папки
 
 
+@pytest.mark.parametrize("dirname", ["My Sites", "x$(touch pwned)&y;z"])
+def test_site_sh_new_writes_site_path_that_survives_sourcing(tmp_path, dirname):
+    """SITE_PATH в env-файле экранирован: пробелы и $( ) не становятся командами."""
+    heron = tmp_path / "heron"
+    (heron / "scripts").mkdir(parents=True)
+    (heron / "env").mkdir()
+    shutil.copy(ROOT / "scripts/site.sh", heron / "scripts/site.sh")
+    shutil.copy(ROOT / "env/.env.example", heron / "env/.env.example")
+    stub = tmp_path / "bin"
+    stub.mkdir()
+    (stub / "docker").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    (stub / "docker").chmod(0o755)
+    parent = tmp_path / dirname
+    parent.mkdir()
+    target = parent / "foo"
+    done = subprocess.run(
+        ["bash", str(heron / "scripts/site.sh"), "demo", "new", str(target)],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        env={**os.environ, "PATH": f"{stub}:{os.environ['PATH']}"},
+        stdin=subprocess.DEVNULL,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    env_file = heron / "env/.env.demo.dev"
+    read = subprocess.run(
+        ["bash", "-c", f'set -e; cd "{tmp_path}"; . "{env_file}"; printf %s "$SITE_PATH"'],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert read.returncode == 0, read.stderr
+    assert read.stdout == str(target)
+    assert not (tmp_path / "pwned").exists()
+    assert not (parent / "pwned").exists()
+
+
 # --- главная у каждого языка ------------------------------------------------------
 
 

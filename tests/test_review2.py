@@ -199,6 +199,26 @@ def test_site_sh_without_a_terminal_under_strict_bash(tmp_path):
     assert done.returncode == 0, done.stderr
 
 
+def test_image_builds_site_when_out_dir_has_no_nginx_conf(tmp_path):
+    """out/<сайт>-<env> без .heron-nginx.conf не считается собранным."""
+    heron, out, env = site_sh(tmp_path, engine_exit=0)
+    log = tmp_path / "docker.log"
+    (tmp_path / "bin/docker").write_text(
+        f'#!/bin/sh\necho "$@" >> {log}\nexit 0\n', encoding="utf-8"
+    )
+    run = lambda: subprocess.run(  # noqa: E731
+        ["bash", str(heron / "scripts/site.sh"), "demo", "image", "dev"],
+        capture_output=True, text=True, env=env, stdin=subprocess.DEVNULL, check=False,
+    )
+    out.mkdir(parents=True)
+    assert run().returncode == 0
+    assert "run --rm" in log.read_text(encoding="utf-8")
+    log.unlink()
+    (out / ".heron-nginx.conf").write_text("", encoding="utf-8")
+    assert run().returncode == 0
+    assert "run --rm" not in log.read_text(encoding="utf-8")
+
+
 # --- 4, 12. чужие файлы и прерванная запись ---------------------------------------
 
 

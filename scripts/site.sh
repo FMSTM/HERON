@@ -85,11 +85,17 @@ do_new() {
   for name in dev prod; do
     local file="env/.env.${SITE}.${name}"
     if [ -e "$file" ]; then note "уже есть $file — не трогаю"; continue; fi
-    sed -e "s|^SITE_PATH=.*|SITE_PATH=$parent/$base|" \
-        -e "s|^SITE_ENV=.*|SITE_ENV=$name|" \
+    # Путь пишем экранированным (printf %q): файл потом исполняется через
+    # точку, и пробелы, $( ) или ; в пути не должны стать командами.
+    # Через sed значение не идёт: он съедает обратные косые и понимает & и |.
+    local quoted
+    quoted="$(printf '%q' "$parent/$base")"
+    sed -e "s|^SITE_ENV=.*|SITE_ENV=$name|" \
         -e "s|^IMAGE_NAME=.*|IMAGE_NAME=heron-site-$SITE|" \
         -e "s|^IMAGE_TAG=.*|IMAGE_TAG=$name|" \
-        env/.env.example > "$file"
+        env/.env.example \
+      | SITE_PATH_LINE="SITE_PATH=$quoted" awk '/^SITE_PATH=/ {print ENVIRON["SITE_PATH_LINE"]; next} {print}' \
+      > "$file"
     [ "$name" = prod ] && sed -i.bak -e "s|^STRICT=.*|STRICT=true|" "$file" && rm -f "$file.bak"
     written=1
   done
@@ -271,7 +277,7 @@ do_build() {
 }
 
 do_image() {
-  [ -d "$OUT" ] || do_build
+  [ -f "$OUT/.heron-nginx.conf" ] || do_build
   note "упаковка в $IMAGE_NAME:$IMAGE_TAG"
   build_image -f "$HERON_ROOT/Dockerfile.site" -t "$IMAGE_NAME:$IMAGE_TAG" "$OUT"
   ok "готов образ $IMAGE_NAME:$IMAGE_TAG"

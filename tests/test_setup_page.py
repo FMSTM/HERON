@@ -224,3 +224,56 @@ def test_findings_selectors_use_css_escape():
     block += PAGE[PAGE.index("function fixFindings(") :][:900]
     assert block.count("CSS.escape(") >= 3
     assert not re.search(r"""\[data-field="' \+ (?!CSS\.escape)""", block)
+
+
+# T65: страница анкеты и список стран без длинных и коротких тире.
+# Исключения (явный список): строки JS-комментариев (// ...) и массив SEPS с
+# регулярным выражением splitSuffix: они принимают тире, которое автор мог ввести.
+def _dash_lines_outside_exceptions(text: str) -> list[str]:
+    bad = []
+    for line in text.split("\n"):
+        if "—" not in line and "–" not in line:
+            continue
+        stripped = line.strip()
+        if stripped.startswith("//"):
+            continue
+        if stripped.startswith("const SEPS =") or "const m = /^\\s*([" in stripped:
+            continue
+        bad.append(stripped[:80])
+    return bad
+
+
+def test_page_html_has_no_dashes_outside_exceptions():
+    assert _dash_lines_outside_exceptions(PAGE) == []
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_label_dictionaries_have_no_dashes(lang: str):
+    block = _block(lang)
+    assert "—" not in block and "–" not in block
+
+
+def test_countries_json_has_no_dashes():
+    import json
+
+    path = Path(answers.__file__).parent / "countries.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    names = [n for row in data["countries"] for n in row[1:3]]
+    assert names
+    assert not [n for n in names if "—" in n or "–" in n]
+    assert ["PG", "Папуа - Новая Гвинея"] == [r for r in data["countries"] if r[0] == "PG"][0][:2]
+
+
+def test_suffix_default_separator_is_hyphen_and_author_hyphen_kept():
+    i = PAGE.index("function splitSuffix(")
+    body = PAGE[i : PAGE.index("function gSearch(", i)]
+    assert 'return ["-", (v || "").trim()]' in body
+    assert "return [m[1], m[2]]" in body
+    assert 'm[1] === "-"' not in body
+    assert 'const SEPS = ["-",' in PAGE
+
+
+def test_dash_check_catches_reintroduced_dash():
+    mutated = PAGE.replace('lang_add: "- добавить язык -"', 'lang_add: "— добавить язык —"')
+    assert mutated != PAGE
+    assert _dash_lines_outside_exceptions(mutated)

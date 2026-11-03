@@ -199,38 +199,38 @@ const T = {
     workplace: "Место работы", workplace_other_address: "Адрес не как у сайта",
     not_set: "не указано", filter: "Фильтр по названию", add_rule: "Добавить правило", remove: "Убрать строку", hours_preview: "В разметке будет", hours_order: "Закрытие должно быть позже открытия", not_in_vocab: "нет в словаре", remove_value: "Убрать", not_for_spec: "не подходит выбранной сфере", day_from: "С дня", day_to: "По день", opens: "Открытие", closes: "Закрытие", yes: "Да", no: "Нет", hours_bad: "не удалось разобрать, в разметку не попадёт", delete: "Удалить", hours_complex: "сложное правило, правится в site.yaml",
     bot: "Нужна помощь или есть вопросы?", bot_off: "Скоро здесь будет связь с нами.",
-    dir: "Сфера деятельности", dir_none: "— сфера деятельности —", spec_none: "— специализация (необязательно) —", kind_none: "— вид (необязательно) —",
+    dir: "Сфера деятельности", dir_none: "- сфера деятельности -", spec_none: "- специализация (необязательно) -", kind_none: "- вид (необязательно) -",
     sep: "Разделитель", suffix_text: "Текст после разделителя",
-    helpers_t: "Помощники для вашего удобства", helpers_about: "site.yaml записывается всегда — это настройки сайта. Остальное — по желанию: скрипты лягут в скрытую папку .heron/ и в сборку сайта не попадут.",
-    h_build: "Скрипт сборки", h_build_s: ".heron/scripts/build.sh — итоговая сборка одной командой",
-    h_publish: "Скрипт публикации", h_publish_s: ".heron/scripts/publish.sh — публикует выбранным способом",
+    helpers_t: "Помощники для вашего удобства", helpers_about: "site.yaml записывается всегда - это настройки сайта. Остальное - по желанию: скрипты лягут в скрытую папку .heron/ и в сборку сайта не попадут.",
+    h_build: "Скрипт сборки", h_build_s: ".heron/scripts/build.sh - итоговая сборка одной командой",
+    h_publish: "Скрипт публикации", h_publish_s: ".heron/scripts/publish.sh - публикует выбранным способом",
     h_gitignore: ".gitignore", h_gitignore_s: "не пускает в git кэш и папку dist/",
-    h_workflow: ".github/workflows/image.yml — сборка на GitHub. Записывается вместе с автосборкой: GitHub ищет его только там.",
-    h_pages: ".github/workflows/pages.yml — сборка и публикация на GitHub Pages. GitHub ищет его только там.",
+    h_workflow: ".github/workflows/image.yml - сборка на GitHub. Записывается вместе с автосборкой: GitHub ищет его только там.",
+    h_pages: ".github/workflows/pages.yml - сборка и публикация на GitHub Pages. GitHub ищет его только там.",
     title: "настройка", save: "Сохранить", saving: "Сохраняю…", h1: "Настройка сайта",
-    lead: "Заполните, что знаете. Для начала нужны только первые две группы, остальное — к публикации. Каждый ответ ложится в site.yaml: к нему можно вернуться и поменять. Изменённое поле помечено, его можно вернуть.",
+    lead: "Заполните, что знаете. Для начала нужны только первые две группы, остальное - к публикации. Каждый ответ ложится в site.yaml: к нему можно вернуться и поменять. Изменённое поле помечено, его можно вернуть.",
     need: "нужно", dev: "в разработке", was: "было", undo: "вернуть", empty: "пусто",
-    g_site: "Сайт и домены", g_site_about: "Название сайта и два адреса: рабочий и служебный. Домена пока нет — оставьте заглушку и поменяйте перед публикацией.",
-    name: "Название сайта", name_h: "Название вашего сайта. Из него строятся шапка и заголовки страниц, подписи в выдаче поисковиков, файл llms.txt для нейросетей. Само по себе в поисковики оно не уходит — только вместе с опубликованным сайтом.",
+    g_site: "Сайт и домены", g_site_about: "Название сайта и два адреса: рабочий и служебный. Домена пока нет - оставьте заглушку и поменяйте перед публикацией.",
+    name: "Название сайта", name_h: "Название вашего сайта. Из него строятся шапка и заголовки страниц, подписи в выдаче поисковиков, файл llms.txt для нейросетей. Само по себе в поисковики оно не уходит - только вместе с опубликованным сайтом.",
     domain: "Рабочий домен", domain_h: "Адрес, на котором будет работать рабочая версия сайта, без https://: example.com. Это основной домен: его видят посетители и поисковики.",
-    preview: "Служебный домен", preview_h: "Если вам нужны тесты и проверки, заведите для этого отдельный домен и укажите его здесь: dev.example.com. Такие сайты обычно закрыты от поисковиков. Сборка для dev и скрипт публикации возьмут этот адрес — при публикации обратите на это внимание.",
+    preview: "Служебный домен", preview_h: "Если вам нужны тесты и проверки, заведите для этого отдельный домен и укажите его здесь: dev.example.com. Такие сайты обычно закрыты от поисковиков. Сборка для dev и скрипт публикации возьмут этот адрес - при публикации обратите на это внимание.",
     preview_link: "Как работают окружения dev и prod",
-    g_lang: "Языки", g_lang_about: "Какие языки у сайта и какой основной. Основной живёт в корне сайта, остальные — с приставкой: /de/. У каждого языка своя папка в content/.",
-    langs: "Языки сайта", langs_h: "Выберите из списка — язык появится ниже. Крестик убирает язык. Новый язык получит папку с главной и страницей 404.",
-    lang_add: "— добавить язык —", main_lang: "Основной язык", main_lang_h: "Выбирается из языков сайта. Отдаётся из корня сайта.",
-    g_who: "О ком сайт: schema.org для вашего сайта", g_who_about: "Поисковики сами пытаются понять по страницам сайта, о ком он: компания это или человек, чем занимается, где находится, как связаться. Получается не всегда: что-то они не находят, что-то путают. Чтобы помочь им, Google, Bing, Яндекс и другие поисковики договорились о словаре schema.org — разметке, в которой эти сведения записаны однозначно. По ней поисковик может показать в выдаче карточку с адресом, часами работы и телефоном. Заполните анкету один раз — HERON добавит разметку на каждую страницу. Пропущенный вопрос просто не попадёт в разметку: пустых или выдуманных значений не будет.",
-    type: "Кто вы", type_h: "Человек или организация; у организации — вид. Затем сфера деятельности и специализация. Нет точной — выберите ближайшую: разметка останется верной, только менее подробной.",
-    type_none: "— не сейчас —", type_more: "точнее (необязательно)",
+    g_lang: "Языки", g_lang_about: "Какие языки у сайта и какой основной. Основной живёт в корне сайта, остальные - с приставкой: /de/. У каждого языка своя папка в content/.",
+    langs: "Языки сайта", langs_h: "Выберите из списка - язык появится ниже. Крестик убирает язык. Новый язык получит папку с главной и страницей 404.",
+    lang_add: "- добавить язык -", main_lang: "Основной язык", main_lang_h: "Выбирается из языков сайта. Отдаётся из корня сайта.",
+    g_who: "О ком сайт: schema.org для вашего сайта", g_who_about: "Поисковики сами пытаются понять по страницам сайта, о ком он: компания это или человек, чем занимается, где находится, как связаться. Получается не всегда: что-то они не находят, что-то путают. Чтобы помочь им, Google, Bing, Яндекс и другие поисковики договорились о словаре schema.org - разметке, в которой эти сведения записаны однозначно. По ней поисковик может показать в выдаче карточку с адресом, часами работы и телефоном. Заполните анкету один раз - HERON добавит разметку на каждую страницу. Пропущенный вопрос просто не попадёт в разметку: пустых или выдуманных значений не будет.",
+    type: "Кто вы", type_h: "Человек или организация; у организации - вид. Затем сфера деятельности и специализация. Нет точной - выберите ближайшую: разметка останется верной, только менее подробной.",
+    type_none: "- не сейчас -", type_more: "точнее (необязательно)",
     address: "Юридический адрес", address_person: "Адрес",
-    contacts: "Контакты", contacts_h: "Каждый канал — отдельной строкой: что это, для чего и значение. Телефонов, почт и мессенджеров может быть сколько угодно. Первый телефон и первая почта — основные: их покажет подвал сайта. Строка без значения не сохраняется.",
-    contact_add: "+ Добавить контакт", purpose_none: "— назначение —",
-    direction_none: "— выберите —",
+    contacts: "Контакты", contacts_h: "Каждый канал - отдельной строкой: что это, для чего и значение. Телефонов, почт и мессенджеров может быть сколько угодно. Первый телефон и первая почта - основные: их покажет подвал сайта. Строка без значения не сохраняется.",
+    contact_add: "+ Добавить контакт", purpose_none: "- назначение -",
+    direction_none: "- выберите -",
     g_search: "Поиск", g_search_about: "Как сайт выглядит в выдаче поисковиков и когда ссылкой делятся в соцсетях.",
-    g_ai: "ИИ-ассистенты", g_ai_about: "Что знать о сайте нейросетям: ChatGPT, Claude, Perplexity и другим. HERON собирает для них файл llms.txt — список страниц с описаниями, а в начало ставит вашу заметку.",
-    suffix_use: "подставить", suffix_warn: "Начните с пробела и разделителя — « — », « | » или « · », иначе хвост приклеится к заголовку.",
-    suffix: "Хвост заголовка", suffix_h: "Текст, который добавляется после заголовка каждой страницы. Его видно во вкладке браузера и в выдаче поисковиков: по нему понятно, чей это сайт. Обычно — тире и название.",
+    g_ai: "ИИ-ассистенты", g_ai_about: "Что знать о сайте нейросетям: ChatGPT, Claude, Perplexity и другим. HERON собирает для них файл llms.txt - список страниц с описаниями, а в начало ставит вашу заметку.",
+    suffix_use: "подставить", suffix_warn: "Начните с пробела и разделителя - « - », « | » или « · », иначе хвост приклеится к заголовку.",
+    suffix: "Хвост заголовка", suffix_h: "Текст, который добавляется после заголовка каждой страницы. Его видно во вкладке браузера и в выдаче поисковиков: по нему понятно, чей это сайт. Обычно - тире и название.",
     suffix_example: "Так будет выглядеть заголовок страницы «О нас»:", example: "пример",
-    note: "Заметка для ИИ", note_h: "Несколько строк фактов, которые HERON поставит в начало llms.txt — файла для нейросетей: чем занимаетесь, где, как связаться. На каждом языке сайта своя вкладка. Markdown.",
+    note: "Заметка для ИИ", note_h: "Несколько строк фактов, которые HERON поставит в начало llms.txt - файла для нейросетей: чем занимаетесь, где, как связаться. На каждом языке сайта своя вкладка. Markdown.",
     og: "Картинка для соцсетей", og_h: "Видна, когда ссылкой на сайт делятся в мессенджере или соцсети. Положите картинку 1200×630 в папку media/ в корне сайта и укажите путь: media/social.jpg.",
     prices: "Показывать цены в разметке", prices_h: "Если включить, уровень цен и цены из страниц попадут в разметку schema.org, и поисковик может показать их в выдаче. Выключено по умолчанию: устаревшая цена в выдаче хуже, чем никакой. Включайте, только если цены на сайте актуальны и вы готовы их публиковать.",
     g_an: "Аналитика", g_an_about: "Счётчики посещаемости. Это публичные номера, не пароли: они видны в коде страницы. Счётчики работают только в рабочей сборке (prod) и только после согласия посетителя.",
@@ -238,55 +238,55 @@ const T = {
     g_pub: "Где публикуете", g_pub_about: "Как хранить и публиковать сайт. Конфигуратор покажет только нужные этому способу поля и запишет его файлы.",
     way_github: "GitHub", way_github_s: "код в репозитории", way_hub: "Docker Hub", way_hub_s: "свой реестр образов", way_static: "Статические файлы", way_static_s: "сервер или GitHub Pages", way_none: "Пока не знаю", way_none_s: "только сборка и просмотр",
     repo: "Репозиторий", repo_h: "владелец/имя на GitHub: you/my-site.", branch: "Ветка", branch_h: "Отправка в эту ветку запускает сборку.",
-    auto: "Автоматическая сборка и публикация", auto_on: "Включено. Как это работает:", auto_steps: ["вы отправляете изменения в git;", "GitHub запускает проверки сайта;", "берёт актуальный образ HERON и на своих серверах собирает образ сайта;", "публикует его по адресу из таблицы ниже."], auto_off: "Выключено: GitHub только хранит код, а собираете и публикуете вы сами — scripts/build.sh и scripts/publish.sh.",
-    env: "Что собирается", env_h: "dev — проверочная версия на служебном домене, закрыта от поисковиков. prod — рабочая версия на рабочем домене. Обычно начинают с dev и переключают на prod, когда сайт готов.",
-    engine: "Версия HERON", engine_h: "prod — стабильная, beta — следующая. Закрепить точно: prod@sha256:<digest>.",
+    auto: "Автоматическая сборка и публикация", auto_on: "Включено. Как это работает:", auto_steps: ["вы отправляете изменения в git;", "GitHub запускает проверки сайта;", "берёт актуальный образ HERON и на своих серверах собирает образ сайта;", "публикует его по адресу из таблицы ниже."], auto_off: "Выключено: GitHub только хранит код, а собираете и публикуете вы сами - scripts/build.sh и scripts/publish.sh.",
+    env: "Что собирается", env_h: "dev - проверочная версия на служебном домене, закрыта от поисковиков. prod - рабочая версия на рабочем домене. Обычно начинают с dev и переключают на prod, когда сайт готов.",
+    engine: "Версия HERON", engine_h: "prod - стабильная, beta - следующая. Закрепить точно: prod@sha256:<digest>.",
     envs_t: "Что получится", env_col: "Сборка", env_domain: "Домен", env_index: "Поисковики", env_image: "Адрес образа", index_closed: "закрыт", index_open: "открыт", env_now: "сейчас",
-    hub_user: "Пользователь Docker Hub", hub_image: "Имя образа", hub_image_h: "строчными: my-site. Вход в Docker Hub — один раз на компьютере: docker login.",
+    hub_user: "Пользователь Docker Hub", hub_image: "Имя образа", hub_image_h: "строчными: my-site. Вход в Docker Hub - один раз на компьютере: docker login.",
     target: "Куда", target_server: "Свой сервер", target_pages: "GitHub Pages",
     server: "Сервер", server_h: "user@host для rsync по ssh.", path: "Папка на сервере", path_h: "Абсолютный путь: /var/www/example.com",
     writes_t: "Что запишет конфигуратор",
     w_site: "все настройки", w_build: "итоговая сборка одной командой", w_image: "сборка на GitHub: проверки, образ, публикация", w_publish: "публикует выбранным способом", w_ignore: "не пускает в git кэш и dist/", w_pages: "сборка и публикация на GitHub Pages",
-    g_keys: "Ключи доступа и модули", g_keys_about: "Токены для закрытых реестров и подключение модулей — например, внешней базы данных, CRM или другой CMS. Раздел в разработке: сейчас здесь ничего настраивать не нужно.",
-    g_theme: "Тема", g_theme_about: "Внешний вид сайта. Вместе с темой приезжают её страницы-примеры — только туда, где страниц ещё нет: ваши файлы не перезаписываются.",
+    g_keys: "Ключи доступа и модули", g_keys_about: "Токены для закрытых реестров и подключение модулей - например, внешней базы данных, CRM или другой CMS. Раздел в разработке: сейчас здесь ничего настраивать не нужно.",
+    g_theme: "Тема", g_theme_about: "Внешний вид сайта. Вместе с темой приезжают её страницы-примеры - только туда, где страниц ещё нет: ваши файлы не перезаписываются.",
     th_keep: "Текущая", th_white: "белая", th_name: "Из каталога HERON", th_url: "По ссылке", th_file: "Свой архив",
     th_url_h: "https-адрес .zip или .tar.gz; #sha256=<хеш> в конце сверяется.", th_file_h: ".zip или .tar.gz с папкой theme/ внутри.",
     sch_title: "Разметка не пройдёт проверку schema.org", sch_fix: "Исправить", sch_save_anyway: "Сохранить всё равно", sch_drop_q: "Удалить неверные значения?", sch_drop: "Удалить", sch_keep: "Не удалять", sch_reason: "Причина", sch_reason_hint: "В site.yaml будет записано исключение, prod-сборка пройдёт, отчёт его покажет.", sch_except_title: "Сохранить с исключением", sch_saved_except: "Сохранено с исключением", sch_dropped: "Убрано из разметки", sch_banner: "В site.yaml есть разметка, которая не пройдёт проверку", sch_show: "Показать", sch_excepted: "Исключения", sch_expired: "Срок исключения истёк", sch_path: "Путь в site.yaml", sch_field: "Поле", sch_drop_hint: "Эти значения уйдут из site.yaml и из разметки:",
-    saved: "Сохранено", nothing: "Ничего не изменилось.", written: "Записано", removed: "Убрано", kept: "Оставлено, файл не наш", created: "Создано", backup: "Прежняя версия", next: "Дальше: heron serve . — посмотреть сайт.", error: "Не сохранено",
+    saved: "Сохранено", nothing: "Ничего не изменилось.", written: "Записано", removed: "Убрано", kept: "Оставлено, файл не наш", created: "Создано", backup: "Прежняя версия", next: "Дальше: heron serve . - посмотреть сайт.", error: "Не сохранено",
   },
   en: {
     workplace: "Place of work", workplace_other_address: "Address differs from the site's",
     not_set: "not set", filter: "Filter by name", add_rule: "Add rule", remove: "Remove row", hours_preview: "Markup will contain", hours_order: "Closing must be later than opening", not_in_vocab: "not in vocabulary", remove_value: "Remove", not_for_spec: "does not fit the chosen field", day_from: "From day", day_to: "To day", opens: "Opens", closes: "Closes", yes: "Yes", no: "No", hours_bad: "could not be parsed, will not reach the markup", delete: "Delete", hours_complex: "complex rule, edit it in site.yaml",
     bot: "Need help or have questions?", bot_off: "A way to reach us will be here soon.",
-    dir: "Field of work", dir_none: "— field of work —", spec_none: "— specialization (optional) —", kind_none: "— kind (optional) —",
+    dir: "Field of work", dir_none: "- field of work -", spec_none: "- specialization (optional) -", kind_none: "- kind (optional) -",
     sep: "Separator", suffix_text: "Text after the separator",
     helpers_t: "Helpers for your convenience", helpers_about: "site.yaml is always written: it is the settings of the site. The rest is up to you: scripts go to the hidden .heron/ folder and never into the build of the site.",
-    h_build: "Build script", h_build_s: ".heron/scripts/build.sh — the final build in one command",
-    h_publish: "Publish script", h_publish_s: ".heron/scripts/publish.sh — publishes the way you chose",
+    h_build: "Build script", h_build_s: ".heron/scripts/build.sh - the final build in one command",
+    h_publish: "Publish script", h_publish_s: ".heron/scripts/publish.sh - publishes the way you chose",
     h_gitignore: ".gitignore", h_gitignore_s: "keeps caches and dist/ out of git",
-    h_workflow: ".github/workflows/image.yml — the build on GitHub. Written together with the automatic build: GitHub looks for it there only.",
-    h_pages: ".github/workflows/pages.yml — the build and publishing on GitHub Pages. GitHub looks for it there only.",
+    h_workflow: ".github/workflows/image.yml - the build on GitHub. Written together with the automatic build: GitHub looks for it there only.",
+    h_pages: ".github/workflows/pages.yml - the build and publishing on GitHub Pages. GitHub looks for it there only.",
     title: "setup", save: "Save", saving: "Saving…", h1: "Set up your site",
     lead: "Fill in what you know. Only the first two groups are needed to start; the rest can wait until you publish. Every answer lands in site.yaml, you can come back and change it. A changed field is marked and can be undone.",
     need: "needed", dev: "in development", was: "was", undo: "undo", empty: "empty",
     g_site: "Site and domains", g_site_about: "The name of the site and two addresses: the working one and a service one. No domain yet? Leave the placeholder and change it before you publish.",
     name: "Site name", name_h: "The name of your site. The header, page titles, search result captions and llms.txt for AI are built from it. It does not go to search engines by itself, only with the published site.",
     domain: "Working domain", domain_h: "The address where the working version of the site will live, without https://: example.com. This is the main domain: visitors and search engines see it.",
-    preview: "Service domain", preview_h: "If you need tests and checks, get a separate domain for them and enter it here: dev.example.com. Such sites are usually closed to search engines. The dev build and the publishing script use this address — keep it in mind when you publish.",
+    preview: "Service domain", preview_h: "If you need tests and checks, get a separate domain for them and enter it here: dev.example.com. Such sites are usually closed to search engines. The dev build and the publishing script use this address - keep it in mind when you publish.",
     preview_link: "How the dev and prod environments work",
     g_lang: "Languages", g_lang_about: "Which languages the site has and which one is the main. The main one lives at the root, the others get a prefix: /de/. Each language gets its own folder in content/.",
     langs: "Languages of the site", langs_h: "Pick from the list, the language appears below. The cross removes it. A new language gets a folder with a home page and a 404 page.",
-    lang_add: "— add a language —", main_lang: "Main language", main_lang_h: "Chosen from the languages of the site. Served from the root.",
+    lang_add: "- add a language -", main_lang: "Main language", main_lang_h: "Chosen from the languages of the site. Served from the root.",
     g_who: "Who the site is about: schema.org for your site", g_who_about: "Search engines try to work out from the pages who a site is about: a company or a person, what they do, where they are, how to reach them. It does not always work: some things they miss, some they mix up. To help them, Google, Bing and others agreed on schema.org, a vocabulary that states these facts unambiguously. From it a search engine can show a card with the address, opening hours and phone right in the results. Fill in the questionnaire once and HERON adds the markup to every page. A skipped question simply stays out: nothing empty or invented.",
     type: "Who you are", type_h: "A person or an organization; for an organization, its kind. Then the field of work and the specialization. Nothing exact? Take the nearest: the markup stays correct, only less detailed.",
-    type_none: "— not now —", type_more: "more specific (optional)",
+    type_none: "- not now -", type_more: "more specific (optional)",
     address: "Registered address", address_person: "Address",
     contacts: "Contacts", contacts_h: "Each channel on its own line: what it is, what for, and the value. As many phones, emails and messengers as you need. The first phone and the first email are the main ones: the footer shows them. A line without a value is not saved.",
-    contact_add: "+ Add a contact", purpose_none: "— purpose —",
-    direction_none: "— pick one —",
+    contact_add: "+ Add a contact", purpose_none: "- purpose -",
+    direction_none: "- pick one -",
     g_search: "Search", g_search_about: "How the site looks in search results and when a link to it is shared.",
     g_ai: "AI assistants", g_ai_about: "What AI tools should know about the site: ChatGPT, Claude, Perplexity and others. HERON builds llms.txt for them, a list of pages with descriptions, with your note on top.",
-    suffix_use: "use it", suffix_warn: "Start with a space and a separator — « — », « | » or « · », or the suffix sticks to the title.",
+    suffix_use: "use it", suffix_warn: "Start with a space and a separator - « - », « | » or « · », or the suffix sticks to the title.",
     suffix: "Title suffix", suffix_h: "Text added after the title of every page. It shows in the browser tab and in search results, so people see whose site it is. Usually a dash and the name.",
     suffix_example: "This is how the title of the page «About» will look:", example: "example",
     note: "Note for AI", note_h: "A few lines of facts HERON puts at the top of llms.txt, the file for AI: what you do, where, how to reach you. A tab per language of the site. Markdown.",
@@ -299,7 +299,7 @@ const T = {
     repo: "Repository", repo_h: "owner/name on GitHub: you/my-site.", branch: "Branch", branch_h: "Pushes to this branch start the build.",
     auto: "Automatic build and publishing", auto_on: "On. How it works:", auto_steps: ["you push the changes to git;", "GitHub runs the checks of the site;", "takes the current HERON image and builds the image of the site on its servers;", "publishes it at the address in the table below."], auto_off: "Off: GitHub only keeps the code, and you build and publish yourself with scripts/build.sh and scripts/publish.sh.",
     env: "What is built", env_h: "dev is the check version on the service domain, closed to search engines. prod is the working version on the working domain. Usually you start with dev and switch to prod when the site is ready.",
-    engine: "HERON version", engine_h: "prod — stable, beta — the next one. Pin exactly: prod@sha256:<digest>.",
+    engine: "HERON version", engine_h: "prod - stable, beta - the next one. Pin exactly: prod@sha256:<digest>.",
     envs_t: "What you get", env_col: "Build", env_domain: "Domain", env_index: "Search engines", env_image: "Image address", index_closed: "closed", index_open: "open", env_now: "now",
     hub_user: "Docker Hub user", hub_image: "Image name", hub_image_h: "lowercase: my-site. Sign in to Docker Hub once per computer: docker login.",
     target: "Where to", target_server: "My server", target_pages: "GitHub Pages",
@@ -311,7 +311,7 @@ const T = {
     th_keep: "Current", th_white: "white", th_name: "From the HERON catalog", th_url: "By link", th_file: "My archive",
     th_url_h: "https address of a .zip or .tar.gz; #sha256=<hash> at the end is checked.", th_file_h: ".zip or .tar.gz with theme/ inside.",
     sch_title: "The markup will not pass the schema.org check", sch_fix: "Fix", sch_save_anyway: "Save anyway", sch_drop_q: "Remove the invalid values?", sch_drop: "Remove", sch_keep: "Keep them", sch_reason: "Reason", sch_reason_hint: "An exception will be written to site.yaml, the prod build will pass, and the report will show it.", sch_except_title: "Save with an exception", sch_saved_except: "Saved with an exception", sch_dropped: "Removed from the markup", sch_banner: "site.yaml has markup that will not pass the check", sch_show: "Show", sch_excepted: "Exceptions", sch_expired: "The exception has expired", sch_path: "Path in site.yaml", sch_field: "Field", sch_drop_hint: "These values will leave site.yaml and the markup:",
-    saved: "Saved", nothing: "Nothing changed.", written: "Written", removed: "Removed", kept: "Kept, not ours", created: "Created", backup: "Previous version", next: "Next: heron serve . — look at the site.", error: "Not saved",
+    saved: "Saved", nothing: "Nothing changed.", written: "Written", removed: "Removed", kept: "Kept, not ours", created: "Created", backup: "Previous version", next: "Next: heron serve . - look at the site.", error: "Not saved",
   },
 };
 const CT = {
@@ -364,7 +364,7 @@ function shown(v) {
   if (blank(v)) return t("empty");
   if (Array.isArray(v)) return v.map((x) => (typeof x === "object" ? [CT[L][x.type] || x.type, x.purpose ? PU[L][x.purpose] : "", x.value].filter(Boolean).join(" · ") : x)).join("; ");
   if (typeof v === "object") return Object.entries(v).map(([k, x]) => k + ": " + x).join("; ");
-  if (v === true) return "✓"; if (v === false) return "—";
+  if (v === true) return "✓"; if (v === false) return "-";
   return String(v);
 }
 // Отметка «было → стало» под полем: сравнение с тем, что сейчас записано в site.yaml.
@@ -408,7 +408,7 @@ function group(id, n, title, about, flag, ...body) {
   const tag = flag === "need" ? h("span", { class: "need" }, t("need")) : flag === "dev" ? h("span", { class: "dev" }, t("dev")) : null;
   return h("section", { class: "group", id: "g-" + id }, h("h2", {}, h("span", { class: "n" }, n), h("span", { class: "title" }, title), tag), h("p", { class: "about" }, about), ...body);
 }
-function langName(code) { const row = LANGS.find((x) => x[0] === code); return row ? (L === "ru" ? row[1] : row[2]) + " — " + code : code; }
+function langName(code) { const row = LANGS.find((x) => x[0] === code); return row ? (L === "ru" ? row[1] : row[2]) + " - " + code : code; }
 
 // --- группы -----------------------------------------------------------------
 function gSite() {
@@ -741,11 +741,11 @@ function contactsBox() {
   } }, t("contact_add"));
   return h("div", { class: "field wide" }, h("span", { class: "legend" }, t("contacts")), hint(t("contacts_h")), list, h("div", {}, add), track("about.contacts"));
 }
-const SEPS = ["—", "|", "·", "–", "/", ":"];
+const SEPS = ["-", "—", "|", "·", "–", "/", ":"];
 function splitSuffix(v) {
   const m = /^\s*([—–\-|·:\/])\s*(.*)$/.exec(v || "");
-  if (m) return [m[1] === "-" ? "–" : m[1], m[2]];
-  return ["—", (v || "").trim()];
+  if (m) return [m[1], m[2]];
+  return ["-", (v || "").trim()];
 }
 function gSearch() {
   const name = A.site.name || "Smith Dental";
@@ -796,7 +796,7 @@ function imageOf(env) {
   const p = A.publish;
   if (p.way === "github") { const repo = (p.repo || ST.git_remote || "<owner>/<repo>").toLowerCase(); return "ghcr.io/" + repo + ":" + env; }
   if (p.way === "dockerhub") return "docker.io/" + (p.dockerhub_user || "<user>") + "/" + (p.image || "<image>") + ":" + env;
-  return "—";
+  return "-";
 }
 function toggle(id, on, title, sub, onchange) {
   const box = h("input", { type: "checkbox", id, role: "switch" }); box.checked = on;
@@ -837,7 +837,7 @@ function gPublish() {
   if (image) {
     const rows = ["dev", "prod"].map((e) => h("tr", { class: e === p.env ? "on" : null },
       h("td", {}, e, e === p.env ? " · " + t("env_now") : ""),
-      h("td", {}, h("code", {}, e === "dev" ? (A.site.preview_domain || "—") : (A.site.domain || "—"))),
+      h("td", {}, h("code", {}, e === "dev" ? (A.site.preview_domain || "-") : (A.site.domain || "-"))),
       h("td", {}, e === "dev" ? t("index_closed") : t("index_open")),
       h("td", {}, h("code", {}, imageOf(e)))));
     grid.append(h("div", { class: "field wide" }, h("span", { class: "legend" }, t("envs_t")),
@@ -867,7 +867,7 @@ function gTheme() {
   const grid = h("div", { class: "grid", style: "margin-top:1rem" });
   if (th.source === "name") {
     const list = ST.themes || [];
-    const sel = h("select", { id: "theme.value" }, ...list.map((x) => h("option", { value: x.name, selected: th.value === x.name }, (x.title || x.name) + (x.description ? " — " + x.description : ""))));
+    const sel = h("select", { id: "theme.value" }, ...list.map((x) => h("option", { value: x.name, selected: th.value === x.name }, (x.title || x.name) + (x.description ? " - " + x.description : ""))));
     if (!th.value && list.length) th.value = list[0].name;
     sel.addEventListener("change", () => (th.value = sel.value));
     grid.append(h("div", { class: "field wide" }, sel));

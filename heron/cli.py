@@ -622,7 +622,11 @@ def _check_json(
             old_section = {
                 "summary": rendered(old_summary, lang),
                 "lost": [
-                    {"path": rendered(w.path, lang), "line": w.line, "message": rendered(w.message, lang)}
+                    {
+                        "path": rendered(w.path, lang),
+                        "line": w.line,
+                        "message": rendered(w.message, lang),
+                    }
                     for w in lost
                 ],
             }

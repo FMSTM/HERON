@@ -1,5 +1,6 @@
 """Сообщения build: ru прежний байт в байт, en без кириллицы (E15.S2.T18)."""
 
+import json
 import re
 
 import pytest
@@ -142,7 +143,7 @@ def test_warning_with_msg_path_in_summary_and_full_file(tmp_path):
     collector.warn("text", path=_owner(), line=3, kind="media")
     full = tmp_path / "full.txt"
     en = report.summary(collector, full, lang="en")
-    assert not CYR.search(en.split("\n", 1)[1].replace("прочее", ""))
+    assert not CYR.search(en)
     assert "a.md and 2 more:3" in en
     assert "a.md and 2 more:3" in full.read_text(encoding="utf-8")
     ru = report.summary(collector, tmp_path / "ru.txt", lang="ru")
@@ -159,3 +160,85 @@ def test_cli_fail_renders_msg_path_en(tmp_path, capsys):
     with pytest.raises(SystemExit):
         cli._fail(error, "ru")
     assert "a.md и ещё 2:4" in capsys.readouterr().err
+
+
+def _check_json(root, lang: str, *flags: str) -> dict:
+    from click.testing import CliRunner
+
+    from heron import cli
+
+    result = CliRunner().invoke(cli.main, ["check", str(root), "--json", "--notes", lang, *flags])
+    return json.JSONDecoder().raw_decode(result.output[result.output.index("{") :])[0]
+
+
+def _demo_site(tmp_path):
+    from heron.scaffold import create
+
+    root = tmp_path / "s"
+    create(root, name="S", languages=["en"], demo=True, notes="en")
+    return root
+
+
+@pytest.mark.parametrize(
+    ("lang", "shown"),
+    [("en", "theme assets/a.css"), ("ru", "тема assets/a.css")],
+)
+def test_check_json_conflict_owner_path(tmp_path, monkeypatch, lang, shown):
+    """Настоящая ошибка E026 с владельцем-Msg в errors у check --json."""
+    from heron import cli
+
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    conflict = _claim_conflict(tmp_path)
+    real_check = cli.pipeline.check
+
+    def check(*args, **kwargs):
+        result = real_check(*args, **kwargs)
+        result.collector.errors.append(conflict)
+        return result
+
+    monkeypatch.setattr(cli.pipeline, "check", check)
+    data = _check_json(_demo_site(tmp_path), lang)
+    found = [item for item in data["errors"] if item["code"] == "E026"]
+    assert [item["path"] for item in found] == [shown]
+    assert data["ok"] is False
+    if lang == "en":
+        assert not CYR.search(found[0]["message"])
+        assert not CYR.search(found[0]["hint"])
+
+
+@pytest.mark.parametrize(
+    ("lang", "shown"),
+    [("en", "a.md and 2 more"), ("ru", "a.md и ещё 2")],
+)
+def test_check_json_warning_and_lost_owner_path(tmp_path, monkeypatch, lang, shown):
+    """path=Msg в warnings и в old_urls.lost: json.dumps молча отдал бы русский текст Msg."""
+    from heron import cli
+
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    made = Collector()
+    made.warn("text", path=_owner(), line=3, kind="media")
+    owned = made.warnings[0]
+    real_check = cli.pipeline.check
+    real_old_urls = cli.report_module.old_urls
+
+    def check(*args, **kwargs):
+        result = real_check(*args, **kwargs)
+        result.collector.warnings.append(owned)
+        return result
+
+    def old_urls(*args, **kwargs):
+        lost, summary = real_old_urls(*args, **kwargs)
+        return [*lost, owned], summary
+
+    monkeypatch.setattr(cli.pipeline, "check", check)
+    monkeypatch.setattr(cli.report_module, "old_urls", old_urls)
+    listed = tmp_path / "old.txt"
+    listed.write_text("/gone/\n", encoding="utf-8")
+
+    data = _check_json(_demo_site(tmp_path), lang, "--old-urls", str(listed))
+
+    assert shown in [item["path"] for item in data["warnings"]]
+    assert shown in [item["path"] for item in data["old_urls"]["lost"]]
+    if lang == "en":
+        for item in [*data["warnings"], *data["old_urls"]["lost"]]:
+            assert not CYR.search(item["path"] or "")

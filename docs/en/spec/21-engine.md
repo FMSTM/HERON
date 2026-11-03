@@ -1,8 +1,6 @@
 # HERON - the engine
 
-**Date:** 2026-10-29 · **Status:** for development
 **Document 2 of 4.** Previous: `20-data-contract.md`. Next: `22-deploy.md` (site deployment), `23-distribution.md` (engine distribution).
-**Edit of 2026-09-14:** aligned with the concept "the engine is separate from the site". Sections 1, 3, 7, 10 changed; section 15 added. **Edit of 2026-10-25:** the agent kit - reserved root names (§4), the `new`/`init` flags, `docs --lang`, `heron schema`, the `check --json` format (§10), info lines about the kit in the report (§12), mandatory tests of the kit and the translation (§14).
 
 ---
 
@@ -12,7 +10,7 @@ It reads the site folder - `site.yaml`, `content/`, `data/`, `media/`, `static/`
 
 One command, one pass, no state between runs. Build twice in a row and you get a byte-identical result.
 
-The engine lives in the image `heron:<version>` and in a pip package, not in the site folder. The first thing it does is compare its version with the `heron:` requirement in `site.yaml`; it refuses to build an incompatible site (`E012`).
+The engine lives in the image `ghcr.io/fmstm/heron:<channel or version>` and in a pip package, not in the site folder. The first thing it does is compare its version with the `heron:` requirement in `site.yaml`; it refuses to build an incompatible site (`E012`).
 
 The build runs **without network**. No stage goes outside: everything the site needs is in the site folder.
 
@@ -22,7 +20,7 @@ Python 3.12. Dependencies are minimal - each one must be justified, because a be
 
 | Package | Why |
 |---|---|
-| `markdown-it-py` | markdown parsing, `{#id}` support via `attrs` |
+| `markdown-it-py` | markdown parsing; `{#id}` is parsed by the engine's own rule (`heron/core/parser/markdown.py`) |
 | `PyYAML` | frontmatter and configs |
 | `Jinja2` | templates |
 | `Pillow` | image resizing and conversion |
@@ -37,8 +35,17 @@ Three levels: contracts, core, modules. The split is not cosmetic - the plugin b
 
 ```
 heron/
-├── cli.py                commands new, init, check, serve, build
+├── cli.py                all commands (§10)
+├── docs.py               heron docs
+├── messages.py           command-line texts in two languages
+├── build_info.py         version, branch, commit
+├── texts/                core messages by group
+├── setup/                the heron setup questionnaire
+├── themes/               theme installation and packing
 ├── contracts/
+│   ├── loader.py         reading YAML, pydantic complaints
+│   ├── schemas.py        JSON Schema and the error registry
+│   ├── wiring.py         joining the theme and the site
 │   ├── site.py           pydantic schema of site.yaml, including the version requirement
 │   ├── theme.py          schema of theme.yaml
 │   ├── frontmatter.py    schema of the frontmatter
@@ -47,16 +54,29 @@ heron/
 │   ├── models.py         Site, Page, Section, Nav
 │   ├── parser/
 │   │   ├── frontmatter.py
+│   │   ├── markdown.py   markdown-it environment, heading attributes
 │   │   ├── sections.py   splitting by headings with anchors
 │   │   └── blocks.py     parsing of structured sections: facts, faq, steps
 │   ├── tree.py           walk of content/, building the page tree and URLs
+│   ├── build.py          build pipeline
+│   ├── check.py          template check, E033
+│   ├── dates.py          update date
+│   ├── environment.py    build environment
+│   ├── notes.py          heron-readme.md notes
+│   ├── notfound.py       the 404 page
+│   ├── output.py         owners and writing of the result
+│   ├── paths.py          file boundaries
+│   ├── progress.py       build progress
+│   ├── urls.py           addresses and domain
+│   ├── watch.py          preview with rebuilds
 │   ├── data.py           loading data/ into the template namespace
 │   ├── links.py          relation resolve: catalogs, languages, fields declared by the theme
 │   ├── render/
 │   │   ├── env.py        Jinja2 environment, mod.* macros
-│   │   └── pages.py      page rendering
+│   │   ├── pages.py      page rendering
+│   │   └── signature.py  engine signature
 │   ├── media.py          image processing
-│   ├── resolver.py       lookup of the theme and plugins: local → packages → git
+│   ├── resolver.py       lookup of the theme and plugins: local → packages
 │   ├── hooks.py          registry of extension points and their calls
 │   ├── report.py         check report, warning summary
 │   └── errors.py         error types and codes
@@ -72,6 +92,7 @@ heron/
 │   ├── llms.py
 │   ├── jsonld.py
 │   ├── redirects.py
+│   ├── nginx.py      nginx config
 │   └── feed.py
 └── scaffold/             sample files for new and init
 ```
@@ -228,7 +249,7 @@ from a hung one.
 
 The heart of the system, so in detail.
 
-The file body is parsed by `markdown-it-py` with the attributes plugin enabled. A section is a heading that has an anchor `{#id}`, plus all content up to the next heading **of the same level with an anchor** or to the end of the file.
+The file body is parsed by `markdown-it-py` with its own heading-attributes rule. A section is a heading with an anchor `{#id}` plus all content up to the next heading with an anchor **of the same or a higher level** or to the end of the file. The level is set by the first heading with an anchor in the file; an anchor deeper than that level stays inside the current section.
 
 Rules:
 
@@ -255,12 +276,14 @@ class Section:
     id: str                # anchor from {#anchor}
     title: str             # heading text
     level: int
+    line: int | None       # heading line
     classes: list[str]     # classes from the anchor: alert, timeline, …
     raw: str               # source markdown without the heading
     html: str              # rendered content without the heading
     kind: str              # form: prose, list, … - see 20 §4.4
     data: Any              # parsed data of the form; in a module template - items
     lead: str              # paragraphs before the main node
+    promise: str           # second paragraph of the intro block
     note: str              # paragraphs after
     note_title: str        # bold opening of the note
     callout: str           # the quote, wherever it stands
@@ -282,7 +305,7 @@ class Page:
     type: str                      # page type, the selection rule - 20 §4.2
     sections: dict[str, Section]   # sections by anchor
     intro: Section | None          # text before the first section
-    auto_updated: date | None      # date from git or the file, if updated is not set by hand
+    auto_updated: date | datetime | None  # date from git or the file, if updated is not set by hand
     links: list[tuple[int, str]]   # text links as written: line and address
 
     # filled in at the resolve stage
@@ -296,12 +319,19 @@ class Page:
     title: str                     # meta.title
     h1: str                        # meta.h1
     updated: date | None           # meta.updated, otherwise auto_updated
+    generated: bool                # the page was created by the engine
+    date                           # publication date
+    date_at                        # the same with time
+    updated_at                     # update date with time and time zone
     nav_title: str                 # meta.nav_title, otherwise the file name
     video: Video | None            # parsed meta.video*
     cover: dict | None             # cover: src, url, width, height, alt; none - None (20 §4.2)
     slug: str                      # last segment of url
     name: str                      # file name without extension
     is_index: bool                 # _index.md or the home page
+
+    def section(self, id): ...     # section by anchor
+    def has(self, id): ...         # whether such a section exists
 ```
 
 **The cover.** `page.cover` is computed in the order `og_image`, `image`, the first image of `intro` or `hero`, `seo.og_default_image` of the language (`20` §4.2). The source is determined from the source text, before rendering, so the cover of a neighboring page (`page_of('services').cover`) does not depend on the rendering order. An external URL is taken as is; a path that is not in the build plan gives `None`.
@@ -314,7 +344,7 @@ Jinja2, `autoescape` on, `StrictUndefined` - accessing a variable that does not 
 
 A theme is untrusted code: it is installed from a catalog, by a link or as an archive. So templates are built in the immutable Jinja sandbox (`ImmutableSandboxedEnvironment`): Python service attributes (`__globals__`, `__class__` and the like) are closed, lists and dictionaries are not changed from a template (`.append`, `.update`). Beyond the sandbox, the methods of pydantic `BaseModel` itself are closed on `site` and `theme` (`parse_file`, `model_construct` and so on - the fields and the schemas' own methods are available), as are any path attributes and the `env` methods that build the environment anew. Accessing something closed - `E033` with the template name. `heron check` finds data changes even before the build, by parsing the templates (§12); how to accumulate data without `.append` and `.update` - recipes in [`guide/04`, "Accumulating data in a template without `append`"](../guide/04-theme.md#accumulate-data-without-append). Filters and functions of site plugins (`plugins/`) are the site's own code, the sandbox does not cover them.
 
-A template has access to: `page`, `site` (the whole `site.yaml`), `data` (the content of `data/`), `nav`, `t` (the theme's interface strings), `mod` (module macros), `lang` and `languages`, `hreflang`, `page_of(key)` (a page by key in the current language, the home page - `'/'`), `picture`, `media_url`, `absolute`, `jsonld()`, `pages` (the site object with all pages), `theme` (`theme.yaml` as a model), `env` (the build environment: `env.indexable`, `env.analytics`, the build stamp).
+A template has access to: `page`, `site` (the whole `site.yaml`), `data` (the content of `data/`), `nav`, `t` (the theme's interface strings), `mod` (module macros), `lang` and `languages`, `hreflang`, `page_of(key, lang=None)` (a page by key, by default in the current language, the home page - `'/'`), `picture`, `media_url`, `absolute` (the last two are also available as filters), `jsonld()`, `pages` (the site object with all pages), `theme` (`theme.yaml` as a model), `env` (the build environment: `name`, `indexable`, `analytics`, `version`, `revision`, `built_at`, `stamp`).
 
 ### Module macros
 
@@ -362,7 +392,7 @@ For each image the content links to:
 
 The page cover (`20` §4.2) is cut specially: the master always goes into the build whole, and a JPEG/PNG `max(images.fallback_width, images.cover_width)` wide, but not wider than the frame, is added to the fallback files (`images.cover_width` is 1200 by default). A master narrower than `cover_width` is served whole, and `heron check` warns.
 
-An image that something links to but that is not on disk: in strict mode (`--strict` or `build.fail_on_warning`) - error `E007` and the build stops; in a normal build - the warning "no file <path>" (kind "images"), and the build goes on. A broken image in production costs more than a failed build, so enable `--strict` for CI.
+An image that something links to but that is not on disk: in strict mode (`--strict` or `build.fail_on_warning`) - error `E007` and the build stops; in a normal build - the warning "no file <path>" (kind "images"), and the build goes on. `heron check` is stricter than a normal build: it counts a missing image as error `E007` even without `--strict`. A broken image in production costs more than a failed build, so enable `--strict` for CI.
 
 Only `.jpg`, `.jpeg`, `.png` and `.webp` are cut (`KEEP` in `heron/core/media.py`). `.avif`, `.gif`, `.svg` and any other file are copied as is, without variants.
 
@@ -555,15 +585,15 @@ heron init [path] [--force] [--notes ru|en] [--name …] [--domain …] [--lang 
                                              complete the folder to match what site.yaml says
 heron check [path] [--strict] [--drafts] [--json] [--env NAME] [--allow-schema KEY] [--old-urls file]  report without a build; --json - codes, files, lines for an agent;
                                              --old-urls - check old URLs (one per line or a Search Console export)
-heron serve [path] [--port 8000] [--host X] [--workers N]  local preview with rebuilds
+heron serve [path] [--port 8000] [--host X] [--workers N] [--no-drafts]  local preview with rebuilds
 heron build [path] [--out folder] [--env prod] [--strict] [--drafts] [--allow-schema KEY] [--workers N]   build
 heron page <type> <slug> [path] [--lang ru] [--folder section]          page stub
-heron docs [topic | template <file>] [--lang ru|en] [--search text] [--export folder]
+heron docs [topic | template <file>] [--lang ru|en] [--all-langs] [--search text] [--export folder]
                                              documentation of this version in the chosen language
 heron setup [path] [--answers file|-] [--dump] [--port 8000] [--host X]  questionnaire configurator
 heron theme get <starter|name|https-link|archive> [path]   install a theme with its demo pages
 heron theme list | heron theme pack [path] [--out file]   catalog; your own theme with content into an archive
-heron schema [--site | --theme | --frontmatter | --setup | --errors] [--export folder]
+heron schema [--site | --theme | --frontmatter | --setup | --errors] [--lang ru|en] [--export folder]
                                              JSON Schema of the contracts and the error registry
 heron recipe                                 Dockerfile of the nginx image for the built dist/
 ```
@@ -578,7 +608,8 @@ Global options before the command: `-V/--version` (a string from `HERON_CHANNEL`
 | `new`, `init` | `-y` | flag | off | do not ask questions |
 | `init` | `--force` | flag | off | overwrite what exists |
 | `check`, `build` | `--strict` | flag | off | warnings become errors |
-| `check`, `build`, `serve` | `--drafts/--no-drafts` | flag | off for `check` and `build`, **on** for `serve` | show `published: false` |
+| `check`, `build` | `--drafts` | flag | off | show `published: false` |
+| `serve` | `--drafts/--no-drafts` | flag | **on** | show `published: false` |
 | `check`, `build` | `--env` | name | `SITE_ENV`, then dev | the build environment |
 | `check`, `build` | `--allow-schema` | key, repeatable | - | a one-off exception for `SCH001`-`SCH006` |
 | `check` | `--json` | flag | off | the report as one JSON object |
@@ -586,10 +617,10 @@ Global options before the command: `-V/--version` (a string from `HERON_CHANNEL`
 | `build` | `--out` | folder | `<path>/dist` | where to build |
 | `serve` | `--host` | address | `127.0.0.1`, in the image `0.0.0.0` | where to listen |
 | `serve` | `--port` | number | `8000` | the port |
-| `build`, `serve` | `--workers` | number | `HERON_WORKERS` | cutting processes |
+| `build`, `serve` | `--workers` | number | `HERON_WORKERS`, then `build.workers` | cutting processes |
 | `docs` | `--lang` | `ru` or `en` | see below | documentation language |
 | `docs` | `--all-langs` | flag | off | only with `--export`: both languages into the folders `ru/` and `en/` (without `--export` - `UsageError`, code 2) |
-| `schema` | `--lang` | `ru` or `en` | - | the language of descriptions and error titles in the schemas |
+| `schema` | `--lang` | `ru` or `en` | the notes language | the language of descriptions and error titles in the schemas |
 | `theme pack` | `--out` | file | `<path>/dist/theme.tar.gz` | the theme archive |
 
 **Exit codes.**
@@ -598,14 +629,14 @@ Global options before the command: `-V/--version` (a string from `HERON_CHANNEL`
 |---|---|
 | `0` | success (for `check --json` - no errors, with `--strict` no warnings either) |
 | `1` | there are errors (for `check --json` too) |
-| `2` | wrong invocation: invalid `--lang`/`--domain` for `new` and `init`, `setup --answers`, `theme get` over `http://`, click `UsageError` |
-| `3` | for `build` - see `guide/06-deploy.md` |
+| `2` | wrong invocation: invalid `--lang`/`--domain` for `new` and `init` without `site.yaml`, invalid `setup --answers` answers, an invalid `--allow-schema` key, `theme get` over `http://`, click `UsageError`, `heron` without a command |
+| `3` | for `build`: the site is written but `on_build_finished` failed (§15) |
 
-**Environment variables.** `SITE_ENV` - the environment for `check --env` and `build --env` (the flag, then `SITE_ENV`, then dev); `HERON_NOTES` - the notes language for all commands: help, messages, the error frame, the `check` and `build` report, the comments of `new` and `page`; `HERON_IN_CONTAINER=1` - the image mode (also enabled by the presence of the file `/.dockerenv`); `HERON_DEBUG=1` - same as `--debug`; `HERON_WORKERS` - cutting processes; `HERON_THEMES_URL` - the theme catalog; `HERON_CHANNEL`, `HERON_REVISION`, `HERON_BUILT` - the `heron --version` string is built from them.
+**Environment variables.** `SITE_ENV` - the environment for `check --env` and `build --env` (the flag, then `SITE_ENV`, then dev); `HERON_NOTES` - the notes language for all commands, including `init`, `setup`, `docs`, `schema`: help, messages, the error frame, the `check` and `build` report, the comments of `new` and `page`; `HERON_IN_CONTAINER=1` - the image mode (also enabled by the presence of the file `/.dockerenv`); `HERON_DEBUG=1` - same as `--debug`; `HERON_WORKERS` - cutting processes; `SOURCE_DATE_EPOCH` - the build time for `env.stamp` (§4); `HERON_THEMES_URL` - the theme catalog; `HERON_CHANNEL`, `HERON_REVISION`, `HERON_BUILT` - the `heron --version` string is built from them.
 
 - `requires` in `theme.yaml` is a list of paths to the blocks and fields of `site.yaml` that the theme needs (`20` §2); if a path is missing, `heron check` reports it before the build;
 - `-v`, `--verbose` (on `new` and `init`) prints the whole file plan instead of a short summary; `-y`, `--yes` accepts the defaults without questions or confirmation;
-- `--drafts` includes `published: false` (for `serve` it is on by default, `--no-drafts` turns it off); `--strict` turns warnings into errors - the mode for CI;
+- `--drafts` includes `published: false` (for `serve` it is on by default, `--no-drafts` turns it off, `check` and `build` have no paired flag); `--strict` turns warnings into errors - the mode for CI;
 - `--allow-schema KEY` (for `build` and `check`) - a one-off exception for a `SCH001`-`SCH006` finding, a key of the form `<CODE>:<file>:<path>`; the flag is repeatable and applies only to this run, `site.yaml` does not change. The key is checked by the same rule as `schema_exceptions[].key`; an invalid one is an error. `check --env NAME` sets the environment for the `SCH` strictness as in `build`: the flag, then `SITE_ENV`, then dev.
 - `--env prod` - the production build: indexing and analytics counters. Without it - dev: `robots.txt` with `Disallow: /`, `noindex`, no counters. An empty site and an empty main language are allowed only in dev (`E017`, `E021`);
 - `heron new` creates a site in a new folder or in the current one (`.`). The folder may be under git: `.git`, `.gitignore`, `.gitattributes`, `.gitmodules`, `.github`, `.gitlab`, `.DS_Store`, `.editorconfig`, `README`, `LICENSE` do not get in the way and are not overwritten. Any other file - a refusal with a list of what is in the way and the advice `heron init`;
@@ -621,8 +652,8 @@ Global options before the command: `-V/--version` (a string from `HERON_CHANNEL`
 - `heron new` puts in the white starter theme (light and dark, a language and mode switcher) and its demo pages in each language: the home page, `blocks.md` (all thirteen forms), `themes.md`, `docs.md`, 404, the menu `["/", blocks, themes, docs]`, images `media/demo/`. The texts are in Russian and English, other languages get the English ones. There is no "without demo" flag: the demo pages are part of the theme. `heron init` adds them for a new language only if `blocks.md` is still in the main language;
 - **the agent kit** (`20` §1): `new` and `init` put `agents/` and the root `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` in the notes language, unless `build.agents` is `false`. `init` without flags (and the `setup` questionnaire, which calls the same `init`) only adds `agents/` files: puts the missing ones, does not overwrite existing ones, `--force` has no effect on the kit without the flag; the root pointers (`AGENTS.md`: name, languages, domain, about the project) are updated by the hash from the manifest - an untouched one is replaced, one edited by the human stays. The language here is the `lang` of the manifest, not `build.notes`: missing files and pointers are written in the language of the snapshot, the manifest header does not change. If `build.notes` is different, the summary prints the info line "the kit stays in <lang>, build.notes is <lang>: to switch the kit language - heron init --agents" - on every `init`, as long as the languages differ. No manifest, a broken one or a `lang` in it that is not ru/en - `build.notes` is taken. `init --agents` updates the kit by the manifest in the `build.notes` language: files whose sha256 match `agents/heron-kit.yaml` are replaced by the new version, edited ones are skipped and listed ("edited by you, left as is: `agents/roles/content.md`"), new ones are added, extra ones are not deleted; with `--force` the edited ones are replaced too. If the kit language changes along the way, the manifest `lang` becomes the new one, and the summary prints "kit language changed: <old> → <new> (build.notes)"; a repeated `init --agents` is silent. `--no-agents` for both commands puts nothing from the kit, does not touch the manifest and `AGENTS.md`, and writes `build.agents: false`; `init --agents` on such a site turns the kit back on (`build.agents: true`). The source of the files is the package documentation (`heron/_docs/docs/<lang>/`), the schemas are generated by the same function as `heron schema --export`. The `new`/`init` summary names the kit in one line ("agent instructions: agents/, AGENTS.md - ru"), `-v` lists the files. All writes go through the path check (`E024`), the write is deterministic (the same call gives the same bytes, except `created` without `SOURCE_DATE_EPOCH`);
 - `heron docs` - the documentation of exactly this engine version, from the package: without arguments - the table of contents, with a topic - the whole file in markdown, `template <file>` - a sample, `--search` - lines with context, `--export <folder>` - everything as a folder with the same paths as in the repository (`--all-langs` - both languages into `ru/` and `en/`). **Language:** `--lang ru|en`, otherwise `--notes`/`HERON_NOTES`/`build.notes` from `site.yaml` of the current folder (in the image - of the mounted `/site`), otherwise `en`. Topics are read from `docs/<lang>/`; if there is no file in that language, the file in the other language is printed, and the first line of the output is a mark in the language of the requested topic: for `--lang en` - `[ru: no English translation yet]`, for `--lang ru` - `[en: перевода на ru пока нет]`; an outdated translation (`docs/translation.yaml`, `23` §10) is marked the same way: `[en: the translation lags behind ru]`. The table of contents (`heron docs` without arguments) marks in a topic's line that it will open in the other language: `(opens in ru)` for `en`, `(откроется на en)` for `ru`. Topics: `agents` - the repository pointer (`AGENTS.md`, bilingual), `kit` - the kit README, `readme` - the repository README (by the language of the request: `README.md` for `en`, `README.ru.md` for `ru`; if there is no file in the needed language, the other one is given with a notice, as with the other topics), the roles `architect`, `content`, `designer`, `builder`, `capabilities`, the guides `concepts`, `first-site`, `pages`, `theme`, `seo`, `deploy`, the reference `contract`, `engine`, `deploy-spec`, `distribution`, `architecture`, `skills` - the skills from `skills/`, `schemas` - which schemas exist and how to get them; `template <file>` - a sample. `--export` writes out `docs/<lang>/**`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` of the site template and `schemas/` - exactly what a new site gets in `agents/` - and advises starting with `README.md`. Only text goes into the package and the image (both languages and the skills - about 1 MB, compressed - about 300 KB), the brand images do not; a test makes sure every documentation file is available as a topic in its language;
-- `heron schema` - JSON Schema (draft 2020-12) of the contracts of this version: `--site` (the default) - `site.yaml`, `--theme` - `theme.yaml`, `--frontmatter` - the page frontmatter (the fields from `20` §4.2; relation fields declared by the theme and custom `page.meta` fields are allowed as additional ones; rules the schema does not express - the trailing newline, field dependencies - are written in `description` in the words of the contract), `--setup` - the questionnaire answers, `--errors` - the error code registry `{"E002": {"title": …, "hint": …}}` (the same dictionary the engine prints; matches §11). `--export <folder>` writes all five files (the kind flag is ignored here; two kind flags at once are an invocation error): `site.schema.json`, `theme.schema.json`, `frontmatter.schema.json`, `setup.schema.json`, `errors.json`. The output is deterministic: keys are sorted, indent 2, non-ASCII without escaping, a newline at the end; two runs are byte-equal. `$id` - `https://sitebuilder.heron.software/schema/<major.minor>/<name>.schema.json`, the field `x-heron-version` - the exact engine version;
-- `heron check --json` - the same report for an agent and CI, as one JSON object in stdout, no human output. Exit code `0` - no errors (with `--strict` - no warnings either), `1` - there are some. Fields: `ok` (bool), `version` (the `heron --version` string), `strict`, `pages` (the number of pages, an integer; `null` if parsing was not reached), `schema` (the markup section of the report, `section.as_json()`, or `null`), `errors` - a list of `{code, path, line, message, hint}`, `warnings` - a list of `{kind, path, line, message}` (`message` and `hint` are in the language of the messages, as in the regular output), `kit` - `{present, engine, lang, current}` about the kit `agents/` (`current` - whether the manifest's `engine` matches the engine; the manifest is unreadable - `present: true`, the rest `null`). With `--old-urls` the lost old URLs get into `warnings` (kind "redirects", path `old-urls`), and the object gets an `old_urls` section - `{summary, lost}`: `summary` is the summary line, `lost` is a list of `{path, line, message}`, texts in the language of the messages; without `--old-urls` there is no such section. New fields are added, existing ones are not renamed and do not disappear within a minor version.
+- `heron schema` - JSON Schema (draft 2020-12) of the contracts of this version: `--site` (the default) - `site.yaml`, `--theme` - `theme.yaml`, `--frontmatter` - the page frontmatter (the fields from `20` §4.2; relation fields declared by the theme and custom `page.meta` fields are allowed as additional ones; rules the schema does not express - the trailing newline, field dependencies - are written in `description` in the words of the contract), `--setup` - the questionnaire answers, `--errors` - the error code registry: `{"$id": …, "$schema": …, "x-heron-version": …, "errors": {"E002": {"title": …, "hint": …}}}`, including `SCH001`-`SCH006` (the same dictionary the engine prints; matches §11). `--export <folder>` writes all five files (the kind flag is ignored here; two kind flags at once are an invocation error): `site.schema.json`, `theme.schema.json`, `frontmatter.schema.json`, `setup.schema.json`, `errors.json`. The output is deterministic: keys are sorted, indent 2, non-ASCII without escaping, a newline at the end; two runs are byte-equal. `$id` - `https://sitebuilder.heron.software/schema/<major.minor>/<name>.schema.json`, for the registry - `.../errors.json`; the field `x-heron-version` - the exact engine version. Editor hints: export the schemas with `heron schema --export schemas/` and point your editor's YAML settings at the file you need;
+- `heron check --json` - the same report for an agent and CI, as one JSON object in stdout, no human output. Exit code `0` - no errors (with `--strict` - no warnings either), `1` - there are some. Fields: `ok` (bool), `version` (the `heron --version` string without the `heron, version` prefix), `strict`, `pages` (the number of pages, an integer; `null` if parsing was not reached), `schema` (the markup section of the report, `section.as_json()`, or `null`), `errors` - a list of `{code, path, line, message, hint}`, `warnings` - a list of `{kind, path, line, message}` (`kind` is the internal name of the kind, in Russian, not translated; `message` and `hint` are in the language of the messages, as in the regular output), `kit` - `{present, engine, lang, current}` about the kit `agents/` (`current` - whether the manifest's `engine` matches the engine; the manifest is unreadable - `present: true`, the rest `null`). With `--old-urls` the lost old URLs get into `warnings` (kind "redirects", path `old-urls`), and the object gets an `old_urls` section - `{summary, lost}`: `summary` is the summary line, `lost` is a list of `{path, line, message}`, texts in the language of the messages; without `--old-urls` there is no such section. New fields are added, existing ones are not renamed and do not disappear within a minor version.
 
 Packaging into an image is not among the engine commands: the nginx image with the site is built by the **host** - `scripts/site.sh <site> image <environment>` from the engine repository (`23-distribution.md` §5).
 
@@ -633,6 +664,7 @@ Packaging into an image is not among the engine commands: the nginx image with t
 - `--lang` must be in `site.languages`, otherwise `E005` (the hint is the list of languages). Without it `site.default_lang` is taken.
 - `--folder` - a path inside `content/<lang>/`. A leading `./` and `/` (one) and a trailing `/` are stripped: `/guides` is the same as `guides`. A path with `..`, starting with `//` or with a part starting with a dot (`.git`) gives `E024`, no file is created.
 - If `content/<lang>` or an intermediate folder is a symbolic link pointing outside the site, the command fails with `E024` and writes nothing.
+- The type must be described in `theme.yaml`, otherwise `E008` with a list of types. The slug is Latin letters, digits and hyphens, otherwise `E005`; the type and the slug are checked before the file is written.
 - An existing file is not overwritten (`E004`).
 
 ### heron setup <a id="heron-setup"></a>
@@ -668,7 +700,7 @@ How the answers go into `site.yaml`:
 
 - each fact goes to one place: the name and the description - `organization`, the address - `contact`, the communication channels - `contact.channels` (`{type, purpose, value}`), the first phone and the first email - also `contact.phone`/`contact.email` (the theme footer and the markup substitutions use them); language values - with the suffix `_<lang>` (`city_de`). The markup node `schema.entity` is written with substitutions (`"{{ contact.phone }}"`), not copies: the phone changes in one place;
 - a skipped question removes the key - there is never an empty value in the markup; the price level gets into the markup only with `seo.allow_prices: true`;
-- keys the questionnaire does not manage (`gone`, `forms`, `nginx`, custom blocks) stay as they were. The node `schema.entity` is merged three ways: the base is what the questionnaire would have written for the previous config; the answer did not change - the key stays as in the file (fields by hand - `geo`, `openingHours`, `medicalSpecialty`, `founder`…, an exact `@type`, a custom `@id`), it changed - the new one is taken, the answer was removed - the key is removed; the previous `site.yaml` goes to `.heron-cache/setup/site.yaml.<time>`; two copies in the same second get `-2`, `-3`: the file is created exclusively, an existing copy is not overwritten. The questionnaire does not keep comments in `site.yaml` - it writes its own header;
+- keys the questionnaire does not manage (`gone`, `forms`, `nginx`, custom blocks) stay as they were. The node `schema.entity` is merged three ways: the base is what the questionnaire would have written for the previous config; the answer did not change - the key stays as in the file (fields by hand - `geo`, `openingHours`, `medicalSpecialty`, `founder`…, an exact `@type`, a custom `@id`), it changed - the new one is taken, the answer was removed - the key is removed; the previous `site.yaml` goes to `.heron-cache/setup/site.yaml.<time>`; two copies in the same second get `-2`, `-3`: the file is created exclusively, an existing copy is not overwritten. The questionnaire keeps the comments in `site.yaml` (above a key, at the end of a line, the file tail and its own block);
 - the result is checked by the same schema as the build; it did not pass - nothing is written;
 - after the write the structure follows the config: a new language gets a folder, a home page and a 404 (`heron init`).
 
@@ -704,7 +736,7 @@ Unpacking is distrustful: absolute paths, `..`, links and devices, the path part
 
 The split is strict: an error stops the build, a warning goes into the report.
 
-The detail and hint of an error and the text of a warning are in the language of the messages (§10, `--notes`), including in `check --json`; the text of a library stays as it is. The line of the kind "in Russian, without translation" in `warnings.txt` stays.
+The detail and hint of an error and the text of a warning are in the language of the messages (§10, `--notes`), including in `check --json`; the text of a library stays as it is. The kind of a warning in `warnings.txt` is always in Russian, the message text is in the language of the messages.
 
 **Stop the build:**
 
@@ -714,7 +746,7 @@ The detail and hint of an error and the text of a warning are in the language of
 | `E002` | no `title`, `h1` or `description`, or a frontmatter field of the wrong type (a date that is not a date, an `order` that is not a number) |
 | `E003` | a duplicate section identifier in a file |
 | `E004` | two files give one URL |
-| `E005` | an invalid slug |
+| `E005` | an invalid file or folder name in `content/`; for `heron page` - an invalid slug or a language outside `site.languages`. An invalid `slug` in the frontmatter is `E002` |
 | `E006` | a relation field refers to a page that does not exist |
 | `E007` | the image is not on disk |
 | `E008` | a page type has no template in the theme, or the strings file `theme/i18n/<language>.yaml` is unusable |
@@ -762,11 +794,32 @@ An error message must contain the file path, the line number, what is wrong and 
 
 **Warnings:**
 
-The format of an error line: `<CODE> <path>[:<line>]: <message>`, with a hint the line `  what to do: <hint>` follows; without a path - `<unknown file>`.
+The format of an error line: `<CODE> <path>[:<line>]: <message>`, with a hint the line `  what to do: <hint>` follows; without a path - `<unknown file>`. This is how content and build errors are printed. An error that aborted the whole command (config, theme, `heron page`, `heron theme get`) is printed in a frame: code and title, `where`, `details`, `what to do`.
 
-Code warnings: `title` longer than 60 characters · `description` longer than 155 · "an image is set but `image_alt` is not" (only if `image` is set; kind "other") · "`title` and `h1` are the same" · "the navigation `nav.main` is empty" (kind "seo", path `site.yaml`) · "the same `title` on N pages (<language>)" (among indexable pages of one language) · "navigation links are not in the HTML of the home page (<language>): the menu is built by a script". The rule "a page without `image` in a catalog" does not exist in the code.
+Code warnings: `title` longer than 60 characters · `description` longer than 155 · "an image is set but `image_alt` is not" (only if `image` is set; kind "other") · "`title` and `h1` are the same" · "the navigation `nav.main` is empty" (kind "seo", path `site.yaml`) · "the same `title` on N pages (<language>)" (among indexable pages of one language) · "navigation links are not in the HTML of the home page (<language>): the menu is built by a script".
 
-"A section in a file that the theme does not use" and "a missing optional section" are not warnings but sections of the `Report` (`unused_sections`, `missing_sections`); they do not get into the "Warnings - N" counter or into `warnings.txt`. The full list is written to `<next to dist>/.heron-cache/warnings.txt` as lines `<kind>\t<path>[:<line>]\t<message>` (the kind in Russian, untranslated; a file write error is silently skipped).
+Other warnings by message key (texts - `heron/texts/`):
+
+| Area | Key | When |
+|---|---|---|
+| images | `media_heavy` | the master weighs too much |
+| images | `media_legacy_folder`, `media_two_folders` | an old asset folder, or two folders at once |
+| images | `media_no_file` | the image file is missing |
+| images | `render_no_rendition`, `render_no_rendition_files` | no cut variant or no files for it |
+| relations | `links_field_empty`, `links_too_few` | a relation field is empty or has fewer links than the theme expects |
+| relations | `links_self` | a page links to itself, the link is skipped |
+| links | `links_fallback`, `links_unresolved` | no page in the needed language (the link leads to another) or the address leads nowhere |
+| menu | `links_menu_missing`, `links_menu_untranslated` | no page in the language or it is not translated |
+| translations | `links_no_default` | the page exists in a language but not in the default language |
+| translations | `render_i18n_key_type`, `render_i18n_missing`, `render_string_missing` | wrong key type, no strings for the language, or no translation strings |
+| languages | `tree_empty_lang`, `tree_no_lang_tree` | a language has no pages or no content tree |
+| content | `links_notfound_from_theme`, `links_notfound_no_template` | problems with the 404 page |
+| dates | `links_dates_backwards`, `links_dates_future` | update earlier than publication; a date later than the build |
+| dates | `links_dates_dirty`, `links_dates_no_history`, `links_dates_not_in_history`, `links_dates_same_time`, `links_dates_unreadable` | the date comes from the file time or is missing |
+| other | `output_override_unused`, `tree_home_key` | an unused `build.overrides`; the home page key |
+| redirects | `redirects_gone_twice`, `redirects_nginx_rejected`, `redirects_page_gone` | `gone` set twice; `nginx -t` rejected the config; the obsolete `gone` field on a page |
+
+"A section in a file that the theme does not use" and "a missing optional section" are not warnings but sections of the `Report` (`unused_sections`, `missing_sections`); they do not get into the "Warnings - N" counter or into `warnings.txt`. The full list is written to `<next to dist>/.heron-cache/warnings.txt` as lines `<kind>\t<path>[:<line>]\t<message>` (the kind in Russian, the message text in the language of the messages; a file write error is silently skipped).
 
 A missing optional section is collected into the debt summary:
 
@@ -793,18 +846,20 @@ Without a build, it reads the content and the theme and prints:
 - sections in files that the theme does not use - catches a typo in an anchor
 - theme modules that no type uses
 - internal links: broken ones, and pages nobody links to
-- orphans: pages that no link leads to (there is no separate report "pages without a link to an entry" in the code)
+- orphans: pages that no link leads to
 - the lengths of `title` and `description`
-- sections that are not in the list above and that `Report.render` prints: "The section format is not the one the theme expects (this is not an error)" with a line `<file>: <section> - expected <format>, got <format>`; "In the menu but without a short name - the file name will be shown"; "`nginx -t` on the built config: passed"; "The manual `updated` date on M of N pages overrides `updated_from`: <mode>". The report has no redirect map and its conflicts
-- with `--old-urls <file>`: every old URL must lead to a page, to `redirect_from` or to `gone`; for each one without a path - a warning with the presumed target and a summary line "old URLs: N, without a path: M". Empty lines and lines with `#` are skipped, in a CSV the first column that looks like a URL is taken
-- **schema.org markup**: during the build and in `check` - report lines: "schema.org markup (vocabulary 29.3): nodes N, findings M (E errors, W warnings)", for each finding a line `CODE file:path - reason (pages: K)` and "exception key: ..."; then "Markup exceptions: N" with the reason and the deadline (or "one-off (--allow-schema)"); "Unused exception: <key> - catches nothing, remove it from schema_exceptions"; "Exception expired: <key> - the deadline <date> has passed, the finding is in force again"; and the information "Properties from the pending section: ...". `--json` carries the same data. In the `build.notes` language.
+- sections that are not in the list above and that `Report.render` prints: "The section format is not the one the theme expects (this is not an error)" with a line `<file>: <section> - expected <format>, got <format>`; "In the menu but without a short name - the file name will be shown"; "`nginx -t` on the built config: passed"; "The manual `updated` date on M of N pages overrides `updated_from`: <mode>".
+- with `--old-urls <file>`: every old URL must lead to a page, to `redirect_from` or to `gone`; for each one without a path - a warning with the presumed target and a summary line "old URLs: N, without a path: M". Empty lines and lines with `#` are skipped, in a CSV the first column that looks like a URL is taken. An address is compared the way nginx sees it: the scheme and host are dropped, `%XX` and Cyrillic are equal, with and without a trailing slash is one address; case and the language prefix are distinguished; query parameters count only for `gone` entries with a parameter; repeats are counted once; the warning prints only the path; the texts of warnings and the summary are in the language of the messages (§10, `--notes`)
+- **schema.org markup**: during the build and in `check` - report lines: "schema.org markup (vocabulary 29.3): nodes N, findings M (E errors, W warnings)", for each finding a line `CODE file:path - reason (pages: K)` and "exception key: ..."; then "Markup exceptions: N" with the reason and the deadline (or "one-off (--allow-schema)"); "Unused exception: <key> - catches nothing, remove it from schema_exceptions"; "Exception expired: <key> - the deadline <date> has passed, the finding is in force again"; and the information "Properties from the pending section: ...". `--json` carries the same data. In the language of the messages (§10, `--notes`).
 - files in `media/` that no page expects, and content that settled in `static/`
 - folders without the note `heron-readme.md` - information, not an error
 - the agent kit (`20` §1) - one info line, not a warning: "`agents/`: agent instructions, engine 0.1.0, ru; not part of the build", on a version mismatch - "kit from 0.1.0, engine 0.2.0 - update: `heron init --agents`", with `build.agents: false` - "agent kit disabled", without the folder and without the key - "no agent kit - `heron init`"
 - **fields that not every list element has**: the engine has a strict mode for undefined values, and accessing a missing key fails the build. A template is written for the first element and fails on the sixth. This is not a content error - half of the documents really have no place of issue; it is a warning to the template author to write `d.get("place")`
-- **data changes in theme templates** - error `E033` before the build. The module `heron/core/check.py` does not execute templates but parses them with Jinja itself (`Environment.parse` of the same environment as the build) and looks for calls of methods the sandbox closes (§7): `.append`, `.extend`, `.insert`, `.update`, `.pop`, `.remove`, `.add`, `.setdefault`, `.clear`, `.sort`, `.reverse` and the rest of the same list, including the workarounds `x|attr('append')(…)` and `x['append'](…)`. The message names the template by its path from the site root, the line number, the call itself and a recipe by the meaning of the method (list concatenation, `namespace()`, `dict(d, key=value)`, the filters `rejectattr`, `unique`, `sort`), and at the end - `heron docs theme`; the text language is `build.notes`, in `--json` these are the fields `code`, `path`, `line`, `message`, `hint`. Parsed are the theme's `*.html`, `*.htm`, `*.j2`, `*.jinja`, `*.jinja2`, except `assets/` and `i18n/`, and the files templates include by name (`extends`, `include`, `import`, `from`). Not code for Jinja and not checked: text outside tags (JS in `<script>`, `.js` files), `{% raw %}`, comments; `{% set ns.x = … %}` is an assignment, not a call. A template with broken syntax is skipped - the build names it. **`check` is stricter than the build here:** it also flags a template the theme does not render (the build does not touch such a template and passes), and a call of a mutating method on a value whose type is not statically known; plugin global values are checked by their real type. `check` does not consider these containers and therefore does not flag them: `self` (template blocks, `self.<block>()`), aliases `{% import … as h %}` (a template module) and the engine context objects `mod`, `t`, `env`, `page_of`, `picture`, `media_url`, `jsonld` - for example, `mod.update()` renders the module `modules/update.html`. A name redefined in the template itself (`set`, `for`, a macro parameter) is no longer an engine object. Names from `{% from … import x %}` do not count as known objects: it may be a dictionary, so `{{ cfg.update({}) }}` gives `E033` both in `check` and in the build. How to rewrite such places - [`guide/04`, "Accumulating data in a template without `append`"](../guide/04-theme.md#accumulate-data-without-append)
+- **data changes in theme templates** - error `E033` before the build. The module `heron/core/check.py` does not execute templates but parses them with Jinja itself (`Environment.parse` of the same environment as the build) and looks for calls of methods the sandbox closes (§7): `.append`, `.extend`, `.insert`, `.update`, `.pop`, `.remove`, `.add`, `.setdefault`, `.clear`, `.sort`, `.reverse` and the rest of the same list, including the workarounds `x|attr('append')(…)` and `x['append'](…)`. The message names the template by its path from the site root, the line number, the call itself and a recipe by the meaning of the method (list concatenation, `namespace()`, `dict(d, key=value)`, the filters `rejectattr`, `unique`, `sort`), and at the end - `heron docs theme`; the text language is the language of the messages (§10, `--notes`), in `--json` these are the fields `code`, `path`, `line`, `message`, `hint`. Parsed are the theme's `*.html`, `*.htm`, `*.j2`, `*.jinja`, `*.jinja2`, except `assets/` and `i18n/`, and the files templates include by name (`extends`, `include`, `import`, `from`). Not code for Jinja and not checked: text outside tags (JS in `<script>`, `.js` files), `{% raw %}`, comments; `{% set ns.x = … %}` is an assignment, not a call. A template with broken syntax is skipped - the build names it. **`check` is stricter than the build here:** it also flags a template the theme does not render (the build does not touch such a template and passes), and a call of a mutating method on a value whose type is not statically known; plugin global values are checked by their real type. `check` does not consider these containers and therefore does not flag them: `self` (template blocks, `self.<block>()`), aliases `{% import … as h %}` (a template module) and the engine context objects `mod`, `t`, `env`, `page_of`, `picture`, `media_url`, `jsonld`, `cover_url`, `robots_meta` - for example, `mod.update()` renders the module `modules/update.html`. A name redefined in the template itself (`set`, `for`, a macro parameter) is no longer an engine object. Names from `{% from … import x %}` do not count as known objects: it may be a dictionary, so `{{ cfg.update({}) }}` gives `E033` both in `check` and in the build. How to rewrite such places - [`guide/04`, "Accumulating data in a template without `append`"](../guide/04-theme.md#accumulate-data-without-append)
 
-It runs in CI on every push. It replaces the validation schema we gave up for the sake of an easy start: the control stays, but does not require writing and maintaining schemas.
+A site's CI adds the command itself: the shared `site-image.yml` does not run it, it builds the image through `heron build`; locally - `scripts/site.sh <site> check`.
+
+**What `check` does not find.** It does not render templates and writes nothing, so it does not see `E010`, `E026`, `E027`; the production readiness checks `E017`, `E021`, `E028` are run only by `build`. A green `check` does not guarantee a successful build.
 
 ## 13. Performance
 

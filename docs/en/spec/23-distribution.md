@@ -42,7 +42,7 @@ Inside the image: Python, the `heron` package, `ENTRYPOINT ["heron"]` and an unp
 
 **The documentation ships in the package** - and therefore in the image - of exactly the same version as the code: `docs/ru/` and `docs/en/` in full (the kit README, roles, samples, guides, specs, `architecture.md`), the repository `AGENTS.md`, `README.md`, the skills `skills/*/SKILL.md` and the templates of the site root pointers. All of it is text of about 1 MB for both languages; the images of `docs/brand/` do not ship. It is read with `heron docs --lang ru|en` (`21` §10) and goes into every new site as `agents/` (§4). The package and the image are the same: the image gets the documentation through the package, not through a separate `COPY` - otherwise `pip install heron` and `docker run heron` would give different `heron docs`.
 
-Themes and plugins are separate portable units, distributed as packages or git links. They are not built into the engine image.
+Themes and plugins are separate portable units, distributed as packages (including from git via `pip install git+...`). They are not built into the engine image.
 
 ### Versions and compatibility
 
@@ -101,14 +101,14 @@ docker run --rm -it -v "$PWD":/site -w /site --user $(id -u):$(id -g) ghcr.io/fm
 ```
 <site>/
 ├── site.yaml              engine version, name, domain, languages, theme, menu with the home page
-├── .gitignore             dist/, .heron-cache/, .heron-docs/, .*.heron-lock, .DS_Store, __pycache__/
+├── .gitignore             dist/, .heron-cache/, .heron-docs/, .*.heron-lock, .DS_Store, __pycache__/, .env
 ├── heron-readme.md        the note - and in every folder below
 ├── AGENTS.md              entry point for an AI agent; CLAUDE.md and GEMINI.md - one line "@AGENTS.md"
 ├── agents/                the agent kit in the --notes language: README, manifest,
 │                          roles/, templates/, guide/, spec/, architecture.md, schemas/, work/
 ├── content/<lang>/        home, 404 and the demo pages of the white theme (blocks, themes, docs)
 │                          with the full SEO block - for each language from site.yaml
-├── media/                 images of the demo pages (light.svg, dark.svg)
+├── media/                 cover.png - the default cover; demo/ - images of the demo pages (light.svg, dark.svg)
 ├── data/  static/  plugins/          empty
 └── theme/                 the white theme: theme.yaml, base.html, templates/ (home, page, 404),
                            modules/ (a module for each section form), partials/ (header, footer,
@@ -189,9 +189,9 @@ One mechanism for both entities - we do not add a second one, otherwise you woul
 Resolution order, the first one found wins:
 
 1. **locally in the site folder** - `theme/` for the theme, `plugins/<name>/` for a plugin;
-2. **an installed package** - `heron-theme-<name>`; for a plugin - an entry point of the `heron.plugins` group;
-3. **a git link**, if given explicitly in `site.yaml`.
+2. **an installed package** - `heron-theme-<name>`; for a plugin - an entry point of the `heron.plugins` group.
 
+A package from git is installed as an ordinary package - `pip install git+...` - and is then found by step 2; there is no separate git-link step and no field for it in `site.yaml`.
 Local always wins. A theme is developed right in the site, without a publication for every CSS edit; it can be moved into a package later without changing a single line of content.
 
 Plugins are ordinary pip packages, installed into the site image with one Dockerfile line. **The engine does not invent its own package format or its own loader.** The local `plugins/` folder is for one-off plugins of a particular site that there is no reason to publish.

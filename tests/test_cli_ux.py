@@ -140,6 +140,23 @@ def test_flags_without_terminal(here):
     assert "No questions asked" not in result.output
 
 
+def test_flags_lang_duplicates_removed_and_check_passes(here):
+    result = run("new", "dup", "--lang", "ru,en,en", "-y")
+    assert result.exit_code == 0, result.output
+    assert config(here / "dup")["site"]["languages"] == ["ru", "en"]
+    checked = run("check", str(here / "dup"))
+    assert "site_lang_dup" not in checked.output
+
+
+def test_flags_domain_is_normalized_like_questionnaire(here):
+    from heron.contracts import site as site_contract
+
+    result = run("new", "dom", "--domain", "https://Shop.com/", "-y")
+    assert result.exit_code == 0, result.output
+    expected = site_contract.domain("https://Shop.com/")
+    assert expected and config(here / "dom")["site"]["domain"] == expected
+
+
 def test_without_terminal_says_why_there_are_no_questions(here):
     result = run("new", "quiet")
     assert result.exit_code == 0, result.output

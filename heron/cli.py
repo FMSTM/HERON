@@ -1,6 +1,6 @@
 """Командный интерфейс HERON.
 
-Шесть команд — вся поверхность движка для человека. Внутрь него заходить
+Команды — вся поверхность движка для человека. Внутрь него заходить
 не нужно: ни один сценарий работы с сайтом этого не требует.
 
 Каждое сообщение отвечает на три вопроса: что случилось, почему и что
@@ -42,6 +42,7 @@ from heron.scaffold import (
     create,
     ctx_notes,
     foreign_files,
+    language_folders,
     placeholder_domain,
     resolve_notes,
     site_yaml_problem,
@@ -669,6 +670,39 @@ def _check_json(
         sys.exit(1)
 
 
+def _no_site_json(path: Path, strict: bool, lang: str) -> None:
+    """`check --json` без папки или site.yaml: тот же объект, что у `_check_json` (21 §10)."""
+    import json
+    from types import SimpleNamespace
+
+    kit = report_module.kit_status(path.resolve(), SimpleNamespace(build=None))
+    click.echo(
+        json.dumps(
+            {
+                "ok": False,
+                "version": build_info.label(),
+                "strict": strict,
+                "pages": None,
+                "errors": [
+                    {
+                        "code": "E011",
+                        "path": "site.yaml",
+                        "line": None,
+                        "message": say(lang, "no_site", path=path),
+                        "hint": "",
+                    }
+                ],
+                "warnings": [],
+                "kit": kit.as_json(),
+                "schema": None,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    sys.exit(1)
+
+
 # --- сводка того, что разложено --------------------------------------------------
 
 
@@ -768,6 +802,7 @@ def _report_plan(plan: Plan, verbose: bool = False, kit_off: bool = False) -> No
     found = [line for line in plan.found if line not in own]
     created = [rel for rel in plan.created if kit is None or not _is_kit(rel)]
     skipped = [rel for rel in plan.skipped if kit is None or not _is_kit(rel)]
+    overwritten = [rel for rel in plan.overwritten if kit is None or not _is_kit(rel)]
     kit_lines = _kit_lines(plan, kit_off)
     if found:
         click.echo(say(lang, "plan_found"))
@@ -784,8 +819,12 @@ def _report_plan(plan: Plan, verbose: bool = False, kit_off: bool = False) -> No
         else:
             for line in _group_plan(created, lang):
                 click.secho(f"  + {line}", fg="green")
-    elif not kit_lines:
+    elif not kit_lines and not overwritten:
         click.echo(say(lang, "plan_nothing"))
+    if overwritten:
+        click.echo(say(lang, "plan_overwritten"))
+        for name in overwritten:
+            click.secho(f"  ~ {name}", fg="yellow")
     for mark, text, color in kit_lines:
         click.secho(f"  {mark} {text}", fg=color)
     if skipped:
@@ -1007,6 +1046,9 @@ def _start_site(
     if domain and not site_contract.domain(domain):
         _err(say(lang, "bad_domain"))
         sys.exit(2)
+    languages = list(dict.fromkeys(languages))
+    if domain:
+        domain = site_contract.domain(domain) or domain.lower()
 
     click.secho(say(lang, "new_title", path=_shown(path)), bold=True)
     if present:
@@ -1029,7 +1071,7 @@ def _start_site(
             name=guess,
             languages=languages,
             notes=lang,
-            domain=domain.lower() if domain else None,
+            domain=domain or None,
             default_lang=default,
             demo=demo,
             agents=agents,
@@ -1039,7 +1081,7 @@ def _start_site(
     click.secho("\n" + say(lang, done_key, path=_shown(path)), fg="green", bold=True)
     _report_plan(plan, verbose, kit_off=agents == "false")
     ordered = [default] + [x for x in languages if x != default]
-    _next(path, lang, ordered, domain.lower() if domain else placeholder_domain(guess))
+    _next(path, lang, ordered, domain or placeholder_domain(guess))
 
 
 SITE_OPTIONS = [
@@ -1180,11 +1222,7 @@ def init(
     _need_dir(path, _lang(notes, path))
     if not (path / "site.yaml").is_file() and not force:
         content = path / "content"
-        present = (
-            sorted(p.name for p in content.iterdir() if p.is_dir() and LANG_RE.match(p.name))
-            if content.is_dir()
-            else []
-        )
+        present = language_folders(content)
         _start_site(
             path,
             notes,
@@ -1256,6 +1294,8 @@ def check(
 ) -> None:
     """Проверить контент и конфиг, ничего не собирая."""
     lang = _lang(notes, path)
+    if as_json and not (path / "site.yaml").is_file():
+        _no_site_json(path, strict, lang)
     _need_site(path, lang)
     env = BuildEnv.resolve(env_name)
     if as_json:

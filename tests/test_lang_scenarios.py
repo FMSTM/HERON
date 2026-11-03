@@ -335,6 +335,11 @@ def test_no_site_en_check_points_to_heron_new_without_cyrillic(tmp_path, flags):
     assert "site.yaml" in result.output
     assert "heron new" in result.output
     assert not CYRILLIC.search(result.output), result.output
+    if flags:
+        data = json.loads(result.stdout)
+        assert data["ok"] is False and data["pages"] is None
+        assert [e["code"] for e in data["errors"]] == ["E011"]
+        assert data["errors"][0]["message"] == say("en", "no_site", path=root)
 
 
 @pytest.mark.parametrize("flags", [[], ["--json"]])
@@ -342,8 +347,22 @@ def test_no_site_ru_check_says_it_in_russian(tmp_path, flags):
     root, _ = prepared(tmp_path, "no-site")
     result = run("check", str(root), *flags, "--notes", "ru")
     assert result.exit_code == 1, result.output
-    assert say("ru", "no_site", path=root) in result.output
+    if not flags:
+        assert say("ru", "no_site", path=root) in result.output
     assert CYRILLIC.search(result.output)
+    if flags:
+        data = json.loads(result.stdout)
+        assert data["errors"][0]["message"] == say("ru", "no_site", path=root)
+
+
+def test_check_json_on_missing_folder_gives_json_not_traceback(tmp_path):
+    result = run("check", str(tmp_path / "nope"), "--json", "--notes", "en")
+    assert result.exit_code == 1, result.output
+    data = json.loads(result.stdout)
+    assert data["ok"] is False
+    assert data["errors"][0]["code"] == "E011"
+    assert data["kit"]["present"] is False
+    assert not CYRILLIC.search(result.stdout)
 
 
 @pytest.mark.parametrize("name", SCENARIOS)
@@ -423,9 +442,10 @@ def test_check_ru_details_are_russian(tmp_path, name):
 @pytest.mark.parametrize("name", RU_SCENARIOS)
 def test_check_json_ru_message_is_russian(tmp_path, name):
     root, code = prepared(tmp_path, name)
-    if name == "no-site":  # JSON не печатается: проверяем текст
+    if name == "no-site":  # E011 в том же JSON-объекте, что и остальные ошибки
         result = run("check", str(root), "--json", "--notes", "ru")
-        assert say("ru", "no_site", path=root) in result.output, result.output
+        data = json.loads(result.stdout)
+        assert data["errors"][0]["message"] == say("ru", "no_site", path=root)
         return
     result = run("check", str(root), "--json", "--notes", "ru")
     data = parse_json(result.output)

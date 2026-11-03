@@ -52,7 +52,7 @@ FILES = (
 # не отстаёт молча.
 EN: dict[str, tuple[str, str]] = {
     "site.schema.json#/$defs/AnalyticsBlock/description": (
-        "f791f7ad1f",
+        "55fa9d36cf",
         "Public counter identifiers.\n\n"
         "These are not secrets: they are visible in the source of any page and are read\n"
         "by crawlers. That is why they belong here, next to the domain and the languages,\n"
@@ -62,7 +62,7 @@ EN: dict[str, tuple[str, str]] = {
         "on dev a counter must not spoil the statistics of the live site.",
     ),
     "site.schema.json#/$defs/FormSpec/description": (
-        "4941079167",
+        "fbb8c7b0c3",
         "Description of a form. The engine does not accept the form - heron-relay does.\n\n"
         "The engine needs the description to hand the theme the set of fields and to fail\n"
         "if the theme draws a form that is not in the config.",
@@ -72,7 +72,7 @@ EN: dict[str, tuple[str, str]] = {
         "The menu. Its content is free: the theme invents the names of the groups.",
     ),
     "site.schema.json#/$defs/NginxBlock/description": (
-        "fc9c1d1733",
+        "020cfce853",
         "The nginx config that the engine builds together with the site.\n\n"
         "`hash_sizes` is obsolete and does nothing. 301 and 410 are now exact\n"
         "locations, not string maps: the hash tables of the maps that\n"
@@ -95,7 +95,7 @@ EN: dict[str, tuple[str, str]] = {
         "otherwise the error is `E011`.",
     ),
     "theme.schema.json#/$defs/ImagesSpec/description": (
-        "8955522567",
+        "18ab816db1",
         "What the theme wants from images.\n\n"
         "The theme asks for the proportions: it decides that a catalog card is square\n"
         "and an article cover is wide. The core fits the master into them, padding it\n"
@@ -109,7 +109,7 @@ EN: dict[str, tuple[str, str]] = {
         "Written the same way, as the beginning of a path: `media/docs/`.",
     ),
     "theme.schema.json#/$defs/LinkSpec/description": (
-        "d96e07a712",
+        "3bc9f9dcab",
         "A relation between pages declared by the theme.\n\n"
         'The core does not know what "a service belongs to a direction" means - it knows\n'
         "that the field `topics` holds the names of pages of the type `topic`, and it can\n"

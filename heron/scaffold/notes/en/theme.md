@@ -8,6 +8,7 @@ anchor, but not what that section says.
 
 - `templates/` - one template per page type;
 - `partials/`, `base.html` - shared markup;
+- `modules/` - one module per section form;
 - `assets/` - styles, script, logo, icons, fonts;
 - `i18n/<lang>.yaml` - interface strings: buttons, labels, block headings;
 - `theme.yaml` - which sections the theme expects from each page type.

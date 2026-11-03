@@ -5,8 +5,9 @@ reaches templates as `data.<file name>`; nested folders give nested names.
 
 ## Belongs here
 
-- contacts, addresses, opening hours;
-- repeated blocks: booking terms, legal details, disclaimers;
+- opening hours, branches, extra addresses; the site's main contacts and legal
+  details live in `site.yaml`, written by `heron setup`;
+- repeated blocks: booking terms, disclaimers;
 - any data edited separately from prose and not owned by a single page.
 
 ## Does not belong here

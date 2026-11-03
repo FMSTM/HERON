@@ -17,7 +17,7 @@ if the file sets `slug`.
 
 - **Image and video files.** They live in `media/`; the page only declares
   them: `image: media/photo/portrait.jpg`.
-- **Shared reference data** - schedules, prices, details needed by many pages
+- **Shared reference data** - schedules, prices, data needed by many pages
   at once. That lives in `data/`.
 - **Interface strings** - "Book a visit", "Read more". That is the theme:
   `theme/i18n/<lang>.yaml`.

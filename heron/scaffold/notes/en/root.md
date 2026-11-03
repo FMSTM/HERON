@@ -12,6 +12,11 @@ engine version. Folders follow the config, not the other way round: add a
 language to `languages`, run `init`, and `content/<lang>/` and
 `theme/i18n/<lang>.yaml` appear.
 
+The easiest way to fill it in is the questionnaire: `$H setup .` (needs a
+published port, like `serve`) asks for the name, domains, site details,
+publishing and theme and writes them here. Editing the file by hand is fine
+too.
+
 Never put passwords or tokens in `site.yaml`: the build is static, and
 anything it sees can end up in the HTML.
 
@@ -19,6 +24,7 @@ anything it sees can end up in the HTML.
 
 | Folder or file | What's inside |
 |---|---|
+| `site.yaml` | site settings: domain, languages, menu, contacts, publishing |
 | `content/<lang>/` | pages in markdown, the file path is the page address |
 | `media/` | everything the content shows: images (covers and the social sharing image included, from 1200 px), video, documents |
 | `theme/` | how the site looks: templates, styles, interface strings |
@@ -26,6 +32,8 @@ anything it sees can end up in the HTML.
 | `static/` | files that must sit at an exact address |
 | `plugins/` | build extensions for this site |
 | `agents/` | instructions for AI agents and the place for their reports, `agents/work/`; not part of the build |
+| `.heron/scripts/`, `.github/workflows/` | scripts and the auto-build, written by `heron setup` |
+| `dist/` | the build result, never goes into git |
 | `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` | the agent's entry point and two pointers to it; not part of the build |
 
 The content folders hold a `heron-readme.md` - a short note on what belongs
@@ -39,9 +47,13 @@ Every command goes through the HERON image. Set a short name once:
 H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"
 ```
 
+In zsh (the macOS default) run `setopt sh_word_split` first, otherwise `$H`
+will not start.
+
 Then, from the site folder:
 
 ```bash
+$H setup .                       # questionnaire: name, domains, publishing, theme
 $H init .                        # folders catch up with site.yaml
 $H check .                       # what to fill in and what to fix, no build
 $H serve .                       # look at it on localhost:8000 (needs -p 127.0.0.1:8000:8000)
@@ -51,11 +63,13 @@ $H build . --env prod --strict   # build the working version into dist/
 To look at the site, `serve` needs a published port: add
 `-p 127.0.0.1:8000:8000` to the `docker run` command in `H`.
 
-With several sites and a clone of the engine you can work through
-`./scripts/site.sh {slug} <command>` from the HERON folder.
+With several sites and a clone of the engine, from the HERON folder run
+`cp env/.env.example env/.env.{slug}.dev` once, fill it in, then work through
+`./scripts/site.sh {slug} <command>`.
 
-There may be no content at all - an empty site still builds and serves
-robots.txt and a sitemap.
+There may be no content at all: an empty site builds in dev and serves
+robots.txt and a sitemap. A production build with no pages fails with E017.
+You can work on the theme before writing a single page.
 
 ## If you need an agent
 

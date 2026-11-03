@@ -18,8 +18,9 @@ and shows up in the report.
 
 ## Cover and social image
 
-- Use a master of at least 1200 px on the long side. If the master is smaller,
-  the engine serves it whole and prints a warning.
+- Use a master at least 1200 px wide. If the master is narrower, the engine
+  serves it whole and `check` warns.
+- The cover master always ships whole.
 - Make the cover opaque. The engine does not add a backing under transparent
   areas.
 - Cover not found - the page gets no `primaryImageOfPage` and no `og:image`.

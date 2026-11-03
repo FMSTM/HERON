@@ -6,6 +6,8 @@ An end-to-end example: from an empty folder to a built site in two languages, En
 H="docker run --rm -it -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"
 ```
 
+In zsh (the macOS default) run `setopt sh_word_split` first, otherwise `$H` will not start.
+
 - `-p 127.0.0.1:8000:8000` is for the `setup` questionnaire and for `serve` preview: inside the container they listen on all interfaces of the container, and the leading `127.0.0.1:` publishes the port only to your machine, not to the network. Without this prefix docker opens the port on all interfaces of the computer. The page opens at `localhost:8000`; the engine prints the questionnaire address together with the key after `#`, so open it in full;
 - `-v $PWD:/site` means the engine sees **only the current folder**. That is why the path to the site in commands is relative to it: `my-site`, or `.` if you are already in the site folder. A path like `~/SOURCE/…` does not exist inside the container, and the engine will say so;
 - `-it` lets `new` ask questions. Without it, it quietly takes the defaults;
@@ -177,6 +179,8 @@ Open <http://localhost:8080>. After the build the engine prints a report: how ma
 ```bash
 $H build my-site --env prod --strict
 ```
+
+If you added a page in §5, before `build --env prod --strict` it needs its translation and different `title` and `h1`, otherwise the build returns rc=1.
 
 `--env prod` opens indexing and turns on the counters from `analytics`. `--strict` turns warnings into errors: a site with a broken link or an image without `alt` will not go to production. The finished `dist/` folder goes to any hosting; for how to build an nginx image with the site, see [06 · Build and deploy](06-deploy.md).
 

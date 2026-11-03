@@ -139,9 +139,9 @@ No network, a read-only root, no privileges, your own user, no `.env` and no doc
 | `sitemap.xml`, `robots.txt`, canonical addresses | theme: page type templates, modules, styles |
 | hreflang and the language switcher | images go into `media/`, the engine resizes them itself |
 | JSON-LD: page, breadcrumbs, FAQ, the site-wide node | data for the markup: the `schema` block in `site.yaml` |
-| `llms.txt` and full texts for AI models | the facts about the site for them: `seo.llms_note` |
 | page cover: `og:image`, `twitter:image`, images in `sitemap.xml`, large previews | which image: `og_image` or `image` of the page, `seo.og_default_image` of the site |
 | a check of the markup against the schema.org vocabulary (`SCH001`-`SCH006`) | fix the finding or record an exception in `schema_exceptions` |
+| `llms.txt` and full texts for AI models | the facts about the site for them: `seo.llms_note` |
 | image variants, WebP/AVIF, `srcset`, sizes | `alt` for images |
 | 301 from old addresses, 410 for deleted ones | old addresses go to `redirect_from`, deleted ones to `gone` |
 | a 404 page in every language, the nginx config | the 404 text: `content/<lang>/404.md` |
@@ -165,6 +165,8 @@ $HP setup my-site      # questionnaire: the address with a key is printed in the
 $HP serve my-site      # preview at localhost:8000 with a rebuild on every save
 $H build my-site       # → my-site/dist/
 ```
+
+In zsh (the macOS default) run `setopt sh_word_split` first, otherwise `$H` will not start.
 
 The engine in the container sees only the current folder, so the path to the site is relative to it: `my-site`, or `.` if you are already in the site folder (for example in your own git repository: `.git` and `README` do not get in the way). Without questions, for agents and CI (no `-it`, no terminal needed): `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod new my-site --notes en --name Workshop --domain workshop.example --lang en,ru -y`.
 
@@ -199,6 +201,8 @@ mkdir -p ~/sites                                 # site.sh new creates only the 
 ./scripts/site.sh mysite stop dev                # stop the preview
 ./scripts/site.sh mysite check dev               # check the content without building
 ```
+
+The site name is lowercase Latin letters, digits and hyphens: the docker image name is built from it.
 
 How it differs from one site:
 

@@ -166,6 +166,8 @@ $HP serve мой-сайт     # просмотр на localhost:8000 с пере
 $H build мой-сайт      # → мой-сайт/dist/
 ```
 
+В zsh (по умолчанию на macOS) сначала выполните `setopt sh_word_split`, иначе `$H` не запустится.
+
 Движок в контейнере видит только текущую папку, поэтому путь к сайту - относительно неё: `мой-сайт`, или `.`, если вы уже в папке сайта (например, в своём git-репозитории - `.git` и `README` не мешают). Без вопросов, для агентов и CI (без `-it`, терминал не нужен): `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod new мой-сайт --notes ru --name Workshop --domain workshop.example --lang en,ru -y`.
 
 Ответы ложатся в `site.yaml`: комментарии, написанные руками, и ключи, которыми анкета не управляет, при сохранении остаются на месте; анкета `setup` дописывает остальное и кладёт скрипты публикации, а править `site.yaml` руками тоже можно. Поменяли языки - `$H init мой-сайт` достроит папки. Новый сайт приходит с белой темой и её демонстрационными страницами: главная, «Блоки» (каждый вид блока), «Темы», «Документация».
@@ -188,17 +190,19 @@ docker run --rm -p 127.0.0.1:8080:8080 -v "$PWD/мой-сайт/dist:/usr/share/
 ```bash
 git clone https://github.com/FMSTM/HERON.git && cd HERON
 mkdir -p ~/sites                                 # site.sh new создаёт только папку сайта, родительская должна существовать
-./scripts/site.sh мойсайт new ~/sites/мой-сайт   # создать сайт и его окружения dev и prod
-./scripts/site.sh мойсайт build dev              # собрать в out/мойсайт-dev
-./scripts/site.sh мойсайт serve dev              # посмотреть на localhost:8080
-./scripts/site.sh мойсайт build prod            # собрать боевую версию
-./scripts/site.sh мойсайт image prod             # упаковать в образ nginx
-./scripts/site.sh мойсайт smoke prod             # поднять образ и проверить ответы: 200, 404, 301, 410
-./scripts/site.sh мойсайт push prod              # отправить образ в реестр
-./scripts/site.sh мойсайт init                   # достроить папку под site.yaml
-./scripts/site.sh мойсайт stop dev               # погасить просмотр
-./scripts/site.sh мойсайт check dev              # проверить контент без сборки
+./scripts/site.sh mysite new ~/sites/мой-сайт   # создать сайт и его окружения dev и prod
+./scripts/site.sh mysite build dev              # собрать в out/mysite-dev
+./scripts/site.sh mysite serve dev              # посмотреть на localhost:8080
+./scripts/site.sh mysite build prod            # собрать боевую версию
+./scripts/site.sh mysite image prod             # упаковать в образ nginx
+./scripts/site.sh mysite smoke prod             # поднять образ и проверить ответы: 200, 404, 301, 410
+./scripts/site.sh mysite push prod              # отправить образ в реестр
+./scripts/site.sh mysite init                   # достроить папку под site.yaml
+./scripts/site.sh mysite stop dev               # погасить просмотр
+./scripts/site.sh mysite check dev              # проверить контент без сборки
 ```
+
+Имя сайта - строчная латиница, цифры и дефис: из него собирается имя образа docker.
 
 Чем отличается от одного сайта:
 

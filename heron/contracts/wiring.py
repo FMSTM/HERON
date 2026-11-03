@@ -79,11 +79,10 @@ def verify(theme: ThemeConfig, site: SiteConfig, site_path: str = "site.yaml") -
 
     def view(lang: str) -> SiteConfig:
         return site.for_lang(lang) if lang else site
+
     missing: list[str] = []
     for path in theme.requires:
-        bad = [
-            lang for lang in langs if view(lang).get_path(path) in (None, "", [], {})
-        ]
+        bad = [lang for lang in langs if view(lang).get_path(path) in (None, "", [], {})]
         if len(bad) == len(langs):
             missing.append(path)
         elif bad:

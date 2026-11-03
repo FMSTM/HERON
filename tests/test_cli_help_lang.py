@@ -436,7 +436,7 @@ def test_recipe_in_english_has_no_cyrillic(here):
     lines = [line for line in text.splitlines() if CYRILLIC.search(line)]
     assert not lines, lines
     assert "nginx-unprivileged" in text
-    assert 'echo "no $conf — rebuild the site with HERON 0.1.0 or newer"' in text
+    assert 'echo "no $conf - rebuild the site with HERON 0.1.0 or newer"' in text
 
 
 def test_recipe_in_russian_is_the_file_as_is(here):

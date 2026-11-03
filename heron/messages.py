@@ -1409,7 +1409,7 @@ RECIPE_EN: tuple[tuple[str, str], ...] = (
     (
         "# Образ готового сайта: nginx и статика, больше ничего.\n"
         "#\n"
-        "# Контекст сборки — уже собранная папка out/<сайт>-<окружение>, а не папка\n"
+        "# Контекст сборки - уже собранная папка out/<сайт>-<окружение>, а не папка\n"
         "# контента. Так в образ физически не может попасть ни .git, ни исходники\n"
         "# картинок, ни макеты, и движка в работающем контейнере нет: в сети не\n"
         "# должно стоять ничего, что умеет читать файлы сайта и запускать плагины.\n"
@@ -1426,7 +1426,7 @@ RECIPE_EN: tuple[tuple[str, str], ...] = (
         "# Built with scripts/site.sh <site> image <environment>.\n",
     ),
     (
-        "# nginx 1.30.6 (stable, 2026-10-14; njs 1.0.2) — закрывает все опубликованные\n"
+        "# nginx 1.30.6 (stable, 2026-10-14; njs 1.0.2) - закрывает все опубликованные\n"
         "# на дату advisories nginx.org, включая CVE-2026-15176, -93479, -95101,\n"
         "# -97629, -97205 (исправлены в 1.30.6) и -90439 (1.30.5). Прибит по digest\n"
         "# индекса образа: тег мог бы уехать под ногами. Обновляется отдельным\n"
@@ -1463,7 +1463,7 @@ RECIPE_EN: tuple[tuple[str, str], ...] = (
         "#\n"
         "# Владельца конфига меняем не для красоты: стартовый скрипт образа правит\n"
         "# default.conf на месте (ipv6, резолверы), и от чужого файла он получает\n"
-        "# отказ в правах — контейнер падает сразу после старта.\n",
+        "# отказ в правах - контейнер падает сразу после старта.\n",
         "# Permissions come with the files, and nginx does not run as root: a folder\n"
         "# closed to others on the build machine turns into a 403 for the whole site\n"
         "# inside the image. So readability is set here instead of relying on the\n"
@@ -1471,20 +1471,20 @@ RECIPE_EN: tuple[tuple[str, str], ...] = (
         "#\n"
         "# The config owner is changed for a reason: the image start script edits\n"
         "# default.conf in place (ipv6, resolvers) and gets a permission error on a\n"
-        "# file it does not own — the container dies right after the start.\n",
+        "# file it does not own - the container dies right after the start.\n",
     ),
     (
-        'echo "нет $conf — пересоберите сайт движком 0.1.0 или новее"',
-        'echo "no $conf — rebuild the site with HERON 0.1.0 or newer"',
+        'echo "нет $conf - пересоберите сайт движком 0.1.0 или новее"',
+        'echo "no $conf - rebuild the site with HERON 0.1.0 or newer"',
     ),
     (
         "# Проверка конфига идёт под тем же пользователем, под которым потом работает\n"
         "# сервер. Под root она врёт дважды: не видит отказов в правах и оставляет за\n"
-        "# собой /tmp/nginx.pid, в который рабочий процесс потом не может писать —\n"
+        "# собой /tmp/nginx.pid, в который рабочий процесс потом не может писать -\n"
         "# контейнер падает на старте с «permission denied».\n",
         "# The config is checked as the same user the server later runs as. As root\n"
         "# the check lies twice: it does not see permission errors and leaves\n"
-        "# /tmp/nginx.pid behind, which the worker process then cannot write to —\n"
+        "# /tmp/nginx.pid behind, which the worker process then cannot write to -\n"
         "# the container dies at the start with “permission denied”.\n",
     ),
 )

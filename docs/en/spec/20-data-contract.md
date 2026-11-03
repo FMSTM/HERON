@@ -1,9 +1,8 @@
 # HERON - data contract
 
-**Date:** 2026-09-08 · **Status:** for development
+**Status:** in force. The change history is in CHANGELOG.md.
 **Document 1 of 4.** Next: `21-engine.md` (the engine), `22-deploy.md` (site deployment), `23-distribution.md` (engine distribution).
-**Edit of 2026-09-14:** the document follows the concept "the engine is separate from the site". **Edit of 2026-10-04:** gaps in the contract are closed - languages, links, `gone`, Cyrillic in old addresses, section forms, frontmatter fields, dates, values by language, 404. **Edit of 2026-10-25:** the kit of instructions for agents in the site folder (`agents/`, root pointers, `build.agents`), documentation by language (`docs/<lang>/`), the rule "data is not instructions".
-**Contract version** - `<major>.<minor>` of the engine version (`23` §2): contract `0.1` applies to all engines `0.1.x`. A breaking change of this document, `site.yaml`, `theme.yaml` or the set of hooks is a change of the minor version.
+**Contract version** - `<major>.<minor>` of the engine version (`23` §2): contract `0.1` applies to all engines `0.1.x`. A breaking change of this document, `site.yaml`, `theme.yaml` or the set of hooks is a change of the minor version. The full register of error codes is `21` §11 and `heron schema --errors`.
 **How an agent uses the documentation:** [`README.md`](../README.md) of this folder - the roles of architect, content and SEO, designer and builder, common rules and the limits of authority. The same folder sits whole in every site as `agents/` (section 1) and in the engine image (`heron docs`).
 
 ---
@@ -24,11 +23,10 @@ The practical consequence: the order of sections in the file does not affect the
 
 ### How the engine is distributed
 
-Decision of 2026-09-14; it cancels the earlier "engine, content and theme in one repository".
 
 **The engine is absent from the site folder.** It ships as one artifact - the image `heron:<version>`, also published as a pip package for local development. The site folder holds only content, data, images, the theme and the config; it has no lines of Python.
 
-The site declares the required engine version in the first line of `site.yaml` (`heron: ">=0.1,<0.2"`). The engine refuses to build a site whose version it does not support - this is the only thing that keeps three sites from drifting apart onto incompatible engines.
+The site declares the required engine version with the `heron` key in `site.yaml` (`heron: ">=0.1,<0.2"`). The engine refuses to build a site whose version it does not support - this is the only thing that keeps three sites from drifting apart onto incompatible engines.
 
 Everything described below is the contract between the engine and the site folder. It is the same for all sites on the engine, whatever theme they belong to.
 
@@ -38,8 +36,8 @@ Everything described below is the contract between the engine and the site folde
 
 ```
 <site>/
-├── site.yaml                 site config, the first line is the engine version
-├── .gitignore                dist/, .heron-cache/ - put by heron new
+├── site.yaml                 site config, the first key is the engine version
+├── .gitignore                dist/, .heron-cache/, .heron-docs/ and service files - put by heron new
 ├── heron-readme.md           a note for the human - and in every folder below
 │
 ├── AGENTS.md                 entry point for an AI agent: language, roles, rules, "done when"
@@ -56,6 +54,7 @@ Everything described below is the contract between the engine and the site folde
 │   ├── en/                   a folder for each language from site.languages;
 │   │   ├── index.md          home page - put by heron new/init
 │   │   └── 404.md            the "not found" page - put by heron new/init
+│   │   └── blocks.md, docs.md, themes.md   demo pages - put by heron new; delete the extra ones
 │   └── ru/
 │
 ├── data/                     yaml reference data: lists, tables, company details
@@ -101,7 +100,7 @@ The site `AGENTS.md` is 60-100 lines: the language of the project and of the kit
 - **the channel is not `prod`** (`HERON_CHANNEL`, for example `beta`): links to the `prod` branch of the engine repository on GitHub (`…/FMSTM/HERON/blob/prod/`) lead to `blob/<channel>/`, and the image in ready commands `ghcr.io/fmstm/heron:prod` (before a quote or a space) becomes `heron:<channel>`; a tag in backticks in the table of tags does not change. `heron docs --export` makes the same substitution;
 - **`build.agents: kit`**: relative markdown links to `guide/` and `spec/`, which the reduced kit does not have, become absolute GitHub addresses `https://github.com/FMSTM/HERON/blob/<channel>/docs/<lang>/<path>#anchor`.
 
-In the `prod` channel the full kit is byte for byte `docs/<lang>/`. The other relative links are the same in the repository, in the `heron docs --export` dump, in the image and in the site. The size is about 450 KB of text per language, no images. The glossary `docs/en/GLOSSARY.md` is not part of the kit: it is a working file for translators of the documentation, not an instruction for a site author; it is in the repository, the wheel and the image, but not in `agents/`, not in the `heron docs` topics and not in `--export` (`23` §10).
+In the `prod` channel the full kit is byte for byte `docs/<lang>/`. The other relative links are the same in the repository, in the `heron docs --export` dump, in the image and in the site. The size is about 600 KB of text per language, no images. The glossary `docs/en/GLOSSARY.md` is not part of the kit: it is a working file for translators of the documentation, not an instruction for a site author; it is in the repository, the wheel and the image, but not in `agents/`, not in the `heron docs` topics and not in `--export` (`23` §10).
 
 **The language** of the kit is `build.notes` (`--notes`, `HERON_NOTES`), ru or en; if a single file has no translation, the same file in the other language is put, and `heron docs` marks this in the first line. The languages of the site itself do not affect the kit.
 
@@ -139,7 +138,7 @@ files:                            # every kit file except work/, and the root AG
 
 **Language on update.** A plain `init` without flags (and the `setup` questionnaire) does not change the kit language: missing `agents/` files and an untouched `AGENTS.md`, updated by the manifest hash, are written in the manifest `lang`; the other kit files are only added. With a different `build.notes` the summary prints "kit left in <lang>, build.notes is <lang>: to change the kit language - heron init --agents". `heron init --agents` switches the kit to `build.notes`: it updates only unedited files (it does not overwrite edited ones and lists them), writes the new `lang` into the manifest and prints "kit language changed: <old> → <new> (build.notes)". `--no-agents` touches neither the manifest nor `AGENTS.md`. If there is no manifest, it is broken, or its `lang` is not ru/en, the language is taken from `build.notes` (`21` §10). `heron check` compares the manifest `engine` with itself and on a mismatch advises `heron init --agents` - as an info line, not a warning: documentation is no reason to fail a strict build. The build does not update the kit: `build` does not write into the site folder.
 
-**Turning it off.** `heron new --no-agents` and `heron init --no-agents` do not put the kit and write `build.agents: false` (section 5); after that `init` and the `setup` questionnaire do not bring it back. `heron init --agents` on such a site turns the kit back on. `build.agents: kit` is a reduced kit without `guide/` and `spec/`: for sites where the documentation is read from the image; links to them in the kit lead to GitHub (above).
+**Turning it off.** `heron new --no-agents` and `heron init --no-agents` do not put the kit and write `build.agents: false` (section 5); after that `init` and the `setup` questionnaire do not bring it back. `heron init --agents` on such a site turns the kit back on. `build.agents: kit` is a reduced kit without `guide/` and `spec/`: for sites where the documentation is read from the image; links to them in the kit lead to GitHub (above). On a site with the full kit `init --agents` does not delete the `guide/` and `spec/` folders, it only names them: remove them yourself.
 
 **Agent results** - `agents/work/`: `structure.md` (architect), `questions.md` (questions for the client - for all roles), `report.md` (report - for all roles), following the forms in `templates/`. This is the only place in the kit that the agent edits; the language is the one the human asked for, otherwise `build.notes`.
 
@@ -158,11 +157,11 @@ Documentation in a separate spec file does not solve this: it is read once, when
 - in `media/` - not a resource: not checked, not copied, not listed as unused;
 - in `theme/`, `data/`, `plugins/` - simply ignored.
 
-There is one rule for the whole engine, without exceptions by directory. An ordinary `README.md` could not play this role: in `content/` it did not become a page by accident, not by rule, and from `static/` it went online - this folder is copied byte for byte, and `/README.md` appeared on the site.
+There is one rule for the whole engine, without exceptions by directory.
 
 The language of the notes is the one chosen when the site was created; if there is no translation, the English one is put, without an error. Sites created earlier do not need the notes: their absence is a line in the report, not an error.
 
-**Operating system junk** - `.DS_Store`, `Thumbs.db`, `desktop.ini` - gets into the built site from nowhere. It appears in `static/` by itself, without the human, and went online for the same reason.
+**Operating system junk** - `.DS_Store`, `Thumbs.db`, `desktop.ini` - gets into the built site from nowhere. It appears in `static/` by itself, without the human.
 
 ---
 
@@ -206,7 +205,7 @@ Two different things that coincide by default:
   theme finds it by it through `page_of('<key>')`. The home page key is `/`
 - **`slug`** is the address segment the visitor sees
 
-Each address segment - from a file name, a folder name or `slug` - is lowercase Latin letters, digits and hyphens (`E005`). A folder with another name (`Services/`, `a$b/`) is allowed only if its `_index.md` sets a valid `slug`. Otherwise nginx would read `$` in the address as a variable, and a space or a leading dot would give an address the server does not serve.
+Each address segment - from a file name, a folder name or `slug` - is lowercase Latin letters, digits and hyphens. An invalid file or folder name is `E005`, an invalid value of the `slug` field is `E002`. A folder with another name (`Services/`, `a$b/`) is allowed only if its `_index.md` sets a valid `slug`. Otherwise nginx would read `$` in the address as a variable, and a space or a leading dot would give an address the server does not serve.
 
 ```yaml
 # content/ru/services/_index.md
@@ -232,7 +231,7 @@ still one page in two languages, because their file has the same
 name: the key of both is `services`.
 
 The slug follows the same rules as the file name: Latin letters, digits and hyphens,
-one segment, no slashes. An invalid value is a build error, not a silent
+one segment, no slashes. An invalid value is a build error `E002`, not a silent
 fallback to the file name: substituting silently means giving the page an address
 the author does not expect, and the author learns about it from the search results.
 
@@ -301,7 +300,7 @@ Normalization rules:
 - a slug cut by the old system in the middle of a letter (`/%d0%ba%d1%80%d0/` - the last byte has no pair) is not text after decoding. Such an entry stays in percent form, and the server matches it against the raw request address, ignoring the case of `%xx`. It must be written exactly in percent form - as it came from the old sitemap;
 - duplicates, a match with a page address (`E009`) and overlaps with `gone` (`E022`) are checked on the normalized form: `/кредит/` and its percent form are one and the same address.
 
-In `dist/redirects.map` and `dist/gone.map` the addresses are already in normalized form. In the nginx config the map keys are in quotes, spaces and special characters are escaped.
+In `dist/redirects.map` and `dist/gone.map` the addresses are already in normalized form. In the nginx config the addresses are in quotes, spaces and special characters are escaped; the map files themselves are copies for a human, the server does not read them.
 
 **Adding a page is creating one md file.** It appears by itself in the menu, in the catalog of its folder, in the sitemap, in hreflang, in cross-linking and in `llms.txt`. Deleting the file removes it from everywhere. No lists to edit in parallel.
 
@@ -371,11 +370,12 @@ A language is declared in `languages`, but `content/<lang>/` does not exist or h
 
 | Situation | Dev | Production (`--env prod`) |
 |---|---|---|
-| a non-default language is empty | a warning in the `languages` group | the same warning, the build goes on |
+| a non-default language is empty | a warning in the `languages` group | `E028` with the language code: `/<lang>/` would answer 404 |
+| a language has pages but no `index.md` | a warning in the `languages` group | `E028` |
 | the default language is empty, the others are filled | a warning, the build goes on | `E021` with the language code: the site root would answer 404 |
 | all languages are empty | a warning, the build goes on | `E017` |
 
-This way the second language can be filled before the default one: the dev build shows what is ready, and a site without a home page will not go to production.
+This way the second language can be filled before the default one: the dev build shows what is ready, and a site where at least one language from `languages` has no home page will not go to production.
 
 ## 4. Markdown file format
 
@@ -400,9 +400,11 @@ Groups and their order:
 
 The block with all eight groups and comments is put by `heron new` and `heron init` into the starter pages (`index.md`, `404.md`) and by `heron page` into every new one. A new page is a copy of a file with edited values; the comments stay as they are, their language is set by `build.notes` (`ru` or `en`).
 
+The stub contains all eight groups but not all fields: `og_type`, `twitter_card`, `children_type`, `video`, `video_poster`, `video_title` and `priority` are added by hand from table 4.2.
+
 **What lives in `site.yaml`, not in the page file:** the site name (by language - section 5), the locale, `twitter:site`, `og_default_image`, organization details for the markup, social network links for `sameAs`, the `title` suffix. The page holds only what is its own.
 
-**What the engine generates itself and is not written in the file:** `hreflang` to all existing language versions plus `x-default` (rules - section 3), `canonical` from the page's own URL, `BreadcrumbList`, `FAQPage` when there is a `faq` section, `datePublished` from `date`, `dateModified` from `updated`, the entry in `sitemap.xml` and in `llms.txt`.
+**What the engine generates itself and is not written in the file:** `hreflang` to all existing language versions plus `x-default` (rules - section 3), `BreadcrumbList`, `FAQPage` when there is a `faq` section, `datePublished` from `date`, `dateModified` from `updated`, the entry in `sitemap.xml` and in `llms.txt`. `canonical` is output by the theme template: in the stub it is the page's own address.
 
 Block rules:
 
@@ -436,6 +438,8 @@ A short explanation in plain words…
 
 YAML between `---`. This is **the only authoritative list of fields**: the page model (`21` §6) and the `heron page` sample follow it.
 
+The machine form is `heron schema --frontmatter`; the fields marked "theme" and the relation fields are not listed in it and pass as additional ones.
+
 The "core" column says what the engine does with the field: **yes** - it reads and checks it itself (`E002` - a required field is missing, it is empty or the value has the wrong type; `E001` - the file does not start with `---`, the YAML does not parse, the frontmatter is not a set of keys or the file is not UTF-8); **theme** - the core does not interpret the field, it passes through and is available to the template as `page.meta.<field>`. The "group" column is the SEO block group number from 4.1.
 
 | Field | Type | Default | Core | Group | What it does |
@@ -443,23 +447,24 @@ The "core" column says what the engine does with the field: **yes** - it reads a
 | `title` | string | - **required** | yes; longer than 60 - a warning | 1 | `<title>` |
 | `h1` | string | - **required** | yes; the same as `title` - a warning | 1 | the heading on the page, `name` in the markup |
 | `description` | string | - **required** | yes; longer than 155 - a warning | 1 | `meta description`, the description in `llms.txt` and in the markup |
-| `slug` | string | file name | yes: Latin letters, digits, hyphen | 1 | the last address segment; does not change the key (section 2) |
-| `canonical` | string | own address | theme | 1 | the theme outputs it if set |
-| `robots` | string | - | theme | 1 | the theme outputs it; the core decides indexing by `noindex` |
+| `slug` | string | file name | yes: Latin letters, digits, hyphen, otherwise `E002` | 1 | the last address segment; does not change the key (section 2) |
+| `canonical` | string | own address | theme | 1 | the core does not read the field. The `heron new` stub always outputs the page's own address and does not use this field; a custom theme reads it itself: `page.meta.get('canonical')` |
+| `robots` | string | - | theme | 1 | the stub does not use the field and outputs `robots_meta` (section 9); the core decides indexing by `noindex` |
 | `og_title` | string | `title` | yes: type only; the template substitutes `title` (`page.meta.og_title or page.title`) | 3 | the title in social networks |
 | `og_description` | string | `description` | yes: type only; the template substitutes `description` | 3 | the description in social networks |
-| `og_image` | path in `media/` | `seo.og_default_image` | yes: the file must exist (`E007`) | 3 | a 1200×630 image; first in the page cover choice (the "Page cover" paragraph below) |
-| `og_type` | string | - | theme | 3 | |
+| `og_image` | path in `media/` | `seo.og_default_image` | yes: a missing file is `E007` in a strict build (`--strict`, `build.fail_on_warning`), otherwise a warning | 3 | a 1200×630 image; first in the page cover choice (the "Page cover" paragraph below) |
+| `og_type` | string | - | theme | 3 | the stub does not use the field and always outputs `website`; a custom theme reads it itself |
 | `og_image_alt` | string | `image_alt` | yes: the cover caption (`page.cover.alt`) | 3 | |
-| `twitter_card`, `twitter_title`, `twitter_description`, `twitter_image` | string | from `og_*` | theme; `twitter_image` is a path in `media/`, the master goes into the build whole, the file must exist (`E007`) | 4 | filled only if they must differ from `og_*` |
+| `twitter_title`, `twitter_description` | string | from `og_*`, then `title` and `description` | theme | 4 | filled only if they must differ |
+| `twitter_card`, `twitter_image` | string | `seo.twitter_card`; the page cover | theme; `twitter_image` is a path in `media/`, the master goes into the build whole, a missing file is `E007` in a strict build (`--strict`, `build.fail_on_warning`), otherwise a warning | 4 | the stub does not output them: its card type comes from `seo.twitter_card`, and `twitter:image` is always the cover |
 | `schema` | map | - | yes: merged into JSON-LD on top of `site.yaml` | 5 | markup refinements of the page (section 5) |
-| `image` | path in `media/` | - | yes: `E007` if the file is missing | 6 | the preview in the catalog and in relation cards; second in the page cover choice, if there is no `og_image` |
+| `image` | path in `media/` | - | yes: a missing file is `E007` in a strict build (`--strict`, `build.fail_on_warning`), otherwise a warning | 6 | the preview in the catalog and in relation cards; second in the page cover choice, if there is no `og_image` |
 | `image_alt` | string | - | yes: a warning if there is `image` without `alt` | 6 | |
-| `nav_title` | string | file name | yes | 1 | the short name in the menu and breadcrumbs (see below) |
+| `nav_title` | string | file name, `h1` for the home page | yes | 1 | the short name in the menu and breadcrumbs (see below) |
 | `order` | integer | `999` | yes | 6 | the order in catalogs and menus, ascending |
 | `type` | string | from the folder, see below | yes: the type must have a template (`E008`) | 6 | the page type - which template renders it |
 | `children_type` | string | - | yes; read only in `_index.md` | 6 | the type of the section's children |
-| `video` | path in `media/` or a full URL | - | yes: the file must exist | 6 | the page video, `page.video` (section 7.5) |
+| `video` | path in `media/` or a full URL | - | yes: a missing file is `E007` in a strict build (`--strict`, `build.fail_on_warning`), otherwise a warning | 6 | the page video, `page.video` (section 7.5) |
 | `video_poster` | path in `media/` | - | yes: required with a local `video` (`E019`) | 6 | |
 | `video_title` | string | - | yes | 6 | |
 | `date` | date `YYYY-MM-DD` | - | yes | 7 | the publication date: `datePublished` in the markup, the order and `<published>` in the feed; in the template `page.date` |
@@ -474,14 +479,14 @@ The "core" column says what the engine does with the field: **yes** - it reads a
 
 #### Page cover <a id="page-cover"></a>
 
-A page has one cover, and it feeds all the places at once: `og:image`, `twitter:image`, `primaryImageOfPage` in the markup and the images in the `sitemap`. If these places diverge, they give a search engine and a messenger different answers. The engine picks the cover in order, the first one found wins:
+A page has one cover, and it feeds `og:image`, `twitter:image`, the images in the `sitemap` and (under the condition below) `primaryImageOfPage` in the markup. If these places diverge, they give a search engine and a messenger different answers. The engine picks the cover in order, the first one found wins:
 
 1. the page `og_image` (its caption is `og_image_alt`, otherwise `image_alt`);
 2. the page `image`;
 3. the first image in the intro block (`intro`) or in the `hero` section, written in the markdown text;
-4. `seo.og_default_image` of the page language (`og_default_image_<lang>`, otherwise without a suffix).
+4. `seo.og_default_image` of the page language (`og_default_image_<lang>`, otherwise without a suffix); the caption is the site name.
 
-What the cover turns into: `page.cover` in the template (`src`, `url`, `width`, `height`, `alt`), `og:image` and `twitter:image` through `cover_url(page)`, the `primaryImageOfPage` node on the page (`WebPage` and its derivatives) and the first `<image:image>` entry in the `sitemap` (`21` §9). If the site set `primaryImageOfPage` itself in the `schema` block, its value wins: the engine substitutes its own only when the key is absent.
+What the cover turns into: `page.cover` in the template (`src`, `url`, `width`, `height`, `alt`), `og:image` and `twitter:image` through `cover_url(page)`, the `primaryImageOfPage` node on the page (`WebPage` and its derivatives; only if the theme declared `WebPage` or a derived type for the page type in `types.<type>.jsonld`, the starter theme does not) and the first `<image:image>` entry in the `sitemap` (`21` §9). If the site set `primaryImageOfPage` itself in the `schema` block, its value wins: the engine substitutes its own only when the key is absent. A summary of covers and navigation is in the `heron check` report, `21` §12.
 
 **The cover master always goes into the build whole**, even if no template asked for it in `picture()`: the address from `og:image` must not lead to a 404. This also covers `seo.og_default_image` with all its language values.
 
@@ -617,7 +622,7 @@ If there is no list, no table and no groups, the whole section is a `body` of ty
 **Bold opening.** A paragraph like `**Text up to the period.** Then ordinary text`
 is split in two: the opening goes to `note_title` (or to the `term` of a list
 item) and is removed from the paragraph body. The sign is a bold fragment at the very
-start of the paragraph that ends with a period, a colon or a dash.
+start of the paragraph that ends with a period, a colon, a dash or a hyphen.
 
 **A list item** like `**Term.** Explanation` is parsed into a pair
 `{term, text}`. An item without an opening in such a list is a pair with an empty `term`.
@@ -637,11 +642,10 @@ Text before the first heading is split into paragraphs:
 |---|---|
 | `lead` | the first paragraph |
 | `promise` | the second paragraph, optional |
-| `intro` | the whole intro block, as before |
+| `intro` | the whole intro block |
 
 Three paragraphs or more is a `heron check` warning with the file name: the third
-and later ones will not reach the template. `intro` is kept so as not to break themes
-written before this rule.
+and later ones will not reach the template. `intro` is kept for themes that read the whole intro block.
 
 ### 4.4 Section forms (`kind`) <a id="section-forms"></a>
 
@@ -722,7 +726,7 @@ A step can carry a tag and links:
 
 turns into `{n: 1, tag: "MOST COMMON", title: "No visit", text: "…", links: [{title, href}]}`.
 
-Under the first paragraph of a step there can be anything - a command, a second paragraph, a list. It comes in the `more` field and is part of `html`; for a step of one paragraph `more` is empty, and `html` equals `text`, as before:
+Under the first paragraph of a step there can be anything - a command, a second paragraph, a list. It comes in the `more` field and is part of `html`; for a step of one paragraph `more` is empty, and `html` equals `text`:
 
 ````markdown
 1. **Create a site.** One command:
@@ -730,7 +734,9 @@ Under the first paragraph of a step there can be anything - a command, a second 
    ```bash
    heron new my-site -y
    ```
-```` The tag is a fragment in square brackets at the very start of the item, entirely in upper case; it is cut out of the text. No tag - the field is empty.
+````
+
+The tag is a fragment in square brackets at the very start of the item, entirely in upper case; it is cut out of the text. No tag - the field is empty.
 
 #### The theme names the expected form
 
@@ -743,6 +749,8 @@ The theme may name the expected form in `theme.yaml`: `uses: ["recovery:timeline
 The core does not know which sections pages have: that is the subject area of the site. All sections of a type - both required by meaning and optional - are declared by the theme in `types.<type>.uses` (section 6). A section from `uses` that the file lacks is a line in the content debt summary, not an error; a section in the file that is not in `uses` is a line in the `heron check` report ("the theme does not use"), which catches a typo in the anchor.
 
 ## 5. `site.yaml` <a id="site-yaml"></a>
+The machine form is `heron schema`.
+
 
 Everything that repeats on every page lives here in a single copy. An address typed by hand into the header and into the footer sooner or later drifts apart - this is exactly the problem this file solves.
 
@@ -846,7 +854,7 @@ analytics:
 - these are not secrets: the identifiers are visible in the source of any page. That is why they are in `site.yaml`, not in `.env`;
 - the counters are output by **the theme** (`partials/analytics.html` in the starter theme), the core only decides whether it is allowed: the template has the flag `env.analytics`. It is on in the production build (`--env prod`) and off in the others; it is overridden by the environment variable `SITE_ANALYTICS=0|1`. In dev the counters are not output, so that test visits do not get into the statistics of the live site;
 - in the white starter theme (`heron new`, `theme get starter`) the counters are loaded **only after the visitor's consent**: before the choice the page has an "Accept / Decline" banner and not a single counter script or request; the numbers are passed to the script as data (`tojson`). The choice is stored in the browser `localStorage` (`heron-consent`), changing your mind is a button in the footer. A custom theme must behave the same way if the questionnaire or the site promises the visitor consent;
-- the starter theme outputs `ga4` and `gtm`. The starter theme does not output Yandex Metrica: the core accepts the `metrika` key, but outputting it is the job of the site theme that needs it.
+- the starter theme outputs `ga4`, `gtm` and `metrika`: all three are connected by `assets/site.js` after the visitor's consent (the item above).
 
 ### `seo.llms_note` - facts about the site for AI models
 
@@ -884,7 +892,7 @@ Where the block goes, verbatim, without templating:
 
 ### Values by language
 
-The site name is written differently in different languages, and a `title` suffix in a foreign language in search results is a defect. For three core keys the value is set for each language with the suffix `_<language code>`:
+The site name is written differently in different languages, and a `title` suffix in a foreign language in search results is a defect. For four core keys the value is set for each language with the suffix `_<language code>`:
 
 ```yaml
 site:
@@ -917,7 +925,7 @@ site:
 
 - `key_<lang>` is stronger than the key without a suffix; a language without its own value gets the value without a suffix;
 - a suffix of a language that is not in `site.languages` is `E011`;
-- **the template gets ready values of the page language**: `site.site.name`, `site.seo.title_suffix`, `site.seo.og_default_image` are already substituted, no filter is needed. The substitutions of the `schema` block (`{{ site.name }}`), the headings of `llms*.txt` and of the feed see the same;
+- **the template gets ready values of the page language**: `site.site.name`, `site.site.alternate_names`, `site.seo.title_suffix`, `site.seo.og_default_image` are already substituted, no filter is needed. The substitutions of the `schema` block (`{{ site.name }}`), the headings of `llms*.txt` and of the feed see the same;
 - both images `og_default_image*` are declared by the site: the engine checks they exist and puts them into the build, like any files from `media/`;
 - the other core keys do not depend on the language;
 - **site blocks** (`contact`, `organization`, `schema` and your own) are translated with the same suffix, at any depth and in lists: the template of a `ru` page sees `site.contact.address` = `address_ru`; if there is only `address_ru`, `address` appears on the Russian page. Keys with the tail stay available. The substitutions of the `schema` block (below) work by the same rule.
@@ -1064,7 +1072,7 @@ A core key, validated (`E011`). `hash_sizes` is left over from the string maps f
 
 After a migration and after a hack, addresses remain that have no page and never will: category archives, pagination, service paths of the old system, doorway pages. The server answers them with **410 Gone** - "this no longer exists, drop it from the index". A 404 tells a search engine "it may appear", and it keeps checking the address for months.
 
-Such addresses have no page, so they live in `site.yaml`, in the core key `gone` (validated, the error is `E011`). Three forms of entries:
+Such addresses have no page, so they live in `site.yaml`, in the core key `gone` (validated, the error is `E011`). Four forms of entries:
 
 | Entry | What it closes |
 |---|---|
@@ -1080,13 +1088,12 @@ Such addresses have no page, so they live in `site.yaml`, in the core key `gone`
 - the same entry twice is a warning;
 - Cyrillic and percent-encoding follow the same rules as `redirect_from` (section 2).
 
-The server answers 410 **before accessing files**: the engine writes the list as a map into the nginx config it builds together with the site (`23-distribution.md`, "The 404 page and serving"). A human-readable copy is `dist/gone.map`.
+The server answers 410 **before accessing files**: the engine writes the list into the nginx config it builds together with the site: exact addresses and prefixes as `location`, entries with a parameter and percent-form addresses as `map` (`23-distribution.md`, "The 404 page and serving"). A human-readable copy is `dist/gone.map`, the server does not read it.
 
 The `gone` field on a page is deprecated: an address that no longer exists cannot honestly be attributed to anything. It is still read - the addresses go into the same list - but each such page gives a warning "move it to `site.yaml`".
 
 ### What the core checks and what it passes through
 
-Clarification of 2026-09-14, after implementing the contracts.
 
 The core strictly validates its own keys: `heron`, `site`, `seo`, `build`, `analytics`, `nginx`, `plugins`, `forms`, `gone`, `schema_exceptions`. A typo inside them is a stop with `E011`. `nav` allows any groups (`main` and your own), `sinks` any keys: they are read by heron-relay. The names `heron site seo nav build plugins forms sinks analytics gone nginx schema_exceptions` are taken by the core and are not used as your own blocks.
 
@@ -1102,7 +1109,7 @@ forms:
   - callback
 ```
 
-The engine checks that these paths in `site.yaml` are filled and stops with a clear list if not. The theme asks - the site gives - the engine compares, without understanding the subject area.
+The engine checks that these paths in `site.yaml` are filled and stops with `E011` and a list of the unfilled paths if not. The theme asks - the site gives - the engine compares, without understanding the subject area.
 
 The JSON-LD types moved there too: `types.<type>.jsonld` is set in `theme.yaml`. The mapping "such a page type → such a schema.org markup type" belongs to the theme: for a services site, a shop and a reference site it differs, and an engine module does not have to know it.
 
@@ -1110,7 +1117,9 @@ The JSON-LD types moved there too: `types.<type>.jsonld` is set in `theme.yaml`.
 
 ## 6. `theme.yaml` <a id="theme-yaml"></a>
 
-The theme passport. It serves as documentation and as the basis of the `heron check` report, not as a strict validator.
+The machine form is `heron schema --theme`.
+
+The theme passport and the basis of the `heron check` report. Unknown top-level keys are allowed; inside `types.<type>`, `links` and `images` an unknown key or an invalid value is `E008`.
 
 ```yaml
 name: main
@@ -1272,16 +1281,16 @@ as before.
 - `alt` is required. An image without `alt` is a build warning
 - the engine itself makes variants for breakpoints, converts to WebP and AVIF, sets `width`, `height`, `srcset`, `loading="lazy"` except for the LCP image. Originals are not touched
 - **only what is linked gets into the build.** The ratios from `images.ratios` are what the theme *may* ask for; what is cut is what the templates asked for through `picture()` and `media_url()`. A fallback file in the original format - one per ratio, `images.fallback_width` wide (800 by default). The whole master goes into the build if it is linked (`media_url(src)`, og:image, an image from the page text) - otherwise it is not there
-- `og_image` is not cut and not converted - social networks expect a 1200×630 JPEG or PNG
+- the cover master goes into the build whole, and for the crawler a JPEG or PNG of width `images.cover_width` is cut from it (section 7.9); AVIF and WebP are not given to the crawler. The 1200×630 size is a recommendation for the master
 
 ### 7.1 The resource folder is called media
 
-It used to be called `img`. The name promised only images, so there was nowhere to put videos - they settled in `static/` and went into the build bypassing any processing. Now `media/` holds both.
+`media/` holds both images and video: everything the engine processes.
 
 The migration is a one-time pass over the site, and until it is done the site must build: the engine has no right to break someone else's work for the sake of its own rename. Therefore:
 
 - there is `media/` - silent, this is normal;
-- there is only `img` - it builds as before, with one warning about the rename;
+- there is only `img` - it builds, with one warning about the rename;
 - there are both - `E018`, the build stops. This is not a transitional state but a fork: the engine does not know which folder holds the truth, and guessing costs more;
 - there is `media/` and also `static/media`: the file names match - `E018` (static files are copied to the root, and a match is a silent overwrite noticed only online); they do not match - a warning suggesting to move the contents of `static/media` into `media/`.
 
@@ -1308,7 +1317,7 @@ The traversal depth is limited: YAML anchors produce shared objects, and a limit
 
 A value with its own scheme (`https://…`, `//…`) is not considered a site image - it is someone else's file, and the engine does not go looking for it on its own disk.
 
-A typo in a path gives `E007` (in a strict build; otherwise a warning) with the page name - in a nested field too. Such an image used to get lost silently: no error, no warning, just an empty space on the page.
+A typo in a path gives `E007` (in a strict build; otherwise a warning) with the page name - in a nested field too.
 
 ### 7.3 What not to cut
 
@@ -1328,7 +1337,7 @@ The path is written as a prefix, like `crop`. The existence check, `E007` and th
 
 ### 7.4 The file address for the theme: media_url
 
-The theme could get only a ready `<picture>` from the engine. There was no way to get the address of the file as such - and it is needed all the time: an "open the scan" link, the `href` of a modal window, a download address, an image in the markup for social networks, a link to a document from the text. Without it the file was duplicated in `static/`: two places to remember to fix together.
+`media_url` gives the theme the address of a file, not a ready `<picture>`: for an "open the scan" link, the `href` of a modal window, a download, an image in the markup for social networks and a link to a document from the text. There is no need to duplicate the file in `static/`.
 
 ```jinja
 {{ media_url('media/docs/0002.webp') }}
@@ -1372,7 +1381,7 @@ asks for and pads it with transparent margins to the required size:
 ```
 
 Cropping illustrations is forbidden. Photos - portraits, interiors, works -
-are cut with a center crop, as before: they have no alpha channel, and there is
+are cut with a center crop: they have no alpha channel, and there is
 nowhere to take margins from. There is one sign: alpha present - fit, absent - crop. The theme
 may name exceptions explicitly - with the key `images.crop` in `theme.yaml`: paths that are cropped even if the file has transparency. A path is written as a prefix: `crop: [media/bio/]`.
 
@@ -1411,7 +1420,7 @@ It is needed for files that must sit at an exact address and that the engine mus
 
 The rule does not rest on a promise: `heron check` names a file with an image or video extension found in `static/` and suggests moving it to `media/`. Without this, in half a year photos would be there again - putting a file in bypassing processing is always faster than declaring it in the content.
 
-**Do not put the picture for social networks and search results into `static/`.** Before, `og_image` and `seo.og_default_image` were routed around through `static/`, because the master from `media/` might not reach the build. Now the cover master is always copied whole (section 4.2, "Page cover"), so the advice is out of date: the engine does not check a file in `static/`, and `heron check` will name it an image out of place.
+**Do not put the picture for social networks and search results into `static/`.** The cover master is always copied whole (section 4.2, "Page cover"): the engine does not check a file in `static/`, and `heron check` will name it an image out of place.
 
 **An empty `static/` is the normal state of a site.**
 
@@ -1446,34 +1455,20 @@ The engine checks this at the first stage, before traversing the content. A wron
 not an error on every page with the useless hint "a typo in the
 frontmatter".
 
-**`fields` is only for the engine's own fields** (the table of section 4.2). The theme's own fields
-(`topic`, `eyebrow`) are not written there: the engine does not know them and must not
-know them. In a template they are available as `page.meta.get('topic')`.
+**`fields` is only for the fields of the engine model:** `title`, `h1`, `description`, `nav_title`, `slug`, `type`, `children_type`, `image`, `image_alt`, `og_image`, `og_title`, `og_description`, `video`, `video_poster`, `video_title`, `order`, `date`, `updated`, `published`, `noindex`, `redirect_from`, `gone`. The other fields of table 4.2 (`canonical`, `robots`, `og_type`, `og_image_alt`, `twitter_*`, `schema`, `priority`) and the theme's own fields (`topic`, `eyebrow`) are not written there: that is `E023`. In a template they are available as `page.meta.get('topic')`.
 
-Both keys are optional. A theme that declared nothing builds as
-before - until the first mismatch, which then shows up at render time.
+Both keys are optional. A theme that declared nothing builds without
+checking - until the first mismatch, which then shows up at render time.
 
 ## 8. `.env`
 
 **The build needs not a single secret.** It runs without network and reads only the site files. `.env` belongs to the services - `heron-relay`, later the admin panel - and is never mounted into the build container.
 
-The file is laid down right away, so as not to redo things later.
-
-```
-SMTP_HOST=
-SMTP_PORT=
-SMTP_USER=
-SMTP_PASSWORD=
-TELEGRAM_BOT_TOKEN=
-ADMIN_USER=
-ADMIN_PASSWORD_HASH=
-SESSION_SECRET=
-DB_PATH=
-```
+`.env` lives next to the service, not in the site folder (section 1). The variable names are set by the `*_env` keys in `sinks` (`smtp_env: SMTP_URL`), details in `23` §8.
 
 Handling rules:
 
-- `.env` is in `.gitignore` and in `.dockerignore`. The repository holds `.env.example` with empty values
+- `.env` stays out of git and out of the image context
 - it is mounted **as a file**, not through `environment:` and not through `--env-file`: environment variables are visible in `docker inspect` to anyone with access to the socket, a mounted file is not
 - it is read at the moment of use, not at startup
 - it is mounted only into the container that needs it. nginx knows nothing about mail
@@ -1488,7 +1483,7 @@ Separately: to send mail, use an API key of the mail service, not the SMTP passw
 
 Generated by the engine into `dist/`, absent from the repository:
 
-`sitemap.xml` (on a multilingual site - an index and a file per language; page entries carry `<image:image>`, section 7.9 and `21` §9) · `robots.txt` · `llms.txt` (on a multilingual site - also a file per language) · `404.html` · `redirects.map` for nginx · JSON-LD inside pages · `hreflang` and canonicals · `feed.xml` when articles appear.
+`sitemap.xml` (on a multilingual site - an index and a file per language; page entries carry `<image:image>`, section 7.9 and `21` §9) · `robots.txt` · `llms.txt` and `llms-full.txt` (on a multilingual site - also a file per language; the full ones with `seo.llms_txt: true`) · `404.html` · `.heron-nginx.conf` and `.heron-manifest.json` · `redirects.map` and `gone.map` - copies for a human · `feed.xml` when `seo.feed` is set · JSON-LD inside pages · `hreflang` and canonicals.
 
 Placed by hand in `static/`: favicon and its variants · `site.webmanifest` · `.well-known/security.txt`.
 

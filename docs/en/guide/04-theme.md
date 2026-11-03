@@ -7,9 +7,9 @@ The theme decides **how the site looks**; the content decides **what is written 
 ## Where to get a theme
 
 - **The starter theme** is already in a new site after `heron new`: white, light and dark, it draws all thirteen section forms; its demo pages in Russian and English are the home page, "Blocks" (every kind of block on one page), "Themes", "Documentation". To put it back over your own, use `heron theme get starter .`.
-- **From the catalog**: `heron theme get <name> .`, the list is `heron theme list`.
+- **From the catalog**: `heron theme get <name> .`, the list is `heron theme list` (for now the catalog has only `starter`).
 - **By link or as an archive**: `heron theme get https://…/theme.tar.gz .` or `heron theme get ./theme.zip .`.
-- **Your own into an archive**: `heron theme pack . --out theme.tar.gz`: the theme and the site content as its demo pages.
+- **Your own into an archive**: `heron theme pack . --out theme.tar.gz`: the theme and the site content as its demo pages; without `--out` the archive goes to `dist/theme.tar.gz`.
 
 On installation the previous theme goes to `.heron-cache/setup/`, and the site pages are not overwritten: the demo pages of the theme are put only where there is no file. What an archive may and may not contain: [`21` §10](../spec/21-engine.md#heron-theme).
 
@@ -89,7 +89,7 @@ The type `service` is drawn by `templates/service.html`. The order of blocks rea
 
 `mod.prose('what')` takes the section with the anchor `what`. **No section, nothing at all**: no heading, no empty frame, no conditions around it needed. That is why the order of sections in the content does not matter, and a page can lack sections without harm to the layout.
 
-A template that does not know in advance which sections there will be chooses the module by form; this is how `page.html` of the starter theme is made:
+A template that does not know in advance which sections there will be chooses the module by form; this is how `partials/sections.html` of the starter theme is made (the file lists all section forms):
 
 ```jinja
 {% for section in page.sections.values() %}
@@ -98,6 +98,8 @@ A template that does not know in advance which sections there will be chooses th
   {% else %}{{ mod.prose(section.id) }}{% endif %}
 {% endfor %}
 ```
+
+A module expects its own form. `mod.steps('how')` on a prose section fails the build with `E010` (`'str object' has no attribute ...`), and the message names the template, not the module. So the report line "expected steps, got prose" is fixed before the build, and if the content can arrive in different forms, choose the module by `section.kind`.
 
 ### Paths and macros
 
@@ -143,7 +145,7 @@ A module is a file `modules/<name>.html`, called as `mod.<name>(<anchor>)`. Insi
 
 | Variable | What it is |
 |---|---|
-| `section` | the section: `id`, `title`, `kind`, `lead`, `body`, `note`, `callout`, `links` |
+| `section` | the section: `id`, `title`, `kind`, `lead`, `body`, `note` (paragraphs after the main node), `note_title`, `callout`, `links` |
 | `items` | parsed data of the form: steps, question-answer pairs, facts… |
 | `html` | ready markup of the whole content of the section |
 | everything the template sees | `page`, `site`, `t`, `picture`… |
@@ -182,7 +184,7 @@ What is in `items` for each of the thirteen forms is in the table [`20` §4.4](.
 
 The full page model is [`21` §6](../spec/21-engine.md#page-model), the variables are [`21` §7](../spec/21-engine.md#rendering).
 
-Reference to a variable that does not exist **fails the build** with the template name and line, instead of printing nothing: a typo in the theme is caught at once.
+Reference to a variable that does not exist **fails the build** (`E010`) with the page name and the template name, instead of printing nothing: a typo in the theme is caught at once.
 
 ### Your own page fields
 

@@ -16,10 +16,10 @@ None of this is written by hand or lies in a file: it is assembled on every buil
 | JSON-LD | type from the theme, data from the page and the `schema` block in `site.yaml`, breadcrumbs, FAQ | [`21` §9](../spec/21-engine.md#json-ld) |
 | `llms.txt`, `llms-full.txt` | page tree, `description`, `seo.llms_note` | [`21` §9](../spec/21-engine.md#llms-txt) |
 | 301 and 410 | `redirect_from` of pages and `gone` in `site.yaml`, straight into the nginx config | [`21` §9](../spec/21-engine.md#redirects) |
-| image in search results | the page cover: `og:image`, `twitter:image`, `primaryImageOfPage` in JSON-LD, the first image of the entry in `sitemap.xml` - one image for all places | [`20` §6, "Page cover"](../spec/20-data-contract.md#page-cover) |
+| image in search results | the page cover: `og:image`, `twitter:image`, `primaryImageOfPage` in JSON-LD, the first image of the entry in `sitemap.xml` - one image for all places; `primaryImageOfPage` appears only if the theme declared `WebPage` or a derived type (`types.<type>.jsonld`) for the page type, and the starter theme does not | [`20` §6, "Page cover"](../spec/20-data-contract.md#page-cover) |
 | large previews | `<meta name="robots" content="max-image-preview:large, max-snippet:-1, max-video-preview:-1">` on every indexable page of a production build | [`21` §7](../spec/21-engine.md#cover-robots) |
 | image sitemap | `<image:image>` in the page entry: the cover first, then the images from the text, no more than 20 | [`21` §9](../spec/21-engine.md#sitemap) |
-| site name | `WebSite` with `name` and `alternateName` on the home page, from `site.name` and `site.alternate_names` | [`21` §9](../spec/21-engine.md#json-ld) |
+| site name | `WebSite` with `name` and `alternateName` on the home page, from `site.name` and `site.alternate_names`; only if the page type declares `WebSite` in `jsonld` in `theme.yaml` (usually the `home` type), the starter theme declares no `jsonld`: there are no such nodes on it, while `og:image` and the image map work | [`21` §9](../spec/21-engine.md#json-ld) |
 | closed dev build | without `--env prod`: `noindex` on everything, `Disallow: /`, no counters | [`23`, "Engine version and site environment"](../spec/23-distribution.md#engine-version-vs-site-environment) |
 
 ## What you fill in <a id="you-fill"></a>
@@ -69,10 +69,18 @@ analytics:
 - Size: at least 1200 px wide. A smaller one is served as is, and `heron check` warns "cover is smaller than 1200 px".
 - Composition: the face or the main subject in the central third of the frame. Social networks and search results crop the preview differently, and the edges are the first to go.
 - The cover must be opaque. The engine does not add a backing, so a crawler will show a transparent PNG on a black or white background.
-- No cover at all means the page has no `og:image` and no `primaryImageOfPage`, and `heron check` warns. This is not a build error, but the preview in a messenger will be empty.
+- No cover at all means the page has no `og:image` and no `primaryImageOfPage` (if the theme declared it), and `heron check` warns. This is not a build error, but the preview in a messenger will be empty.
 - If you set `primaryImageOfPage` or `entity.image` in the `schema` block yourself, your value wins over the computed one.
 
-**How people search for the site.** `site.alternate_names` are other spellings of the name: the old name, a transliteration, an abbreviation. For a separate language use `alternate_names_ru` and so on.
+**How people search for the site.** `site.alternate_names` are other spellings of the name: the old name, a transliteration, an abbreviation. For a separate language use `alternate_names_ru` and so on. They get into the markup only if the theme declared `WebSite` for the page type:
+
+```yaml
+types:
+  home:
+    jsonld: [WebSite]
+```
+
+Otherwise the values silently affect nothing.
 
 ```yaml
 site:
@@ -106,7 +114,7 @@ The engine checks every node of your markup against the schema.org 29.3 vocabula
 
 **Prod and dev.** With `--env prod` a finding is an error and the build stops. In other environments it is a warning: the site builds, but the report has a line with the finding. `heron check --env prod` shows what would stop a production build without building the site.
 
-**How to read a finding.** The report has a line like `CODE file:path - reason (pages: K)`: the code says what is wrong, the file and path say where to fix it, the number of pages says how many pages it affects. The same finding from different pages and languages arrives as one line. Under it is the "exception key": a ready line you can copy.
+**How to read a finding.** The report has a line like `CODE file:path - reason (pages: K)`: the code says what is wrong, the file and path say where to fix it, the number of pages says how many pages it affects. The same finding from different pages and languages arrives as one line. Under it is the "exception key": a ready line you can copy. With `--env prod` the same finding is an error and shorter: `CODE file: reason`, without the path and the number of pages; the exception key is printed there too.
 
 **Fix first.** An exception is needed only when it cannot be fixed right now. Most often the fix is replacing a property or a type, as in the example below.
 
@@ -185,7 +193,7 @@ The goal is that no indexed address returns 404.
    Every address must lead to a page, to `redirect_from` or to `gone`. The rest go into warnings with a suggested target:
 
    ```
-   old address /uslugi-dlya-primera/ leads nowhere; probably set a 301 to /ru/uslugi/: redirect_from: [/uslugi-dlya-primera/] in the frontmatter of content/ru/uslugi.md
+   old address /uslugi-dlya-primera/ leads nowhere; probably set a 301 to /ru/uslugi/: redirect_from: [/uslugi-dlya-primera/] in the frontmatter of ru/uslugi.md
    old addresses: 120, without a path: 7
    ```
 

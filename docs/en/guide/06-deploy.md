@@ -43,7 +43,7 @@ H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm
 $H build my-site --env prod --strict
 ```
 
-`my-site/dist/` is the finished site. A rebuild into the same folder removes what is no longer there (deleted and unpublished pages, old addresses) and does not touch foreign files; a failed build, or a strict build with warnings, changes nothing in `dist/`: the previous successful version stays there. `static/` cannot quietly replace a generated file (`E026`); if you need your own `robots.txt`, use `build.overrides: [robots.txt]`. Upload the folder to static hosting (then 301/410 are set up with the hosting tools from `dist/redirects.map` and `dist/gone.map`) or serve it with your own nginx, below.
+`my-site/dist/` is the finished site. A rebuild into the same folder removes what is no longer there (deleted and unpublished pages, old addresses) and does not touch foreign files; a failed build, or a strict build with warnings, changes nothing in `dist/`: the previous successful version stays there. `static/` cannot quietly replace a generated file (`E026`); if you need your own `robots.txt`, use `build.overrides: [robots.txt]`. Upload the folder to static hosting (then 301/410 are set up with the hosting tools from `dist/redirects.map` and `dist/gone.map`; the latter exists only if `gone` is set) or serve it with your own nginx, below.
 
 ### Your own nginx on a server
 
@@ -62,7 +62,9 @@ sudo nginx -t && sudo systemctl reload nginx
 
 If nginx is present on the machine where the build runs, the engine runs `nginx -t` on the built config itself and writes the result to the report; if it fails, it is a warning, and with `--strict` an error.
 
-To look locally, use `heron serve my-site` (in the image: `docker run --rm -p 127.0.0.1:8000:8000 -v "$PWD":/site -w /site ghcr.io/fmstm/heron:beta serve .`; in the container the preview listens on all interfaces by itself, so `--host 0.0.0.0` can be left out): the same 404 the visitor will see, a build into a temporary folder, the site folder stays clean. `serve` does not imitate 301 and 410; `smoke` checks them on the image.
+The config turns on HSTS for a year with subdomains (`Strict-Transport-Security`) and the `/healthz` address. If the domain is not on https yet or has subdomains without it, remove the `Strict-Transport-Security` line; details are in [`22`](../spec/22-deploy.md).
+
+To look locally, use `heron serve my-site` (in the image: `docker run --rm -p 127.0.0.1:8000:8000 -v "$PWD":/site -w /site ghcr.io/fmstm/heron:prod serve .`; in the container the preview listens on all interfaces by itself, so `--host 0.0.0.0` can be left out): the same 404 the visitor will see, a build into a temporary folder, the site folder stays clean. `heron serve` does not imitate 301, 410 and the closing of hidden files; `smoke` checks them on the image; `site.sh serve` starts a real nginx, where they work.
 
 ## An image from the site repository
 
@@ -111,12 +113,12 @@ git clone https://github.com/FMSTM/HERON.git && cd HERON
 HERON_NOTES=en ./scripts/site.sh mysite new ~/sites/my-site
 ```
 
-`new` creates the site folder, in a terminal with the same questions as `heron new`, and sets up `env/.env.mysite.dev` and `.prod`. The folder may already exist and be under git. After that everything is one command:
+`new` creates the site folder, in a terminal with the same questions as `heron new`, and sets up `env/.env.mysite.dev` and `.prod`. The folder may already exist and be under git. The site name in `site.sh` is Latin letters, digits and a hyphen: the image name `heron-site-<site>` is built from it, and docker does not accept Cyrillic. The site folder may be named anything. In a clone `new` builds the engine image from source, `ENGINE` does not affect it: the first run takes time. After that everything is one command:
 
 ```bash
 ./scripts/site.sh mysite check dev     # report without a build
 ./scripts/site.sh mysite build dev     # → out/mysite-dev
-./scripts/site.sh mysite serve dev     # nginx on localhost:$PORT
+./scripts/site.sh mysite serve dev     # nginx image from out/ and a preview on localhost:$PORT; build first
 ./scripts/site.sh mysite stop          # stop the preview
 ./scripts/site.sh mysite build prod
 ./scripts/site.sh mysite image prod    # image IMAGE_NAME:IMAGE_TAG
@@ -127,7 +129,7 @@ HERON_NOTES=en ./scripts/site.sh mysite new ~/sites/my-site
 
 The content folder is mounted **read-only**: everything the build produces lives in `out/`, and the content gets nothing dirty. The previous result in `out/` is not erased before a build: a failed build leaves the previous working site there, and a successful one removes the stale files itself. The script works both in bash 3.2 (the macOS default) and without a terminal.
 
-Exit codes of `heron build`: 0 means built; 1 means an error, `dist/` is not touched; 3 means the site is written but the final plugin action failed (`on_build_finished`).
+Exit codes of `heron build`: 0 means built; 1 means an error, `dist/` is not touched; 2 means wrong flags or arguments; 3 means the site is written but the final plugin action failed (`on_build_finished`).
 
 The site settings are `env/.env.<site>.<environment>`, they do not go into git. A sample with explanations: [`env/.env.example`](https://github.com/FMSTM/HERON/blob/prod/env/.env.example):
 
@@ -140,7 +142,7 @@ The site settings are `env/.env.<site>.<environment>`, they do not go into git. 
 | `IMAGE_NAME`, `IMAGE_TAG` | name of the site image |
 | `REGISTRY`, `REGISTRY_CONFIG` | the registry for `push` and the docker config for it; empty means `push` is forbidden |
 | `PORT` | preview port |
-| `HERON_NOTES` | language of the comments and notes that `init` puts: `ru` or `en` |
+| `HERON_NOTES` | language of the help, messages and comments in files: `ru` or `en` |
 
 Form secrets (SMTP, webhooks) do not go here: the build is static, and everything it sees may end up in the HTML.
 
@@ -198,7 +200,7 @@ There is intentionally no moving `:X.Y`: a site must be able to pin to what will
 
 ## If an agent builds the site
 
-The boundary is simple: **the agent builds, the human publishes.** The agent runs `check`, `build --env prod --strict`, `serve` if needed, reads the report and fixes what belongs to its role; it hands the result in as the report `agents/work/report.md` and the list of questions `agents/work/questions.md`. `publish.sh`, `docker push`, `site.sh push`, `git push` and merge are not its commands: you read the report, look at the diff and publish yourself. Also not its commands: `Dockerfile`, compose, `.env`, tokens and code in `plugins/`. The full list of boundaries is in [`roles/builder.md`](../roles/builder.md) and the kit `README.md`.
+The boundary is simple: **the agent builds, the human publishes.** The agent runs `check`, `build --env prod --strict`, `serve` if needed, reads the report and fixes what belongs to its role; it hands the result in as the report `agents/work/report.md` and the list of questions `agents/work/questions.md`. `.heron/scripts/publish.sh`, `docker push`, `site.sh push`, `git push` and merge are not its commands: you read the report, look at the diff and publish yourself. Also not its commands: `Dockerfile`, compose, `.env`, tokens and code in `plugins/`. The full list of boundaries is in [`roles/builder.md`](../roles/builder.md) and the kit `README.md`.
 
 ---
 

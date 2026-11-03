@@ -128,7 +128,7 @@ def test_demo_page_points_at_the_channel_branch(tmp_path, monkeypatch, lang):
     Ссылки и образ в готовой команде — по тому же правилу, что комплект (23 §12).
     """
     source = (DEMO_SOURCE / lang / "docs.md").read_text(encoding="utf-8")
-    assert "/HERON/tree/prod/docs/ru/guide" in source and "/beta/" not in source
+    assert f"/HERON/tree/prod/docs/{lang}/guide" in source and "/beta/" not in source
     assert "ghcr.io/fmstm/heron:prod serve ." in source and "heron:beta" not in source
     for channel, want in ((None, "prod"), ("  ", "prod"), ("prod", "prod"), ("beta", "beta")):
         if channel is None:
@@ -141,7 +141,7 @@ def test_demo_page_points_at_the_channel_branch(tmp_path, monkeypatch, lang):
         page = (root / "content" / lang / "docs.md").read_text(encoding="utf-8")
         body = page.split("\n---\n", 1)[1].removeprefix("\n")
         other = "beta" if want == "prod" else "prod"
-        assert f"https://github.com/FMSTM/HERON/tree/{want}/docs/ru/guide" in body
+        assert f"https://github.com/FMSTM/HERON/tree/{want}/docs/{lang}/guide" in body
         assert f"https://github.com/FMSTM/HERON/blob/{want}/AGENTS.md" in body
         assert f"/HERON/tree/{other}/" not in body and f"/HERON/blob/{other}/" not in body
         assert f"ghcr.io/fmstm/heron:{want} serve ." in body

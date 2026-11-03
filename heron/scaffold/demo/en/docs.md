@@ -50,7 +50,7 @@ Instructions for an AI agent sit in the site root: the `AGENTS.md` file and the 
 
 ## Where to read {#where}
 
-- **In the repository.** [The guides in order](https://github.com/FMSTM/HERON/tree/prod/docs/ru/guide): concepts, first site, pages, theme, search, publishing.
+- **In the repository.** [The guides in order](https://github.com/FMSTM/HERON/tree/prod/docs/en/guide): concepts, first site, pages, theme, search, publishing.
 - **For AI agents.** [AGENTS.md](https://github.com/FMSTM/HERON/blob/prod/AGENTS.md): roles, rules and the map of the documentation.
 - **In the terminal.** Offline, the same version as the engine:
 

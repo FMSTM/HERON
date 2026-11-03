@@ -91,7 +91,7 @@ def test_scan_sees_the_known_links() -> None:
     """Проверка не пустая: адреса из демо-страницы, анкеты и docs/ru найдены."""
     found = {(where, kind, branch, path) for where, _, kind, branch, path in _links(ROOT)}
     assert ("heron/scaffold/demo/ru/docs.md", "tree", "prod", "docs/ru/guide") in found
-    assert ("heron/scaffold/demo/en/docs.md", "tree", "prod", "docs/ru/guide") in found
+    assert ("heron/scaffold/demo/en/docs.md", "tree", "prod", "docs/en/guide") in found
     assert ("heron/setup/page.html", "blob", "prod", "docs/ru/guide/06-deploy.md") in found
     assert ("docs/ru/README.md", "blob", "prod", "AGENTS.md") in found
     assert ("docs/ru/guide/06-deploy.md", "blob", "prod", "env/.env.example") in found
@@ -158,7 +158,7 @@ def test_demo_site_links_follow_the_channel(tmp_path: Path, monkeypatch, channel
     assert {(lang, kind, path) for lang, kind, _, path in found} == {
         (lang, kind, path)
         for lang in ("ru", "en")
-        for kind, path in (("tree", "docs/ru/guide"), ("blob", "AGENTS.md"))
+        for kind, path in (("tree", f"docs/{lang}/guide"), ("blob", "AGENTS.md"))
     }
     for lang, kind, branch, path in found:
         assert branch == want, (lang, kind, branch, path)
@@ -217,7 +217,7 @@ def test_scaffold_text_scan_sees_site_yaml_refs() -> None:
     found = {(where, kind, value) for where, _, kind, value in _template_refs(TEXT)}
     for lang in ("ru", "en"):
         where = f"heron/scaffold/text/{lang}/site.yaml"
-        assert (where, "path", "docs/ru/spec/20-data-contract.md") in found
+        assert (where, "path", f"docs/{lang}/spec/20-data-contract.md") in found
         assert (where, "topic", "contract") in found
 
 

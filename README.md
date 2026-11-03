@@ -218,7 +218,7 @@ How it differs from one site:
 
 `image`, `serve`, `smoke` and `push` pack what is already in `out/` and build the site themselves only on the first run. If you edited the content, run `build` first.
 
-**Which images exist.** Sites are built with the tag `:prod` or an exact version `:X.Y.Z`. `:beta` and `:dev` are development branches of the engine itself; a dev build of a site is the `--env` flag, not a different image.
+**Which images exist.** Sites are built with the tag `:prod` or an exact version `:X.Y.Z`. `latest` is the latest release tag without a suffix; an exact version is better for sites. `:beta` and `:dev` are development branches of the engine itself; a dev build of a site is the `--env` flag, not a different image.
 
 **A site in its own repository** builds an image without a HERON clone and without its own Dockerfile, with the reusable workflow `FMSTM/HERON/.github/workflows/site-image.yml`, with a single `uses:` line.
 

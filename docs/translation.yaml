@@ -75,5 +75,5 @@ files:
 root_files:
   - ru: README.ru.md
     en: README.md
-    ru_sha256: "4786e34a73676fec547886f6820905b42ae463d4d1551177ddcfc254f3a73db6"
+    ru_sha256: "f5b4305a85912eded011d5689c1a100320736bd57a0dfbff2fbbfb4166f906f2"
     en_status: current

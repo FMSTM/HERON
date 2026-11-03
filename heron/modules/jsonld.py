@@ -499,7 +499,13 @@ def verify(
     declared = declared.get("entity") if isinstance(declared, dict) else None
     if isinstance(declared, dict) and declared and not page.meta.noindex:
         mark = str(declared.get("@id", ""))
-        node = next((n for n in graph if str(n.get("@id", "")).endswith(mark)), None)
+        if mark:
+            node = next((n for n in graph if str(n.get("@id", "")).endswith(mark)), None)
+        else:
+            # Без @id узел ищем по равенству со сквозным узлом сайта,
+            # а не по пустому суффиксу, которому подходит любой первый узел.
+            shared_node = entity(config, page.lang, site)
+            node = next((n for n in graph if shared_node is not None and n == shared_node), None)
         if node is None:
             collector.error("E020", Msg("markup_no_entity"), path=page.source)
         else:

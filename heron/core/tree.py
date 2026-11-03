@@ -262,10 +262,15 @@ def scan(
             except HeronError as exc:
                 collector.errors.append(exc)
                 continue
-            collector.warnings.extend(blocks.apply(md, found, custom))
+            # Определения ссылок берутся из всего тела: секция в одиночку
+            # `[текст][метка]` не разберёт, если определение в другом месте.
+            body_env: dict = {}
+            md.parse(clean, body_env)
+            references = body_env.get("references") or None
+            collector.warnings.extend(blocks.apply(md, found, custom, references=references))
             if intro is not None:
                 intro.kind, intro.data = "prose", intro.html
-                for warning in blocks.intro_parts(md, intro):
+                for warning in blocks.intro_parts(md, intro, references=references):
                     warning.path = rel
                     collector.warnings.append(warning)
 

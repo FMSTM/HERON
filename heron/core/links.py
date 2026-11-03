@@ -207,8 +207,10 @@ def _rewrite(value, replace):
         return [_rewrite(item, replace) for item in value]
     if isinstance(value, dict):
         out = {key: _rewrite(item, replace) for key, item in value.items()}
-        if "links" in out and isinstance(out.get("text"), str):
-            out["links"] = blocks.links_of(out["text"])
+        if "links" in out:
+            source = out.get("html") if isinstance(out.get("html"), str) else out.get("text")
+            if isinstance(source, str):
+                out["links"] = blocks.links_of(source)
         return out
     return value
 

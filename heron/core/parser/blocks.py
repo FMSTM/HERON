@@ -140,7 +140,7 @@ def _items(md: MarkdownIt, tokens: list[Token], env: dict) -> list[str]:
 
     items: list[str] = []
     for (term, rest), (_source, html) in zip(parsed, raw, strict=True):
-        text = md.renderInline(rest, {}) if rest else ""
+        text = md.renderInline(rest, env) if rest else ""
         items.append(Pair(html, term=term, text=text, links=links_of(html)))
     return items
 
@@ -249,7 +249,7 @@ def _steps(md: MarkdownIt, tokens: list[Token], env: dict) -> list[dict[str, Any
     регистре; всё, что в скобках вперемешку с нижним регистром, — обычный
     текст, а не метка.
     """
-    if not any(t.type == "ordered_list_open" for t in tokens):
+    if not any(t.type == "ordered_list_open" and t.level == 0 for t in tokens):
         return None
 
     steps: list[dict[str, Any]] = []
@@ -282,7 +282,7 @@ def _steps(md: MarkdownIt, tokens: list[Token], env: dict) -> list[dict[str, Any
 
         # Остаток — markdown, а поле называется html: ссылки и выделения
         # внутри шага должны быть разметкой, а не текстом
-        text = md.renderInline(rest, {}) if rest else ""
+        text = md.renderInline(rest, env) if rest else ""
         # Всё, что в пункте после первого абзаца: блок кода с командой,
         # второй абзац, вложенный список. Раньше это молча терялось, и шаг
         # «выполните команду» приезжал на страницу без команды. Шаг без
@@ -348,10 +348,17 @@ def _classes_of(token: Token) -> list[str]:
     return [name for name in raw.split() if name]
 
 
-def detect(md: MarkdownIt, section: Section) -> tuple[str, Any, list[Warning_]]:
+def _env(references: dict | None) -> dict:
+    """Окружение разбора: определения ссылок всего файла, если переданы."""
+    return {"references": dict(references)} if references else {}
+
+
+def detect(
+    md: MarkdownIt, section: Section, references: dict | None = None
+) -> tuple[str, Any, list[Warning_]]:
     """Определить модуль секции и разобрать её данные."""
     warnings: list[Warning_] = []
-    env: dict = {}
+    env: dict = _env(references)
     tokens = md.parse(section.raw, env)
 
     explicit: str | None = None
@@ -457,13 +464,13 @@ def _lines_between(lines: list[str], start: int, end: int, skip: set[int]) -> st
     return "\n".join(chunk).strip()
 
 
-def structure(md: MarkdownIt, section: Section) -> None:
+def structure(md: MarkdownIt, section: Section, references: dict | None = None) -> None:
     """Разложить секцию на подводку, основной узел, примечание и врезку.
 
     Макет рисует их по-разному: подводка крупнее, примечание мельче,
     цитата — врезкой в рамке. Склеенный html тему устроить не может.
     """
-    env: dict = {}
+    env: dict = _env(references)
     tokens = md.parse(section.raw, env)
     lines = split_lines(section.raw)
     if not lines:
@@ -528,12 +535,14 @@ def structure(md: MarkdownIt, section: Section) -> None:
             section.note_title = term
             note_md = "\n\n".join([tail, *rest]).strip()
 
-    section.lead = md.render(lead_md).strip() if lead_md else ""
-    section.note = md.render(note_md).strip() if note_md else ""
+    section.lead = md.render(lead_md, _env(references)).strip() if lead_md else ""
+    section.note = md.render(note_md, _env(references)).strip() if note_md else ""
     section.links = links_of(section.html)
 
 
-def intro_parts(md: MarkdownIt, intro: Section) -> list[Warning_]:
+def intro_parts(
+    md: MarkdownIt, intro: Section, references: dict | None = None
+) -> list[Warning_]:
     """Вводный блок: первый абзац — подводка, второй — обещание.
 
     Шаблон показывает ровно два: крупный первый абзац и один под ним.
@@ -542,9 +551,9 @@ def intro_parts(md: MarkdownIt, intro: Section) -> list[Warning_]:
     """
     chunks = [part.strip() for part in re.split(r"\n\s*\n", intro.raw) if part.strip()]
     if chunks:
-        intro.lead = md.render(chunks[0]).strip()
+        intro.lead = md.render(chunks[0], _env(references)).strip()
     if len(chunks) > 1:
-        intro.promise = md.render(chunks[1]).strip()
+        intro.promise = md.render(chunks[1], _env(references)).strip()
     intro.links = links_of(intro.html)
     if len(chunks) > 2:
         return [Warning_(Msg("blocks_intro_long", count=len(chunks) - 2), kind="контент")]
@@ -552,7 +561,10 @@ def intro_parts(md: MarkdownIt, intro: Section) -> list[Warning_]:
 
 
 def apply(
-    md: MarkdownIt, sections: dict[str, Section], custom: dict | None = None
+    md: MarkdownIt,
+    sections: dict[str, Section],
+    custom: dict | None = None,
+    references: dict | None = None,
 ) -> list[Warning_]:
     """Проставить модуль, данные и части каждой секции.
 
@@ -566,10 +578,10 @@ def apply(
         if own:
             section.kind = own[0]
             section.data = custom[own[0]](section)
-            structure(md, section)
+            structure(md, section, references)
             continue
-        kind, data, found = detect(md, section)
+        kind, data, found = detect(md, section, references)
         section.kind, section.data = kind, data
-        structure(md, section)
+        structure(md, section, references)
         warnings.extend(found)
     return warnings

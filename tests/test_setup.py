@@ -106,9 +106,10 @@ def test_specialization_must_match_direction():
 def test_suffix_always_has_a_separator():
     from heron.setup.answers import clean_suffix
 
-    assert clean_suffix("yth") == " — yth"
+    assert clean_suffix("yth") == " - yth"
     assert clean_suffix("| Studio") == " | Studio"
     assert clean_suffix(" — Studio") == " — Studio"
+    assert clean_suffix("- Studio") == " - Studio"
     assert clean_suffix("  ") == ""
 
 
@@ -545,7 +546,7 @@ def test_apply_and_load_reasons(site: Path, tmp_path: Path):
     answers.about.fields["latitude"] = "north"
     with pytest.raises(Reason) as caught:
         apply(site, answers)
-    assert plain(caught.value, "ru") == "'north' — не число"
+    assert plain(caught.value, "ru") == "'north' - не число"
     with pytest.raises(Reason) as caught:
         load_answers("- a\n")
     assert CYRILLIC.search(plain(caught.value, "ru"))

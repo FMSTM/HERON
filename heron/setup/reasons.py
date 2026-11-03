@@ -57,12 +57,12 @@ TEXT: dict[str, dict[str, str]] = {
         "dockerhub_needs": "для Docker Hub нужны имя пользователя и имя образа",
         "server_needed": "для выкладки статики на сервер нужен адрес сервера",
         "server_bad": "сервер {value}: user@host или host",
-        "path_bad": "папка на сервере — абсолютный путь без .. из букв, цифр и . _ - + ~ @",
+        "path_bad": "папка на сервере - абсолютный путь без .. из букв, цифр и . _ - + ~ @",
         "branch_bad": "ветка {value}: буквы, цифры и . _ - + /, например main или release/v1",
         # ответы целиком
         "note_lang": "заметка для ИИ на языке, которого нет у сайта: {codes}",
         "field_lang": "{name}: языка нет у сайта: {codes}",
-        "not_number": "{value} — не число",
+        "not_number": "{value} - не число",
         "country_bad": "страна {value}: двухбуквенный код, например AT",
         "hours_bad": (
             "часы {value}: ожидается 'Пн-Пт 09:00-18:00' в форме schema.org: Mo-Fr 09:00-18:00"
@@ -136,7 +136,7 @@ TEXT: dict[str, dict[str, str]] = {
         "server_needed": "static files to a server need the server address",
         "server_bad": "server {value}: user@host or host",
         "path_bad": (
-            "the folder on the server is an absolute path without .. — "
+            "the folder on the server is an absolute path without .. - "
             "letters, digits and . _ - + ~ @"
         ),
         "branch_bad": "branch {value}: letters, digits and . _ - + /, like main or release/v1",

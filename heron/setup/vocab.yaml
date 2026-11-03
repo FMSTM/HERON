@@ -103,7 +103,7 @@ fields:
     group: address
     kind: country
     label: {en: "Country", ru: "Страна"}
-    hint: {en: "In site.yaml as a two-letter code: AT, DE, UA.", ru: "В site.yaml — кодом из двух букв: AT, DE, UA."}
+    hint: {en: "In site.yaml as a two-letter code: AT, DE, UA.", ru: "В site.yaml - кодом из двух букв: AT, DE, UA."}
   latitude:
     to: contact.geo.latitude
     prop: geo.latitude

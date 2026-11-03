@@ -359,7 +359,7 @@ class AboutAnswers(Model):
         allowed = set(fields_for(self))
         unknown = sorted(set(self.fields) - allowed)
         if unknown:
-            raise Reason("fields_unknown", kind=self.type or "—", names=", ".join(unknown))
+            raise Reason("fields_unknown", kind=self.type or "-", names=", ".join(unknown))
         return self
 
 
@@ -367,10 +367,10 @@ SEPARATORS = ("—", "–", "-", "|", "·", ":", "/")
 
 
 def clean_suffix(value: str) -> str:
-    """Хвост заголовка всегда отделён: « — Название», а не «О насНазвание».
+    """Хвост заголовка всегда отделён: « - Название», а не «О насНазвание».
 
     Начинается с разделителя — вокруг него ставятся пробелы. Начинается
-    с текста — перед ним ставится « — ». Пустой остаётся пустым.
+    с текста — перед ним ставится « - ». Пустой остаётся пустым.
     """
     value = (value or "").rstrip()
     text = value.strip()
@@ -379,7 +379,7 @@ def clean_suffix(value: str) -> str:
     if text[0] in SEPARATORS:
         rest = text[1:].strip()
         return f" {text[0]} {rest}" if rest else ""
-    return f" — {text}"
+    return f" - {text}"
 
 
 class SearchAnswers(Model):

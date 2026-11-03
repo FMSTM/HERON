@@ -119,3 +119,38 @@ def test_detector_catches_dash_in_docs_line_126_mutation():
     mutated = src.replace("что движок уже умеет - по задачам", "что движок уже умеет — по задачам")
     assert mutated != src
     assert dashed_literals(mutated)
+
+
+SETUP_FILES = [
+    ROOT / "setup" / "answers.py",
+    ROOT / "setup" / "reasons.py",
+    ROOT / "setup" / "__init__.py",
+]
+
+
+@pytest.mark.parametrize("path", SETUP_FILES, ids=lambda p: p.name)
+def test_setup_literals_have_no_dash_except_separators(path):
+    src = path.read_text(encoding="utf-8")
+    # SEPARATORS - разбор ввода автора: тире там остаются (исключение с причиной)
+    bad = [(n, t) for n, t in dashed_literals(src) if not src.splitlines()[n - 1].startswith("SEPARATORS =")]
+    assert not bad, f"{path.name}: тире в литералах: {bad}"
+
+
+def test_setup_vocab_hints_and_labels_have_no_dash():
+    import yaml
+
+    data = yaml.safe_load((ROOT / "setup" / "vocab.yaml").read_text(encoding="utf-8"))
+    found: list[str] = []
+
+    def walk_all(node, in_text=False):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                walk_all(v, in_text or k in ("hint", "label"))
+        elif isinstance(node, list):
+            for v in node:
+                walk_all(v, in_text)
+        elif isinstance(node, str) and in_text and any(d in node for d in DASHES):
+            found.append(node)
+
+    walk_all(data)
+    assert not found, found

@@ -1,5 +1,5 @@
-# Образец theme.yaml. Описание — ../spec/20-data-contract.md (в репозитории движка docs/<язык>/spec/), раздел 6.
-# Формы секций после двоеточия — из таблицы 20 §4.4:
+# Образец theme.yaml. Описание - ../spec/20-data-contract.md (в репозитории движка docs/<язык>/spec/), раздел 6.
+# Формы секций после двоеточия - из таблицы 20 §4.4:
 # prose list alert-list checklist two-lists steps table facts faq timeline callout gallery tabs
 
 name: main
@@ -25,7 +25,7 @@ types:                         # тип страницы → секции и р�
     uses: [intro, "includes:list", "when:alert-list", "how:steps", "documents:checklist", "faq:faq"]
     jsonld: [Service]
   article:
-    uses: [intro, "short:callout", "*", "faq:faq"]   # "*" — любые секции
+    uses: [intro, "short:callout", "*", "faq:faq"]   # "*" - любые секции
     jsonld: [Article]
     # template: page.html       # необязательно: другой файл вместо templates/article.html
   page:
@@ -41,7 +41,7 @@ links:                         # поля связей во фронтматте
     type: service
     back: articles
     on: article                # у статей поле ожидается
-    required: 1                # меньше — предупреждение
+    required: 1                # меньше - предупреждение
 
 images:
   widths: [400, 800, 1200, 1600]
@@ -49,5 +49,5 @@ images:
   formats: [avif, webp]
   crop: []                     # пути, которые кропать, даже если есть прозрачность
   as_is: []                    # пути, которые копировать без нарезки: сканы, документы
-  fallback_width: 800          # запасной PNG/JPEG для <img src> — одна ширина
+  fallback_width: 800          # запасной PNG/JPEG для <img src> - одна ширина
   cover_width: 1200            # ширина JPEG/PNG обложки для краулеров

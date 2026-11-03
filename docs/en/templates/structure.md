@@ -25,7 +25,7 @@ A filled-in example for `default_lang: en`, `languages: [en, ru]`:
 ```
 content/en/ and content/ru/              type       en                        ru (slug in the ru file)
   index.md                               home       /                         /ru/
-  404.md                                 404        —                         —
+  404.md                                 404        -                         -
   about.md                               about      /about/                   /ru/o-nas/                 o-nas
   services/_index.md                     category   /services/                /ru/uslugi/                uslugi
     design.md                            service    /services/design/         /ru/uslugi/dizajn/         dizajn
@@ -67,8 +67,8 @@ site:
   name: <name>
   name_ru: <name in Russian>
 seo:
-  title_suffix: " — <name>"
-  title_suffix_ru: " — <name in Russian>"
+  title_suffix: " - <name>"
+  title_suffix_ru: " - <name in Russian>"
 nav:
   main: ["/", …]
 analytics:
@@ -84,7 +84,7 @@ contact:
 | Old address | What it was | Decision | Key | en | ru | Type |
 |---|---|---|---|---|---|---|
 | `/old-address/` | service | 301 | `services/design` | `/services/design/` | `/ru/uslugi/dizajn/` | `service` |
-| `/category/news/page/2/` | pagination | 410 (`gone`) | — | — | — | — |
+| `/category/news/page/2/` | pagination | 410 (`gone`) | - | - | - | - |
 
 ## 6. Relations
 

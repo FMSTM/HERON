@@ -44,8 +44,8 @@ site:
   name: Daybreak
   name_ru: Рассвет                 # if it differs
 seo:
-  title_suffix: " — Daybreak"
-  title_suffix_ru: " — Рассвет"
+  title_suffix: " - Daybreak"
+  title_suffix_ru: " - Рассвет"
 nav:
   main: ["/", about, services, contacts]   # page keys
 ```

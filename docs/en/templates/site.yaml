@@ -16,8 +16,8 @@ site:
   alternate_names: []          # other spellings of the name -> WebSite.alternateName; per language alternate_names_ru
 
 seo:
-  title_suffix: " — Daybreak"  # the theme appends it to <title>
-  title_suffix_ru: " — Рассвет"
+  title_suffix: " - Daybreak"  # the theme appends it to <title>
+  title_suffix_ru: " - Рассвет"
   og_default_image: media/og/default.png        # default image for social networks
   og_default_image_ru: media/og/default-ru.png  # a separate one for ru, if needed
   twitter_card: summary_large_image
@@ -30,7 +30,7 @@ seo:
     ru: |
       ### Как связаться
 
-      Телефон и часы работы — на странице контактов.
+      Телефон и часы работы - на странице контактов.
   robots_extra: []             # extra lines of robots.txt
   allow_prices: false          # true - prices in schema.org markup are allowed
   # feed: article              # page type for the Atom feed; no key - no feed

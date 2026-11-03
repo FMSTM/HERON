@@ -1,5 +1,5 @@
-# Образец site.yaml со всеми ключами ядра. Описание — ../spec/20-data-contract.md (в репозитории движка docs/<язык>/spec/), раздел 5.
-# Значения ниже — примеры. Чего у сайта нет, то удаляется или остаётся пустым:
+# Образец site.yaml со всеми ключами ядра. Описание - ../spec/20-data-contract.md (в репозитории движка docs/<язык>/spec/), раздел 5.
+# Значения ниже - примеры. Чего у сайта нет, то удаляется или остаётся пустым:
 # выдуманный телефон хуже отсутствующего.
 
 heron: ">=0.1,<0.2"            # версия движка, которую требует сайт. Обязательна, первой строкой
@@ -10,14 +10,14 @@ site:
   #   dev: dev.example.com
   theme: main                  # имя темы; локальная папка theme/ сильнее пакета
   default_lang: en             # отдаётся из корня: content/en/about.md → /about/
-  languages: [en, ru]          # от одного до N; остальные — под /<lang>/: /ru/o-nas/
+  languages: [en, ru]          # от одного до N; остальные - под /<lang>/: /ru/o-nas/
   name: Daybreak               # название сайта
-  name_ru: Рассвет             # то же на языке ru; без него — name
+  name_ru: Рассвет             # то же на языке ru; без него - name
   alternate_names: []          # другие написания названия -> WebSite.alternateName; по языкам alternate_names_ru
 
 seo:
-  title_suffix: " — Daybreak"  # дописывается к <title> темой
-  title_suffix_ru: " — Рассвет"
+  title_suffix: " - Daybreak"  # дописывается к <title> темой
+  title_suffix_ru: " - Рассвет"
   og_default_image: media/og/default.png        # картинка для соцсетей по умолчанию
   og_default_image_ru: media/og/default-ru.png  # своя для ru, если нужна
   twitter_card: summary_large_image
@@ -30,14 +30,14 @@ seo:
     ru: |
       ### Как связаться
 
-      Телефон и часы работы — на странице контактов.
+      Телефон и часы работы - на странице контактов.
   robots_extra: []             # дополнительные строки robots.txt
-  allow_prices: false          # true — цены в разметке schema.org разрешены
-  # feed: article              # тип страниц для ленты Atom; нет ключа — нет ленты
+  allow_prices: false          # true - цены в разметке schema.org разрешены
+  # feed: article              # тип страниц для ленты Atom; нет ключа - нет ленты
   feed_limit: 20
 
 nav:
-  main: ["/", about, services, contacts]   # ключи страниц: путь файла без .md, главная — "/"
+  main: ["/", about, services, contacts]   # ключи страниц: путь файла без .md, главная - "/"
                                            # на русских страницах about сам станет /ru/o-nas/
   # footer: [privacy]                      # имена групп придумывает тема
 
@@ -47,14 +47,14 @@ analytics:                     # только в прод-сборке; заго
   # metrika:                   # ядро принимает, заготовка темы не выводит
 
 build:
-  notes: ru                    # язык пояснений и комплекта agents/: ru или en. Без ключа — en,
+  notes: ru                    # язык пояснений и комплекта agents/: ru или en. Без ключа - en,
                                # и `heron init --agents` переложит комплект на английский
-  agents: true                 # комплект для агентов: true — полный, kit — без guide/ и spec/, false — нет
-  fail_on_warning: false       # true — как --strict
+  agents: true                 # комплект для агентов: true - полный, kit - без guide/ и spec/, false - нет
+  fail_on_warning: false       # true - как --strict
   allow_raw_html: false        # сырой HTML в markdown
-  updated_from: git            # manual | git | file — откуда дата обновления
-  workers: 0                   # процессов на нарезку картинок; 0 — по числу ядер
-  generator: true              # подпись движка в страницах; false — без неё
+  updated_from: git            # manual | git | file - откуда дата обновления
+  workers: 0                   # процессов на нарезку картинок; 0 - по числу ядер
+  generator: true              # подпись движка в страницах; false - без неё
   overrides: []                # сгенерированные файлы, которые заменяет static/: [robots.txt]
 
 plugins: []
@@ -75,7 +75,7 @@ gone:                          # 410: точные адреса, префикс�
   - /?p=*
 
 # Блоки ниже ядро не разбирает: их берут тема и подстановки schema.
-# Языковой вариант значения — тем же суффиксом: address_ru.
+# Языковой вариант значения - тем же суффиксом: address_ru.
 contact:
   phone: ""
   address: ""

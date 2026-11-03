@@ -786,7 +786,7 @@ seo:
       ### Как с нами связаться
 
       Телефон: +00 000 000 00 00, с 9 до 18.
-      Запись — только по телефону.
+      Запись - только по телефону.
   robots_extra: []           # extra robots.txt lines, verbatim
   feed: article              # page type for the feed. No key - no feed
   feed_limit: 20             # how many entries in the feed, 20 by default
@@ -891,8 +891,8 @@ site:
   name: Daybreak
   name_ru: Рассвет
 seo:
-  title_suffix: " — Daybreak"
-  title_suffix_ru: " — Рассвет"
+  title_suffix: " - Daybreak"
+  title_suffix_ru: " - Рассвет"
   og_default_image: media/og/en.png
   og_default_image_ru: media/og/ru.png
 ```

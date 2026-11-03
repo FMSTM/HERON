@@ -244,7 +244,16 @@ def _check_theme(theme_dir: Path, manifest: dict[str, Any]) -> str:
         raise _fail(Msg("themes_yaml_missing"))
     config = build(ThemeConfig, read_yaml(theme_yaml), theme_yaml)
     wanted = str(manifest.get("heron") or "")
-    if wanted and not satisfies(__version__, wanted):
+    try:
+        wanted_ok = not wanted or satisfies(__version__, wanted)
+    except ValueError as exc:
+        raise _fail(
+            exc.args[0]
+            if exc.args and isinstance(exc.args[0], Msg)
+            else Msg("version_raw", text=str(exc)),
+            Msg("version_bad_spec_hint"),
+        ) from exc
+    if not wanted_ok:
         raise _fail(
             Msg("themes_wants_heron", wanted=wanted, current=__version__),
             Msg("themes_wants_heron_hint"),

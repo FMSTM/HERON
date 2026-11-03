@@ -121,13 +121,13 @@ EN: dict[str, tuple[str, str]] = {
         "A page type: which sections it uses and what markup it gets.",
     ),
     "theme.schema.json#/description": (
-        "a6b93a498e",
+        "95cc13f8ff",
         "The key `on` in `links` is a string. YAML 1.1 (PyYAML) reads a bare `on:` as the "
         "boolean true, the engine takes this into account; an editor with YAML 1.2 reads "
         "`on` as a string.",
     ),
     "frontmatter.schema.json#/description": (
-        "8172b25862",
+        "1d58fc811a",
         "Page front matter: YAML between `---`. `title`, `h1` and `description` are required. "
         "Relation fields declared by the theme and any fields of your own (`page.meta.<field>`) "
         "are allowed as additional ones. An optional field may be left empty: an empty value "
@@ -156,15 +156,15 @@ FRONTMATTER_RULES = (
     "Правила, которых схема не выражает. "
     "slug: латиница, цифры, дефис; слаг целиком из этих знаков, перевод строки "
     "в конце не допускается. "
-    "date — дата публикации, `ГГГГ-ММ-ДД`; updated — дата последней правки, "
-    "`ГГГГ-ММ-ДД`. Дата позже момента сборки — предупреждение, при `--strict` — ошибка. "
-    "Обновление раньше публикации — тоже предупреждение. "
-    "redirect_from: список путей от корня, нормализация — `20` §2; "
+    "date - дата публикации, `ГГГГ-ММ-ДД`; updated - дата последней правки, "
+    "`ГГГГ-ММ-ДД`. Дата позже момента сборки - предупреждение, при `--strict` - ошибка. "
+    "Обновление раньше публикации - тоже предупреждение. "
+    "redirect_from: список путей от корня, нормализация - `20` §2; "
     "путь не должен совпадать с существующим URL (`E009`)."
 )
 
 THEME_NOTE = (
-    "Ключ `on` в `links` — строка. YAML 1.1 (PyYAML) читает голый `on:` как булево true, "
+    "Ключ `on` в `links` - строка. YAML 1.1 (PyYAML) читает голый `on:` как булево true, "
     "движок это учитывает; редактор с YAML 1.2 читает `on` строкой."
 )
 

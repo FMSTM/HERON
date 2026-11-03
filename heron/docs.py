@@ -123,8 +123,8 @@ TOPICS: tuple[Topic, ...] = (
     _t(
         "capabilities",
         "docs/{lang}/roles/capabilities.md",
-        "что движок уже умеет — по задачам",
-        "what the engine already does — by task",
+        "что движок уже умеет - по задачам",
+        "what the engine already does - by task",
         "roles",
     ),
     _t(
@@ -236,13 +236,13 @@ GROUPS = ("start", "roles", "guide", "spec", "machine")
 _TEXT: dict[str, dict[str, str]] = {
     "ru": {
         "head": "Документация HERON этой версии движка ({code}). Читать: heron docs <тема>",
-        "samples": "Образцы: heron docs template <файл> — {names}",
+        "samples": "Образцы: heron docs template <файл> - {names}",
         "search": "Поиск:   heron docs --search <текст>",
-        "export": "Папкой:  heron docs --export <папка> — со ссылками между файлами",
+        "export": "Папкой:  heron docs --export <папка> - со ссылками между файлами",
         "lang": "Язык:    heron docs --lang ru|en",
         "skills_head": "# Навыки HERON",
         "skills_about": (
-            "Навыки — тонкие английские указатели на те же темы heron docs. "
+            "Навыки - тонкие английские указатели на те же темы heron docs. "
             "Ставятся из репозитория движка: npx skills add FMSTM/HERON. В сайт не кладутся."
         ),
         "schemas_head": "# Схемы HERON",
@@ -259,9 +259,9 @@ _TEXT: dict[str, dict[str, str]] = {
     },
     "en": {
         "head": "HERON documentation of this engine version ({code}). Read: heron docs <topic>",
-        "samples": "Samples: heron docs template <file> — {names}",
+        "samples": "Samples: heron docs template <file> - {names}",
         "search": "Search:  heron docs --search <text>",
-        "export": "Folder:  heron docs --export <folder> — links between files kept",
+        "export": "Folder:  heron docs --export <folder> - links between files kept",
         "lang": "Language: heron docs --lang ru|en",
         "skills_head": "# HERON skills",
         "skills_about": (
@@ -554,7 +554,7 @@ def skills_text(lang: str | None = None) -> str:
     lang = _lang(lang)
     lines = [_text(lang, "skills_head"), "", _text(lang, "skills_about"), ""]
     for name, about, path in skills():
-        lines.append(f"- `{name}` — {about}" if about else f"- `{name}`")
+        lines.append(f"- `{name}` - {about}" if about else f"- `{name}`")
         lines.append(f"  {path}")
     return "\n".join(lines) + "\n"
 

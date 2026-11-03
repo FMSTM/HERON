@@ -17,7 +17,13 @@ from heron.core.render import signature
 
 DASHES = ("—", "–")
 ROOT = Path(heron.__file__).resolve().parent
-FILES = [ROOT / "cli.py", ROOT / "core" / "report.py", ROOT / "core" / "render" / "signature.py"]
+FILES = [
+    ROOT / "cli.py",
+    ROOT / "core" / "report.py",
+    ROOT / "core" / "render" / "signature.py",
+    ROOT / "docs.py",
+    ROOT / "contracts" / "schemas.py",
+]
 
 
 def _docstring_lines(source: str) -> set[int]:
@@ -81,3 +87,35 @@ def test_report_lines_use_hyphen():
     src = (ROOT / "core" / "report.py").read_text(encoding="utf-8")
     assert "{code} - {len(pages)}" in src
     assert "{kind_label(lang, kind)} - {len(batch)}" in src
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_heron_docs_output_has_no_dash(lang):
+    from click.testing import CliRunner
+
+    from heron.cli import main
+
+    result = CliRunner().invoke(main, ["docs", "--lang", lang])
+    assert result.exit_code == 0, result.output
+    printed = [ln for ln in result.output.splitlines() if "heron docs" in ln or ln.startswith("- `")]
+    assert printed
+    assert not [ln for ln in printed if any(d in ln for d in DASHES)]
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_frontmatter_schema_has_no_dash(lang):
+    import json
+
+    from heron.contracts import schemas
+
+    dumped = json.dumps(schemas.frontmatter_schema(lang), ensure_ascii=False)
+    assert "redirect_from" in dumped
+    if lang == "ru":
+        assert not any(d in dumped for d in DASHES)
+
+
+def test_detector_catches_dash_in_docs_line_126_mutation():
+    src = (ROOT / "docs.py").read_text(encoding="utf-8")
+    mutated = src.replace("что движок уже умеет - по задачам", "что движок уже умеет — по задачам")
+    assert mutated != src
+    assert dashed_literals(mutated)

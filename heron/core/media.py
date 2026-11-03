@@ -553,6 +553,32 @@ def small_cover(cover_width: int, src: str) -> Msg:
     return Msg("media_small_cover", width=cover_width, src=src)
 
 
+def cover_sources(site: Site, config) -> set[str]:
+    """Адреса мастеров, выбранных обложкой хотя бы одной страницы (внешние не в счёт)."""
+    covers: set[str] = set()
+    if config is not None:
+        for page in site.pages:
+            chosen = page.cover_source(config)
+            if chosen and not EXTERNAL.match(chosen[0]):
+                covers.add(chosen[0].lstrip("./"))
+    return covers
+
+
+# Мастер есть, но не читается как картинка: заглушка, пустой файл, обрезок, бомба.
+BAD_MASTER = (OSError, ValueError, SyntaxError, Image.DecompressionBombError)
+
+
+def _bad_master(
+    collector: Collector, declared: dict[str, list[str]], src: str, exc: Exception
+) -> None:
+    collector.error(
+        "E036",
+        Msg("media_bad_master", src=src, kind=type(exc).__name__),
+        path=_owner(declared, src),
+        hint=Msg("media_bad_master_hint"),
+    )
+
+
 def verify_covers(
     site: Site, site_root: Path, collector: Collector, spec: ImagesSpec, config=None
 ) -> None:
@@ -561,24 +587,16 @@ def verify_covers(
     Ничего не кодирует и не пишет в кэш: только читает размер мастера.
     """
     declared = declared_by(site, config)
-    seen: set[str] = set()
-    for page in site.pages:
-        chosen = page.cover_source(config)
-        if not chosen or EXTERNAL.match(chosen[0]):
-            continue
-        src = chosen[0].lstrip("./")
-        if src in seen:
-            continue
-        seen.add(src)
+    for src in sorted(cover_sources(site, config)):
         if Path(src).suffix.lower() not in KEEP or any(src.startswith(r) for r in spec.as_is):
             continue
         source = locate(site_root, src, declared, Collector())
         if source is None or not source.is_file():
             continue
         try:
-            with Image.open(source) as img:
-                width = img.size[0]
-        except (OSError, ValueError):
+            width = shape_of(source).width
+        except BAD_MASTER as exc:
+            _bad_master(collector, declared, src, exc)
             continue
         if width < spec.cover_width:
             collector.warn(
@@ -1003,12 +1021,7 @@ def plan(
     root = store(cache)
     _forget_legacy(cache)
 
-    covers: set[str] = set()
-    if config is not None:
-        for page in site.pages:
-            chosen = page.cover_source(config)
-            if chosen and not EXTERNAL.match(chosen[0]):
-                covers.add(chosen[0].lstrip("./"))
+    covers = cover_sources(site, config)
 
     declared = declared_by(site, config)
     # Мастер, на который ссылается только разметка (блок schema, {{ site.base }}),
@@ -1049,7 +1062,11 @@ def plan(
             continue
 
         entry = _entry(cache, root, digest(source))
-        shape = _shape(entry, source)
+        try:
+            shape = _shape(entry, source)
+        except BAD_MASTER as exc:
+            _bad_master(collector, declared, src, exc)
+            continue
         _touch(entry)
         is_cover = src in covers
         renditions = plan_master(src, source, spec, shape, is_cover)

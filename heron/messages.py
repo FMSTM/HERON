@@ -56,6 +56,7 @@ TEXT: dict[str, dict[str, str]] = {
         "plan_kept_many": (
             "Не тронуто (уже было): {count} {count:файл|файла|файлов} - список: --verbose"
         ),
+        "plan_overwritten": "Перезаписано (--force):",
         "plan_nothing": "Ничего создавать не понадобилось: всё уже на месте.",
         # --- new ---
         "new_title": "Новый сайт в папке {path}",
@@ -246,6 +247,7 @@ TEXT: dict[str, dict[str, str]] = {
         "plan_kept_many": (
             "Left untouched (already there): {count} {count:file|files} - list: --verbose"
         ),
+        "plan_overwritten": "Overwritten (--force):",
         "plan_nothing": "Nothing to create: everything is already in place.",
         "new_title": "New site in {path}",
         "new_done": "Site created: {path}",
@@ -432,6 +434,7 @@ TITLES: dict[str, dict[str, str]] = {
         "E031": "the preview cannot take the address and port",
         "E032": "the theme cannot be installed: archive, catalog or check",
         "E035": "the cache or lock file cannot be created next to the build folder",
+        "E036": "an image master cannot be read as an image",
     },
 }
 

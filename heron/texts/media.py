@@ -32,6 +32,11 @@ TEXT: dict[str, dict[str, str]] = {
         "media_cache_rebuild_hint": "удалите папку .heron-cache - она пересоздастся при сборке",
         "media_slice_is_dir": "на месте нарезки в кэше - папка: {path}",
         "media_missing_on_disk": "картинки {src} нет на диске",
+        "media_bad_master": "мастер {src} не читается как изображение ({kind})",
+        "media_bad_master_hint": (
+            "замените файл настоящей картинкой: это может быть указатель Git LFS, "
+            "пустой или обрезанный файл"
+        ),
         "media_missing_on_disk_hint": "битая картинка в проде дороже упавшей сборки",
         "media_slice_clash": "{other} и {src} дают одинаковые имена нарезок: {name}",
         "media_slice_clash_hint": (
@@ -71,6 +76,11 @@ TEXT: dict[str, dict[str, str]] = {
         "media_cache_rebuild_hint": "delete the .heron-cache folder: it is recreated on build",
         "media_slice_is_dir": "a folder sits where a rendition should be in the cache: {path}",
         "media_missing_on_disk": "image {src} is not on disk",
+        "media_bad_master": "master {src} cannot be read as an image ({kind})",
+        "media_bad_master_hint": (
+            "replace the file with a real image: it may be a Git LFS pointer, "
+            "an empty or a truncated file"
+        ),
         "media_missing_on_disk_hint": "a broken image in production costs more than a failed build",
         "media_slice_clash": "{other} and {src} produce the same rendition names: {name}",
         "media_slice_clash_hint": (

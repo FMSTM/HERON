@@ -745,6 +745,7 @@ The detail and hint of an error and the text of a warning are in the language of
 | `E033` | a theme template accesses something the sandbox closes: Python service attributes, changing site data, `BaseModel` methods, paths (§7). `check` finds data changes without a build too (§12) |
 | `E034` | a build file the engine must check before writing is empty, unreadable or not UTF-8: a replacement of `.heron-nginx.conf` from `static/` via `build.overrides`. An error even without `--strict`, `dist/` is not changed |
 | `E035` | `.heron-cache` or the lock file `.<dist>.heron-lock` cannot be created next to the build folder: the folder above `--out` is not writable. `dist/` is not touched; the engine names the path and the system's reason, not a generic "no permission" |
+| `E036` | an image master exists on disk but cannot be read as an image: a Git LFS pointer, an empty, truncated or oversized file. It is an error in both strict and dev builds (unlike `E007`, where the file is simply absent). The engine names the `src`, the owner page and the kind of failure |
 
 **schema.org markup** (a separate code series; on `prod` - an error, otherwise a warning; exception - `schema_exceptions` in `site.yaml` or `--allow-schema`):
 

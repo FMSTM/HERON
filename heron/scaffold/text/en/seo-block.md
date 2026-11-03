@@ -35,8 +35,9 @@ description: {description}
 # ================= 6. CARD AND CATALOG =================
 # image:                     # preview in catalogs: a path in media/
 # image_alt:                 # required if image is set
+# children_type:             # _index.md only: the type of child pages
 order: {order}
-# ↑ order in catalogs and menus, ascending
+# ↑ order in section catalogs and relations, ascending. The menu order is set by nav.main in site.yaml
 {type_line}
 # ================= 7. SERVICE =================
 # date:                      # publication date, YYYY-MM-DD
@@ -48,4 +49,5 @@ published: true
 # ================= 8. RELATIONS =================
 # redirect_from:             # old addresses that should 301 here
 #   - /old-address/
+# gone:                      # old addresses that answer 410
 ---

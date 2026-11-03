@@ -34,8 +34,8 @@ nav:
   #   the home page is "/". For example: ["/", about, services]
 
 # Public counter IDs. Not secrets: they are visible in the page source.
-# Inserted into production builds only. Keys: ga4, gtm
-# (metrika is accepted too, but the starter theme does not render it).
+# Inserted into production builds only, after the visitor consents.
+# Keys: ga4, gtm, metrika.
 analytics:
   ga4:
   gtm:
@@ -50,6 +50,7 @@ build:
 
 plugins: []
 
-# No passwords or tokens here. Form SMTP, deploy keys and the like live in
-# the build environment, HERON/env/.env.<site>.<env>: the build is static,
-# and anything it can see may end up in HTML.
+# No passwords or tokens here: the build is static, and anything it can
+# see may end up in HTML. Form passwords live in the separate forms
+# service. Publishing keys live in docker login or in CI; with a clone of
+# the engine, deploy tokens live in env/.env.<site>.<env>.

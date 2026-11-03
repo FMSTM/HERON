@@ -98,7 +98,6 @@ Inputs of the `site-image.yml` workflow (one output - `image`, the full image na
 | `export_docs` | `false` | raw documentation files into `static/` |
 | `push` | `true` | whether to push the image to the registry |
 
-
 **Rendition cache in CI.** Without it every build is cold: on a site with a hundred images that is minutes of CPU time for any text edit. This is a recipe for the site's own workflow only. `site-image.yml` does not save a rendition cache: every build of it is cold. In a build with `--out` the cache lives next to the output folder, in `.heron-cache/`, and goes into the runner cache as an ordinary folder:
 
 ```yaml

@@ -749,8 +749,8 @@ The theme may name the expected form in `theme.yaml`: `uses: ["recovery:timeline
 The core does not know which sections pages have: that is the subject area of the site. All sections of a type - both required by meaning and optional - are declared by the theme in `types.<type>.uses` (section 6). A section from `uses` that the file lacks is a line in the content debt summary, not an error; a section in the file that is not in `uses` is a line in the `heron check` report ("the theme does not use"), which catches a typo in the anchor.
 
 ## 5. `site.yaml` <a id="site-yaml"></a>
-The machine form is `heron schema`.
 
+The machine form is `heron schema`.
 
 Everything that repeats on every page lives here in a single copy. An address typed by hand into the header and into the footer sooner or later drifts apart - this is exactly the problem this file solves.
 
@@ -1093,7 +1093,6 @@ The server answers 410 **before accessing files**: the engine writes the list in
 The `gone` field on a page is deprecated: an address that no longer exists cannot honestly be attributed to anything. It is still read - the addresses go into the same list - but each such page gives a warning "move it to `site.yaml`".
 
 ### What the core checks and what it passes through
-
 
 The core strictly validates its own keys: `heron`, `site`, `seo`, `build`, `analytics`, `nginx`, `plugins`, `forms`, `gone`, `schema_exceptions`. A typo inside them is a stop with `E011`. `nav` allows any groups (`main` and your own), `sinks` any keys: they are read by heron-relay. The names `heron site seo nav build plugins forms sinks analytics gone nginx schema_exceptions` are taken by the core and are not used as your own blocks.
 

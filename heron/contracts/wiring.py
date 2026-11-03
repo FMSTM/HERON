@@ -25,7 +25,20 @@ def verify_engine(theme: ThemeConfig, theme_path: str = "theme.yaml") -> None:
     опечатку во фронтматтере — самым бесполезным из возможных. Здесь это
     ловится один раз, до рендера, и называется своим именем.
     """
-    if theme.heron and not version_contract.satisfies(__version__, theme.heron):
+    try:
+        engine_ok = not theme.heron or version_contract.satisfies(__version__, theme.heron)
+    except ValueError as exc:
+        raise HeronError(
+            code="E008",
+            message=(
+                exc.args[0]
+                if exc.args and isinstance(exc.args[0], Msg)
+                else Msg("version_raw", text=str(exc))
+            ),
+            path=theme_path,
+            hint=Msg("version_bad_spec_hint"),
+        ) from exc
+    if not engine_ok:
         raise HeronError(
             code="E012",
             message=Msg(
@@ -61,7 +74,20 @@ def verify(theme: ThemeConfig, site: SiteConfig, site_path: str = "site.yaml") -
     которой нет в `forms`. Предупреждение — язык темы без строк перевода
     и прочее, что не ломает сборку.
     """
-    missing = [path for path in theme.requires if site.get_path(path) in (None, "", [], {})]
+    # урезанный конфиг без языков (заглушка) смотрится как один безымянный язык
+    langs: list[str] = list(getattr(getattr(site, "site", None), "languages", None) or [""])
+
+    def view(lang: str) -> SiteConfig:
+        return site.for_lang(lang) if lang else site
+    missing: list[str] = []
+    for path in theme.requires:
+        bad = [
+            lang for lang in langs if view(lang).get_path(path) in (None, "", [], {})
+        ]
+        if len(bad) == len(langs):
+            missing.append(path)
+        elif bad:
+            missing.append(f"{path} ({', '.join(bad)})")
     if missing:
         raise HeronError(
             code="E011",

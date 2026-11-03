@@ -919,6 +919,7 @@ site:
 - both images `og_default_image*` are declared by the site: the engine checks they exist and puts them into the build, like any files from `media/`;
 - the other core keys do not depend on the language;
 - **site blocks** (`contact`, `organization`, `schema` and your own) are translated with the same suffix, at any depth and in lists: the template of a `ru` page sees `site.contact.address` = `address_ru`; if there is only `address_ru`, `address` appears on the Russian page. Keys with the tail stay available. The substitutions of the `schema` block (below) work by the same rule.
+- the theme `requires` values are checked the way a page sees them: the path must be non-empty in `site.for_lang(lang)` for every language in `site.languages`, otherwise `E011` (if it is missing in only some languages, the values list shows `contact.address (uk)`).
 
 The starter theme (`heron new`) already outputs `<title>` with the suffix, `og:*`, and the name in the header and footer from these values.
 
@@ -1435,6 +1436,8 @@ it declares its requirements for the engine right in `theme.yaml`:
 heron: ">=0.1"          # the engine version the theme is made for
 fields: [nav_title]     # frontmatter fields the templates access
 ```
+
+The `heron` requirement is written as in `site.yaml`; a malformed requirement is `E008` with the path to `theme.yaml`; a theme newer than the engine is `E012`.
 
 The engine checks this at the first stage, before traversing the content. A wrong version is
 `E012`; a field in `fields` the engine does not know is `E023` with the list of fields,

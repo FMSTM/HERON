@@ -161,3 +161,14 @@ def test_mutation_dash_in_notes_content_is_detected(tmp_path: Path) -> None:
     lines[0] = lines[0] + " — тире"
     (notes / "content.md").write_text("\n".join(lines), encoding="utf-8")
     assert _dash_files(tmp_path / "notes") == ["ru/content.md"]
+
+
+# E15.S1.T27: след механической замены тире, «, - », в заготовке demo недопустим.
+def test_scaffold_demo_has_no_comma_hyphen() -> None:
+    base = SCAFFOLD_ROOT / "demo"
+    bad = [
+        str(p.relative_to(base))
+        for p in base.rglob("*")
+        if p.is_file() and p.suffix == ".md" and ", - " in p.read_text(encoding="utf-8")
+    ]
+    assert bad == []

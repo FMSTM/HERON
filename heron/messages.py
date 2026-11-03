@@ -134,7 +134,7 @@ TEXT: dict[str, dict[str, str]] = {
         ),
         "container_path": (
             "  почему: движок работает в контейнере и видит только папку,\n"
-            "  смонтированную в /site, - это ваша текущая папка. Путь {path}\n"
+            "  смонтированную в /site: это ваша текущая папка. Путь {path}\n"
             "  с вашего компьютера внутри контейнера не существует.\n"
             "  что сделать: передайте путь относительно текущей папки - `.`, если\n"
             "  вы в папке сайта, или имя вложенной папки."
@@ -748,6 +748,10 @@ TEXT["en"].update(
 # В подсказках двойные скобки: `say` подставляет поля через str.format.
 TEXT["ru"].update(
     {
+        "theme_inline_script": (
+            "инлайн-скрипт в строке {line} заблокирует CSP сайта (script-src 'self'): "
+            "вынесите код в файл темы, см. docs guide/04-theme"
+        ),
         "sandbox_mutation": (
             "{call} меняет данные на месте: шаблоны темы рендерятся в неизменяемой "
             "песочнице, и сборка на этом месте упадёт с E033"
@@ -777,6 +781,10 @@ TEXT["ru"].update(
 )
 TEXT["en"].update(
     {
+        "theme_inline_script": (
+            "the inline script on line {line} will be blocked by the site CSP (script-src 'self'): "
+            "move the code to a theme file, see docs guide/04-theme"
+        ),
         "sandbox_mutation": (
             "{call} changes data in place: theme templates render in an immutable "
             "sandbox, and the build fails here with E033"

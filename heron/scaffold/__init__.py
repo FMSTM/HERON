@@ -603,13 +603,6 @@ def _put_bytes(root: Path, rel: str, data: bytes, plan: Plan, force: bool) -> No
     plan.created.append(rel)
 
 
-def _copy(root: Path, source: Path, rel: str, plan: Plan, force: bool, **fields: str) -> None:
-    text = source.read_text(encoding="utf-8")
-    if fields:
-        text = text.format(**fields)
-    _put(root, rel, text, plan, force)
-
-
 def _note(
     root: Path,
     note: str,

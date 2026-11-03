@@ -21,7 +21,7 @@ description: "We plan the space and pick the materials."
 # ================= 3. OPEN GRAPH =================
 # og_title:                  # пусто - берётся title
 # og_description:            # пусто - берётся description
-# og_image:                  # пусто - seo.og_default_image из site.yaml
+# og_image:                  # обложка; пусто - image, первая картинка текста, картинка героя, затем seo.og_default_image
 # og_image_alt:
 
 # ================= 4. TWITTER / X =================

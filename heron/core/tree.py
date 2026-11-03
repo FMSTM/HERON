@@ -42,6 +42,20 @@ def url_for(lang: str, default_lang: str, parts: list[str]) -> str:
     return f"/{path}/" if path else "/"
 
 
+def _read_index(path: Path) -> dict | None:
+    """Фронтматтер `_index.md` или None, если файл негоден.
+
+    Ничего не пишет в collector: об ошибке скажет основной обход `scan`,
+    который читает каждый `_index.md` через `frontmatter.read` (E001/E030)
+    с относительным путём. Так негодный файл даёт ровно одну ошибку.
+    """
+    try:
+        data, _, _ = frontmatter.split(path.read_text(encoding="utf-8"), str(path))
+    except (HeronError, UnicodeDecodeError, OSError):
+        return None
+    return data
+
+
 def _folder_slugs(root: Path) -> dict[str, str]:
     """Сегмент адреса каждой папки: её `slug`, если раздел его объявил.
 
@@ -60,10 +74,9 @@ def _folder_slugs(root: Path) -> dict[str, str]:
             continue  # об этом скажет основной обход
         rel = path.parent.relative_to(root).as_posix()
         rel = "" if rel == "." else rel
-        try:
-            data, _, _ = frontmatter.split(path.read_text(encoding="utf-8"), str(path))
-        except HeronError:
-            continue  # об этой ошибке уже сказал _folder_types
+        data = _read_index(path)
+        if data is None:
+            continue  # об ошибке скажет основной обход scan
         slug = data.get("slug")
         if isinstance(slug, str) and SLUG.match(slug.strip()):
             out[rel] = slug.strip()
@@ -128,7 +141,7 @@ def _links(md, body: str, offset: int) -> list[tuple[int, str]]:
     return out
 
 
-def _folder_types(root: Path, collector: Collector) -> dict[str, tuple[str | None, str | None]]:
+def _folder_types(root: Path) -> dict[str, tuple[str | None, str | None]]:
     """Для каждой папки: её собственный тип и тип её детей, из `_index.md`."""
     out: dict[str, tuple[str | None, str | None]] = {}
     for path in root.rglob(INDEX):
@@ -136,11 +149,9 @@ def _folder_types(root: Path, collector: Collector) -> dict[str, tuple[str | Non
             continue  # об этом скажет основной обход
         rel = path.parent.relative_to(root).as_posix()
         rel = "" if rel == "." else rel
-        try:
-            data, _, _ = frontmatter.split(path.read_text(encoding="utf-8"), str(path))
-        except HeronError as exc:
-            collector.errors.append(exc)
-            continue
+        data = _read_index(path)
+        if data is None:
+            continue  # об ошибке скажет основной обход scan
         out[rel] = (data.get("type"), data.get("children_type"))
     return out
 
@@ -168,7 +179,7 @@ def scan(
             )
             continue
 
-        folder_types = _folder_types(lang_root, collector)
+        folder_types = _folder_types(lang_root)
         folder_slugs = _folder_slugs(lang_root)
 
         for path in sorted(lang_root.rglob("*.md")):

@@ -145,7 +145,7 @@ def test_flags_lang_duplicates_removed_and_check_passes(here):
     assert result.exit_code == 0, result.output
     assert config(here / "dup")["site"]["languages"] == ["ru", "en"]
     checked = run("check", str(here / "dup"))
-    assert "site_lang_dup" not in checked.output
+    assert checked.exit_code == 0, checked.output
 
 
 def test_flags_domain_is_normalized_like_questionnaire(here):

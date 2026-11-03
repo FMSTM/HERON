@@ -16,6 +16,7 @@ from click.testing import CliRunner
 
 from heron import cli
 from heron.cli import main
+from heron.setup.files import gitignore
 
 
 @pytest.fixture
@@ -52,6 +53,37 @@ def test_new_in_current_folder_under_git(here):
     # чужой .gitignore не перезаписан
     assert (here / ".gitignore").read_text(encoding="utf-8") == "secret.txt\n"
     assert "Left untouched (already there): .gitignore" in result.output
+
+
+def test_new_gitignore_protects_env(here):
+    result = run("new", "fresh")
+
+    assert result.exit_code == 0, result.output
+    lines = (here / "fresh" / ".gitignore").read_text(encoding="utf-8").splitlines()
+    assert lines.count(".env") == 1
+
+
+def test_init_leaves_foreign_gitignore_untouched(here):
+    (here / ".gitignore").write_text("secret.txt\n", encoding="utf-8")
+
+    result = run("init", ".", "--lang", "en", "-y")
+
+    assert result.exit_code == 0, result.output
+    assert (here / "site.yaml").is_file()
+    assert (here / ".gitignore").read_text(encoding="utf-8") == "secret.txt\n"
+
+
+def test_setup_does_not_repeat_env_in_scaffold_gitignore(here):
+    run("new", "fresh")
+    current = (here / "fresh" / ".gitignore").read_text(encoding="utf-8")
+
+    merged = gitignore(current)
+
+    # setup дописывает своё (*.env), но строку .env из заготовки не повторяет
+    assert merged is not None
+    assert merged.startswith(current)
+    assert "*.env" in merged.splitlines()
+    assert merged.splitlines().count(".env") == 1
 
 
 def test_new_names_the_files_that_get_in_the_way(here):

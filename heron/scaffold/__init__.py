@@ -46,6 +46,7 @@ GITIGNORE = """dist/
 .*.heron-lock
 .DS_Store
 __pycache__/
+.env
 """
 
 # Строки интерфейса темы на языке сайта. Нет языка — английские.

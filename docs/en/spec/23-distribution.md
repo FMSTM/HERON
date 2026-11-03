@@ -192,6 +192,7 @@ Resolution order, the first one found wins:
 2. **an installed package** - `heron-theme-<name>`; for a plugin - an entry point of the `heron.plugins` group.
 
 A package from git is installed as an ordinary package - `pip install git+...` - and is then found by step 2; there is no separate git-link step and no field for it in `site.yaml`.
+
 Local always wins. A theme is developed right in the site, without a publication for every CSS edit; it can be moved into a package later without changing a single line of content.
 
 Plugins are ordinary pip packages, installed into the site image with one Dockerfile line. **The engine does not invent its own package format or its own loader.** The local `plugins/` folder is for one-off plugins of a particular site that there is no reason to publish.

@@ -41,22 +41,23 @@ there and what does not. The engine ignores these files and never ships them.
 
 ## Working with the site
 
-Every command goes through the HERON image. Set a short name once:
+Every command goes through the HERON image. Set short names once: `$H` for ordinary commands, `$HP` for `setup` and `serve` (it publishes the port):
 
 ```bash
 H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"
+HP="docker run --rm -i -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"
 ```
 
 In zsh (the macOS default) run `setopt sh_word_split` first, otherwise `$H`
-will not start.
+and `$HP` will not start.
 
 Then, from the site folder:
 
 ```bash
-$H setup .                       # questionnaire: name, domains, publishing, theme
+$HP setup .                      # questionnaire: name, domains, publishing, theme
 $H init .                        # folders catch up with site.yaml
 $H check .                       # what to fill in and what to fix, no build
-$H serve .                       # look at it on localhost:8000 (needs -p 127.0.0.1:8000:8000)
+$HP serve .                      # look at it on localhost:8000
 $H build . --env prod --strict   # build the working version into dist/
 ```
 

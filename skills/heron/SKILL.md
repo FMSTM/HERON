@@ -24,7 +24,7 @@ Inside a HERON site the same documentation sits in `agents/` (start with `AGENTS
 2. **Create and set up.** `$H new my-site -y --lang en,de` (add `--notes ru` for comments and the agent kit in Russian, default en), then `$H setup my-site --dump > answers.yaml`, fill it from the structure (name, domains, type by schema.org and its fields, publishing), `$H setup my-site --answers answers.yaml`. Check the draft against `$H schema` / `$H schema --setup`.
 3. **Content and SEO** (`heron-content`). One markdown file per page, the SEO block on top, sections `## Title {#anchor}`. The theme demo pages (`index.md`, `blocks.md`, `themes.md`, `docs.md` of the white theme) show every section form; replace it with the site's pages.
 4. **Designer** (`heron-designer`). Start from the starter theme or `$H theme get <name|url|archive> my-site`; change only `theme/`.
-5. **Builder** (`heron-builder`). `$H check my-site`, `$HP serve my-site` (localhost:8000), `$H build my-site --env prod --strict`, then `.heron/scripts/publish.sh`.
+5. **Builder** (`heron-builder`). `$H check my-site`, `$HP serve my-site` (localhost:8000), `$H build my-site --env prod --strict`, then hand over to the human: the agent prepares settings and the build, the human runs publishing (`.heron/scripts/publish.sh`, `git push`).
 
 ## Rules for every role
 

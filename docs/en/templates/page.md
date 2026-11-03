@@ -21,7 +21,7 @@ description: "We plan the space and pick the materials."
 # ================= 3. OPEN GRAPH =================
 # og_title:                  # empty - title is used
 # og_description:            # empty - description is used
-# og_image:                  # empty - seo.og_default_image from site.yaml
+# og_image:                  # the cover; empty - image, the first picture of the text, the hero picture, then seo.og_default_image
 # og_image_alt:
 
 # ================= 4. TWITTER / X =================

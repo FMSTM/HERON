@@ -14,6 +14,8 @@ $H page service roof my-site --folder services             # → content/<main l
 $H page service roof my-site --folder services --lang ru   # translation
 ```
 
+The type must be declared in the theme's `types`. The starter theme has only `home`, `page`, `404`; another type gives `E008`, the designer adds it first.
+
 `heron page` puts the full SEO block and stubs of **all** sections the theme declared for the type (`types.<type>.uses`). You can also copy a ready file - the result is the same. A sample of a filled-in page - [`templates/page.md`](../templates/page.md).
 
 The file name is the page key: Latin letters, digits, hyphen; **the same in all languages**. A different address for a translation is the `slug` field.

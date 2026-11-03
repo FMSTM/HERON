@@ -62,7 +62,7 @@ For each type, a list of sections (anchor, form from `20` §4.4, what goes there
 - reviews, trust figures, the team - `data/*.yaml`;
 - the site name and the `title` suffix per language - `site.name_<lang>`, `seo.title_suffix_<lang>`;
 - analytics counters - `analytics`; facts for AI models - `seo.llms_note`;
-- schema.org markup - `schema.entity` in `site.yaml`, types per page type - `theme.yaml`. Prices in the markup only if the site publishes them (`seo.allow_prices`).
+- schema.org markup - the `schema.entity` and `schema.<Type>` nodes are set by the `heron setup` questionnaire; types per page type - `theme.yaml`. Prices in the markup only if the site publishes them (`seo.allow_prices`).
 - **a picture in search results** (`og:image`, `primaryImageOfPage`, images in the sitemap, `max-image-preview:large`) and **sitelinks** (extra links under a result) - engine capabilities: the cover is chosen by a page field, `robots_meta` and the markup come from the engine. The site needs no code of its own; do not plan an engine task for it and do not design workarounds. Google decides what to show; sitelinks cannot be switched on with markup, they are influenced by HTML navigation, breadcrumbs, unique `title` values and the absence of duplicates (guide [05](../guide/05-seo.md)). Site names: `site.alternate_names` (`20` §5).
 
 ### 7. Questions for the client

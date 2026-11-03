@@ -28,19 +28,19 @@ files:
     ru_sha256: "f1728aaabcef9fc342489fa9fa4e9545627d38c850aee5f5e4358a25e1b4952e"
     en_status: current
   - path: roles/architect.md
-    ru_sha256: "c1000eea2b030458c7985349b49e2c7b2f6c572f9bc5e9d149c69532f0e7cb7a"
+    ru_sha256: "0f2fa54a6e5ab09ccead1abee2a5411641da7cb50976278f23516bc4234195f6"
     en_status: current
   - path: roles/builder.md
-    ru_sha256: "6ad8ea72bb9b74371692605bd9942fe01104e22caad4242d8a73c8c7b050258f"
+    ru_sha256: "a879f2af3828969ec2c49df5a7e20d7909dac673ec423fc3f0d6fb178c86a3ac"
     en_status: current
   - path: roles/capabilities.md
-    ru_sha256: "1f33f1c022e850d152054af3b8df3d4c6e80723c5440d219c17c227ce34b76b8"
+    ru_sha256: "a81e276a28616453f81e109c77c8d091de91eb29abaa0a096d11fd4f93625568"
     en_status: current
   - path: roles/content.md
-    ru_sha256: "afc681efc2ac15ad93eada54600b2b77dc5a4237f993f6f73bfac0b7612c5f0a"
+    ru_sha256: "fa12bb26d25e7f99d253497b9a1458b1991de69275abb32a683441bb7443b103"
     en_status: current
   - path: roles/designer.md
-    ru_sha256: "d93e6b5332daf38ecc8749e89f3e91d1c5a66ea288fec57bba9c6d5911e1960a"
+    ru_sha256: "f094fb07310b31091a0cc7332280e7a5ff3b7881faea31258fd3b7b113a05a4d"
     en_status: current
   - path: spec/20-data-contract.md
     ru_sha256: "35422aa8295a4693840f3ec5bc84da6c8a92b84c4773944728ce9bf47316845b"
@@ -55,7 +55,7 @@ files:
     ru_sha256: "c4cd3527bc025e2a9082d50e613898e243a8f05d84c4d9316fc68087720b2c94"
     en_status: current
   - path: templates/page.md
-    ru_sha256: "8aa8a93638efff7e87710dca8aea9a3aa63ad8da6382b59d82df6b8ba3ab3ca5"
+    ru_sha256: "c45fa56cdf289625f2bcb0b274e454d8e400508977cc4af958edc825ec393c07"
     en_status: current
   - path: templates/questions.md
     ru_sha256: "54ccd4d9e052fefd0466e617bf4242d9059af8ffb52cf1da508d77817972400c"
@@ -64,13 +64,13 @@ files:
     ru_sha256: "3e2c7e42e8bf826730a31e870c711435d53db05667d708be73a5c3f1b9fa4534"
     en_status: current
   - path: templates/site.yaml
-    ru_sha256: "8e3e69caab4c5b0e4688cb40ed1fcc80802903fe4e566280f2aa21ccd370ae12"
+    ru_sha256: "a88a039c7b446720773bc8cbc5bc08f45ef3130086e51a2419c495d4d9027e6e"
     en_status: current
   - path: templates/structure.md
     ru_sha256: "77a828773ce591e670b30cc198a40f698bbb3a35527fcf0cd2ae929886b0a347"
     en_status: current
   - path: templates/theme.yaml
-    ru_sha256: "712b4cb1aec6c3980a063407ff999d283444d35f57079a43dd1d4063897b33e4"
+    ru_sha256: "a808d3b666799d992ce2b5be8bdcd9b9a74306769a9426adc48529300c7ed5ea"
     en_status: current
 root_files:
   - ru: README.ru.md

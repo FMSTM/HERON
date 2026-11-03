@@ -12,9 +12,11 @@ requires:                      # site.yaml paths the theme does not work without
   - site.name
 fields: [nav_title]            # frontmatter fields the templates refer to
 
-modules: [breadcrumbs, prose, list, alert-list, steps, faq, facts, checklist, cards]
+# The engine does not check the modules list against the files: list only modules whose files exist in the theme.
+modules: [breadcrumbs, prose, list, steps, faq, facts, checklist, children]
 
-types:                         # page type → sections and markup; template templates/<type>.html
+types:                         # page type → sections and markup; template templates/<type>.html.
+                               # A type that is not here gives E008 (the starter theme has only home, page, 404)
   home:
     uses: [intro, "why:list", "how:steps", "faq:faq"]
     jsonld: [WebSite]

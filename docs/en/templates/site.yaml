@@ -41,10 +41,10 @@ nav:
                                            # on Russian pages about becomes /ru/o-nas/ by itself
   # footer: [privacy]                      # group names are up to the theme
 
-analytics:                     # production build only; the starter theme renders ga4 and gtm
+analytics:                     # production build only; the starter theme renders ga4, gtm and metrika after the visitor's consent
   ga4:
   gtm:
-  # metrika:                   # the core accepts it, the starter theme does not render it
+  # metrika:                   # the counter identifier
 
 build:
   notes: en                    # language of hints and of the agents/ kit: ru or en. Without the key - en (the default),
@@ -59,7 +59,7 @@ build:
 
 plugins: []
 
-# forms:                       # site forms; the heron-relay plugin
+# forms:                       # site forms; accepted by the separate heron-relay service, not implemented yet
 #   callback:
 #     fields: [name, phone]
 #     sinks: [mail]
@@ -87,6 +87,7 @@ organization:
   name: ""
   same_as: []
 
+# Usually written by the heron setup questionnaire; by hand only where there is no questionnaire.
 schema:
   entity:                      # site-wide node, on every indexable page
     "@id": "#org"

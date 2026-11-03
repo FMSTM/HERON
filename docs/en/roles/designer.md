@@ -9,7 +9,7 @@ Make a theme that draws every page type of the structure and does not break on i
 
 ## 1. Start with the starter theme
 
-`heron new` puts a working starter theme: the types `home`, `page`, `404`, a module for each of the thirteen section forms, `breadcrumbs` and `children`, the section layout in `partials/sections.html`, its demo pages - the home page, `blocks.md` (every form), `themes.md`, `docs.md`; a light and a dark scheme. It builds from the first minute - change it step by step and build after each step. To install a theme from the catalog, by link or as an archive - `heron theme get` (`21` §10).
+`heron new` puts a working starter theme: the types `home`, `page`, `404`, 13 modules: 11 section forms (`alert-list` draws `list.html`, `two-lists` draws `checklist.html`), `breadcrumbs` and `children`, the section layout in `partials/sections.html`, its demo pages - the home page, `blocks.md` (every form), `themes.md`, `docs.md`; a light and a dark scheme. It builds from the first minute - change it step by step and build after each step. To install a theme from the catalog, by link or as an archive - `heron theme get` (`21` §10).
 
 ## 2. `theme.yaml`
 
@@ -83,9 +83,10 @@ Do not assemble `og:image`, `twitter:image`, `robots` or the image markup (`prim
 
 - no cover - `cover_url(page)` is empty, do not output the tag; this is not a build error, `heron check` warns;
 - do not put the social image in `static/`: the `seo.og_default_image` master is carried from `media/` by itself (`20` §7.9);
-- make the cover opaque: the engine adds no backing (there are no `images.cover_background` backings), a transparent PNG will land on someone else's background;
+- make the cover opaque: the engine adds no backing, a transparent PNG will land on someone else's background;
 - on dev `robots_meta` gives `noindex, nofollow`, there are no images in the sitemap, addresses are on the dev domain: check the cover on a prod build;
-- `primaryImageOfPage` or `entity.image` set by the site in `schema` take precedence over the computed ones.
+- `primaryImageOfPage` or `entity.image` set by the site in `schema` take precedence over the computed ones; the computed `primaryImageOfPage` appears only if the theme declared `WebPage` or a derived type for the type in `types.<type>.jsonld`.
+- The engine does not check the `modules` list in `theme.yaml` against the files.
 
 ## 6. Interface strings
 
@@ -101,7 +102,7 @@ Everything that belongs to the theme and not to the page ("Read more", "Question
 ## Checklist
 
 - [ ] every type of the structure has an entry in `types` and a template
-- [ ] every form from `uses` has a module
+- [ ] every form from `uses` has a module or a branch in `partials/sections.html`
 - [ ] the build passes both on the starter and on the full content
 - [ ] templates hold no texts or site details; interface strings go through `t`
 - [ ] the report has no missing `i18n` strings and no template errors

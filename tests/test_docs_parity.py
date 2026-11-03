@@ -85,8 +85,8 @@ ALLOWED_CYRILLIC: tuple[Allowed, ...] = (
     ),
     Allowed(
         r"\"Читать далее\"",
-        "пример ru-строки интерфейса темы рядом с английской: roles/capabilities.md, guide/04-theme.md, "
-        "spec/21-engine.md §7",
+        "пример ru-строки интерфейса темы рядом с английской: roles/capabilities.md, "
+        "guide/04-theme.md, spec/21-engine.md §7",
     ),
     Allowed(
         r"`/(?:новости|кредит)/?`",
@@ -119,7 +119,7 @@ ALLOWED_CYRILLIC: tuple[Allowed, ...] = (
         "redirects",
     ),
     Allowed(
-        r"\"(?:Страниц — N|Предупреждений — N|… и ещё N|что сделать|Использование|Ошибка)\"",
+        r"\"(?:Страниц [-—] N|Предупреждений [-—] N|… и ещё N|что сделать|Использование|Ошибка)\"",
         "21 §10: ru-строки отчёта, рамки предупреждений и разбора флагов (heron/messages.py)",
         "spec/21-engine.md",
         "10. CLI",
@@ -750,6 +750,8 @@ def test_readme_pair_structure_catches_missing_heading() -> None:
     ru_text = (ROOT / "README.ru.md").read_text(encoding="utf-8")
     en_text = (ROOT / "README.md").read_text(encoding="utf-8")
     lines = en_text.splitlines()
-    index = next(i for i, line in enumerate(lines) if HEADING.match(line) and not line.startswith("# "))
+    index = next(
+        i for i, line in enumerate(lines) if HEADING.match(line) and not line.startswith("# ")
+    )
     mutated = "\n".join(lines[:index] + lines[index + 1 :])
     assert _md_problems(ru_text, mutated)

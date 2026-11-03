@@ -261,7 +261,7 @@ def test_countries_json_has_no_dashes():
     names = [n for row in data["countries"] for n in row[1:3]]
     assert names
     assert not [n for n in names if "—" in n or "–" in n]
-    assert ["PG", "Папуа - Новая Гвинея"] == [r for r in data["countries"] if r[0] == "PG"][0][:2]
+    assert [r for r in data["countries"] if r[0] == "PG"][0][:2] == ["PG", "Папуа - Новая Гвинея"]
 
 
 def test_suffix_default_separator_is_hyphen_and_author_hyphen_kept():

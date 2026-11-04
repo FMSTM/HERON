@@ -2,7 +2,7 @@ The main HERON commands and where to read more. The documentation lives in the e
 
 ## How to run the commands {#run}
 
-Every command below starts with `heron`. In a container it is the same call through `$H`, see "Quick start" in the engine README. Without it, write the full command instead of `heron`, for example:
+Every command below starts with `heron` - this is how they look when the engine is installed without Docker. With Docker, write the full command instead of `heron`, for example:
 
 ```bash
 docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD":/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod serve .
@@ -16,7 +16,7 @@ docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD":/site -w /site --user $(id 
    heron new my-site
    ```
 
-2. **Set it up.** A questionnaire in the browser - open the address it prints, with the key after `#`: name, domains, who the site is about, publishing, theme. Run it from the site folder:
+2. **Set it up.** The configurator in the browser - open the address the engine prints, with the key after `#`: name, domains, who the site is about, publishing, theme. Run it from the site folder:
 
    ```bash
    cd my-site && heron setup .

@@ -66,7 +66,7 @@ def test_create_ru_lays_out_the_whole_kit(tmp_path):
         folder: len([f for f in files if f.startswith(f"{folder}/")])
         for folder in ("roles", "templates", "guide", "spec", "schemas")
     }
-    assert count == {"roles": 5, "templates": 6, "guide": 6, "spec": 4, "schemas": 5}
+    assert count == {"roles": 5, "templates": 6, "guide": 7, "spec": 4, "schemas": 5}
     assert {f"schemas/{name}" for name in SCHEMA_FILES} <= files
     assert {"work/.gitkeep", "work/heron-readme.md", "heron-kit.yaml"} <= files
     for name in agents.ROOT_FILES:
@@ -330,12 +330,11 @@ def test_kit_body_follows_the_channel(tmp_path, monkeypatch):
     readme = (root / "agents/README.md").read_text(encoding="utf-8")
     body = (root / "AGENTS.md").read_text(encoding="utf-8")
     for text in (readme, body):
-        assert "blob/prod" not in text and 'ghcr.io/fmstm/heron:prod"' not in text
+        assert "blob/prod" not in text and "ghcr.io/fmstm/heron:prod " not in text
         assert "https://github.com/FMSTM/HERON/blob/beta/AGENTS.md" in text
-        assert 'H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ' in text
-        assert 'ghcr.io/fmstm/heron:beta"' in text
+        assert '--user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta <' in text
     builder = (root / "agents/roles/builder.md").read_text(encoding="utf-8")
-    assert 'ghcr.io/fmstm/heron:beta"' in builder and 'heron:prod"' not in builder
+    assert "ghcr.io/fmstm/heron:beta check" in builder and "heron:prod check" not in builder
     deploy = (root / "agents/guide/06-deploy.md").read_text(encoding="utf-8")
     assert "https://github.com/FMSTM/HERON/blob/beta/env/.env.example" in deploy
     assert "| `ghcr.io/fmstm/heron:prod` |" in deploy  # таблица тегов — описание, не адрес
@@ -359,12 +358,12 @@ def test_channel_change_replaces_untouched_files_without_edits(tmp_path, monkeyp
     monkeypatch.delenv("HERON_CHANNEL", raising=False)
     root = tmp_path / "site"
     put(root, "ru")
-    assert b'heron:prod"' in (root / "agents/README.md").read_bytes()
+    assert b"heron:prod <" in (root / "agents/README.md").read_bytes()
     monkeypatch.setenv("HERON_CHANNEL", "beta")
     plan = put(root, "ru", mode="update")
     assert not plan.edited and not plan.forced
     assert {"agents/README.md", "agents/roles/builder.md", "AGENTS.md"} <= set(plan.updated)
-    assert b'heron:beta"' in (root / "agents/README.md").read_bytes()
+    assert b"heron:beta <" in (root / "agents/README.md").read_bytes()
     assert load_manifest(root)["channel"] == "beta"
 
 

@@ -1,0 +1,143 @@
+# 00 · Установка
+
+HERON можно запускать двумя способами:
+
+- **через Docker** - ничего, кроме Docker, ставить не нужно. Подходит почти всем;
+- **без Docker** - движок ставится как обычная программа на Python.
+
+Если не знаете, что выбрать, - берите Docker.
+
+## Через Docker
+
+1. Поставьте Docker:
+   - **macOS и Windows** - [Docker Desktop](https://www.docker.com/products/docker-desktop/). После установки запустите его: пока Docker Desktop не запущен, команды не работают. На Windows все команды из документации выполняйте в терминале WSL (Ubuntu): поставьте его командой `wsl --install` в PowerShell и включите в Docker Desktop: Settings → Resources → WSL integration;
+   - **Linux** - Docker Engine по [инструкции для вашего дистрибутива](https://docs.docker.com/engine/install/).
+
+2. Проверьте, что всё работает:
+
+   ```bash
+   docker run --rm ghcr.io/fmstm/heron:prod --version
+   ```
+
+   В первый раз Docker скачает движок - это займёт минуту-две. Потом напечатается версия, например:
+
+   ```
+   heron, version 0.1.0 (prod, 8c8f730, …)
+   ```
+
+Всё, движок готов. Переходите к [первому сайту](02-first-site.md): все команды там написаны целиком, их можно копировать в терминал как есть.
+
+### Docker видит только текущую папку <a id="docker-current-folder"></a>
+
+Команда `docker run … -v "$PWD:/site"` показывает движку **только ту папку, в которой вы сейчас находитесь в терминале**, и всё, что внутри неё. Поэтому:
+
+- запускайте команды из папки, где лежит сайт, или из папки над ней;
+- путь к сайту пишите от текущей папки: `мой-сайт` или, если вы уже внутри папки сайта, `.` (точка - «текущая папка»);
+- путь вида `~/sites/мой-сайт` или `/Users/…` не сработает: движок такой папки не видит и прямо об этом скажет.
+
+### Обновить движок
+
+```bash
+docker pull ghcr.io/fmstm/heron:prod
+```
+
+## Без Docker
+
+1. Проверьте, что есть Python 3.12 или новее и git:
+
+   ```bash
+   python3 --version
+   git --version
+   ```
+
+   Если Python старее 3.12 или его нет - поставьте с [python.org](https://www.python.org/downloads/) (на macOS, если стоит [Homebrew](https://brew.sh), можно `brew install python`). Если нет git - [git-scm.com](https://git-scm.com/downloads) (на macOS - `xcode-select --install`).
+
+2. Поставьте pipx - он устанавливает программы на Python так, чтобы они не мешали друг другу:
+
+   ```bash
+   brew install pipx                  # macOS, через Homebrew
+   sudo apt install pipx              # Debian, Ubuntu, WSL
+   pipx ensurepath                    # затем на любой системе
+   ```
+
+   После `pipx ensurepath` закройте терминал и откройте новый.
+
+3. Поставьте HERON:
+
+   ```bash
+   pipx install git+https://github.com/FMSTM/HERON.git@prod
+   ```
+
+   Движок ставится прямо из репозитория на GitHub: в каталоге пакетов PyPI его пока нет. `@prod` в конце - стабильная версия. Если pipx ответит, что версия Python не подходит, укажите её явно: `pipx install --python python3.12 git+https://github.com/FMSTM/HERON.git@prod`.
+
+4. Проверьте:
+
+   ```bash
+   heron --version
+   ```
+
+### Как читать команды из документации <a id="without-docker"></a>
+
+В документации все команды написаны для Docker. Без Docker всё, что стоит до `ghcr.io/fmstm/heron:prod` включительно, заменяется одним словом `heron`:
+
+```bash
+# в документации
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod build мой-сайт
+
+# у вас
+heron build мой-сайт
+```
+
+Ограничения «только текущая папка» здесь нет: путь к сайту можно писать любой, например `heron build ~/sites/мой-сайт`.
+
+### Обновить движок
+
+```bash
+pipx install --force git+https://github.com/FMSTM/HERON.git@prod
+```
+
+## Версии: prod и beta
+
+У движка две версии:
+
+- **prod** - стабильная. На ней работают боевые сайты, во всех командах документации стоит она;
+- **beta** - следующая версия на проверке, новое появляется здесь раньше. Чтобы попробовать, замените `prod` на `beta`: `ghcr.io/fmstm/heron:beta` в Docker или `@beta` в команде pipx.
+
+Какая версия стоит у вас - покажет команда из шага «Проверьте».
+
+## Если собираете сайты регулярно
+
+Этот раздел не обязателен. Он для тех, кому надоело копировать длинную команду `docker run …`.
+
+Добавьте в файл настроек терминала функцию `heron` - тогда вместо полной команды можно писать коротко, как без Docker: `heron new мой-сайт`, `heron build мой-сайт`.
+
+Файл настроек: на macOS - `~/.zshrc` (открыть: `open -e ~/.zshrc`; если файла нет, сначала `touch ~/.zshrc`), на Linux и в WSL - `~/.bashrc` (например, `nano ~/.bashrc`). Вставьте в конец файла:
+
+```bash
+# HERON: движок сайтов в Docker
+heron() {
+  local -a opts
+  opts=(--rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)")
+  [ -t 0 ] && [ -t 1 ] && opts+=(-it)
+  case " $* " in
+    *" serve "*|*" setup "*) opts+=(-p 127.0.0.1:8000:8000) ;;
+  esac
+  docker run "${opts[@]}" ghcr.io/fmstm/heron:prod "$@"
+}
+```
+
+Сохраните файл, откройте новый терминал и проверьте: `heron --version`. Функция сама подставляет нужные флаги: `-it` - когда команду запускает человек в терминале (тогда `new` может задавать вопросы, а конфигуратор и просмотр - останавливаться по Ctrl+C), `-p` - для конфигуратора и просмотра. Ограничение «только текущая папка» остаётся: это свойство Docker.
+
+## Для скриптов, CI и AI-агентов
+
+Скрипты и CI настройки терминала не читают, поэтому функция из раздела выше там не работает. Пишите команду целиком и без `-it` - в скриптах нет терминала, и с этим флагом Docker не запустится:
+
+```bash
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod build мой-сайт --env prod --strict
+```
+
+Если движок поставлен через pipx, в скриптах работает просто `heron`.
+
+---
+
+Дальше: [01 · Понятия](01-concepts.md) · [02 · Первый сайт](02-first-site.md)

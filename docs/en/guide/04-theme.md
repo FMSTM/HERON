@@ -1,19 +1,34 @@
 # 04 · Theme and design
 
-How a theme is built, how to make your own and what the template sees. For the designer and the front-end developer, a human or an agent.
+This section covers how a theme is built, how to make your own and what data a template gets. It is for whoever is responsible for how the site looks: a designer, a front-end developer or an AI agent in the designer role.
 
-The theme decides **how the site looks**; the content decides **what is written on it**. The theme does not know a single page text, the content does not know a single CSS class. They meet by names: page type → template, section anchor → module.
+A HERON site is split into two independent parts. **The theme** decides how the site looks: templates, styles, fonts. **The content** decides what is written on it: the page texts in `content/`. The theme does not know a single page text, and the content does not know a single CSS class. They meet by names: a page type finds its template, and a section anchor finds its module. That is why you can replace the theme without touching the texts, and the other way round.
+
+> **The commands in this section are written for Docker** and run from the site folder (`cd ~/sites/my-site`), so the path to the site in them is a dot. Installed the engine without Docker - replace everything up to and including `ghcr.io/fmstm/heron:prod` with the word `heron` ([more](00-install.md#without-docker)).
 
 ## Where to get a theme
 
-- **The starter theme** is already in a new site after `heron new`: white, light and dark, it draws all thirteen section forms; its demo pages in Russian and English are the home page, "Blocks" (every kind of block on one page), "Themes", "Documentation". To put it back over your own, use `heron theme get starter .`.
-- **From the catalog**: `heron theme get <name> .`, the list is `heron theme list` (for now the catalog has only `starter`).
-- **By link or as an archive**: `heron theme get https://…/theme.tar.gz .` or `heron theme get ./theme.zip .`.
-- **Your own into an archive**: `heron theme pack . --out theme.tar.gz`: the theme and the site content as its demo pages; without `--out` the archive goes to `dist/theme.tar.gz`.
+There are three ways:
 
-On installation the previous theme goes to `.heron-cache/setup/`, and the site pages are not overwritten: the demo pages of the theme are put only where there is no file. What an archive may and may not contain: [`21` §10](../spec/21-engine.md#heron-theme).
+- **The starter theme** is already in every new site after `new`. It is white, with a light and a dark mode, and can show all thirteen section forms. It comes with demo pages in Russian and English: the home page, "Blocks" (every kind of block on one page), "Themes" and "Documentation". If you changed the theme and want the starter one back, run `theme get starter .`.
+- **A theme from the catalog** is installed by name: `theme get <name> .`. To see the catalog - `theme list`. For now it has only `starter`.
+- **A theme by link or from an archive**: `theme get https://…/theme.tar.gz .` or `theme get ./theme.zip .`.
 
-## What it consists of
+To move your own theme to another site, pack it into an archive: `theme pack . --out theme.tar.gz`. The archive holds the theme and the site content - the content becomes the demo pages of the theme. Without `--out` the archive goes to `dist/theme.tar.gz`.
+
+The same commands in full:
+
+```bash
+docker run --rm ghcr.io/fmstm/heron:prod theme list
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod theme get starter .
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod theme pack . --out theme.tar.gz
+```
+
+When you install a new theme, the old one is not lost: it moves to `.heron-cache/setup/`, and the engine tells you exactly where. Site pages are not overwritten: the demo pages of the new theme are put only where there is no file yet. What an archive may and may not contain - [`21` §10](../spec/21-engine.md#heron-theme).
+
+## What a theme consists of
+
+A theme is the `theme/` folder inside the site folder:
 
 ```
 theme/
@@ -26,9 +41,11 @@ theme/
 └── i18n/<lang>.yaml      interface strings: en.yaml, ru.yaml, "Read more" / "Читать далее"
 ```
 
-`heron new` puts the starter theme: the types `home`, `page`, `404`, a module for every section form (`prose`, `list` and `alert-list`, `checklist` and `two-lists`, `steps`, `table`, `facts`, `faq`, `timeline`, `callout`, `gallery`, `tabs`), `breadcrumbs` and `children`, the cards of the child pages of a section. The layout of sections into modules is done by `partials/sections.html`. Tabs work without scripts, on radio buttons. Your own theme starts with a copy of it: change the variables at the start of `assets/site.css` and place the sections by anchors in `templates/`.
+The starter theme that `new` puts in has the page types `home`, `page` and `404` and a module for every section form: `prose`, `list` (it also draws `alert-list`), `checklist` (and `two-lists`), `steps`, `table`, `facts`, `faq`, `timeline`, `callout`, `gallery`, `tabs`. Two more modules are `breadcrumbs` and `children` (cards of the child pages of a section). Which module draws which section is decided by `partials/sections.html`. Tabs work without scripts, on radio buttons. The easiest way to start your own theme is a copy of the starter one: change the variables at the start of `assets/site.css` (colors, fonts, spacing) and place the sections by anchors in `templates/`.
 
-## `theme.yaml`
+## The theme passport: `theme.yaml`
+
+`theme.yaml` describes which pages the theme can show and what it needs for that. An example:
 
 ```yaml
 name: main
@@ -58,19 +75,21 @@ images:
   formats: [avif, webp]
 ```
 
-- **`types.<type>.uses`** is which sections the type shows. This is an agreement with the content: `heron page service roof` puts stubs of exactly these sections, and the "Not filled" summary after the build names the empty ones. A section in the file that is not in `uses` is a line in the report: this is how a typo in an anchor is caught. `"how:steps"` means the theme expects the form `steps` in that section.
-- **`requires`** are the paths in `site.yaml` without which the theme does not work: if they are not filled in, the error `E011` comes before rendering.
-- **`links`** are relation fields. The core finds the pages, checks them and builds a reverse list (`back`). `type` in a relation limits **to pages of which type** the field leads: `related` with `type: service` will not link articles to each other. A relation without a limit has no `type`: `- {field: related, back: related_from}`.
-- **`images`** are widths, proportions, resize formats, `fallback_width`, the width of the fallback PNG/JPEG, `cover_width`, the cover width for crawlers, `crop` and `as_is`, paths for forced cropping and for copying without resizing. Only what the templates asked for is resized.
-- **`types.<type>.template`** is another template file instead of `templates/<type>.html`, a path from `templates/`.
-- **`forms`** are the forms the theme draws; their description must be in `site.yaml` (`E011`).
-- **`heron`** is the engine version the theme is built for: a different one is `E012`.
+What the keys mean:
 
-Every key in detail: [`20` §6](../spec/20-data-contract.md#theme-yaml).
+- **`types.<type>.uses`** - which sections a page of this type shows. This is an agreement with the content. The command `page service roof my-site` (in a theme that has the `service` type, as in the example above) puts drafts of exactly these sections into a new page, and the "Not filled" summary after the build names the empty ones. If a page file has a section that is not in `uses`, a line appears in the report - this is how a typo in an anchor is caught. The entry `"how:steps"` means the theme expects the form `steps` (numbered steps) in the section `how`.
+- **`requires`** - paths in `site.yaml` without which the theme does not work, for example the phone in the header. If they are not filled in, the build stops with the error `E011` before any page is drawn.
+- **`links`** - fields by which pages refer to each other. The engine finds the pages by these fields, checks that they exist and builds a reverse list (`back`): a service gets a list of the articles where it is mentioned. `type` limits **to pages of which type** the field leads: `related` with `type: service` will not link articles to each other. A relation without a limit is written without `type`: `- {field: related, back: related_from}`.
+- **`images`** - how to cut images: widths, proportions, formats. Also there: `fallback_width` - the width of the fallback PNG/JPEG for old browsers, `cover_width` - the cover width for search engines and social networks, `crop` and `as_is` - paths of images that must be cropped or copied without cutting. Only what the templates really asked for is cut.
+- **`types.<type>.template`** - if a type is drawn not by `templates/<type>.html` but by another file: a path from `templates/`.
+- **`forms`** - the forms the theme draws; their description must be in `site.yaml`, otherwise `E011`.
+- **`heron`** - which engine version the theme is made for. A different version - the error `E012`.
 
-## Type template
+Every key in detail - [`20` §6](../spec/20-data-contract.md#theme-yaml).
 
-The type `service` is drawn by `templates/service.html`. The order of blocks reads top to bottom:
+## A page type template
+
+Every page type is drawn by its own template: the type `service` by the file `templates/service.html`. A template reads top to bottom, and the blocks end up on the page in the same order:
 
 ```jinja
 {% extends "base.html" %}
@@ -87,9 +106,9 @@ The type `service` is drawn by `templates/service.html`. The order of blocks rea
 {% endblock %}
 ```
 
-`mod.prose('what')` takes the section with the anchor `what`. **No section, nothing at all**: no heading, no empty frame, no conditions around it needed. That is why the order of sections in the content does not matter, and a page can lack sections without harm to the layout.
+`mod.prose('what')` takes the section with the anchor `what` from the page and draws it with the `prose` module. The main rule: **no section - nothing at all**. If a page has no `what` section, there is neither a heading nor an empty frame in its place, and you need no conditions to check for it. That is why the order of sections in a content file does not matter, and a page that lacks some sections does not break the layout.
 
-A template that does not know in advance which sections there will be chooses the module by form; this is how `partials/sections.html` of the starter theme is made (the file lists all section forms):
+Sometimes a template does not know in advance which sections will come - for example, for an ordinary text page. Then the module is chosen by the form of the section. This is how `partials/sections.html` of the starter theme works (the file itself lists all forms):
 
 ```jinja
 {% for section in page.sections.values() %}
@@ -99,22 +118,22 @@ A template that does not know in advance which sections there will be chooses th
 {% endfor %}
 ```
 
-A module expects its own form. `mod.steps('how')` on a prose section fails the build with `E010` (`'str object' has no attribute ...`), and the message names the template, not the module. So the report line "expected steps, got prose" is fixed before the build, and if the content can arrive in different forms, choose the module by `section.kind`.
+A module expects its own form of data. If you call `mod.steps('how')` while the `how` section is plain text, the build fails with `E010` (`'str object' has no attribute ...`), and the message names the template, not the module. So the report line "expected steps, got prose" is fixed before the build. And if the content can arrive in different forms, choose the module by `section.kind`, as in the example above.
 
 ### Paths and macros
 
-- **Paths in `extends`, `include` and `import` are counted from the theme root**, not from the template folder: `{% extends "base.html" %}`, `{% extends "templates/page.html" %}`, `{% include "partials/header.html" %}`. Writing `{% extends "page.html" %}` from `templates/landing.html` is the error `E008` with a hint where the file actually is.
-- **`mod` is available in every template**, so there is no need to import modules. Your own macros are another matter: `{% import %}` in `base.html` is not visible to child templates (this is how Jinja2 works), so import them in every template where they are needed.
+- **Paths in `extends`, `include` and `import` are counted from the theme root**, not from the folder of the template: `{% extends "base.html" %}`, `{% extends "templates/page.html" %}`, `{% include "partials/header.html" %}`. If you write `{% extends "page.html" %}` from `templates/landing.html`, you get the error `E008` with a hint where the file actually is.
+- **`mod` is available in every template** - there is no need to import modules. Your own macros are different: `{% import %}` in `base.html` is not visible to child templates (this is how Jinja2 works), so import them in every template where they are needed.
 
 ## What to output in `<head>` <a id="head-seo"></a>
 
-The `base.html` skeleton is responsible for everything a search engine and a messenger read before the page itself. Three things are needed for images and indexing:
+The `base.html` frame is responsible for everything a search engine and a messenger read before the page itself. For images in search results and link previews to work, `<head>` needs three things:
 
-- `<meta name="robots" content="{{ robots_meta }}">`: the theme does not decide whether a page is open or closed, the engine does. Without this line large previews will not turn on, and a closed dev build will not get `noindex`;
-- `og:image` and `twitter:image` from `cover_url(page)`. Output them only when the address is not empty: an empty string means there is no cover, and an empty tag is worse than a missing one;
-- the size and caption of the image: `page.cover.width`, `page.cover.height`, `page.cover.alt`. The size lets a social network show the preview at once, and `alt` is for those who cannot see the image.
+- `<meta name="robots" content="{{ robots_meta }}">`. Whether a page is open to search engines or closed is decided not by the theme but by the engine: it puts a ready string into `robots_meta`. Without this line large previews in search results will not turn on, and a closed draft build will not get `noindex`;
+- `og:image` and `twitter:image` - the cover address from `cover_url(page)`. Output them only when the address is not empty: an empty string means there is no cover, and an empty tag is worse than a missing one;
+- the size and caption of the image: `page.cover.width`, `page.cover.height`, `page.cover.alt`. With the size a social network shows the preview at once without downloading the image, and `alt` is for those who cannot see the image.
 
-The whole block as an example:
+The whole block as an example - this is how it is done in the starter theme:
 
 ```jinja
 <title>{{ page.title }}{{ site.seo.title_suffix }}</title>
@@ -137,11 +156,11 @@ The whole block as an example:
 {% if ld %}<script type="application/ld+json">{{ ld }}</script>{% endif %}
 ```
 
-The names `cover_url` and `robots_meta` are reserved by the engine: do not create your own variables with these names in the theme. Which image becomes the cover and how to prepare it - [05 · SEO](05-seo.md#you-fill), the selection rules - [`20` §6](../spec/20-data-contract.md#page-cover).
+The names `cover_url` and `robots_meta` are taken by the engine: do not create your own variables with these names in the theme. Which image becomes the cover and how to prepare it - [05 · SEO](05-seo.md#you-fill), the exact selection rules - [`20` §6](../spec/20-data-contract.md#page-cover).
 
 ## Module
 
-A module is a file `modules/<name>.html`, called as `mod.<name>(<anchor>)`. Inside, these are available:
+A module draws one section. It is a file `modules/<name>.html`, and a template calls it as `mod.<name>(<anchor>)`. Inside a module these are available:
 
 | Variable | What it is |
 |---|---|
@@ -149,6 +168,8 @@ A module is a file `modules/<name>.html`, called as `mod.<name>(<anchor>)`. Insi
 | `items` | parsed data of the form: steps, question-answer pairs, facts… |
 | `html` | ready markup of the whole content of the section |
 | everything the template sees | `page`, `site`, `t`, `picture`… |
+
+For example, the questions-and-answers module:
 
 ```jinja
 <section id="{{ section.id }}" class="faq">
@@ -159,9 +180,11 @@ A module is a file `modules/<name>.html`, called as `mod.<name>(<anchor>)`. Insi
 </section>
 ```
 
-What is in `items` for each of the thirteen forms is in the table [`20` §4.4](../spec/20-data-contract.md#section-forms). Modules without an argument (`mod.breadcrumbs()`) take data from `page` and `site`.
+What is in `items` for each of the thirteen forms - the table [`20` §4.4](../spec/20-data-contract.md#section-forms). Modules without an argument, for example `mod.breadcrumbs()`, take data not from a section but from `page` and `site`.
 
 ## What the template sees
+
+Everything a template can use:
 
 | Name | What it is |
 |---|---|
@@ -176,40 +199,40 @@ What is in `items` for each of the thirteen forms is in the table [`20` §4.4](.
 | `media_url(src, ratio, width)` | the address of one rendition |
 | `jsonld()` | the JSON-LD markup of the page, to insert into `<head>` |
 | `cover_url(page, min_width=1200)` | absolute address of a cover no narrower than `min_width`; no cover - an empty string. There is also a filter: `{{ page|cover_url }}` |
-| `robots_meta` | the string for `<meta name="robots">`: large previews on an indexable page of a production build, `noindex, nofollow` on a closed one |
+| `robots_meta` | the string for `<meta name="robots">`: large previews on an indexable page of a production build (prod), `noindex, nofollow` on a closed one |
 | `env` | the build environment: `env.indexable`, `env.analytics` |
 | `theme` | `theme.yaml` as a model: `theme.types`, `theme.images` |
 | `pages` | the whole site: all pages of all languages (`pages.of_lang('ru')`, `pages.of_type('article', 'ru')`, `pages.by_url`); a page by key is more convenient through `page_of` |
 | `absolute(url)` | an absolute address on the build domain; there is also a filter `{{ url|absolute }}` |
 
-The full page model is [`21` §6](../spec/21-engine.md#page-model), the variables are [`21` §7](../spec/21-engine.md#rendering).
+The full page model - [`21` §6](../spec/21-engine.md#page-model), all variables - [`21` §7](../spec/21-engine.md#rendering).
 
-Reference to a variable that does not exist **fails the build** (`E010`) with the page name and the template name, instead of printing nothing: a typo in the theme is caught at once.
+If a template refers to a variable that does not exist, **the build stops** with the error `E010` and the names of the page and the template, instead of silently printing nothing. This way a typo in the theme is caught at once, not on the live site.
 
 ### Your own page fields
 
-A theme can expect its own fields in the frontmatter: `topic`, `eyebrow`, anything. They do not need to be declared anywhere: the engine puts them into the page as they are.
+A theme can expect its own fields in the SEO block of a page - for example, `topic` or `eyebrow` (a line above the heading). They do not need to be declared anywhere: the engine puts them into the page as they are.
 
 ```jinja
 {% if page.meta.get('eyebrow') %}<p class="eyebrow">{{ page.meta.get('eyebrow') }}</p>{% endif %}
 <span>{{ page.meta.get('topic', 'general') }}</span>
 ```
 
-`page.meta.get('field', fallback)` does not fail if the page has no such field. `page.meta.topic` will fail: this is how typos in the engine's own fields are caught. All your own fields at once: `page.meta.extra`.
+Read your own fields with `page.meta.get('field', fallback)`: this way the template does not fail if the page has no such field. `page.meta.topic`, however, will fail - this is on purpose, to catch typos in the engine's own fields. All your own fields of a page at once - `page.meta.extra`.
 
-`fields` in `theme.yaml` is **only for engine fields** that the theme expects from a new version. Your own fields are not written there: the engine does not know them and answers `E023`.
+The `fields` key in `theme.yaml` is **only for engine fields** that the theme expects from a new engine version. Your own fields are not written there: the engine does not know them and answers with the error `E023`.
 
 ### Values in the language of the page
 
-The template gets `site.yaml` already in the language of the page, **all blocks, at any depth**: on a Russian page `site.contact.address` is `address_ru`, `site.site.name` is `name_ru`, `site.organization.about` is `about_ru`. If there is no language key, the key without the suffix is taken. There is no need to choose the language with a filter; the keys with the suffix are available too.
+A template gets `site.yaml` already in the language of the page - **all blocks, at any depth**. On a Russian page `site.contact.address` is the value of `address_ru`, `site.site.name` is `name_ru`, `site.organization.about` is `about_ru`. If there is no key for the language, the key without the language suffix (`_ru`) is taken. There is no need to choose the language with a filter, although the keys with the suffix are available too.
 
-The same rule works in the substitutions of the markup (`{{ contact.address }}` in the `schema` block), so the address in the footer and in the markup do not diverge.
+The same rule works in the substitutions of the markup for search engines (`{{ contact.address }}` in the `schema` block), so the address in the footer and in the markup always match.
 
 ## Accumulating data in a template without `append` <a id="accumulate-data-without-append"></a>
 
-Theme templates are built in an immutable sandbox ([`21` §7](../spec/21-engine.md#rendering)): methods that change a list or a dictionary, `.append`, `.extend`, `.insert`, `.update`, `.pop`, `.remove`, `.add`, `.setdefault`, `.clear`, `.sort`, `.reverse`, fail the build with `E033` and the template name. A template does not change a value but builds a new one.
+Theme templates run in a protected environment where data cannot be changed ([`21` §7](../spec/21-engine.md#rendering)). Methods that change a list or a dictionary - `.append`, `.extend`, `.insert`, `.update`, `.pop`, `.remove`, `.add`, `.setdefault`, `.clear`, `.sort`, `.reverse` - stop the build with the error `E033` and the template name. A template does not change a value but builds a new one. Below is how to rewrite typical places.
 
-Before, fails with `E033`:
+Before - fails with `E033`:
 
 ```jinja
 {% set body = [] %}
@@ -225,7 +248,7 @@ Before, fails with `E033`:
 {% if page.meta.get('accent') %}{% set _ = attrs.update({'accent': page.meta.get('accent')}) %}{% endif %}
 ```
 
-After, the same without changes:
+After - the same result without changing data:
 
 ```jinja
 {% set faq = page.sections.get('faq') %}
@@ -242,21 +265,21 @@ After, the same without changes:
 
 Techniques:
 
-- **Selection by filter.** `rejectattr`, `selectattr`, `select`, `reject`, `map(attribute='url')`; at the end `|list` if you need the result as a list and not for one pass.
-- **Without repeats, `unique`** with an attribute and always with `case_sensitive=True`, otherwise `/A/` and `/a/` merge into one address: `{% set links = (page.related.get('see_also', []) + more)|unique(case_sensitive=True, attribute='url')|list %}`.
-- **To add an element, add lists:** `body + [x]`, `body + ([faq] if faq else [])`.
-- **To add a key, make a new dictionary:** `dict(base, key=val)`; a key with a hyphen cannot be passed this way, so build the whole dictionary: `{'class': 'card', 'data-x': x}`.
-- **Accumulating in a loop only through `namespace()`.** A plain `{% set %}` inside `for` lives until the end of the loop step: `{% set found = found + [p] %}` in the loop body does not change `found` outside, and after the loop the list is empty again. A `namespace` attribute (`acc.found`) survives the loop.
-- **Careful with `StrictUndefined`.** `selectattr('meta.extra.cluster', ...)` fails on the first page that has no such key. For an optional key use a loop with `namespace` and `.get('cluster')`, as in the example.
-- **Tags on the same lines as before.** A line with only `{% %}` prints nothing (`trim_blocks` and `lstrip_blocks`), so replacing a tag with a tag does not change the whitespace in the HTML.
+- **Select with a filter.** `rejectattr`, `selectattr`, `select`, `reject`, `map(attribute='url')`. Add `|list` at the end if you need the result as a list and not for one pass.
+- **Remove repeats with `unique`**, with an attribute and always with `case_sensitive=True`, otherwise `/A/` and `/a/` merge into one address: `{% set links = (page.related.get('see_also', []) + more)|unique(case_sensitive=True, attribute='url')|list %}`.
+- **Add an element by adding lists:** `body + [x]`, `body + ([faq] if faq else [])`.
+- **Add a key with a new dictionary:** `dict(base, key=val)`. A key with a hyphen cannot be passed this way - build the whole dictionary: `{'class': 'card', 'data-x': x}`.
+- **Accumulate in a loop only through `namespace()`.** A plain `{% set %}` inside `for` lives only until the end of the step: `{% set found = found + [p] %}` in the loop body does not change `found` outside, and after the loop the list is empty again. A `namespace` attribute (`acc.found`) survives the loop.
+- **Careful with `StrictUndefined`.** `selectattr('meta.extra.cluster', ...)` fails on the very first page that has no such key. For an optional key - a loop with `namespace` and `.get('cluster')`, as in the example.
+- **Put the tags on the same lines where the old ones were.** A line with only `{% %}` prints nothing (`trim_blocks` and `lstrip_blocks`), so replacing a tag with a tag does not change the whitespace in the HTML.
 
-To find such places before the build, use `heron check`: it parses the theme templates and names every `E033` call with the file, the line and a replacement recipe, including in a template that the theme does not render yet ([`21` §12](../spec/21-engine.md#check-report)).
+`check` helps to find such places before the build: it parses the theme templates and names every call that would give `E033`, with the file, the line and a replacement recipe - even in a template that the theme does not use yet ([`21` §12](../spec/21-engine.md#check-report)). The full command is in "How to check a theme" below.
 
-To verify, run `heron build`: no `E033` at all, the pages are the same as before the edit.
+The check after the edit is `build`: no `E033` at all, and the pages are the same as before the edit.
 
 ## Interface strings
 
-The texts that belong to the theme and not to a page are in `theme/i18n/<lang>.yaml`:
+The texts that belong to the theme and not to a page - "Read more", the heading of the questions block, button labels - live in `theme/i18n/<lang>.yaml`, one file per language:
 
 ```yaml
 # theme/i18n/en.yaml
@@ -270,7 +293,7 @@ read_more: "Читать далее"
 faq: "(the Russian wording of the heading)"
 ```
 
-In the template it is `{{ t.read_more }}`. If a string is missing, the build does not fail: the name of the key stays on the page and the report has a warning. Text hardcoded into a template makes the theme single-language; keep it in `i18n`.
+In a template a string is output like this: `{{ t.read_more }}`. If a string is missing for some language, the build does not fail: the name of the key stays on the page, and the report gets a warning. Text hardcoded right into a template makes the theme single-language - keep it in `i18n`.
 
 ## Images in the theme
 
@@ -278,23 +301,28 @@ In the template it is `{{ t.read_more }}`. If a string is missing, the build doe
 {{ picture(page.meta.image, '16:9', alt=page.meta.image_alt) }}
 ```
 
-The engine gives renditions for the widths and proportions from `theme.yaml`, fits illustrations and crops photos. The path itself comes from the content; the theme decides only the proportion and the place.
+This line outputs a ready `<picture>` tag. The engine cuts the image for the widths and proportions from `theme.yaml`: it fits illustrations whole and crops photos. The image path comes from the content, and the theme decides only the proportion and the place on the page.
 
-**Only what the template asked for is resized.** `ratios` in `theme.yaml` are the proportions that the theme *may* ask for; only those that the templates really called through `picture()` or `media_url()` get into the build. A card asks for 16:9, so its image in the build will have only 16:9. The fallback file in the source format (for browsers without AVIF and WebP) is one per proportion, with the width `images.fallback_width` (800 by default). If you need a bigger width, ask for it explicitly: `media_url(src, '16:9', 1200)` for og:image. → [`20` §7](../spec/20-data-contract.md#images)
+**Only what the template asked for is cut.** `ratios` in `theme.yaml` are the proportions the theme *may* ask for, and only those that the templates really called through `picture()` or `media_url()` get into the build. A card asks for 16:9 - so its image in the build will have only 16:9. The fallback file in the source format (for browsers without AVIF and WebP) is one per proportion, with the width `images.fallback_width` (800 by default). If you need a bigger width, ask for it explicitly: `media_url(src, '16:9', 1200)` for og:image. → [`20` §7](../spec/20-data-contract.md#images)
 
 ## Updating the theme to the strict CSP <a id="strict-csp"></a>
 
-Pages are served with `script-src 'self'`, so an inline script in the theme will not run. If your copy of the theme is older and contains one:
+The engine serves pages with the security rule `script-src 'self'`: the browser runs only scripts from the site's files and will not run a script written right into the HTML (inline). If your theme is of an older version and has such a script:
 
 1. move the code into a theme file (`assets/site.js`);
 2. pass data (counter numbers and the like) as `data-*` attributes on the `<script src="/assets/site.js">` tag, as in `base.html` of the starter theme;
-3. run `heron check`: it reports an inline script in the theme as a warning.
+3. run `check`: it shows an inline script in the theme as a warning.
 
 ## How to check a theme
 
-- `heron build`: the theme renders on every page; template errors name the file and the line;
-- the report after the build: sections that are not in `uses`, forms of the wrong kind, missing `i18n` strings;
-- `heron check` is the same report without a build.
+```bash
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod check .
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod build .
+```
+
+- `check` - a report without a build: it quickly shows errors and warnings, including those in templates;
+- `build` - the theme draws every page; a template error names the page and the template;
+- the report after the build shows sections that are not in `uses`, forms of the wrong kind and missing `i18n` strings.
 
 ---
 

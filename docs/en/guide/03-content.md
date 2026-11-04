@@ -1,23 +1,27 @@
 # 03 · Pages and content
 
-How a page is built, how to add sections, links, images and translations. For those who run the site, a human or a content agent.
+This section is all about pages: what a page file consists of, how to add a new page and a whole section, how to write sections, links, images and translations. It is for those who run the site and write the texts - a person or an AI agent.
 
-## Anatomy of a page
+We continue the site from [02 · First site](02-first-site.md): commands run from the `~/sites` folder, and the site is in `my-site`.
 
-The file `content/en/services/roof.md` (a site with `default_lang: en`, address `/services/roof/`):
+> **Installed the engine without Docker?** Then in every command replace everything up to and including `ghcr.io/fmstm/heron:prod` with the word `heron`. More - [in the installation section](00-install.md#without-docker).
+
+## What a page consists of
+
+Every page is one markdown file in the `content/<language>/` folder. The file path sets the page address. For example, the file `content/en/services/roof.md` on a site with `default_lang: en` opens at `/services/roof/`. This is what it looks like:
 
 ```markdown
 ---
 # ================= 1. BASICS =================
-title: "Roof repair in Springfield"     ← in search results, up to 60 characters
-h1: "Roof repair, start to finish"      ← the heading on the page
+title: "Roof repair in Springfield"     # in search results, up to 60 characters
+h1: "Roof repair, start to finish"      # the heading on the page
 description: "Patching, re-covering, one-year warranty."
 …groups 2-8…
 ---
 
-Intro: the first paragraph leads in.
+We have been repairing roofs in Springfield since 2010.
 
-The second paragraph is the promise. There is no third.
+We come out to inspect the roof the same day you call.
 
 ## What is included {#includes}
 
@@ -31,27 +35,35 @@ The second paragraph is the promise. There is no third.
 We quote after the inspection.
 ```
 
-Its Russian translation is `content/ru/services/roof.md`: the same SEO block with Russian values, the same anchors `{#includes}` and `{#faq}`, Russian headings. The comments in the block are in the language chosen at `new --notes`, not in the language of the page.
+Its Russian translation is the file `content/ru/services/roof.md`: the same SEO block, but with Russian values, the same anchors `{#includes}` and `{#faq}`, Russian headings. The comments in the SEO block are written in the working language you chose when creating the site (`new --notes`), not in the language of the page.
 
-Three parts, always in this order:
+The file has three parts, always in this order:
 
-1. **SEO block** is the frontmatter of eight groups. `title`, `h1`, `description` are required; the rest as needed. All fields, their defaults and what the engine does with them are in one table: [`20` §4.2](../spec/20-data-contract.md#frontmatter).
-2. **Intro** is the text before the first heading, no more than two paragraphs: the theme gets them as `lead` and `promise`.
-3. **Sections** are `## Heading {#anchor}`. The visitor sees the heading, the anchor is the address of the section for the theme; the heading can be edited freely, the anchor cannot.
+1. **The SEO block** - everything between the `---` lines at the start of the file. It is split into eight groups. Only `title`, `h1` and `description` are required; the rest is filled in as needed. All fields, their defaults and what the engine does with them - in one table: [`20` §4.2](../spec/20-data-contract.md#frontmatter).
+2. **The intro** - the text before the first heading, no more than two paragraphs. The theme gets the first paragraph as `lead` and the second as `promise`.
+3. **Sections** - each starts with a line `## Heading {#anchor}`. The visitor sees the heading, and the anchor is the section name for the theme: by it the theme knows where and how to show the section. You can change the heading as you like, but not the anchor.
 
 ## A new page
 
-Copy a ready file or run `heron page <type> <name>`: it puts the full SEO block and stubs of all sections the theme expects for this type. Then:
+The easiest way to create a page is the `page` command:
 
-- change `title`, `h1`, `description`; fill in group 2, "search queries": the engine does not read it, but it keeps the rule "one intent, one page";
-- write the intro and the sections. If you have no material for a section, **do not create it**: the theme does not draw an empty block, and the "Not filled" summary after the build will show what is missing;
-- build. The page appears by itself in the section catalog, the sitemap, hreflang and `llms.txt`.
+```bash
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page page about my-site
+```
 
-To delete a page, delete the file. If its address was in the index, put it into `redirect_from` of the replacement page (301) or into `gone` in `site.yaml` (410).
+After `page` come the page **type** (here `page` - an ordinary text page), its **name** (here it is also the key - `about`; if the page lies in a section folder, the key is the folder plus the name, for example `services/roof`) and the site folder. The engine puts in a file with a full SEO block and drafts of every section the theme expects for this type. You can also do without the command: copy a ready file under a new name.
+
+Then:
+
+- change `title`, `h1` and `description`. Fill in group 2, "key queries": the engine does not read it, but it helps keep the rule "one query - one page", so that two pages do not compete in search for the same thing;
+- write the intro and the sections. If there is no material for a section - **do not create it**: the theme does not draw an empty block, and the "Not filled in" summary after the build shows what is missing;
+- build the site. The page appears by itself in the catalog of its section, in the sitemap, in the links between translations (hreflang) and in `llms.txt`.
+
+To delete a page, delete its file. If the old address was already in search, do not abandon it: add this address to `redirect_from` of the page that replaces it (the visitor is redirected, code 301), or to `gone` in `site.yaml` (the address answers "gone for good", code 410).
 
 ## Sections
 
-A section is a folder with the page of the section itself, `_index.md`:
+A section is a folder of pages plus a separate page of the section itself, the file `_index.md`. For example, the "Services" section:
 
 ```
 content/en/services/_index.md      →  /services/                catalog
@@ -62,33 +74,49 @@ content/ru/services/roof.md        →  /ru/uslugi/krovlya/       slug: krovlya
 content/ru/services/gutter.md      →  /ru/uslugi/vodostok/      slug: vodostok
 ```
 
-`slug` in `_index.md` changes the address of the section and of all pages in it: the Russian children end up under `/ru/uslugi/` by themselves.
+The `--folder` flag puts a page straight into the right folder:
 
-In `_index.md` it is useful to set `children_type: service`, the type of all pages of the section, and the theme will draw them with its template. The catalog gets the children as `page.children`, sorted by `order`, then by `h1`. There is no pagination: a section is one page; a big section is split into subsections by folders.
+```bash
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page page roof my-site --folder services
+```
 
-A page that belongs to several sections is not nested in any of them: it is placed flat and linked with relation fields (below), so the address does not depend on how many places it is shown in.
+What matters about sections:
+
+- `slug` in `_index.md` changes the address of the section itself and of all pages in it: the Russian pages of the section end up under `/ru/uslugi/` by themselves;
+- in `_index.md` you can set the type for all pages of the section, for example `children_type: service` - if the theme has such a type (the white starter theme has only `home`, `page` and `404`; with an unknown type the build stops with error `E008`). Then the theme draws them with its own template;
+- the section page gets the list of its pages as `page.children`. They are sorted by the `order` field, and with equal `order` - by `h1`;
+- there is no pagination: a section is one page. A large section is split into subsections - nested folders.
+
+If a page belongs to several sections at once, it is not nested in any of them. It is put at the top level and linked to the sections with relation fields (see below) - this way the page address does not depend on how many places it is shown in.
 
 ## Section forms
 
-The engine understands the form by the markup by itself and gives the theme parsed data:
+You write a section in ordinary markdown, and the engine works out from the markup what it is - a list, steps, questions and answers - and hands the theme already parsed data. This kind of section is called a **form**:
 
 | Markup | Form |
 |---|---|
 | paragraphs | `prose` |
 | `- item`, `- **Term.** Explanation` | `list` |
 | `1. **Step.** Text` | `steps` |
-| `### Question?` and the answer under it | `faq` (and `FAQPage` in the markup) |
+| `### Question?` with the answer under it | `faq` (and `FAQPage` in the markup) |
 | `Key \| Value` line by line | `facts` |
-| markdown table | `table` |
+| a markdown table | `table` |
 | two `###` groups with lists | `two-lists` |
 | three or more `###` groups with lists | `checklist` |
 | `> quote` without a list | `callout` |
 
-Four more come only by class in the anchor: `{#flags .alert}` is `alert-list`, `{#plan .timeline}` is `timeline`, `{#photos .gallery}` is `gallery` (it needs a bulleted list of images: `- ![caption](media/a.png)`; a paragraph with an image gives prose and a warning), `{#options .tabs}` is `tabs` (`###` groups with any content). The full table, the order of recognition and what exactly the theme receives: [`20` §4.4](../spec/20-data-contract.md#section-forms).
+Four more forms the engine does not guess from the markup - they are set with a class in the anchor:
+
+- `{#flags .alert}` - `alert-list`;
+- `{#plan .timeline}` - `timeline`;
+- `{#photos .gallery}` - `gallery`. It needs a bulleted list of images: `- ![caption](media/a.png)`; a paragraph with an image gives prose and a warning;
+- `{#options .tabs}` - `tabs`: `###` groups with any content.
+
+The full table of forms, the order in which the engine recognizes them and what exactly the theme gets - [`20` §4.4](../spec/20-data-contract.md#section-forms).
 
 ### When the engine guesses wrong
 
-The form is determined by the markup, and sometimes the markup says something other than what you meant. A class in the anchor is always stronger than a guess:
+The form is decided by the markup, and the markup sometimes says something other than what you meant. A class in the anchor always beats the engine's guess:
 
 | You wrote | The engine decided | You meant | How to say it |
 |---|---|---|---|
@@ -98,7 +126,7 @@ The form is determined by the markup, and sometimes the markup says something ot
 | a list and a quote under it | `list`, the quote goes to `section.callout` | - | works as intended |
 | a list and a paragraph under it | `list`, the paragraph goes to `section.note` | text on the page | the starter theme does not draw `note`: the text will not reach the page; put the paragraph before the list (`section.lead`) or output `section.note` in your own module |
 
-`facts` can have a lead-in: a paragraph before the "key | value" lines. The theme gets it as `section.lead`:
+`facts` can have a lead-in - a paragraph before the "key | value" lines. The theme gets it as `section.lead`:
 
 ```markdown
 ## In short {#quick .facts}
@@ -109,11 +137,11 @@ Format | in person
 Term   | about a month
 ```
 
-If the theme in `theme.yaml` expects another form (`uses: ["docs:checklist"]`), the report after the build will say "expected checklist, got two-lists": fix it with a class in the anchor or with the form in `uses`, depending on who is right. If a template calls the module of this form directly (for example, `mod.steps("how")` on a prose section), the build fails with `E010`.
+A theme can say in advance which form it expects for a section - in `theme.yaml` (`uses: ["docs:checklist"]`). If a different one arrives, the report after the build says "expected checklist, got two-lists". Fix the class in the anchor or the form in `uses` - whichever is right. And if a theme template calls a form module directly (for example, `mod.steps("how")` on a section that is actually prose), the build stops with error `E010`.
 
 ## Links
 
-A link to your own page is written **from the root, without a language prefix**, best of all by key, the file path:
+Write a link to your own page **from the site root and without a language prefix**. Best of all - with the key, that is, the file path:
 
 ```markdown
 [roof repair](/services/roof/)        in content/en/…  →  /services/roof/
@@ -122,13 +150,17 @@ A link to your own page is written **from the root, without a language prefix**,
 [home](/)                             in content/ru/…  →  /ru/
 ```
 
-The engine substitutes the address in the language of the page, with all `slug`s: the same thing is written in both languages, the key. If there is no translation, the link leads to the version in the default language and the report has a warning. A link to nowhere is a warning with a file and a line. External addresses, `/media/…` and anchors are left alone.
+In both languages you write the same thing - the key, and the engine puts in the address in the page language by itself, with all `slug` values. What else it does:
 
-→ [`20` §2, "Links inside content"](../spec/20-data-contract.md#links-relative-to-language)
+- no translation of the page - the link leads to the main language version, and the report has a warning;
+- the link leads nowhere - a warning with the file and the line;
+- external addresses, links to `/media/…` and anchors are left alone.
+
+More - [`20` §2, "Links inside content"](../spec/20-data-contract.md#links-relative-to-language).
 
 ## Relations between pages
 
-"See also", "related services", "where it is mentioned" are not written as links by hand. The theme declares a relation field in `theme.yaml`, and the page lists file names in it:
+Blocks like "See also", "Related services", "Mentioned in" do not have to be put together with links by hand. The theme declares a relation field in `theme.yaml`, and a page lists the file names of other pages in it:
 
 ```yaml
 related:                 # in the SEO block, group 8
@@ -137,40 +169,52 @@ related:                 # in the SEO block, group 8
     note: Not sure where to start? Begin here
 ```
 
-The engine checks that such pages exist (`E006` if they do not), gives the theme cards with captions and builds a reverse list on the target pages.
+In the second form - `slug:` with `note:` - a caption is added to the link. Here `slug` is not an address but the same key (file name) of the page: the field is called that for historical reasons. The engine does the rest: it checks that such pages exist (if not - error `E006`), hands the theme cards with captions and builds the reverse list on the pages that were referenced.
 
-→ [`20` §6, "Relations"](../spec/20-data-contract.md#theme-yaml)
+More - [`20` §6, "Relations"](../spec/20-data-contract.md#theme-yaml).
 
 ## Images, video, documents
 
-Everything goes in `media/`. The path is written from the site root, with or without a leading `/`: `media/a.png` and `/media/a.png` are resolved by the engine to the same address.
+All files go into the `media/` folder. The path to them is written from the site root, with or without a leading slash: the engine treats `media/a.png` and `/media/a.png` as one address.
+
+The preview image of a page for the catalog is set in the SEO block:
 
 ```yaml
 image: media/services/roof.png        # preview in the catalog
 image_alt: "Roof after the repair"
 ```
 
+In the page text, images and documents use ordinary markdown:
+
 ```markdown
 ![Gutter layout](media/services/gutter.png)
 [Checklist in PDF](media/docs/memo.pdf)
 ```
 
-The engine resizes the images to the proportions and widths of the theme, makes WebP and AVIF, and sets the sizes. Illustrations (with a transparent background) are fitted into the proportion, photos are cropped. A missing file is the error `E007` with the page name; a file in `media/` that nobody links to is a line in the report. Video uses the fields `video`, `video_poster`.
+The engine handles images by itself:
 
-→ [`20` §7](../spec/20-data-contract.md#images)
+- it cuts them to the ratios and widths the theme asks for, makes WebP and AVIF versions and sets the sizes;
+- illustrations (with a transparent background) are fitted into the ratio whole, photos are cropped;
+- if the file is missing - error `E007` with the page name; if a file is in `media/` but nothing links to it - a line in the report.
+
+Video is set with the `video` and `video_poster` fields (the image you see before playback). More - [`20` §7](../spec/20-data-contract.md#images).
 
 ## Languages and translations
 
-A translation is a file with the same name in the folder of another language: `content/ru/services/roof.md`. Its own address is `slug: krovlya`. The link between translations is held by the file name, so changing `slug` does not break it: both versions get hreflang to each other, and `x-default` is the English one. If a language is not in `site.languages`, its folder is not read.
+A translation of a page is a file with the same name in the folder of another language, for example `content/ru/services/roof.md`. The translation gets its own address with the field `slug: krovlya`.
 
-→ [`20` §3](../spec/20-data-contract.md#languages)
+Translations are tied together by the file name, so changing `slug` does not break the tie. Both versions get links to each other for search engines (hreflang), and the version of the main language counts as the default (`x-default`) - in our example, English. If a language is not in `site.languages`, the engine does not read its folder.
 
-## What is not written in pages
+More - [`20` §3](../spec/20-data-contract.md#languages).
 
-- phone, address, hours, social networks go into the `contact` and `organization` blocks in `site.yaml`: the theme and the markup take them from there, and they do not diverge between the header and the footer;
-- reviews, team, numbers go into `data/*.yaml`;
-- the menu is `nav` in `site.yaml`;
-- 410 for deleted addresses is `gone` in `site.yaml`.
+## What does not go into pages
+
+Some things repeat on many pages, so they are kept in one place:
+
+- phone, address, opening hours, social links - the `contact` and `organization` blocks in `site.yaml`. The theme and the markup for search engines take them from there, so they are always the same in the header and the footer;
+- reviews, team, figures - the `data/*.yaml` files;
+- the menu - `nav` in `site.yaml`;
+- deleted addresses that must answer 410 - `gone` in `site.yaml`.
 
 ---
 

@@ -21,7 +21,7 @@ English | [Русский](README.ru.md)
 
 ## What HERON is
 
-HERON is a static site engine delivered as a single image, `ghcr.io/fmstm/heron`. The image does two things:
+HERON is a static site engine delivered as a single Docker image, `ghcr.io/fmstm/heron`. The image does two things:
 
 1. **create a site**: lay out a folder with a config, a theme and starter pages;
 2. **build a site**: read the folder and produce HTML, a sitemap, markup, redirects and an nginx config.
@@ -38,7 +38,54 @@ The site itself is an ordinary folder: texts in markdown, images, a Jinja2 theme
  └──────────────────┘          └───────────────────────┘        └─────────────────────┘
 ```
 
-## How you work with a site
+## Quick start: one site, one engine
+
+The usual case is one site and the stable engine version. All you need is Docker: how to install it, and how to do without it - [00 · Installation](docs/en/guide/00-install.md).
+
+Open a terminal, go to the folder where your sites will live (for example, `mkdir -p ~/sites && cd ~/sites`) and run the commands one by one. You can copy them as is.
+
+**1. Create a site.** The engine asks for the working language, the name, the domain and the site languages, and creates the folder `my-site` inside the current one:
+
+```bash
+docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod new my-site
+```
+
+**2. Set it up in the configurator.** The engine prints the address `http://localhost:8000/#key` - open it in the browser in full, with the key after `#`. There you set the domains, the details for schema.org, publishing and the theme. "Save" writes `site.yaml` without touching your comments and the keys the configurator does not manage, and puts the publishing scripts if you want them. You can edit `site.yaml` by hand too. Done - Ctrl+C:
+
+```bash
+docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod setup my-site
+```
+
+**3. Look at it.** The site opens at <http://localhost:8000> and is rebuilt on every file save. A new site already has the white theme and its demo pages: the home page, "Blocks" (every kind of block), "Themes", "Documentation":
+
+```bash
+docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod serve my-site
+```
+
+**4. Build it.** The finished site appears in `my-site/dist/`. This is a draft build (dev): it is closed to search engines and does not insert counters. The production build (prod) is the same command with `--env prod --strict` at the end:
+
+```bash
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod build my-site
+```
+
+To look at the built folder - with a plain nginx at <http://localhost:8080>:
+
+```bash
+docker run --rm -p 127.0.0.1:8080:8080 -v "$PWD/my-site/dist:/usr/share/nginx/html:ro" \
+  nginxinc/nginx-unprivileged:1.30.6-alpine
+```
+
+Good to know:
+
+- **Without Docker** the engine is installed with pipx: `pipx install git+https://github.com/FMSTM/HERON.git@prod` (the package is not published to PyPI yet). Then everything in the commands up to and including `ghcr.io/fmstm/heron:prod` is replaced with the word `heron`: `heron new my-site`, `heron build my-site`.
+- **Docker sees only the current folder**, so the path to the site is written from it: `my-site`, or `.` if you are already in the site folder (for example, in your own git repository - `.git` and `README` do not get in the way).
+- **Changed the languages in `site.yaml`** - the command `init my-site` builds up the folders for them.
+- **For agents and CI** - no questions and no `-it`, there is no terminal there: `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod new my-site --notes en --name Workshop --domain workshop.example --lang en,ru -y`.
+- **Image resizing** runs in several processes. Where cores are shared with other tasks or processes are forbidden, set `--workers N` (`1` means no pool) or `HERON_WORKERS=N`. If the process pool is unavailable, the engine falls back to sequential resizing with the same result.
+
+Step by step, with every step explained: [`docs/en/guide/02-first-site.md`](docs/en/guide/02-first-site.md).
+
+## How to work with a site
 
 **A page is a file, the engine works out the address.** How a file turns into an address is decided by three keys of `site.yaml`:
 
@@ -60,7 +107,7 @@ site:
 - **A language that is not in `languages` is not read.** The folder `content/de/` without `de` in the list is silently skipped.
 - **`default_lang` changes all addresses at once.** On a live site this is a migration: the old addresses must be listed in `redirect_from` ([05 · SEO](docs/en/guide/05-seo.md#migrate-from-old-site)).
 
-**Every file starts with a service block**, the SEO block of eight groups: basics, search queries, Open Graph, Twitter, markup, card, service, relations. The comments are hints: what the field means, when to fill it, what the engine fills in itself. The language of the comments is chosen when the site is created (`--notes ru|en`). Three fields are required: `title`, `h1`, `description`. The home page and the 404 page come with this block, a new page is `heron page` or a copy of a ready file with the values edited.
+**Every file starts with a service block**, the SEO block of eight groups: basics, search queries, Open Graph, Twitter, schema.org, card, service, relations. The comments are hints: what the field means, when to fill it, what the engine fills in itself. The language of the comments is chosen when the site is created (`--notes ru|en`). Three fields are required: `title`, `h1`, `description`. The home page and the 404 page already have this block, a new page is `heron page` or a copy of a ready file with the values edited.
 
 **After the block comes the text.** An intro, then sections `## Heading {#anchor}`, blocks that the theme puts in its places. A list, steps, questions and answers, a table are ordinary markdown; the engine understands the form by itself and gives the theme parsed data.
 
@@ -68,7 +115,7 @@ In detail: [concepts](docs/en/guide/01-concepts.md) · [first site](docs/en/guid
 
 ## Commands
 
-Eleven commands. The path to the site defaults to the current folder.
+Eleven commands. The path to the site defaults to the current folder. Here the commands are written short, with `heron` - this is how you run them if the engine is installed without Docker. With Docker the command is preceded by `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod`, plus `-it` for `new`, `setup`, `serve` and `init` in a folder without `site.yaml` (`new` and `init` ask questions, `setup` and `serve` stop with Ctrl+C), and `-p 127.0.0.1:8000:8000` for `setup` and `serve`, as in the quick start above.
 
 | Command | What it does |
 |---|---|
@@ -79,20 +126,20 @@ Eleven commands. The path to the site defaults to the current folder.
 | `heron build <folder>` | builds `dist/`: HTML, sitemap, markup, redirects, nginx config; `--env prod` for a production build |
 | `heron serve <folder>` | local preview with rebuild, the port is set by `--port`, the address by `--host` |
 | `heron docs [topic]` | documentation of the same version as the engine; `--lang ru`/`--lang en`, `template <file>`, `--search <text>`, `--export <folder>`, `--all-langs` |
-| `heron setup <folder>` | questionnaire in the browser: domains, languages, schema.org, publishing, theme; `--answers file` without a browser, `--dump` - current answers |
+| `heron setup <folder>` | configurator in the browser: domains, languages, schema.org, publishing, theme; `--answers file` without a browser, `--dump` - current answers |
 | `heron theme get\|list\|pack` | install a theme (starter, from the catalog, by link, from an archive), list, pack your own |
 | `heron schema` | JSON Schema of the contracts of this version: `--site`, `--theme`, `--frontmatter`, `--setup`, `--errors`; `--lang ru`/`--lang en`, `--export <folder>` |
 | `heron recipe` | Dockerfile of the nginx image for the built `dist/` |
 
 The full list of flags is `heron <command> --help`. The language of the help, the messages and the comments in files is `--notes ru|en`, otherwise `HERON_NOTES`, otherwise `build.notes` from `site.yaml`, otherwise English.
 
-In a container it is the same call through `$H` (for `setup` and `serve`, `$HP`) from "Quick start". Error codes (`E002`, `E006`, `E012`...) and their causes are in [`docs/en/spec/21-engine.md`](docs/en/spec/21-engine.md).
+Error codes (`E002`, `E006`, `E012`...) and their causes are in [`docs/en/spec/21-engine.md`](docs/en/spec/21-engine.md).
 
 ## The site folder contract
 
 ```
 my-site/
-├── site.yaml       config: domain, languages, theme, menu, SEO settings; the first line is heron: ">=0.1,<0.2"
+├── site.yaml       config: domain, languages, theme, menu, SEO settings; the first key is heron: ">=0.1,<0.2"
 ├── content/<lang>/ pages in markdown, one folder per language
 ├── media/          images, video, documents
 ├── data/           yaml reference data: reviews, team, requisites
@@ -112,7 +159,7 @@ A theme is the `theme/` folder inside the site: `theme.yaml` (which page types a
 
 ## Plugins
 
-Plugins extend the **build**: your own section types, links between pages, Jinja filters, generators. They are ordinary pip packages (entry point group `heron.plugins`) installed where the build runs: your own image based on the engine image, its full name goes into `ENGINE`. For one-off needs of a single site, use the `plugins/<name>/` folder next to the content. A plugin from `site.yaml` that is not installed or failed on loading gives error `E014`. The engine has no runtime. Form intake is moved to a separate service, `heron-relay`, which is not implemented yet: the engine checks the form description in `site.yaml`, but nobody accepts the POST. How themes and plugins are resolved: [`docs/en/spec/23-distribution.md`](docs/en/spec/23-distribution.md#theme-plugin-resolver).
+Plugins extend the **build**: your own section types, links between pages, Jinja filters, generators. They are ordinary pip packages (entry point group `heron.plugins`) installed where the build runs: build your own image based on the engine image and put its full name into `ENGINE`. For one-off needs of a single site, use the `plugins/<name>/` folder next to the content. A plugin from `site.yaml` that is not installed or failed on loading gives error `E014`. The site has no server code of its own - only static files. Form intake is moved to a separate service, `heron-relay`, which is not implemented yet: the engine checks the form description in `site.yaml`, but nobody accepts the POST. How themes and plugins are resolved: [`docs/en/spec/23-distribution.md`](docs/en/spec/23-distribution.md#theme-plugin-resolver).
 
 ## Safe run
 
@@ -145,43 +192,12 @@ No network, a read-only root, no privileges, your own user, no `.env` and no doc
 | image variants, WebP/AVIF, `srcset`, sizes | `alt` for images |
 | 301 from old addresses, 410 for deleted ones | old addresses go to `redirect_from`, deleted ones to `gone` |
 | a 404 page in every language, the nginx config | the 404 text: `content/<lang>/404.md` |
-| a dev build closed to indexing | `--env prod` for the production one, `--out <folder>` to build somewhere other than `dist/` |
+| a draft build closed to indexing | `--env prod` for the production one, `--out <folder>` to build somewhere other than `dist/` |
 | a check of all this with clear errors | fix what the report points at |
 
 What the engine can do, topic by topic: [`docs/en/roles/capabilities.md`](docs/en/roles/capabilities.md).
 
 **For AI agents**: [`AGENTS.md`](AGENTS.md): roles, rules and boundaries are in `docs/<lang>/README.md`; the same folder lies in every new site as `agents/` and in the image (`heron docs --lang ru|en`).
-
-## Quick start: one site, one engine
-
-The usual case is one site and the stable `:prod` image. All you need is docker.
-
-```bash
-H="docker run --rm -it -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"                                  # commands without network
-HP="docker run --rm -it -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"        # setup and serve: a port is needed
-
-$H new my-site         # asks for the working language, name, domain, languages, and lays out the folder
-$HP setup my-site      # questionnaire: the address with a key is printed in the terminal: domains, schema.org, publication, theme
-$HP serve my-site      # preview at localhost:8000 with a rebuild on every save
-$H build my-site       # → my-site/dist/
-```
-
-In zsh (the macOS default) run `setopt sh_word_split` first, otherwise `$H` will not start.
-
-The engine in the container sees only the current folder, so the path to the site is relative to it: `my-site`, or `.` if you are already in the site folder (for example in your own git repository: `.git` and `README` do not get in the way). Without questions, for agents and CI (no `-it`, no terminal needed): `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod new my-site --notes en --name Workshop --domain workshop.example --lang en,ru -y`.
-
-The answers go into `site.yaml`: comments written by hand and keys the questionnaire does not manage stay in place on save; the `setup` questionnaire adds the rest and puts the publication scripts, and you can edit `site.yaml` by hand too. If you changed the languages, `$H init my-site` builds up the folders. A new site comes with the white theme and its demo pages: the home page, "Blocks" (every kind of block), "Themes", "Documentation".
-
-To look at the result:
-
-```bash
-docker run --rm -p 127.0.0.1:8080:8080 -v "$PWD/my-site/dist:/usr/share/nginx/html:ro" \
-  nginxinc/nginx-unprivileged:1.30.6-alpine
-```
-
-Then write pages and build again. The dev build is closed to search engines and does not insert counters; the production one is `$H build my-site --env prod --strict`. Image resizing runs in several processes; where cores are shared with other tasks or processes are forbidden, set `--workers N` (`1` means no pool) or `HERON_WORKERS=N`. If the process pool is unavailable, the engine falls back to sequential resizing with the same result.
-
-Step by step, with every step explained: [`docs/en/guide/02-first-site.md`](docs/en/guide/02-first-site.md). Without docker: `pip install git+https://github.com/FMSTM/HERON.git@prod`, then the same commands through `heron`. The package is not published to PyPI yet.
 
 ## Several sites and engine versions
 
@@ -193,7 +209,7 @@ mkdir -p ~/sites                                 # site.sh new creates only the 
 ./scripts/site.sh mysite new ~/sites/my-site     # create a site and its dev and prod environments
 ./scripts/site.sh mysite build dev               # build into out/mysite-dev
 ./scripts/site.sh mysite serve dev               # look at it on localhost:8080
-./scripts/site.sh mysite build prod             # build the production version
+./scripts/site.sh mysite build prod              # build the production version
 ./scripts/site.sh mysite image prod              # pack into an nginx image
 ./scripts/site.sh mysite smoke prod              # start the image and check the answers: 200, 404, 301, 410
 ./scripts/site.sh mysite push prod               # push the image to the registry
@@ -208,17 +224,17 @@ How it differs from one site:
 
 | | One site | Several sites |
 |---|---|---|
-| What to run | `docker run … heron:prod` or `heron` from pip | `scripts/site.sh` from a repository clone |
+| What to run | `docker run … heron:prod` or `heron` from pipx | `scripts/site.sh` from a repository clone |
 | Where the build settings are | command flags | `env/.env.<site>.<environment>`: path to the content, environment, engine, image and tag, strictness, port, registry and the folder with its login (keys: `env/.env.example`) |
 | Where it builds | `dist/` inside the site folder | `out/<site>-<environment>`, the site folder is not touched |
 | Which engine | the one you started | `ENGINE` in env: an exact version, `:prod` or sources next to it |
 | Site image | build by hand | `site.sh image`, check with `site.sh smoke` |
 
-**The engine version is pinned in the site itself**: the first line of `site.yaml` is `heron: ">=0.1,<0.2"`. An engine that does not fit refuses to build (`E012`). This way two sites can live on different versions, and updating the engine is changing one line.
+**The engine version is pinned in the site itself**: the first key of `site.yaml` is `heron: ">=0.1,<0.2"`. An engine that does not fit refuses to build (`E012`). This way two sites can live on different versions, and updating the engine is changing one line.
 
 `image`, `serve`, `smoke` and `push` pack what is already in `out/` and build the site themselves only on the first run. If you edited the content, run `build` first.
 
-**Which images exist.** Sites are built with the tag `:prod` or an exact version `:X.Y.Z`. `latest` is the latest release tag without a suffix; an exact version is better for sites. `:beta` and `:dev` are development branches of the engine itself; a dev build of a site is the `--env` flag, not a different image.
+**Which images exist.** Sites are built with the tag `:prod` or an exact version `:X.Y.Z`. `latest` is the latest release tag without a suffix; an exact version is better for sites. `:beta` and `:dev` are development branches of the engine itself; a draft build of a site is the `--env` flag, not a different image.
 
 **A site in its own repository** builds an image without a HERON clone and without its own Dockerfile, with the reusable workflow `FMSTM/HERON/.github/workflows/site-image.yml`, with a single `uses:` line.
 
@@ -232,6 +248,7 @@ The documentation in a branch corresponds to the image with the same name: `prod
 
 | | |
 |---|---|
+| [00 · Installation](docs/en/guide/00-install.md) | Docker or Python: what to install and how to check |
 | [01 · Concepts](docs/en/guide/01-concepts.md) | site = folder, key and address, type, section, theme, the engine separate |
 | [02 · First site](docs/en/guide/02-first-site.md) | from an empty folder to an image |
 | [03 · Pages and content](docs/en/guide/03-content.md) | SEO block, sections, links, images, catalogs, languages |

@@ -87,7 +87,7 @@ organization:
   name: ""
   same_as: []
 
-# Usually written by the heron setup questionnaire; by hand only where there is no questionnaire.
+# Usually written by the heron setup configurator; by hand only where there is no configurator.
 schema:
   entity:                      # site-wide node, on every indexable page
     "@id": "#org"

@@ -24,7 +24,7 @@ Forms service (`heron-relay`, a separate component, later): FastAPI, no database
 - **`heron/modules/`** - generators: sitemap, robots, llms.txt, JSON-LD, redirects, feed, the nginx config (`nginx.py`)
 - **`heron/contracts/`** - pydantic schemas of `site.yaml`, `theme.yaml`, the frontmatter, the engine version; `schemas.py` - export of JSON Schema and the error registry (`heron schema`)
 - **`heron/cli.py`** - the commands `new`, `init`, `check`, `serve`, `build`, `page`, `setup`, `theme`, `docs`, `schema`, `recipe`
-- **`heron/setup/`** - the `heron setup` questionnaire: the answer model, writing `site.yaml` and the publishing files, the local server, the sphere classifier
+- **`heron/setup/`** - the `heron setup` configurator: the answer model, writing `site.yaml` and the publishing files, the local server, the sphere classifier
 - **`heron/schemaorg/`** - the schema.org 29.3 vocabulary for markup checks (`SCH001`-`SCH006`)
 - **`heron/themes/`** - installing and packing themes for `heron theme`: the built-in `starter` (files in `heron/scaffold/templates/`), a directory, a link, an archive
 - **`heron/messages.py`**, **`heron/texts/`** - texts of the commands and engine messages in ru and en
@@ -33,7 +33,7 @@ Forms service (`heron-relay`, a separate component, later): FastAPI, no database
 - **`docs/{ru,en}/`** - the single source of documentation: the kit README, roles, samples, guides, specs; `docs/translation.yaml` - the translation state
 - **`scripts/site.sh`** - build, packaging into an nginx image, preview and checks of sites from the engine repository; settings in `env/.env.<site>.<env>`
 - **`Dockerfile`, `Dockerfile.site`** - the engine image and the site image (also `heron recipe`); **`.github/workflows/site-image.yml`** - the shared site image build; **`skills/`** - skills for agents; **`env/`** - `site.sh` settings
-- **site folder** - `site.yaml`, `content/`, `data/`, `media/`, `static/`, `theme/`, `plugins/`, the kit `agents/` with the root `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` (the build does not read them). There is no engine code, Dockerfile or compose in it. The `heron setup` questionnaire optionally adds the helpers `.heron/scripts/build.sh`, `.heron/scripts/publish.sh` and the workflow `.github/workflows/image.yml` or `pages.yml`; the long part of the build stays in the engine
+- **site folder** - `site.yaml`, `content/`, `data/`, `media/`, `static/`, `theme/`, `plugins/`, the kit `agents/` with the root `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` (the build does not read them). There is no engine code, Dockerfile or compose in it. The `heron setup` configurator optionally adds the helpers `.heron/scripts/build.sh`, `.heron/scripts/publish.sh` and the workflow `.github/workflows/image.yml` or `pages.yml`; the long part of the build stays in the engine
 - **`heron-relay`** - a separate service that receives forms: mail, a CRM webhook, Telegram. Deployed only where there are forms
 
 ## Decisions

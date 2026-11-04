@@ -88,7 +88,7 @@ References: `20` = [`spec/20-data-contract.md`](../spec/20-data-contract.md), `2
 | robots.txt | generated; dev - `Disallow: /` | `21` §9 |
 | `llms.txt`, full texts for AI models | generated; facts about the site - `seo.llms_note` | `21` §9, `20` §5 |
 | JSON-LD | types - `theme.yaml` `types.<type>.jsonld`; data - `schema` in `site.yaml` and in the page | `20` §5 |
-| Markup check against the schema.org 29.3 vocabulary (`SCH001`-`SCH006`) | `heron check`, `heron build`; in `prod` a finding is an error, otherwise a warning. Do not assemble markup by hand around the `heron setup` questionnaire: the `schema.entity` and `schema.<Type>` nodes are set by the questionnaire. An exception only with a reason: `schema_exceptions` in `site.yaml` (`key`, `reason`, `until`) or a one-off `--allow-schema KEY`. An exception written by the questionnaire has no expiry (the `until` term is removed; set it by hand if needed) | `20` §5, `21` §10, §11 |
+| Markup check against the schema.org 29.3 vocabulary (`SCH001`-`SCH006`) | `heron check`, `heron build`; in `prod` a finding is an error, otherwise a warning. Do not assemble markup by hand around the `heron setup` configurator: the `schema.entity` and `schema.<Type>` nodes are set by the configurator. An exception only with a reason: `schema_exceptions` in `site.yaml` (`key`, `reason`, `until`) or a one-off `--allow-schema KEY`. An exception written by the configurator has no expiry (the `until` term is removed; set it by hand if needed) | `20` §5, `21` §10, §11 |
 | Prices in the markup | forbidden while `seo.allow_prices: false`; to allow - `true` | `20` §5 |
 | Publication and update date | `date`, `updated`, `build.updated_from: git` | `20` §4.2, §5 |
 | An Atom feed | `seo.feed: <type>` | `21` §9 |
@@ -109,9 +109,9 @@ References: `20` = [`spec/20-data-contract.md`](../spec/20-data-contract.md), `2
 
 | What the site needs | How in HERON | Where described |
 |---|---|---|
-| Set up the site and publication with a questionnaire | `heron setup`; without a browser - `--answers <file>`, the saved answers - `--dump` | `21` §10 |
+| Set up the site and publication with a configurator | `heron setup`; without a browser - `--answers <file>`, the saved answers - `--dump` | `21` §10 |
 | An image without a clone of the engine | the shared workflow `site-image.yml`, the image recipe - `heron recipe` | `23` §5 |
-| Build and publication helpers, a workflow in the site folder | written by the questionnaire: `.heron/scripts/`, `.github/workflows/` | `21` §10 |
+| Build and publication helpers, a workflow in the site folder | written by the configurator: `.heron/scripts/`, `.github/workflows/` | `21` §10 |
 | Install a theme, show the catalog, pack your own | `heron theme get`, `list`, `pack` | `21` §10 |
 | A preview with rebuilding | `heron serve` | `21` §10 |
 | Documentation and schemas of this version | `heron docs`, `heron schema` | `21` §10 |
@@ -128,6 +128,6 @@ References: `20` = [`spec/20-data-contract.md`](../spec/20-data-contract.md), `2
 | An admin panel | on purpose: the source of truth is files |
 | A database | it is not part of the build and will not be: the build is static. An external database, CRM or another CMS is an **optional bridge module, in development**: the site and the database talk with a private key, the data does not get into the HTML at build time. For now - `data/` (yaml at build time). The module key field already exists in `heron setup`, but it connects nothing |
 | Scheduled publication by date | none: `published` is a flag, `date` is only a date. Publication = a commit and a build |
-| Building on a server (`install.sh`, `deploy.sh`) | described in `22` as the target scheme, there are no scripts yet. Today - an image through `site.sh`, the shared workflow `site-image.yml` or the questionnaire helper `.heron/scripts/publish.sh` |
+| Building on a server (`install.sh`, `deploy.sh`) | described in `22` as the target scheme, there are no scripts yet. Today - an image through `site.sh`, the shared workflow `site-image.yml` or the configurator helper `.heron/scripts/publish.sh` |
 
 If the need is in none of the tables, it is an engine task. The template for writing it up is in [`architect.md`](architect.md), the section "Engine task".

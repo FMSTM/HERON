@@ -173,7 +173,7 @@ const DOCS_BY_LANG = {
   ru: "https://github.com/FMSTM/HERON/blob/prod/docs/ru/guide/06-deploy.md",
   en: "https://github.com/FMSTM/HERON/blob/prod/docs/en/guide/06-deploy.md",
 };
-// Гайд на языке интерфейса анкеты; для остальных языков - английский.
+// Гайд на языке интерфейса конфигуратора; для остальных языков - английский.
 const docsUrl = () => DOCS_BY_LANG[L] || DOCS_BY_LANG.en;
 // Адрес Telegram-бота поддержки. Пусто — бот не подключён, кнопка показывает подсказку.
 const BOT_URL = "";
@@ -218,7 +218,7 @@ const T = {
     g_lang: "Языки", g_lang_about: "Какие языки у сайта и какой основной. Основной живёт в корне сайта, остальные - с приставкой: /de/. У каждого языка своя папка в content/.",
     langs: "Языки сайта", langs_h: "Выберите из списка - язык появится ниже. Крестик убирает язык. Новый язык получит папку с главной и страницей 404.",
     lang_add: "- добавить язык -", main_lang: "Основной язык", main_lang_h: "Выбирается из языков сайта. Отдаётся из корня сайта.",
-    g_who: "О ком сайт: schema.org для вашего сайта", g_who_about: "Поисковики сами пытаются понять по страницам сайта, о ком он: компания это или человек, чем занимается, где находится, как связаться. Получается не всегда: что-то они не находят, что-то путают. Чтобы помочь им, Google, Bing, Яндекс и другие поисковики договорились о словаре schema.org - разметке, в которой эти сведения записаны однозначно. По ней поисковик может показать в выдаче карточку с адресом, часами работы и телефоном. Заполните анкету один раз - HERON добавит разметку на каждую страницу. Пропущенный вопрос просто не попадёт в разметку: пустых или выдуманных значений не будет.",
+    g_who: "О ком сайт: schema.org для вашего сайта", g_who_about: "Поисковики сами пытаются понять по страницам сайта, о ком он: компания это или человек, чем занимается, где находится, как связаться. Получается не всегда: что-то они не находят, что-то путают. Чтобы помочь им, Google, Bing, Яндекс и другие поисковики договорились о словаре schema.org - разметке, в которой эти сведения записаны однозначно. По ней поисковик может показать в выдаче карточку с адресом, часами работы и телефоном. Заполните конфигуратор один раз - HERON добавит разметку на каждую страницу. Пропущенный вопрос просто не попадёт в разметку: пустых или выдуманных значений не будет.",
     type: "Кто вы", type_h: "Человек или организация; у организации - вид. Затем сфера деятельности и специализация. Нет точной - выберите ближайшую: разметка останется верной, только менее подробной.",
     type_none: "- не сейчас -", type_more: "точнее (необязательно)",
     address: "Юридический адрес", address_person: "Адрес",
@@ -277,7 +277,7 @@ const T = {
     g_lang: "Languages", g_lang_about: "Which languages the site has and which one is the main. The main one lives at the root, the others get a prefix: /de/. Each language gets its own folder in content/.",
     langs: "Languages of the site", langs_h: "Pick from the list, the language appears below. The cross removes it. A new language gets a folder with a home page and a 404 page.",
     lang_add: "- add a language -", main_lang: "Main language", main_lang_h: "Chosen from the languages of the site. Served from the root.",
-    g_who: "Who the site is about: schema.org for your site", g_who_about: "Search engines try to work out from the pages who a site is about: a company or a person, what they do, where they are, how to reach them. It does not always work: some things they miss, some they mix up. To help them, Google, Bing and others agreed on schema.org, a vocabulary that states these facts unambiguously. From it a search engine can show a card with the address, opening hours and phone right in the results. Fill in the questionnaire once and HERON adds the markup to every page. A skipped question simply stays out: nothing empty or invented.",
+    g_who: "Who the site is about: schema.org for your site", g_who_about: "Search engines try to work out from the pages who a site is about: a company or a person, what they do, where they are, how to reach them. It does not always work: some things they miss, some they mix up. To help them, Google, Bing and others agreed on schema.org, a vocabulary that states these facts unambiguously. From it a search engine can show a card with the address, opening hours and phone right in the results. Fill in the configurator once and HERON adds the markup to every page. A skipped question simply stays out: nothing empty or invented.",
     type: "Who you are", type_h: "A person or an organization; for an organization, its kind. Then the field of work and the specialization. Nothing exact? Take the nearest: the markup stays correct, only less detailed.",
     type_none: "- not now -", type_more: "more specific (optional)",
     address: "Registered address", address_person: "Address",
@@ -1021,8 +1021,8 @@ fetch("/api/state", { headers: { "X-Heron-Token": TOKEN } }).then((r) => {
   return r.json();
 }).then((s) => { load(s); L = s.notes === "en" ? "en" : "ru"; render(); }).catch(() => {
   document.querySelector("main").innerHTML =
-    '<p class="lead">Откройте адрес анкеты целиком так, как он напечатан в терминале, вместе с частью после «#».</p>' +
-    '<p class="lead">Open the questionnaire address exactly as printed in the terminal, including the part after “#”.</p>';
+    '<p class="lead">Откройте адрес конфигуратора целиком так, как он напечатан в терминале, вместе с частью после «#».</p>' +
+    '<p class="lead">Open the configurator address exactly as printed in the terminal, including the part after “#”.</p>';
 });
 </script>
 </body>

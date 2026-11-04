@@ -12,9 +12,9 @@
 язык в `languages`, выполнили `init` - под него появились `content/<язык>/`
 и `theme/i18n/<язык>.yaml`.
 
-Удобнее заполнять его анкетой: `$HP setup .`
-задаёт название, домены, сведения о сайте, публикацию и тему и записывает их
-сюда. Править файл руками тоже можно.
+Удобнее заполнять его в конфигураторе - команда `setup` из раздела «Порядок
+работы» ниже: он спросит название, домены, сведения о сайте, публикацию и
+тему и запишет их сюда. Править файл руками тоже можно.
 
 Пароли и токены в `site.yaml` не пишут: сборка статическая, и всё, что она
 видит, может оказаться в HTML.
@@ -40,25 +40,25 @@
 
 ## Порядок работы
 
-Все команды идут через образ HERON. Один раз задайте короткие имена: `$H` для обычных команд, `$HP` для `setup` и `serve` (он публикует порт):
+Все команды идут через образ HERON. Запускайте их из папки сайта и копируйте как есть:
 
 ```bash
-H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"
-HP="docker run --rm -i -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"
+docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod setup .
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod init .
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod check .
+docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod serve .
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod build . --env prod --strict
 ```
 
-В zsh (по умолчанию на macOS) сначала выполните `setopt sh_word_split`, иначе
-`$H` и `$HP` не запустятся.
+- `setup` - конфигуратор: название, домены, публикация, тема. Откройте адрес,
+  который он напечатает, целиком - с ключом после «#»;
+- `init` - папки догоняют `site.yaml`;
+- `check` - что заполнить и что поправить, без сборки;
+- `serve` - посмотреть сайт на localhost:8000;
+- `build . --env prod --strict` - собрать рабочую версию в `dist/`.
 
-Дальше из папки сайта:
-
-```bash
-$HP setup .                      # анкета: название, домены, публикация, тема
-$H init .                        # папки догоняют site.yaml
-$H check .                       # что заполнить и что поправить, без сборки
-$HP serve .                      # посмотреть на localhost:8000
-$H build . --env prod --strict   # собрать рабочую версию в dist/
-```
+Движок поставлен без Docker - вместо всего, что стоит до имени образа
+включительно, пишите `heron`: например, `heron check .`.
 
 Если сайтов несколько и у вас есть клон движка, из папки HERON один раз
 выполните `cp env/.env.example env/.env.{slug}.dev`, заполните файл, и дальше

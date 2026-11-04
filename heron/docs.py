@@ -128,6 +128,13 @@ TOPICS: tuple[Topic, ...] = (
         "roles",
     ),
     _t(
+        "install",
+        "docs/{lang}/guide/00-install.md",
+        "00 · установка: Docker или Python",
+        "00 · installation: Docker or Python",
+        "guide",
+    ),
+    _t(
         "concepts",
         "docs/{lang}/guide/01-concepts.md",
         "01 · понятия: страница, ключ, адрес, тема",

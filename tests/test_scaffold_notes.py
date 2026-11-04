@@ -156,8 +156,12 @@ def test_demo_page_points_at_the_channel_branch(tmp_path, monkeypatch, lang):
 # --- записка корня сайта: образ как основной путь, комплект agents (E12.S1.T2) --------
 
 NOTES_SOURCE = Path(scaffold.__file__).parent / "notes"
-H_LINE = (
-    'H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"'
+D_RUN = (
+    'docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod'
+)
+D_PORT = (
+    'docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site '
+    '--user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod'
 )
 
 
@@ -184,13 +188,13 @@ def test_root_note_names_the_kit_and_the_pointers(tmp_path, lang):
 @pytest.mark.parametrize("lang", ["ru", "en"])
 def test_root_note_works_through_the_image(tmp_path, lang):
     text = _root_note(tmp_path, lang)
-    assert H_LINE in text
+    assert "$H" not in text and "sh_word_split" not in text
     for command in (
-        "$HP setup .",
-        "$H init .",
-        "$H check .",
-        "$HP serve .",
-        "$H build . --env prod --strict",
+        f"{D_PORT} setup .",
+        f"{D_RUN} init .",
+        f"{D_RUN} check .",
+        f"{D_PORT} serve .",
+        f"{D_RUN} build . --env prod --strict",
     ):
         assert command in text, command
     # путь через клон движка - одной строкой, не основной порядок работы
@@ -218,7 +222,7 @@ def test_root_note_has_the_same_structure_in_both_languages():
             [line.count("|") for line in lines if line.startswith("|")],
             text.count("```"),
             sorted(re.findall(r"\{\w+\}", text)),
-            len([line for line in lines if line.startswith("$H ")]),
+            len([line for line in lines if line.startswith("docker run ")]),
         )
 
     assert shape("ru") == shape("en")

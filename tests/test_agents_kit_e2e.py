@@ -46,6 +46,7 @@ KIT_FILES = {
     *(
         f"guide/{n}"
         for n in (
+            "00-install.md",
             "01-concepts.md",
             "02-first-site.md",
             "03-content.md",

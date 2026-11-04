@@ -12,9 +12,9 @@ engine version. Folders follow the config, not the other way round: add a
 language to `languages`, run `init`, and `content/<lang>/` and
 `theme/i18n/<lang>.yaml` appear.
 
-The easiest way to fill it in is the questionnaire: `$HP setup .` asks for
-the name, domains, site details, publishing and theme and writes them here.
-Editing the file by hand is fine too.
+The easiest way to fill it in is the configurator - the `setup` command from
+"Working with the site" below: it asks for the name, domains, site details,
+publishing and theme and writes them here. Editing the file by hand is fine too.
 
 Never put passwords or tokens in `site.yaml`: the build is static, and
 anything it sees can end up in the HTML.
@@ -40,25 +40,25 @@ there and what does not. The engine ignores these files and never ships them.
 
 ## Working with the site
 
-Every command goes through the HERON image. Set short names once: `$H` for ordinary commands, `$HP` for `setup` and `serve` (it publishes the port):
+Every command goes through the HERON image. Run them from the site folder and copy them as is:
 
 ```bash
-H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"
-HP="docker run --rm -i -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"
+docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod setup .
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod init .
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod check .
+docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod serve .
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod build . --env prod --strict
 ```
 
-In zsh (the macOS default) run `setopt sh_word_split` first, otherwise `$H`
-and `$HP` will not start.
+- `setup` - the configurator: name, domains, publishing, theme. Open the
+  address it prints in full - with the key after "#";
+- `init` - folders catch up with `site.yaml`;
+- `check` - what to fill in and what to fix, without a build;
+- `serve` - look at the site on localhost:8000;
+- `build . --env prod --strict` - build the working version into `dist/`.
 
-Then, from the site folder:
-
-```bash
-$HP setup .                      # questionnaire: name, domains, publishing, theme
-$H init .                        # folders catch up with site.yaml
-$H check .                       # what to fill in and what to fix, no build
-$HP serve .                      # look at it on localhost:8000
-$H build . --env prod --strict   # build the working version into dist/
-```
+Installed the engine without Docker - write `heron` instead of everything up to
+and including the image name: for example, `heron check .`.
 
 With several sites and a clone of the engine, from the HERON folder run
 `cp env/.env.example env/.env.{slug}.dev` once, fill it in, then work through

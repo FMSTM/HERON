@@ -25,7 +25,7 @@ A block without a list, a table or a quote is plain text. **Bold**, *italic*, [l
    heron new my-site
    ```
 
-2. **[MOST OFTEN] Fill in the questionnaire.** A tag in square brackets, in capitals, marks a step.
+2. **[MOST OFTEN] Fill in the configurator.** A tag in square brackets, in capitals, marks a step.
 3. **Build.** The final build opens the site to search engines.
 
 ## Two lists {#compare}
@@ -75,7 +75,7 @@ Languages | as many as you need
 
 ## Timeline {#timeline .timeline}
 
-Day 1 | Create the site and fill in the questionnaire
+Day 1 | Create the site and fill in the configurator
 Week 1 | Write the pages
 Week 2 | Publish
 

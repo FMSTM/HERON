@@ -24,7 +24,7 @@ HERON - файловый движок сайтов. На вход папка с 
 - **`heron/modules/`** - генераторы: sitemap, robots, llms.txt, JSON-LD, redirects, feed, конфиг nginx (`nginx.py`)
 - **`heron/contracts/`** - pydantic-схемы `site.yaml`, `theme.yaml`, фронтматтера, версии движка; `schemas.py` - экспорт JSON Schema и реестра ошибок (`heron schema`)
 - **`heron/cli.py`** - команды `new`, `init`, `check`, `serve`, `build`, `page`, `setup`, `theme`, `docs`, `schema`, `recipe`
-- **`heron/setup/`** - анкета `heron setup`: модель ответов, запись `site.yaml` и файлов публикации, локальный сервер, классификатор сфер
+- **`heron/setup/`** - конфигуратор `heron setup`: модель ответов, запись `site.yaml` и файлов публикации, локальный сервер, классификатор сфер
 - **`heron/schemaorg/`** - словарь schema.org 29.3 для проверки разметки (`SCH001`-`SCH006`)
 - **`heron/themes/`** - установка и упаковка тем для `heron theme`: встроенная `starter` (файлы в `heron/scaffold/templates/`), каталог, ссылка, архив
 - **`heron/messages.py`**, **`heron/texts/`** - тексты команд и сообщений ядра на ru и en
@@ -33,7 +33,7 @@ HERON - файловый движок сайтов. На вход папка с 
 - **`docs/{ru,en}/`** - единый источник документации: README комплекта, роли, образцы, гайды, спецификации; `docs/translation.yaml` - состояние перевода
 - **`scripts/site.sh`** - сборка, упаковка в образ nginx, просмотр и проверка сайтов из репозитория движка; настройки в `env/.env.<сайт>.<окружение>`
 - **`Dockerfile`, `Dockerfile.site`** - образ движка и образ сайта (он же `heron recipe`); **`.github/workflows/site-image.yml`** - общая сборка образа сайта; **`skills/`** - навыки для агентов; **`env/`** - настройки `site.sh`
-- **папка сайта** - `site.yaml`, `content/`, `data/`, `media/`, `static/`, `theme/`, `plugins/`, комплект `agents/` с корневыми `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` (сборка их не читает). Кода движка, Dockerfile и compose в ней нет. Анкета `heron setup` по выбору кладёт помощники `.heron/scripts/build.sh`, `.heron/scripts/publish.sh` и workflow `.github/workflows/image.yml` или `pages.yml`; длинная часть сборки остаётся в движке
+- **папка сайта** - `site.yaml`, `content/`, `data/`, `media/`, `static/`, `theme/`, `plugins/`, комплект `agents/` с корневыми `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` (сборка их не читает). Кода движка, Dockerfile и compose в ней нет. Конфигуратор `heron setup` по выбору кладёт помощники `.heron/scripts/build.sh`, `.heron/scripts/publish.sh` и workflow `.github/workflows/image.yml` или `pages.yml`; длинная часть сборки остаётся в движке
 - **`heron-relay`** - отдельный сервис приёма форм: почта, вебхук в CRM, Telegram. Разворачивается только там, где формы есть
 
 ## Решения

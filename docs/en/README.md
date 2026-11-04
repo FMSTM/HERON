@@ -2,18 +2,17 @@
 
 This is the instruction for an agent that received a link to a site on HERON (or to the engine itself) and a task. You do not need to read the engine code: everything a site may and may not do is written here and in the neighboring folders. If the documentation and the engine behavior disagree, that is an engine bug: write it in the report, do not work around it.
 
-This folder is the **kit**: in the engine repository it sits as `docs/<lang>/`, in every site as `agents/`, in the image as `heron docs`. The files are the same, and so are the links between them. In zsh (the macOS default) run `setopt sh_word_split` first, otherwise `$H` will not start.
+This folder is the **kit**: in the engine repository it sits as `docs/<lang>/`, in every site as `agents/`, in the image as `heron docs`. The files are the same, and so are the links between them. Engine commands are written as `heron <command>`; if the engine runs in Docker, write `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod <command>` instead of `heron` - see [`guide/00-install.md`](guide/00-install.md#without-docker).
 
 ```bash
-H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"
-$H docs --lang en                 # table of contents of this documentation, the same version as the engine
-$H docs --lang en kit             # this file
-$H docs --lang en --search E023   # search: file, line, context
+heron docs --lang en                 # table of contents of this documentation, the same version as the engine
+heron docs --lang en kit             # this file
+heron docs --lang en --search E023   # search: file, line, context
 ```
 
 ## What HERON is, in one minute
 
-A static site engine: the image `ghcr.io/fmstm/heron:<channel>` or a package from the repository (`pip install git+https://github.com/FMSTM/HERON.git@<channel>`). It **creates** a site folder (`new`, `init`, `page`), **configures** it (`setup` - the questionnaire, `theme get` - the theme) and **builds** it by the contract (`build`, `check`, `serve`). A site is a folder without engine code: `site.yaml`, `content/<lang>/`, `media/`, `data/`, `static/`, `theme/`. A page is a file, the file path is the address; every file starts with an SEO block, then come the intro and the sections `## Heading {#anchor}`, which the theme puts in place. New to HERON - [`guide/01-concepts.md`](guide/01-concepts.md).
+A static site engine: the image `ghcr.io/fmstm/heron:<channel>` or a package from the repository (`pip install git+https://github.com/FMSTM/HERON.git@<channel>`). It **creates** a site folder (`new`, `init`, `page`), **configures** it (`setup` - the configurator, `theme get` - the theme) and **builds** it by the contract (`build`, `check`, `serve`). A site is a folder without engine code: `site.yaml`, `content/<lang>/`, `media/`, `data/`, `static/`, `theme/`. A page is a file, the file path is the address; every file starts with an SEO block, then come the intro and the sections `## Heading {#anchor}`, which the theme puts in place. New to HERON - [`guide/01-concepts.md`](guide/01-concepts.md).
 
 ## Roles
 
@@ -35,7 +34,7 @@ Before you propose an engine change, read [`roles/capabilities.md`](roles/capabi
 
 1. **Facts are not invented.** Phones, addresses, prices, deadlines, names, figures - only from the client's source. No fact - the field stays empty, the question goes to `work/questions.md`. The engine does not draw an empty block; an invented one it does draw.
 2. **`site.yaml` is the single source of truth** about the site: languages, theme, domain, menus, analytics counters, 410.
-3. **The site folder is content and settings only.** No Dockerfile, no compose, no `.env`, no tokens. Building and packaging are done by engine commands; `.heron/scripts/` and `.github/workflows/` are put there only by the `heron setup` questionnaire, nobody writes them by hand.
+3. **The site folder is content and settings only.** No Dockerfile, no compose, no `.env`, no tokens. Building and packaging are done by engine commands; `.heron/scripts/` and `.github/workflows/` are put there only by the `heron setup` configurator, nobody writes them by hand.
 4. **The page key is the file path, the address is `slug`.** File names are the same in all languages; links and menus are written with keys.
 5. **Structure matters more than markup.** The order of sections in a file does not matter; the section form is set by its markup.
 6. **A warning is work.** `--strict` turns warnings into errors - that is how production is built.
@@ -67,7 +66,7 @@ The language of the report and questions is the one the human asked for; if not 
 
 | What you need | Where |
 |---|---|
-| Concepts, the first site, content, theme, SEO, deploy | [`guide/`](guide/01-concepts.md) - guides 01-06 in order |
+| Installation, concepts, the first site, content, theme, SEO, deploy | [`guide/`](guide/00-install.md) - guides 00-06 in order |
 | File path → address, key, `slug`; links; old addresses; 404 | [`20`](spec/20-data-contract.md) §2 · languages §3 · SEO block and fields §4.1-4.2 · sections and forms §4.3-4.4 · `site.yaml` keys §5 · `theme.yaml` §6 · images §7 · limits §10 |
 | What a template sees · commands and flags · error codes · the `check` report | [`21`](spec/21-engine.md) §6-7 · §10 · §11 · §12 |
 | Site image, nginx, smoke · security model and agent limits · instruction channels | [`23`](spec/23-distribution.md) §5 · §9 · §12 |

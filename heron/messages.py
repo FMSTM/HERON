@@ -108,11 +108,11 @@ TEXT: dict[str, dict[str, str]] = {
         # --- что дальше ---
         "next_title": "Что дальше:",
         "next_config": (
-            "Настройте сайт анкетой: `heron setup {path}` - название, домен, кто вы, "
+            "Настройте сайт в конфигураторе: `heron setup {path}` - название, домен, кто вы, "
             "публикация. Или руками в {path}/site.yaml."
         ),
         "next_domain": (
-            "Домен сейчас заглушка {domain} - впишите настоящий в анкете или в site.yaml."
+            "Домен сейчас заглушка {domain} - впишите настоящий в конфигураторе или в site.yaml."
         ),
         "next_home": "Главная - {files}: SEO-блок наверху (title, h1, description), ниже текст.",
         "next_page": "Новая страница: `heron page page about {path}`",
@@ -271,7 +271,7 @@ TEXT: dict[str, dict[str, str]] = {
         "found_langs": "content/ already has languages: {langs} - I will suggest them.",
         "no_questions": (
             "No questions asked: not running in a terminal. Values come from flags or defaults.\n"
-            "  For the questionnaire run it in a terminal; with docker, add -it."
+            "  For the questions run it in a terminal; with docker, add -it."
         ),
         "ask_intro": (
             "A few questions about the site. Enter accepts the value in brackets.\n"
@@ -298,11 +298,11 @@ TEXT: dict[str, dict[str, str]] = {
         "placeholder": "placeholder - replace it in site.yaml",
         "next_title": "What next:",
         "next_config": (
-            "Set the site up with the questionnaire: `heron setup {path}` - name, domain, "
+            "Set the site up in the configurator: `heron setup {path}` - name, domain, "
             "who you are, publishing. Or by hand in {path}/site.yaml."
         ),
         "next_domain": (
-            "The domain is a placeholder {domain} - put the real one in the questionnaire "
+            "The domain is a placeholder {domain} - put the real one in the configurator "
             "or in site.yaml."
         ),
         "next_home": "Home page - {files}: SEO block on top (title, h1, description), text below.",
@@ -595,7 +595,8 @@ TEXT["en"].update(
 TEXT["ru"].update(
     {
         "setup_open": (
-            "Анкета открыта: {url}  - откройте адрес целиком, с ключом после «#». Ctrl+C - выход."
+            "Конфигуратор открыт: {url}  - откройте адрес целиком, с ключом после «#». "
+            "Ctrl+C - выход."
         ),
         "setup_done": "Настройки записаны.",
         "setup_written": "записано: {files}",
@@ -618,7 +619,7 @@ TEXT["ru"].update(
 TEXT["en"].update(
     {
         "setup_open": (
-            "The questionnaire is open: {url}  - open the whole address, "
+            "The configurator is open: {url}  - open the whole address, "
             "with the key after “#”. Ctrl+C to stop."
         ),
         "setup_done": "Settings written.",
@@ -1016,8 +1017,9 @@ TEXT["ru"].update(
         "help_build": "Собрать сайт в dist/ или в указанную папку.",
         "help_serve": "Локальный просмотр с пересборкой при изменениях.",
         "help_setup": (
-            "Конфигуратор: анкета, которая пишет site.yaml, сценарий для CI и скрипты.\n\n"
-            "Без флагов открывает анкету в браузере (адрес - на экране). С --answers "
+            "Конфигуратор: страница в браузере, которая пишет site.yaml, сценарий для CI "
+            "и скрипты.\n\n"
+            "Без флагов открывает конфигуратор в браузере (адрес - на экране). С --answers "
             "применяет ответы из файла - те же поля и та же проверка."
         ),
         "help_schema": (
@@ -1104,14 +1106,14 @@ TEXT["ru"].update(
         ),
         "help_opt_serve_drafts": "Показывать черновики (`published: false`); по умолчанию да.",
         "help_opt_answers": (
-            "Ответы анкеты из YAML или JSON без браузера (агент, CI). «-» - из stdin."
+            "Ответы конфигуратора из YAML или JSON без браузера (агент, CI). «-» - из stdin."
         ),
         "help_opt_dump": "Напечатать записанные ответы в YAML и выйти.",
         "help_opt_setup_host": "Где слушать: как у heron serve.",
         "help_opt_schema_site": "site.yaml (по умолчанию).",
         "help_opt_schema_theme": "theme.yaml.",
         "help_opt_schema_frontmatter": "Фронтматтер страницы.",
-        "help_opt_schema_setup": "Ответы анкеты heron setup.",
+        "help_opt_schema_setup": "Ответы конфигуратора heron setup.",
         "help_opt_schema_errors": "Реестр кодов ошибок.",
         "help_opt_schema_export": "Записать все пять файлов в папку.",
         "help_opt_schema_lang": (
@@ -1190,9 +1192,9 @@ TEXT["en"].update(
         "help_build": "Build the site into dist/ or into the given folder.",
         "help_serve": "Local preview that rebuilds on changes.",
         "help_setup": (
-            "The configurator: a questionnaire that writes site.yaml, the CI workflow "
+            "The configurator: a browser page that writes site.yaml, the CI workflow "
             "and scripts.\n\n"
-            "Without flags it opens the questionnaire in a browser (the address is on "
+            "Without flags it opens the configurator in a browser (the address is on "
             "screen). With --answers it applies answers from a file - the same fields "
             "and the same check."
         ),
@@ -1279,7 +1281,7 @@ TEXT["en"].update(
         ),
         "help_opt_serve_drafts": "Show drafts (`published: false`); on by default.",
         "help_opt_answers": (
-            "Questionnaire answers from YAML or JSON without a browser (an agent, CI). "
+            "Configurator answers from YAML or JSON without a browser (an agent, CI). "
             "“-” reads stdin."
         ),
         "help_opt_dump": "Print the saved answers as YAML and exit.",
@@ -1287,7 +1289,7 @@ TEXT["en"].update(
         "help_opt_schema_site": "site.yaml (the default).",
         "help_opt_schema_theme": "theme.yaml.",
         "help_opt_schema_frontmatter": "Page front matter.",
-        "help_opt_schema_setup": "Answers of the heron setup questionnaire.",
+        "help_opt_schema_setup": "Answers of the heron setup configurator.",
         "help_opt_schema_errors": "Error code registry.",
         "help_opt_schema_export": "Write all five files into a folder.",
         "help_opt_schema_lang": (

@@ -10,8 +10,8 @@ Write and move pages, fill in the SEO block, keep translations and old addresses
 ## 1. Create a file
 
 ```bash
-$H page service roof my-site --folder services             # → content/<main language>/services/roof.md
-$H page service roof my-site --folder services --lang ru   # translation
+heron page service roof my-site --folder services             # → content/<main language>/services/roof.md
+heron page service roof my-site --folder services --lang ru   # translation
 ```
 
 The type must be declared in the theme's `types`. The starter theme has only `home`, `page`, `404`; another type gives `E008`, the designer adds it first.
@@ -63,7 +63,7 @@ Files go to `media/`, the path is from the site root: `media/services/roof.png`.
 
 The migration order - guide [05](../guide/05-seo.md#migrate-from-old-site).
 
-Check: `$H check . --old-urls <file>` - a file with the old addresses (one address per line, or a Search Console export). An address that leads nowhere goes into the report with a hint: add it to the page's `redirect_from` or to `gone` (`21` §10, §11). An address is compared the way nginx sees it: the scheme and host are dropped, `%XX` and Cyrillic are equal, with and without a trailing slash is one address; case and the language prefix are distinguished (`/About/` and `/about/` are different addresses); query parameters count only for `gone` entries with a parameter.
+Check: `heron check . --old-urls <file>` - a file with the old addresses (one address per line, or a Search Console export). An address that leads nowhere goes into the report with a hint: add it to the page's `redirect_from` or to `gone` (`21` §10, §11). An address is compared the way nginx sees it: the scheme and host are dropped, `%XX` and Cyrillic are equal, with and without a trailing slash is one address; case and the language prefix are distinguished (`/About/` and `/about/` are different addresses); query parameters count only for `gone` entries with a parameter.
 
 ## 7. Languages
 

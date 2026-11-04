@@ -48,7 +48,7 @@ Terms of the HERON documentation and their English equivalents. The source is `d
 | шаблон | template | `README.md` |
 | модуль | module | `README.md` |
 | SEO-блок | SEO block | `README.md` |
-| анкета (`heron setup`) | questionnaire | `README.md` |
+| конфигуратор (`heron setup`) | configurator | `README.md` |
 | сборка | build | `README.md` |
 | дев-сборка | dev build | `roles/architect.md` |
 | прод, прод-сборка | production, production build | `README.md` |

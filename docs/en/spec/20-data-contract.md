@@ -132,7 +132,7 @@ files:                            # every kit file except work/, and the root AG
     sha256: "…"
 ```
 
-`sha256` in the manifest is the hash of the deployed bytes, that is, after the channel substitution and the rewritten `kit` links: a repeated `init --agents` does not take the substitution for an edit by the human, and a channel change or the switch `kit` → `true` → `kit` replaces untouched files without calling them "edited by you".
+`sha256` in the manifest is the hash of the delivered bytes, that is, after the channel substitution and the rewritten `kit` links: a repeated `init --agents` does not take the substitution for an edit by the human, and a channel change or the switch `kit` → `true` → `kit` replaces untouched files without calling them "edited by you".
 
 **Update.** The kit is a snapshot taken when the site was created. A new engine version brings new documentation; `heron init --agents` compares the sha256 of each file with the manifest: the file was not edited - it overwrites it, edited - it skips it and names it, the file is missing - it puts it, the file is in the site but gone from the kit - it does not delete it and says so. `--force` overwrites edited files too. `work/` is not in the manifest and is never touched.
 
@@ -421,7 +421,7 @@ Then comes the content. Text before the first heading becomes the `intro` sectio
 
 The `{…}` tail of a heading accepts a closed set: `#id`, `.class`, `lang=`, `dir=`, `title=` and `data-*=` (`### Step {#s2 .wide data-step=2}`). Everything else - `onclick=`, `style=` and any event handlers - is `E025` with the line number: the ban on raw HTML cannot be bypassed through attributes. Inside a code block such a heading is just code.
 
-The schema.org markup is output in `<script type="application/ld+json">` with `<`, `>`, `&` escaped (as `<` and so on): the string `</script>` in any field stays data, and the JSON reads back unchanged.
+The schema.org markup is output in `<script type="application/ld+json">` with `<`, `>`, `&` escaped (as `\u003c` and so on): the string `</script>` in any field stays data, and the JSON reads back unchanged.
 
 ```markdown
 ## What it is {#what}

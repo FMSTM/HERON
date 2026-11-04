@@ -52,7 +52,8 @@ Terms of the HERON documentation and their English equivalents. The source is `d
 | сборка | build | `README.md` |
 | дев-сборка | dev build | `roles/architect.md` |
 | прод, прод-сборка | production, production build | `README.md` |
-| выкладка | deploy | `README.md` |
+| выкладка (сайта) | deploy | `README.md` |
+| выкладка (комплекта в сайт) | delivery (kit delivery) | `spec/20-data-contract.md` |
 | публикация | publication | `README.md` |
 | отчёт | report | `README.md` |
 | вопросы человеку | questions for the human | `README.md` |

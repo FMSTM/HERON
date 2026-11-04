@@ -755,3 +755,67 @@ def test_readme_pair_structure_catches_missing_heading() -> None:
     )
     mutated = "\n".join(lines[:index] + lines[index + 1 :])
     assert _md_problems(ru_text, mutated)
+
+
+def _readme_normalized(ru_text: str, en_text: str) -> tuple[str, str]:
+    """Ссылки README в свою ветку docs/<язык>/ и на парную README - не расхождение."""
+    ru_text = ru_text.replace("docs/ru/", "docs/<lang>/").replace("](README.md)", "](<other>)")
+    en_text = en_text.replace("docs/en/", "docs/<lang>/").replace("](README.ru.md)", "](<other>)")
+    return ru_text, en_text
+
+
+def _readme_problems(ru_text: str, en_text: str) -> list[str]:
+    problems = []
+    if len(ru_text.splitlines()) != len(en_text.splitlines()):
+        problems.append(
+            f"число строк: ru {len(ru_text.splitlines())} != en {len(en_text.splitlines())}"
+        )
+    return problems + _md_problems(*_readme_normalized(ru_text, en_text))
+
+
+def test_readme_pair_has_same_line_count() -> None:
+    """Пара README построчно: перевод не теряет и не добавляет абзацы (E12.S7.P4.T4)."""
+    ru_text = (ROOT / "README.ru.md").read_text(encoding="utf-8")
+    en_text = (ROOT / "README.md").read_text(encoding="utf-8")
+    problems = _readme_problems(ru_text, en_text)
+    assert not problems, "README.ru.md и README.md расходятся:\n" + "\n".join(problems)
+
+
+def _mutate_readme(drop: str) -> list[str]:
+    ru_text = (ROOT / "README.ru.md").read_text(encoding="utf-8")
+    lines = (ROOT / "README.md").read_text(encoding="utf-8").splitlines()
+    pattern = {"heading": r"^#{2,6}\s", "table": r"^\s*\|", "link": r"\]\(docs/en/"}[drop]
+    index = next(i for i, line in enumerate(lines) if re.search(pattern, line))
+    if drop == "link":
+        lines[index] = re.sub(
+            r"\]\(docs/en/[^)]*\)", "](docs/en/missing.md)", lines[index], count=1
+        )
+    elif drop == "table":
+        # таблица исчезает целиком: строки заменены пустыми, число строк то же
+        end = next(i for i in range(index, len(lines)) if not lines[i].lstrip().startswith("|"))
+        lines[index:end] = [""] * (end - index)
+    else:
+        lines[index] = ""
+    return _readme_problems(ru_text, "\n".join(lines))
+
+
+@pytest.mark.parametrize("drop", ["heading", "table", "link"])
+def test_readme_pair_structure_catches_mutation(drop: str) -> None:
+    """Мутация: заголовок, таблица или цель ссылки в README.md пропала - тест пары падает."""
+    assert _mutate_readme(drop)
+
+
+@pytest.mark.parametrize("rel", PAIRS)
+def test_no_block_left_open(rel: str) -> None:
+    """CommonMark: каждый блок кода закрыт чистой оградой до конца файла (ru и en)."""
+    for lang in (RU, EN):
+        if not rel.endswith(".md") or not (lang / rel).is_file():
+            continue
+        fence = ""
+        for line in (lang / rel).read_text(encoding="utf-8").splitlines():
+            match = FENCE_OPEN.match(line)
+            if not fence and match:
+                fence = match.group(2)
+            elif fence and _closes(line, fence):
+                fence = ""
+        assert not fence, f"docs/{lang.name}/{rel}: блок кода {fence} не закрыт до конца файла"

@@ -15,7 +15,9 @@ UK_LETTERS = re.compile(r"[іїє]")
 
 
 def _new(tmp_path, langs):
-    site = tmp_path / "site"
+    # имя папки = имя сайта в демо-заголовках; "site" в контейнере даёт "my-site",
+    # вне контейнера - "site", поэтому папка сразу называется my-site
+    site = tmp_path / "my-site"
     runner = CliRunner()
     result = runner.invoke(main, ["new", str(site), "--lang", langs, "-y"])
     assert result.exit_code == 0, result.output

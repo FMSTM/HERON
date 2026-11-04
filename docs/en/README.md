@@ -2,7 +2,7 @@
 
 This is the instruction for an agent that received a link to a site on HERON (or to the engine itself) and a task. You do not need to read the engine code: everything a site may and may not do is written here and in the neighboring folders. If the documentation and the engine behavior disagree, that is an engine bug: write it in the report, do not work around it.
 
-This folder is the **kit**: in the engine repository it sits as `docs/<lang>/`, in every site as `agents/`, in the image as `heron docs`. The files are the same, and so are the links between them.
+This folder is the **kit**: in the engine repository it sits as `docs/<lang>/`, in every site as `agents/`, in the image as `heron docs`. The files are the same, and so are the links between them. In zsh (the macOS default) run `setopt sh_word_split` first, otherwise `$H` will not start.
 
 ```bash
 H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"

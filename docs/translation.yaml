@@ -4,7 +4,7 @@
 # files — файлы docs/ru; root_files — пара README репозитория: русский README.ru.md — исходник, английский README.md — перевод.
 files:
   - path: README.md
-    ru_sha256: "148515ab37f50a7b89da3cf44512492787313f2d361152d25059688b2f206bf6"
+    ru_sha256: "d1bd67da207b2b9d8835c1d17d581bb796ed99c61fe7437dcb2cb779f2710373"
     en_status: current
   - path: architecture.md
     ru_sha256: "92640260cc6200218de9d75e11c7d3f9801a5e4edd5899509c5824d91419e5e6"
@@ -31,7 +31,7 @@ files:
     ru_sha256: "0f2fa54a6e5ab09ccead1abee2a5411641da7cb50976278f23516bc4234195f6"
     en_status: current
   - path: roles/builder.md
-    ru_sha256: "a879f2af3828969ec2c49df5a7e20d7909dac673ec423fc3f0d6fb178c86a3ac"
+    ru_sha256: "8c7544e085a5340210d555049a941ace306e02087119c0c78088785bdbe67cae"
     en_status: current
   - path: roles/capabilities.md
     ru_sha256: "a81e276a28616453f81e109c77c8d091de91eb29abaa0a096d11fd4f93625568"
@@ -75,5 +75,5 @@ files:
 root_files:
   - ru: README.ru.md
     en: README.md
-    ru_sha256: "f5b4305a85912eded011d5689c1a100320736bd57a0dfbff2fbbfb4166f906f2"
+    ru_sha256: "df2a3abf5c016f715d8e6e70db960183803f743ece692ea0df6448eb30e69830"
     en_status: current

@@ -12,10 +12,9 @@ engine version. Folders follow the config, not the other way round: add a
 language to `languages`, run `init`, and `content/<lang>/` and
 `theme/i18n/<lang>.yaml` appear.
 
-The easiest way to fill it in is the questionnaire: `$H setup .` (needs a
-published port, like `serve`) asks for the name, domains, site details,
-publishing and theme and writes them here. Editing the file by hand is fine
-too.
+The easiest way to fill it in is the questionnaire: `$HP setup .` asks for
+the name, domains, site details, publishing and theme and writes them here.
+Editing the file by hand is fine too.
 
 Never put passwords or tokens in `site.yaml`: the build is static, and
 anything it sees can end up in the HTML.

@@ -5,7 +5,7 @@
 **На входе:** документ со структурой сайта (по форме [`templates/structure.md`](../templates/structure.md)), иногда - тексты и картинки.
 **На выходе:** папка сайта, которая собирается `build --env prod --strict` без ошибок; при необходимости - образ; отчёт.
 
-Команды - через образ. Без докера то же самое делает `heron <команда>` из пакета, поставленного из репозитория: `pip install git+https://github.com/FMSTM/HERON.git@<канал>`.
+Команды - через образ. Без докера то же самое делает `heron <команда>` из пакета, поставленного из репозитория: `pip install git+https://github.com/FMSTM/HERON.git@<канал>`. В zsh (по умолчанию на macOS) сначала выполни `setopt sh_word_split`, иначе `$H` не запустится.
 
 ```bash
 H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"

@@ -12,7 +12,7 @@ None of this is written by hand or lies in a file: it is assembled on every buil
 | Open Graph and Twitter | fields of groups 3-4, otherwise `title`/`description`/`seo.og_default_image` | [`20` §4.2](../spec/20-data-contract.md#frontmatter) |
 | `sitemap.xml` | all published indexable pages, `lastmod` from `updated` | [`21` §9](../spec/21-engine.md#sitemap) |
 | hreflang in `<head>` and in the map | translations by file name, `x-default` is the default language | [`20` §3](../spec/20-data-contract.md#languages) |
-| `robots.txt` | `seo.robots_extra` + the `Sitemap:` line | [`21` §9](../spec/21-engine.md#robots-txt) |
+| `robots.txt` | `seo.robots_extra` + the `Sitemap:` line; on a dev build only `Disallow: /` | [`21` §9](../spec/21-engine.md#robots-txt) |
 | JSON-LD | type from the theme, data from the page and the `schema` block in `site.yaml`, breadcrumbs, FAQ | [`21` §9](../spec/21-engine.md#json-ld) |
 | `llms.txt`, `llms-full.txt` | page tree, `description`, `seo.llms_note` | [`21` §9](../spec/21-engine.md#llms-txt) |
 | 301 and 410 | `redirect_from` of pages and `gone` in `site.yaml`, straight into the nginx config | [`21` §9](../spec/21-engine.md#redirects) |

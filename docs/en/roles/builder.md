@@ -5,7 +5,7 @@ Build a site by the content structure, check it and deploy it. If the theme and 
 **Input:** a document with the site structure (in the form of [`templates/structure.md`](../templates/structure.md)), sometimes texts and images.
 **Output:** a site folder that builds with `build --env prod --strict` without errors; an image if needed; a report.
 
-Commands run through the image. Without Docker, `heron <command>` from the package installed from the repository does the same: `pip install git+https://github.com/FMSTM/HERON.git@<channel>`.
+Commands run through the image. Without Docker, `heron <command>` from the package installed from the repository does the same: `pip install git+https://github.com/FMSTM/HERON.git@<channel>`. In zsh (the macOS default) run `setopt sh_word_split` first, otherwise `$H` will not start.
 
 ```bash
 H="docker run --rm -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:prod"

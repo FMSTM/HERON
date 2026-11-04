@@ -49,5 +49,5 @@ published: true
 # ================= 8. RELATIONS =================
 # redirect_from:             # old addresses that should 301 here
 #   - /old-address/
-# gone:                      # old addresses that answer 410
+# addresses that no longer exist (410) - the gone key in site.yaml, not here
 ---

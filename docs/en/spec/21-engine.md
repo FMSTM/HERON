@@ -366,7 +366,7 @@ Texts that belong to the theme rather than the content ("Book now" / "Запис
 Besides what is listed, the template gets:
 
 - `page.cover` - the page cover (section 6);
-- `cover_url(page, min_width=1200)` - the absolute address of a JPEG/PNG cover not narrower than `min_width`; if there is no such variant - the address of the master; no cover - an empty string. It is also available as a filter: `{{ page|cover_url }}`;
+- `cover_url(page, min_width=1200)` - the absolute address of a JPEG/PNG cover not narrower than `min_width` (1200 by default regardless of `images.cover_width`; for a larger one pass `min_width` explicitly); if there is no such variant - the address of the master; no cover - an empty string. It is also available as a filter: `{{ page|cover_url }}`;
 - `robots_meta` - a string for `<meta name="robots">`: `max-image-preview:large, max-snippet:-1, max-video-preview:-1` for an indexable page of a prod build, otherwise `noindex, nofollow`. A page with `noindex: true` and any non-prod build get the closed variant.
 
 ```jinja
@@ -454,9 +454,9 @@ An avif measurement on a set of 95 masters, 800px, quality 82:
 | 8 | 0.05 s | 47.3K | +3.6% |
 | 10 | 0.02 s | 57.1K | +25.0% |
 
-Six was chosen: four costs five times more time for two and a half percent of size, ten saves time at the cost of a quarter of the weight. For webp `method=4` was chosen the same way: the slowest mode gave 7 seconds per variant instead of 0.1 for a gain of about two percent.
-
 The final encoder parameters (not configurable from `site.yaml` and `theme.yaml`): `quality` 82 for webp, avif and jpeg; webp `method=4`; avif `speed=6`; PNG - without `quality`.
+
+Six was chosen: four costs five times more time for two and a half percent of size, ten saves time at the cost of a quarter of the weight. For webp `method=4` was chosen the same way: the slowest mode gave 7 seconds per variant instead of 0.1 for a gain of about two percent.
 
 ## 9. Generators
 
@@ -525,7 +525,7 @@ The content of the block is facts about the site, not instructions to the readin
 
 It is embedded in the `<head>` of each page, the type depends on the page type:
 
-The markup types are declared by the **theme**, with the key `types.<type>.jsonld` in `theme.yaml`: a service site, a shop and a reference site have different mappings, and the core does not have to know them.
+The markup types are declared by the **theme**, with the key `types.<type>.jsonld` in `theme.yaml`: a service site, a shop and a reference site have different mappings, and the core does not have to know them. A page can declare a type too: every key of the front matter `schema` block (except `entity`) with a map value that is not in `types.<type>.jsonld` is added to the graph as a new node.
 
 The core builds what it really knows itself:
 

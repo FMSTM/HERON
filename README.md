@@ -112,7 +112,7 @@ A theme is the `theme/` folder inside the site: `theme.yaml` (which page types a
 
 ## Plugins
 
-Plugins extend the **build**: your own section types, links between pages, Jinja filters, generators. They are ordinary pip packages (entry point group `heron.plugins`) installed into the site image with one Dockerfile line. For one-off needs of a single site, use the `plugins/<name>/` folder next to the content. A plugin from `site.yaml` that is not installed or failed on loading gives error `E014`. The engine has no runtime. Form intake is moved to a separate service, `heron-relay`, which is not implemented yet: the engine checks the form description in `site.yaml`, but nobody accepts the POST. How themes and plugins are resolved: [`docs/en/spec/23-distribution.md`](docs/en/spec/23-distribution.md#theme-plugin-resolver).
+Plugins extend the **build**: your own section types, links between pages, Jinja filters, generators. They are ordinary pip packages (entry point group `heron.plugins`) installed where the build runs: your own image based on the engine image, its full name goes into `ENGINE`. For one-off needs of a single site, use the `plugins/<name>/` folder next to the content. A plugin from `site.yaml` that is not installed or failed on loading gives error `E014`. The engine has no runtime. Form intake is moved to a separate service, `heron-relay`, which is not implemented yet: the engine checks the form description in `site.yaml`, but nobody accepts the POST. How themes and plugins are resolved: [`docs/en/spec/23-distribution.md`](docs/en/spec/23-distribution.md#theme-plugin-resolver).
 
 ## Safe run
 

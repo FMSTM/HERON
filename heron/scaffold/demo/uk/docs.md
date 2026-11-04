@@ -50,7 +50,7 @@ docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD":/site -w /site --user $(id 
 
 ## Де читати {#where}
 
-- **У репозиторії.** [Гайди по порядку](https://github.com/FMSTM/HERON/tree/prod/docs/ru/guide): поняття, перший сайт, сторінки, тема, пошук, публікація.
+- **У репозиторії.** [Гайди по порядку](https://github.com/FMSTM/HERON/tree/prod/docs/en/guide): поняття, перший сайт, сторінки, тема, пошук, публікація.
 - **Для ШІ-агентів.** [AGENTS.md](https://github.com/FMSTM/HERON/blob/prod/AGENTS.md): ролі, правила та мапа документації.
 - **У терміналі.** Без інтернету, тієї ж версії, що й рушій:
 

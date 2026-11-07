@@ -34,6 +34,8 @@ What the parts of the command mean - once, since they repeat from here on:
 - `ghcr.io/fmstm/heron:prod` - the engine itself, the stable version;
 - `new my-site` - the engine command and its parameters. Only this part changes.
 
+Tired of copying the long line - set the short name `heron` while you work, as described [in the installation section](00-install.md#alias).
+
 **If the folder for the site already exists** - say, you created an empty repository on GitHub and cloned it - go into it and create the site right there. The dot at the end means "in the current folder":
 
 ```bash

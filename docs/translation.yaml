@@ -10,13 +10,13 @@ files:
     ru_sha256: "d13e49cbc1200d8b339b0539ff8d74a4cc0961e98e94e28b86ee6e962b141b32"
     en_status: current
   - path: guide/00-install.md
-    ru_sha256: "ed0d9eba026aa4607ef0fad32dc281fe61384e2fad2b78ad12f8ec346dfc1760"
+    ru_sha256: "622c8fdc9464df89748092655828817acda65aeb02df3e64890a930a61885195"
     en_status: current
   - path: guide/01-concepts.md
     ru_sha256: "24a6fd472c526f8b1c2dd5ebaec28cba855289af1d70aa6b90866b65d0b80058"
     en_status: current
   - path: guide/02-first-site.md
-    ru_sha256: "75b9d826130a3c7331fe64faca527fb2164d1482e9cea5fb6285e78a95d5f1c4"
+    ru_sha256: "82000f7f2df6c2e1b7c28922a3feec7e9782116f74a47aa748c8abff02f446d2"
     en_status: current
   - path: guide/03-content.md
     ru_sha256: "20a68a0a21bb3dac1c97044c2388f34bbc3aec05c796ca29adb2f863ef3b54d6"

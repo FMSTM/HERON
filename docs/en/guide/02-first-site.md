@@ -4,7 +4,7 @@ In this section we build a small site from scratch, in two languages: English as
 
 You need Docker - how to install it is described in [00 · Installation](00-install.md). Every command below is written in full: copy it into the terminal as is.
 
-> **Installed the engine without Docker?** Then in every command replace everything up to and including `ghcr.io/fmstm/heron:prod` with the word `heron`. For example, `docker run … ghcr.io/fmstm/heron:prod build my-site` becomes `heron build my-site`. More - [in the installation section](00-install.md#without-docker).
+> **Installed the engine without Docker?** Then in every command replace everything up to and including the image name (`ghcr.io/fmstm/heron:…`) with the word `heron`. For example, `docker run … ghcr.io/fmstm/heron:prod build my-site` becomes `heron build my-site`. More - [in the installation section](00-install.md#without-docker).
 
 ## Step 0. A folder for your sites
 
@@ -85,11 +85,13 @@ Created:
   ...
 
 What next:
-  1. Set the site up in the configurator: `heron setup my-site` - name, domain, who you are, publishing. Or by hand in my-site/site.yaml.
+  1. Set the site up in the configurator:
+      docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod setup my-site
+    name, domain, who you are, publishing. Or by hand in my-site/site.yaml.
   ...
 ```
 
-In the "What next" block the engine suggests the next steps - we go through them in order below. In these hints it writes commands short, with `heron`; with Docker it is the same command in full, as in this section.
+In the "What next" block the engine suggests the next steps - we go through them in order below. Every hint is a ready command on its own line: select the whole line and paste it into the terminal. If the engine is installed without Docker, the hints are short - for example, `heron setup my-site`.
 
 ### What appeared in the folder
 

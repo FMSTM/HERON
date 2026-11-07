@@ -77,7 +77,7 @@ docker run --rm -p 127.0.0.1:8080:8080 -v "$PWD/мой-сайт/dist:/usr/share/
 
 Что важно знать:
 
-- **Без Docker** движок ставится через pipx: `pipx install git+https://github.com/FMSTM/HERON.git@prod` (в PyPI пакет пока не публикуется). Тогда всё, что стоит в командах до `ghcr.io/fmstm/heron:prod` включительно, заменяется словом `heron`: `heron new мой-сайт`, `heron build мой-сайт`.
+- **Без Docker** движок ставится через pipx: `pipx install git+https://github.com/FMSTM/HERON.git@prod` (в PyPI пакет пока не публикуется). Тогда всё, что стоит в командах до имени образа (`ghcr.io/fmstm/heron:…`) включительно, заменяется словом `heron`: `heron new мой-сайт`, `heron build мой-сайт`.
 - **Docker видит только текущую папку**, поэтому путь к сайту пишется от неё: `мой-сайт`, или `.`, если вы уже в папке сайта (например, в своём git-репозитории - `.git` и `README` не мешают).
 - **Поменяли языки в `site.yaml`** - команда `init мой-сайт` достроит папки под них.
 - **Для агентов и CI** - без вопросов и без `-it`, терминала там нет: `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod new мой-сайт --notes ru --name Workshop --domain workshop.example --lang en,ru -y`.

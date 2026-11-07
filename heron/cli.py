@@ -24,7 +24,7 @@ from pathlib import Path
 
 import click
 
-from heron import __version__, build_info
+from heron import __version__, build_info, messages
 from heron.contracts import site as site_contract
 from heron.contracts.site import LANG_RE
 from heron.core import build as pipeline
@@ -32,7 +32,7 @@ from heron.core import report as report_module
 from heron.core.environment import BuildEnv
 from heron.core.errors import HeronError
 from heron.core.notes import NOTE
-from heron.messages import CLICK_RU, RECIPE_EN, rendered, say, title
+from heron.messages import CLICK_RU, RECIPE_EN, title
 from heron.scaffold import (
     ENV_NOTES,
     NOTE_LANGS,
@@ -401,6 +401,22 @@ class _Terminal:
         bar = "━" * filled + "─" * (10 - filled)
         room = max(0, 46 - len(bar))
         self._detail = f"{bar} {current:>3}/{total:<3} {detail[-room:] if room else ''}"
+
+
+def say(lang: str, key: str, /, **fields: object) -> str:
+    """Текст сообщения; в контейнере подсказки `heron …` - полной командой Docker."""
+    text = messages.say(lang, key, **fields)
+    if key.startswith("help_") or not in_container():
+        return text
+    return messages.for_docker(text)
+
+
+def rendered(value: str | None, lang: str) -> str | None:
+    """Сообщение ядра на языке lang; в контейнере - с командами Docker."""
+    text = messages.rendered(value, lang)
+    if text is None or not in_container():
+        return text
+    return messages.for_docker(text)
 
 
 CONTAINER_ENV = "HERON_IN_CONTAINER"
@@ -861,8 +877,6 @@ def _next(path: Path, lang: str, languages: list[str], domain: str | None) -> No
     click.echo("\n" + say(lang, "next_title"))
     for number, line in enumerate(lines, 1):
         click.echo(f"  {number}. {line}")
-    if in_container():
-        click.echo("  " + say(lang, "next_docker"))
 
 
 # --- команды ------------------------------------------------------------------

@@ -77,7 +77,7 @@ docker run --rm -p 127.0.0.1:8080:8080 -v "$PWD/my-site/dist:/usr/share/nginx/ht
 
 Good to know:
 
-- **Without Docker** the engine is installed with pipx: `pipx install git+https://github.com/FMSTM/HERON.git@prod` (the package is not published to PyPI yet). Then everything in the commands up to and including `ghcr.io/fmstm/heron:prod` is replaced with the word `heron`: `heron new my-site`, `heron build my-site`.
+- **Without Docker** the engine is installed with pipx: `pipx install git+https://github.com/FMSTM/HERON.git@prod` (the package is not published to PyPI yet). Then everything in the commands up to and including the image name (`ghcr.io/fmstm/heron:…`) is replaced with the word `heron`: `heron new my-site`, `heron build my-site`.
 - **Docker sees only the current folder**, so the path to the site is written from it: `my-site`, or `.` if you are already in the site folder (for example, in your own git repository - `.git` and `README` do not get in the way).
 - **Changed the languages in `site.yaml`** - the command `init my-site` builds up the folders for them.
 - **For agents and CI** - no questions and no `-it`, there is no terminal there: `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod new my-site --notes en --name Workshop --domain workshop.example --lang en,ru -y`.

@@ -10,6 +10,8 @@
 
 from __future__ import annotations
 
+import os
+import re
 import string
 
 TEXT: dict[str, dict[str, str]] = {
@@ -27,14 +29,14 @@ TEXT: dict[str, dict[str, str]] = {
         "bad_notes_env_hint": "в переменной HERON_NOTES нужно ru или en; уберите её или поправьте",
         "bad_notes_site_hint": "в build.notes из site.yaml нужно ru или en",
         "site_not_utf8": "site.yaml не в кодировке UTF-8, папка не тронута",
-        "site_not_utf8_hint": "пересохраните site.yaml в UTF-8; heron check покажет ту же ошибку",
+        "site_not_utf8_hint": "пересохраните site.yaml в UTF-8; `heron check` покажет ту же ошибку",
         "site_not_block": "site.yaml: {value} - не блок ключей, папка не тронута",
         "site_not_block_hint": (
-            "site.yaml - набор ключей (site:, theme:, build:); heron check покажет ту же ошибку"
+            "site.yaml - набор ключей (site:, theme:, build:); `heron check` покажет ту же ошибку"
         ),
         "site_languages_not_list": "site.languages: {value} - не список, папка не тронута",
         "site_languages_not_list_hint": (
-            "языки списком, например languages: [ru, en]; heron check покажет ту же ошибку"
+            "языки списком, например languages: [ru, en]; `heron check` покажет ту же ошибку"
         ),
         "build_agents_write_failed": "не удалось записать build.agents: {value} в site.yaml",
         "build_agents_write_failed_hint": "впишите в блок build строку `agents: {value}` вручную",
@@ -119,10 +121,6 @@ TEXT: dict[str, dict[str, str]] = {
         "next_build": "Собрать: `heron build {path}` - результат в {path}/dist/",
         "next_check": "Проверить без сборки: `heron check {path}`",
         "next_langs": "Добавили язык в site.yaml - снова `heron init {path}`",
-        "next_docker": (
-            "В докере - те же команды после `docker run … ghcr.io/fmstm/heron:<тег>`;\n"
-            "  путь к сайту - относительно текущей папки: `.`, если вы в ней."
-        ),
         # --- page ---
         "page_done": "Создана страница: {path}",
         "page_next": "Заполните SEO-блок и секции, затем `heron build {root}`",
@@ -219,14 +217,14 @@ TEXT: dict[str, dict[str, str]] = {
         "bad_notes_env_hint": "HERON_NOTES takes ru or en; unset it or fix it",
         "bad_notes_site_hint": "build.notes in site.yaml takes ru or en",
         "site_not_utf8": "site.yaml is not UTF-8, the folder is left alone",
-        "site_not_utf8_hint": "save site.yaml as UTF-8; heron check shows the same error",
+        "site_not_utf8_hint": "save site.yaml as UTF-8; `heron check` shows the same error",
         "site_not_block": "site.yaml: {value} - not a block of keys, the folder is left alone",
         "site_not_block_hint": (
-            "site.yaml is a set of keys (site:, theme:, build:); heron check shows the same error"
+            "site.yaml is a set of keys (site:, theme:, build:); `heron check` shows the same error"
         ),
         "site_languages_not_list": "site.languages: {value} - not a list, the folder is left alone",
         "site_languages_not_list_hint": (
-            "languages go in a list, e.g. languages: [ru, en]; heron check shows the same error"
+            "languages go in a list, e.g. languages: [ru, en]; `heron check` shows the same error"
         ),
         "build_agents_write_failed": "could not write build.agents: {value} to site.yaml",
         "build_agents_write_failed_hint": (
@@ -310,10 +308,6 @@ TEXT: dict[str, dict[str, str]] = {
         "next_build": "Build: `heron build {path}` - output in {path}/dist/",
         "next_check": "Check without building: `heron check {path}`",
         "next_langs": "Added a language to site.yaml - run `heron init {path}` again",
-        "next_docker": (
-            "With docker - the same commands after `docker run … ghcr.io/fmstm/heron:<tag>`;\n"
-            "  the site path is relative to the current folder: `.` if you are in it."
-        ),
         "page_done": "Page created: {path}",
         "page_next": "Fill in the SEO block and the sections, then `heron build {root}`",
         "no_path": "There is no folder {path}.",
@@ -521,6 +515,61 @@ class MsgError(ValueError):
         super().__init__(Msg(key, **fields))
 
 
+IMAGE = "ghcr.io/fmstm/heron"
+# Команды, которым в Docker нужен терминал: спрашивают (new, init) или
+# останавливаются по Ctrl+C (setup, serve). Последним двум ещё нужен порт.
+_ASKS = {"new", "init", "setup", "serve"}
+_PORT = {"setup", "serve"}
+_COMMAND = re.compile(r"`heron ([^`]+)`")
+
+
+def image() -> str:
+    """Образ, в котором запущен движок: канал из HERON_CHANNEL, иначе prod."""
+    channel = os.environ.get("HERON_CHANNEL", "").strip()
+    release = re.fullmatch(r"v(\d+\.\d+\.\d+.*)", channel)
+    if release:
+        return f"{IMAGE}:{release.group(1)}"
+    return f"{IMAGE}:{channel if channel in ('prod', 'beta', 'dev') else 'prod'}"
+
+
+def docker_command(args: str) -> str:
+    """`heron <args>` целиком для Docker: та же команда, готовая к копированию."""
+    name = args.split(maxsplit=1)[0] if args.strip() else ""
+    flags = " -it" if name in _ASKS else ""
+    if name in _PORT:
+        flags += " -p 127.0.0.1:8000:8000"
+    return (
+        f'docker run --rm{flags} -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" '
+        f"{image()} {args}"
+    )
+
+
+def for_docker(text: str) -> str:
+    """Подсказки `heron …` - полными командами Docker, каждая своей строкой.
+
+    Команда длинная, поэтому стоит отдельно, без кавычек: строку целиком
+    выделяют и копируют в терминал. Текст вокруг остаётся на своих строках.
+    """
+    if not _COMMAND.search(text):
+        return text
+    parts: list[str] = []
+    pos = 0
+    for match in _COMMAND.finditer(text):
+        gap = text[pos : match.start()]
+        # Между командами бывает только «, » или « · » - их не переносим.
+        if gap.strip(" ,;·") or pos == 0:
+            if pos == 0:
+                parts.append(gap.rstrip())
+            else:
+                parts.append("\n    " + gap.strip().lstrip(",;·- "))
+        parts.append("\n      " + docker_command(match.group(1)))
+        pos = match.end()
+    tail = text[pos:]
+    if tail.strip(" ,;·.\n"):
+        parts.append("\n    " + tail.strip().lstrip(",;·- "))
+    return "".join(parts)
+
+
 def rendered(value: str | None, lang: str) -> str | None:
     """Msg на языке lang; str и None как есть."""
     if isinstance(value, Msg):
@@ -609,7 +658,7 @@ TEXT["ru"].update(
         "setup_no_site": "В папке {path} нет site.yaml - здесь нет сайта, настраивать нечего.",
         "setup_no_site_hint": (
             "Перейдите в папку сайта (cd имя-сайта) и запустите setup там, "
-            "или создайте сайт: heron new имя-сайта"
+            "или создайте сайт: `heron new имя-сайта`"
         ),
         "theme_done": "Тема {name} поставлена.",
         "theme_demo": "страниц-примеров темы добавлено: {count} (ваши страницы не тронуты)",
@@ -633,7 +682,7 @@ TEXT["en"].update(
         "setup_no_site": "There is no site.yaml in {path} - no site here, nothing to set up.",
         "setup_no_site_hint": (
             "Go to the site folder (cd site-name) and run setup there, "
-            "or create a site: heron new site-name"
+            "or create a site: `heron new site-name`"
         ),
         "theme_done": "Theme {name} is in place.",
         "theme_demo": "theme example pages added: {count} (your pages untouched)",
@@ -650,20 +699,20 @@ TEXT["ru"].update(
         "kit_updated": (
             "инструкции для агентов обновлены ({code}): заменено {updated}, добавлено {created}"
         ),
-        "kit_in_place": "инструкции для агентов уже на месте - обновить: heron init --agents",
+        "kit_in_place": "инструкции для агентов уже на месте - обновить: `heron init --agents`",
         "kit_off": (
             "инструкции для агентов не положены (build.agents: false) - "
-            "включить: heron init --agents"
+            "включить: `heron init --agents`"
         ),
         "kit_skipped_edited": "правлен вами, не тронут: {files}",
         "kit_forced": "правлен вами - перезаписан (--force): {files}",
         "kit_current": "инструкции для агентов уже актуальны ({code})",
         "kit_bad_value": "build.agents: {value} - не понято, комплект не тронут",
-        "kit_bad_value_hint": "допустимо true, kit или false; heron check покажет ту же ошибку",
+        "kit_bad_value_hint": "допустимо true, kit или false; `heron check` покажет ту же ошибку",
         "build_not_block": "build: {value} - не блок ключей, папка не тронута",
         "build_not_block_hint": (
             "build - блок ключей с отступом (notes: ru, agents: true); "
-            "heron check покажет ту же ошибку"
+            "`heron check` покажет ту же ошибку"
         ),
         "kit_orphan": "нет в новом комплекте, оставлен: {files}",
         "kit_fallback": "без перевода на {want}, положены на {have}: файлов {n}",
@@ -691,7 +740,7 @@ TEXT["ru"].update(
         "docs_exported": "Документация выложена в {target}: файлов {n}",
         "docs_not_found": "«{query}» в документации не нашлось.",
         "docs_no_template": "Образца {file!r} нет. Есть: {names}",
-        "docs_no_topic": "Темы {name!r} нет. Оглавление: heron docs",
+        "docs_no_topic": "Темы {name!r} нет. Оглавление: `heron docs`",
         "docs_all_langs": "--all-langs работает только вместе с --export <папка>",
         # heron schema
         "schema_exported": "Схемы записаны в {target}: {files}",
@@ -702,19 +751,19 @@ TEXT["en"].update(
     {
         "kit_created": "agent instructions: agents/, AGENTS.md - {code}, {n} {n:file|files}",
         "kit_updated": "agent instructions updated ({code}): {updated} replaced, {created} added",
-        "kit_in_place": "agent instructions already in place - update: heron init --agents",
+        "kit_in_place": "agent instructions already in place - update: `heron init --agents`",
         "kit_off": (
-            "agent instructions not placed (build.agents: false) - enable: heron init --agents"
+            "agent instructions not placed (build.agents: false) - enable: `heron init --agents`"
         ),
         "kit_skipped_edited": "edited by you, left as is: {files}",
         "kit_forced": "edited by you - overwritten (--force): {files}",
         "kit_current": "agent instructions already up to date ({code})",
         "kit_bad_value": "build.agents: {value} - not understood, the kit is left alone",
-        "kit_bad_value_hint": "allowed: true, kit or false; heron check shows the same error",
+        "kit_bad_value_hint": "allowed: true, kit or false; `heron check` shows the same error",
         "build_not_block": "build: {value} - not a block of keys, the folder is left alone",
         "build_not_block_hint": (
             "build is an indented block of keys (notes: en, agents: true); "
-            "heron check shows the same error"
+            "`heron check` shows the same error"
         ),
         "kit_orphan": "not in the new kit, left in place: {files}",
         "kit_fallback": "no {want} translation yet, placed in {have}: {n} {n:file|files}",
@@ -741,7 +790,7 @@ TEXT["en"].update(
         "docs_exported": "Documentation written to {target}: {n} {n:file|files}",
         "docs_not_found": "“{query}” is not in the documentation.",
         "docs_no_template": "There is no sample {file!r}. Available: {names}",
-        "docs_no_topic": "There is no topic {name!r}. Contents: heron docs",
+        "docs_no_topic": "There is no topic {name!r}. Contents: `heron docs`",
         "docs_all_langs": "--all-langs works only together with --export <folder>",
         "schema_exported": "Schemas written to {target}: {files}",
         "schema_one_kind": "One schema at a time: pick one of {flags}",
@@ -765,21 +814,21 @@ TEXT["ru"].update(
             "накопление в цикле - через namespace: `{{% set acc = namespace(xs=[]) %}}` … "
             "`{{% set acc.xs = acc.xs + [item] %}}`; отбор - фильтры selectattr/rejectattr, "
             "без повторов - `unique(case_sensitive=True, attribute='url')`; "
-            "рецепты: heron docs theme"
+            "рецепты: `heron docs theme`"
         ),
         "sandbox_hint_keys": (
             "стройте новый словарь вместо изменения: `{{% set d = dict(d, key=value) %}}`; "
             "в цикле - через namespace: `{{% set acc = namespace(d={{}}) %}}` … "
-            "`{{% set acc.d = dict(acc.d, key=value) %}}`; рецепты: heron docs theme"
+            "`{{% set acc.d = dict(acc.d, key=value) %}}`; рецепты: `heron docs theme`"
         ),
         "sandbox_hint_remove": (
             "уберите лишнее фильтром, а не из самого списка: `xs|reject('equalto', x)|list`, "
             "`xs|rejectattr('id', 'in', ['a', 'b'])|list`, срез `xs[1:]`; "
-            "рецепты: heron docs theme"
+            "рецепты: `heron docs theme`"
         ),
         "sandbox_hint_order": (
             "порядок задают фильтры, а не сам список: `xs|sort(attribute='title')|list`, "
-            "`xs|reverse|list`; рецепты: heron docs theme"
+            "`xs|reverse|list`; рецепты: `heron docs theme`"
         ),
     }
 )
@@ -798,21 +847,21 @@ TEXT["en"].update(
             "to collect in a loop use a namespace: `{{% set acc = namespace(xs=[]) %}}` … "
             "`{{% set acc.xs = acc.xs + [item] %}}`; to pick items use selectattr/rejectattr, "
             "to drop repeats `unique(case_sensitive=True, attribute='url')`; "
-            "recipes: heron docs theme"
+            "recipes: `heron docs theme`"
         ),
         "sandbox_hint_keys": (
             "build a new dict instead of changing one: `{{% set d = dict(d, key=value) %}}`; "
             "in a loop use a namespace: `{{% set acc = namespace(d={{}}) %}}` … "
-            "`{{% set acc.d = dict(acc.d, key=value) %}}`; recipes: heron docs theme"
+            "`{{% set acc.d = dict(acc.d, key=value) %}}`; recipes: `heron docs theme`"
         ),
         "sandbox_hint_remove": (
             "drop items with a filter, not from the list itself: "
             "`xs|reject('equalto', x)|list`, `xs|rejectattr('id', 'in', ['a', 'b'])|list`, "
-            "a slice `xs[1:]`; recipes: heron docs theme"
+            "a slice `xs[1:]`; recipes: `heron docs theme`"
         ),
         "sandbox_hint_order": (
             "set the order with filters, not on the list itself: "
-            "`xs|sort(attribute='title')|list`, `xs|reverse|list`; recipes: heron docs theme"
+            "`xs|sort(attribute='title')|list`, `xs|reverse|list`; recipes: `heron docs theme`"
         ),
     }
 )
@@ -911,7 +960,7 @@ TEXT["ru"].update(
         "kit_lang_changed": "язык комплекта сменился: {old} → {new} (build.notes)",
         "kit_lang_kept": (
             "комплект оставлен на {kit}, build.notes - {notes}: "
-            "сменить язык комплекта - heron init --agents"
+            "сменить язык комплекта - `heron init --agents`"
         ),
     }
 )
@@ -920,7 +969,7 @@ TEXT["en"].update(
         "kit_lang_changed": "kit language changed: {old} → {new} (build.notes)",
         "kit_lang_kept": (
             "the kit stays in {kit}, build.notes is {notes}: "
-            "to switch the kit language - heron init --agents"
+            "to switch the kit language - `heron init --agents`"
         ),
     }
 )

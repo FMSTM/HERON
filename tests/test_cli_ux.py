@@ -218,6 +218,46 @@ def test_new_in_missing_host_path_explains_the_container(here, monkeypatch):
     assert "смонтированную в /site" in result.output
 
 
+DOCKER = 'docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:'
+
+
+def test_next_steps_in_container_are_ready_docker_commands(here, monkeypatch):
+    # В контейнере команды `heron` нет: подсказка - полная команда под тот же образ.
+    monkeypatch.setattr(cli, "in_container", lambda: True)
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    result = run("new", "my-site", "--notes", "en", "--lang", "en", "-y")
+
+    assert result.exit_code == 0, result.output
+    assert "`heron " not in result.output
+    assert f"\n      {DOCKER}beta page page about my-site\n" in result.output
+    assert f"\n      {DOCKER}beta check my-site\n" in result.output
+    setup = (
+        'docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site '
+        '--user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta setup my-site'
+    )
+    assert setup in result.output
+    assert 'docker run --rm -it -v "$PWD:/site"' in result.output  # init спрашивает
+
+
+def test_next_steps_outside_container_stay_short(here):
+    result = run("new", "my-site", "--notes", "en", "--lang", "en", "-y")
+
+    assert result.exit_code == 0, result.output
+    assert "`heron check my-site`" in result.output
+    assert "docker run" not in result.output
+
+
+@pytest.mark.parametrize(
+    ("channel", "image"),
+    [("prod", "heron:prod"), ("beta", "heron:beta"), ("v0.2.0", "heron:0.2.0"), ("", "heron:prod")],
+)
+def test_docker_hint_follows_the_image_channel(monkeypatch, channel, image):
+    from heron import messages
+
+    monkeypatch.setenv("HERON_CHANNEL", channel)
+    assert f"ghcr.io/fmstm/{image} build ." in messages.for_docker("`heron build .`")
+
+
 def test_build_of_folder_without_site_yaml(here):
     (here / "empty").mkdir()
     result = run("build", "empty")

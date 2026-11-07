@@ -2,7 +2,7 @@
 
 This section covers how to build a site for publishing, put it on hosting or your own server, pack it into a Docker image and run several sites on different engine versions. It is for whoever deploys the site - a person or an AI agent in the builder role.
 
-> **Installed the engine without Docker?** Then in every command replace everything up to and including `ghcr.io/fmstm/heron:prod` with the word `heron`. More - [in the installation section](00-install.md#without-docker).
+> **Installed the engine without Docker?** Then in every command replace everything up to and including the image name (`ghcr.io/fmstm/heron:…`) with the word `heron`. More - [in the installation section](00-install.md#without-docker).
 
 As in [02 · First site](02-first-site.md), commands are run from the folder that holds the site folder `my-site`.
 

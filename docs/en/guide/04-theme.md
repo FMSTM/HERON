@@ -4,7 +4,7 @@ This section covers how a theme is built, how to make your own and what data a t
 
 A HERON site is split into two independent parts. **The theme** decides how the site looks: templates, styles, fonts. **The content** decides what is written on it: the page texts in `content/`. The theme does not know a single page text, and the content does not know a single CSS class. They meet by names: a page type finds its template, and a section anchor finds its module. That is why you can replace the theme without touching the texts, and the other way round.
 
-> **The commands in this section are written for Docker** and run from the site folder (`cd ~/sites/my-site`), so the path to the site in them is a dot. Installed the engine without Docker - replace everything up to and including `ghcr.io/fmstm/heron:prod` with the word `heron` ([more](00-install.md#without-docker)).
+> **The commands in this section are written for Docker** and run from the site folder (`cd ~/sites/my-site`), so the path to the site in them is a dot. Installed the engine without Docker - replace everything up to and including the image name (`ghcr.io/fmstm/heron:…`) with the word `heron` ([more](00-install.md#without-docker)).
 
 ## Where to get a theme
 

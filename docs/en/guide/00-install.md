@@ -78,7 +78,7 @@ docker pull ghcr.io/fmstm/heron:prod
 
 ### How to read the commands in this documentation <a id="without-docker"></a>
 
-All commands in the documentation are written for Docker. Without Docker, everything up to and including `ghcr.io/fmstm/heron:prod` is replaced with the single word `heron`:
+All commands in the documentation are written for Docker. Without Docker, everything up to and including the image name (`ghcr.io/fmstm/heron:…`) is replaced with the single word `heron`:
 
 ```bash
 # in the documentation
@@ -100,8 +100,10 @@ pipx install --force git+https://github.com/FMSTM/HERON.git@prod
 
 The engine has two versions:
 
-- **prod** - the stable one. Live sites run on it, and every command in the documentation uses it;
-- **beta** - the next version under review; new things appear here first. To try it, replace `prod` with `beta`: `ghcr.io/fmstm/heron:beta` in Docker or `@beta` in the pipx command.
+- **prod** - the stable one; live sites run on it;
+- **beta** - the next version under review; new things appear here first.
+
+The commands in the documentation are written for its own version. The documentation built into the engine (the `docs` command) and the kit in the site folder already show the image of their version. On GitHub the prod branch opens by default; if you read the `beta` branch there, replace `:prod` with `:beta` in the commands, and `@prod` with `@beta` in the pipx command. Otherwise the engine is older than the documentation and some steps will not match.
 
 The command from the "Check" step shows which version you have.
 

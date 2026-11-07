@@ -10,25 +10,25 @@ files:
     ru_sha256: "d13e49cbc1200d8b339b0539ff8d74a4cc0961e98e94e28b86ee6e962b141b32"
     en_status: current
   - path: guide/00-install.md
-    ru_sha256: "98b409569c1ff4f65f3c8cc1211d8b5e282adf5f9fe9720917b934d6f01fa731"
+    ru_sha256: "ed0d9eba026aa4607ef0fad32dc281fe61384e2fad2b78ad12f8ec346dfc1760"
     en_status: current
   - path: guide/01-concepts.md
     ru_sha256: "24a6fd472c526f8b1c2dd5ebaec28cba855289af1d70aa6b90866b65d0b80058"
     en_status: current
   - path: guide/02-first-site.md
-    ru_sha256: "adfe4fd48b59072edc2c93ecc997e4919b149797621b6173892afaa077d79544"
+    ru_sha256: "75b9d826130a3c7331fe64faca527fb2164d1482e9cea5fb6285e78a95d5f1c4"
     en_status: current
   - path: guide/03-content.md
-    ru_sha256: "af499a1af91ae05582b05cfbf7f5ec890d4293fff882a94b449fe211427b9d59"
+    ru_sha256: "20a68a0a21bb3dac1c97044c2388f34bbc3aec05c796ca29adb2f863ef3b54d6"
     en_status: current
   - path: guide/04-theme.md
-    ru_sha256: "e7f8f0d136394f29dfb47a17f91f41e156acaa4dc20cae4b8b6e33176aa2fa13"
+    ru_sha256: "f8680e2df4349b282dc00ca1377b501b2f9ffcff0cfbeca5648b67a8a3c335b8"
     en_status: current
   - path: guide/05-seo.md
-    ru_sha256: "4f8b0fadf9da26f69a2440e28fd4a8bd9d6ed2d50b652cb42fefa14a5a2011d4"
+    ru_sha256: "8fe293df854d7a768f3b8ff1ad7c6fc077ec1d489979530cc58293e1bc663d1b"
     en_status: current
   - path: guide/06-deploy.md
-    ru_sha256: "2089c0759325fa21e4e79e0a683ddffb32bc003ac17690edf41f1e7925bd1a91"
+    ru_sha256: "dccdb88285dea739eb72079eb3478afe9f8fab79126a987ae8796e0f114242d8"
     en_status: current
   - path: roles/architect.md
     ru_sha256: "357ccd262a83d03b911520e0effc32427904e786d1a691946673e2e0774cf2da"
@@ -49,7 +49,7 @@ files:
     ru_sha256: "d11f1f074e07ef28da4a0d2f063779d9e4f1ed3fab211694b4c74120470b2e4e"
     en_status: current
   - path: spec/21-engine.md
-    ru_sha256: "459f4b838b835adee76967810e87f7cd1a7cf726926ecc02e831ccd84f5a7ace"
+    ru_sha256: "ad79bde2feb03c8bebc82e9e4e8317a411f281dd82cd4fe37a7bb0cdde5e8fad"
     en_status: current
   - path: spec/22-deploy.md
     ru_sha256: "52e43ba657d1008bbc8dcca5584d3cfd84e8e271382bb38e5fd48e9282fd060e"
@@ -78,5 +78,5 @@ files:
 root_files:
   - ru: README.ru.md
     en: README.md
-    ru_sha256: "3d5dfd3475779e5ec7d82d0df2a082c4d18bd76f80ee5408ef352e1a33cf784c"
+    ru_sha256: "9372be770767e93ea41a661de38716f5b3ccdbc7f71d61407138d9649b9706b9"
     en_status: current

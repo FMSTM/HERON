@@ -2,7 +2,7 @@
 
 This section is for whoever is responsible for how people find the site in search: a person or an AI agent in the "Content and SEO" role. We look at what the engine does for search engines by itself, what you need to fill in, and how to move from an old site without losing your positions in search results.
 
-> **Without Docker?** In the commands below replace everything up to and including `ghcr.io/fmstm/heron:prod` with the word `heron` - more [in the installation section](00-install.md#without-docker). Commands are run from the folder that holds the site folder `my-site`.
+> **Without Docker?** In the commands below replace everything up to and including the image name (`ghcr.io/fmstm/heron:…`) with the word `heron` - more [in the installation section](00-install.md#without-docker). Commands are run from the folder that holds the site folder `my-site`.
 
 ## What the engine does by itself
 

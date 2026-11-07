@@ -4,7 +4,7 @@ This section is all about pages: what a page file consists of, how to add a new 
 
 We continue the site from [02 · First site](02-first-site.md): commands run from the `~/sites` folder, and the site is in `my-site`.
 
-> **Installed the engine without Docker?** Then in every command replace everything up to and including `ghcr.io/fmstm/heron:prod` with the word `heron`. More - [in the installation section](00-install.md#without-docker).
+> **Installed the engine without Docker?** Then in every command replace everything up to and including the image name (`ghcr.io/fmstm/heron:…`) with the word `heron`. More - [in the installation section](00-install.md#without-docker).
 
 ## What a page consists of
 

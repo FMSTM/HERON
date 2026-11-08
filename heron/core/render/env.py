@@ -70,6 +70,10 @@ class Strings:
     def __contains__(self, key: str) -> bool:
         return key in self._values
 
+    def as_dict(self) -> dict[str, Any]:
+        """Все строки языка - для справки темы (`render/themeref.py`)."""
+        return dict(self._values)
+
 
 class Modules:
     """Доступ к модулям темы из шаблона: `mod.facts('quick-facts')`.
@@ -77,12 +81,23 @@ class Modules:
     Шаблону модуля достаются `section` (сама секция), `items` (разобранные
     данные структурированной секции) и `html` (готовая вёрстка содержимого),
     плюс всё общее окружение страницы.
+
+    `seen` - куда записать, что модуль что-то нарисовал: (источник страницы,
+    модуль, id секции или None). Так проверка демо темы (`core/demo.py`) узнаёт,
+    какие блоки показаны, по настоящему рендеру, а не по догадке.
     """
 
-    def __init__(self, env: Environment, context: dict[str, Any], collector: Collector) -> None:
+    def __init__(
+        self,
+        env: Environment,
+        context: dict[str, Any],
+        collector: Collector,
+        seen: set[tuple[str, str, str | None]] | None = None,
+    ) -> None:
         self._env = env
         self._context = context
         self._collector = collector
+        self._seen = seen
 
     def __getattr__(self, name: str):
         def render(section_id: str | None = None, **extra: Any) -> Markup:
@@ -109,7 +124,10 @@ class Modules:
                 html=Markup(section.html) if section is not None else Markup(""),
             )
             scope.update(extra)
-            return Markup(template.render(**scope))
+            out = Markup(template.render(**scope))
+            if self._seen is not None and out.strip():
+                self._seen.add((str(page.source), name.replace("_", "-"), section_id))
+            return out
 
         return render
 
@@ -425,8 +443,9 @@ def context(
     collector: Collector,
     media: Manifest | None = None,
     build_env: BuildEnv | None = None,
+    seen: set[tuple[str, str, str | None]] | None = None,
 ) -> dict[str, Any]:
-    """Всё, что видит шаблон страницы."""
+    """Всё, что видит шаблон страницы. `seen` - запись нарисованных модулей (`Modules`)."""
     shared: dict[str, Any] = {
         "page": page,
         # значения сайта уже на языке страницы: name_ru сильнее name
@@ -443,7 +462,7 @@ def context(
     # Страница по ключу, на языке текущей: `page_of('services')`,
     # `page_of('/')` — главная. Нет такой — None, тема решает сама.
     shared["page_of"] = lambda key, lang=None: site.page(key, lang or page.lang)
-    shared["mod"] = Modules(env, shared, collector)
+    shared["mod"] = Modules(env, shared, collector, seen)
     shared["jsonld"] = lambda: Markup(jsonld.render(page, config, theme, site))
     # Языковые версии для <head>. Тот же набор, что уезжает в карту сайта:
     # разойтись они не имеют права, иначе поисковик считает набор

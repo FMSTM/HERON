@@ -81,8 +81,8 @@ Language you prefer to work in: hints, messages, comments in files
 Сайт создан: мой-сайт
 Создано:
   + конфиг: site.yaml, .gitignore
-  + контент en: главная, blocks.md, themes.md, docs.md, страница 404
-  + контент ru: главная, blocks.md, themes.md, docs.md, страница 404
+  + контент en: главная, blocks.md, themes.md, docs.md, structure/_index.md, structure/one-intent.md, structure/categories.md, страница 404
+  + контент ru: главная, blocks.md, themes.md, docs.md, structure/_index.md, structure/one-intent.md, structure/categories.md, страница 404
   + тема: 25 файлов - theme.yaml, шаблоны, модули, стили
   ...
 
@@ -110,11 +110,12 @@ Language you prefer to work in: hints, messages, comments in files
 └── AGENTS.md, CLAUDE.md, GEMINI.md, agents/   инструкции для AI-агента, если тексты будет писать он (об этом ниже)
 ```
 
-Кроме главной, в `content/` лежат три демонстрационные страницы:
+Кроме главной, в `content/` лежат демонстрационные страницы:
 
 - «Блоки» (`blocks.md`) - все виды блоков, которые умеет показывать тема;
 - «Темы» (`themes.md`) - как сменить оформление;
-- «Документация» (`docs.md`) - где читать дальше.
+- «Документация» (`docs.md`) - где читать дальше;
+- «Структура» (папка `structure/`) - раздел со своей страницей `_index.md` и двумя страницами внутри: как разложить сайт по страницам и разделам.
 
 Их удобно смотреть так: файл в редакторе слева, та же страница в браузере справа. Тексты демонстрационных страниц есть на русском и английском, остальные языки получают английские. Когда страницы станут не нужны, удалите файлы и уберите их из меню - `nav.main` в `site.yaml`.
 

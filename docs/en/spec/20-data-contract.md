@@ -54,7 +54,7 @@ Everything described below is the contract between the engine and the site folde
 │   ├── en/                   a folder for each language from site.languages;
 │   │   ├── index.md          home page - put by heron new/init
 │   │   └── 404.md            the "not found" page - put by heron new/init
-│   │   └── blocks.md, docs.md, themes.md   demo pages - put by heron new; delete the extra ones
+│   │   └── blocks.md, docs.md, themes.md, structure/   demo pages - put by heron new; delete the extra ones
 │   └── ru/
 │
 ├── data/                     yaml reference data: lists, tables, company details

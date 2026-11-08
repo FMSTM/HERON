@@ -113,7 +113,9 @@ def test_module_examples_are_the_real_markdown_of_the_module(md, lang):
 @pytest.mark.parametrize("lang", ["ru", "en", "uk"])
 def test_every_demo_block_is_drawn_by_a_described_module(md, lang):
     theme = starter()
-    for page in (DEMO / lang).glob("*.md"):
+    pages = sorted((DEMO / lang).rglob("*.md"))
+    assert any(page.parent.name == "structure" for page in pages)  # и страницы раздела
+    for page in pages:
         for section in parse(md, page.read_text(encoding="utf-8")).values():
             assert theme.module_for(section.kind), (page.name, section.id, section.kind)
 

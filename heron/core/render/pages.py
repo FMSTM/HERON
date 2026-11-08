@@ -44,8 +44,9 @@ def render_page(
     collector: Collector,
     media: Manifest | None = None,
     build_env: BuildEnv | None = None,
+    seen: set[tuple[str, str, str | None]] | None = None,
 ) -> str:
-    """Собрать HTML одной страницы."""
+    """Собрать HTML одной страницы. `seen` - запись нарисованных модулей (`env.Modules`)."""
     name = template_name(page, theme)
     try:
         template = env.get_template(name)
@@ -66,7 +67,9 @@ def render_page(
             hint=Msg("render_template_syntax_hint"),
         ) from exc
 
-    scope = envmod.context(env, page, site, config, theme, strings, collector, media, build_env)
+    scope = envmod.context(
+        env, page, site, config, theme, strings, collector, media, build_env, seen
+    )
     try:
         return template.render(**scope)
     except TemplateNotFound as exc:
@@ -134,8 +137,11 @@ def render_site(
     build_env: BuildEnv | None = None,
     progress=None,
     hooks=None,
+    seen: set[tuple[str, str, str | None]] | None = None,
 ) -> dict[str, str]:
     """Собрать HTML всех страниц. Ключ — адрес страницы.
+
+    `seen` - куда записать нарисованные модули (проверка демо и справка темы).
 
     `on_page_rendered(page, html)` плагина может вернуть новый HTML —
     он и идёт дальше; `None` — оставить как есть.
@@ -156,7 +162,16 @@ def render_site(
             progress.tick(index, len(site.pages), page.url or "/")
         try:
             html = render_page(
-                env, page, site, config, theme, strings[page.lang], collector, media, build_env
+                env,
+                page,
+                site,
+                config,
+                theme,
+                strings[page.lang],
+                collector,
+                media,
+                build_env,
+                seen,
             )
             if hooks is not None:
                 html = hooks.pipe("on_page_rendered", page, html)

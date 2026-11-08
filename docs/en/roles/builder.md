@@ -26,7 +26,7 @@ heron new my-site --notes en --name "Site name" --domain example.com --lang en,r
 - `--lang` - languages separated by commas, the first one is the main one; `--domain` without a scheme. If you do not know the domain, do not pass it: the placeholder `<name>.example` stays, and that is a line in the report;
 - `--notes ru|en` - the language of help, messages and comments in all files; `en` by default, remembered in `build.notes`;
 - a folder under git (`.git`, `.gitignore`, `README`) is fine: `heron new . …`;
-- the result is `site.yaml`, a theme, in each language a home page, a 404 and the demo pages `blocks.md`, `themes.md`, `docs.md`, the images `media/cover.png` and `media/demo/`, notes in the folders. The starter site builds with `--env prod --strict` without warnings. The demo pages are not in the site structure: their fate is a line in the report and a question to the human.
+- the result is `site.yaml`, a theme, in each language a home page, a 404 and the demo pages `blocks.md`, `themes.md`, `docs.md`, the section `structure/`, the images `media/cover.png` and `media/demo/`, notes in the folders. The starter site builds with `--env prod --strict` without warnings. The demo pages are not in the site structure: their fate is a line in the report and a question to the human.
 
 If a folder with content already exists - not `new` but `heron init my-site`: it adds what is missing and overwrites nothing.
 

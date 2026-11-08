@@ -9,7 +9,7 @@ Make a theme that draws every page type of the structure and does not break on i
 
 ## 1. Start with the starter theme
 
-`heron new` puts a working starter theme: the types `home`, `page`, `404`, 13 modules: 11 section forms (`alert-list` draws `list.html`, `two-lists` draws `checklist.html`), `breadcrumbs` and `children`, the section layout in `partials/sections.html`, its demo pages - the home page, `blocks.md` (every form), `themes.md`, `docs.md`; a light and a dark scheme. It builds from the first minute - change it step by step and build after each step. To install a theme from the catalog, by link or as an archive - `heron theme get` (`21` §10).
+`heron new` puts a working starter theme: the types `home`, `page`, `404`, 13 modules: 11 section forms (`alert-list` draws `list.html`, `two-lists` draws `checklist.html`), `breadcrumbs` and `children`, the section layout in `partials/sections.html`, its demo pages - the home page, `blocks.md` (every form), `themes.md`, `docs.md`, the section `structure/` (view `list`), 404 - the demo shows every type, block and section view, without it the theme is not packed (`heron check --theme`, the theme reference - `heron docs theme-ref`); a light and a dark scheme. It builds from the first minute - change it step by step and build after each step. To install a theme from the catalog, by link or as an archive - `heron theme get` (`21` §10).
 
 ## 2. `theme.yaml`
 

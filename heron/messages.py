@@ -429,6 +429,7 @@ TITLES: dict[str, dict[str, str]] = {
         "E032": "the theme cannot be installed: archive, catalog or check",
         "E035": "the cache or lock file cannot be created next to the build folder",
         "E036": "an image master cannot be read as an image",
+        "E037": "the theme demo does not show every type, block or section view",
     },
 }
 
@@ -661,7 +662,14 @@ TEXT["ru"].update(
             "или создайте сайт: `heron new имя-сайта`"
         ),
         "theme_done": "Тема {name} поставлена.",
-        "theme_demo": "страниц-примеров темы добавлено: {count} (ваши страницы не тронуты)",
+        "theme_demo": (
+            "демо темы разложено: {count} {count:страница|страницы|страниц}, всего файлов "
+            "{files} (ваши файлы не тронуты):"
+        ),
+        "theme_demo_kept": (
+            "оставлены как есть (у сайта уже есть такой файл): {count} {count:файл|файла|файлов}"
+        ),
+        "theme_pack_warning": "предупреждение: {warning}",
         "theme_https": "тему по ссылке берём только по https",
     }
 )
@@ -685,7 +693,14 @@ TEXT["en"].update(
             "or create a site: `heron new site-name`"
         ),
         "theme_done": "Theme {name} is in place.",
-        "theme_demo": "theme example pages added: {count} (your pages untouched)",
+        "theme_demo": (
+            "the theme demo placed: {count} {count:page|pages}, {files} {files:file|files} "
+            "in all (your files untouched):"
+        ),
+        "theme_demo_kept": (
+            "kept as they are (the site already has such a file): {count} {count:file|files}"
+        ),
+        "theme_pack_warning": "warning: {warning}",
         "theme_https": "a theme by link is taken over https only",
     }
 )
@@ -1097,7 +1112,8 @@ TEXT["ru"].update(
         ),
         "help_theme_list": "Каталог тем HERON.",
         "help_theme_pack": (
-            "Упаковать тему сайта вместе с его контентом - демо-страницами для heron theme get."
+            "Упаковать тему сайта вместе с его контентом - демо-страницами для heron theme get. "
+            "Демо должно показать каждый тип, блок и вид раздела темы, иначе E037."
         ),
         "help_page": "Заготовка страницы со всеми секциями своего типа.",
         "help_describe": (
@@ -1122,6 +1138,7 @@ TEXT["ru"].update(
             "heron docs                        оглавление\n"
             "heron docs kit                    с чего начинать агенту\n"
             "heron docs template page.md       образец файла\n"
+            "heron docs theme-ref .            справка темы сайта: блоки, примеры, markdown\n"
             "heron docs --search E023          поиск по всей документации\n"
             "heron docs --export .heron-docs   папкой, со ссылками между файлами\n"
             "heron docs --lang en engine       тема на английском"
@@ -1151,6 +1168,10 @@ TEXT["ru"].update(
         "help_opt_strict": "Считать предупреждения ошибками.",
         "help_opt_drafts": "Включить страницы с `published: false`.",
         "help_opt_json": "Ошибки и предупреждения в JSON - для агента и CI.",
+        "help_opt_check_theme": (
+            "Проверить сайт как демо темы: у каждого типа есть демо-страница, каждый блок "
+            "и вид раздела показан (так же проверяет `heron theme pack`)."
+        ),
         "help_opt_old_urls": (
             "Файл со старыми адресами (по строке на адрес или выгрузка из поисковой консоли): "
             "каждый должен вести на страницу, в redirect_from или в раздел «удалено»."
@@ -1288,7 +1309,8 @@ TEXT["en"].update(
         ),
         "help_theme_list": "The HERON theme catalog.",
         "help_theme_pack": (
-            "Pack the site's theme together with its content - demo pages for heron theme get."
+            "Pack the site's theme together with its content - demo pages for heron theme get. "
+            "The demo must show every type, block and section view of the theme, otherwise E037."
         ),
         "help_page": "A page draft with every section of its type.",
         "help_describe": (
@@ -1315,6 +1337,7 @@ TEXT["en"].update(
             "heron docs                        contents\n"
             "heron docs kit                    where an agent starts\n"
             "heron docs template page.md       a sample file\n"
+            "heron docs theme-ref .            the theme reference: blocks, examples, markdown\n"
             "heron docs --search E023          search all the documentation\n"
             "heron docs --export .heron-docs   as a folder, with links between files\n"
             "heron docs --lang en engine       a topic in English"
@@ -1343,6 +1366,10 @@ TEXT["en"].update(
         "help_opt_strict": "Treat warnings as errors.",
         "help_opt_drafts": "Include pages with `published: false`.",
         "help_opt_json": "Errors and warnings as JSON - for an agent and CI.",
+        "help_opt_check_theme": (
+            "Check the site as the demo of its theme: every type has a demo page, every block "
+            "and section view is shown (the same check as `heron theme pack`)."
+        ),
         "help_opt_old_urls": (
             "File with old URLs (one per line or a Search Console CSV): each must lead to a "
             "page, a redirect_from or gone."

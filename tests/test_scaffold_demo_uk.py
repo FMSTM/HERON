@@ -63,6 +63,6 @@ def test_no_dashes_in_uk_texts(tmp_path):
     site, _ = _new(tmp_path, "uk,ru,en")
     for values in DEMO_TITLES["uk"].values():
         assert not any(ch in part for part in values for ch in "—–")
-    for page in (site / "content" / "uk").glob("*.md"):
+    for page in (site / "content" / "uk").rglob("*.md"):
         text = page.read_text(encoding="utf-8")
         assert "—" not in text and "–" not in text, page

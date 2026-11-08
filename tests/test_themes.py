@@ -21,8 +21,10 @@ from heron.themes import install, pack
 
 @pytest.fixture
 def site(tmp_path: Path) -> Path:
+    # с демо: тема упаковывается, только если контент показывает все её типы,
+    # блоки и виды разделов (STUDIO ST3, E037)
     root = tmp_path / "site"
-    create(root, name="Example", languages=["en", "de"])
+    create(root, name="Example", languages=["en", "de"], demo=True)
     return root
 
 
@@ -202,7 +204,16 @@ def test_theme_get_accepts_absolute_and_cwd_relative(site: Path, tmp_path: Path,
 # --- стартовая тема на языке пояснений сайта (E15.S1.T10, W1, F07) -------------------
 
 CYRILLIC = re.compile(r"[А-Яа-яЁё]")
-DEMO = ("index.md", "blocks.md", "themes.md", "docs.md")
+DEMO = (
+    "index.md",
+    "blocks.md",
+    "themes.md",
+    "docs.md",
+    "structure/_index.md",
+    "structure/one-intent.md",
+    "structure/categories.md",
+    "404.md",
+)
 
 
 def _plain(rel: str, data: bytes) -> str:

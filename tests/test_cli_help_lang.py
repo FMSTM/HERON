@@ -53,6 +53,7 @@ TOKENS = {
     "kit",
     "template",
     "engine",
+    "ref",  # heron docs theme-ref
 }
 
 

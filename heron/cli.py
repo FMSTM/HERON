@@ -602,6 +602,7 @@ def _check_json(
     allow_schema: tuple[str, ...] = (),
     old_urls: Path | None = None,
     lang: str = "en",
+    theme_demo: bool = False,
 ) -> None:
     """`heron check --json`: коды, файлы и строки — разбирать, а не читать.
 
@@ -630,6 +631,7 @@ def _check_json(
             env=env,
             allow_schema=list(allow_schema),
             notes_lang=lang,
+            theme_demo=theme_demo,
         )
         if old_urls is not None:
             listed = report_module.read_old_urls(old_urls)
@@ -1298,6 +1300,7 @@ def init(
     metavar="help_mv_file",
     help="help_opt_old_urls",
 )
+@_option("--theme", "theme_demo", is_flag=True, help="help_opt_check_theme")
 @NOTES_OPTION
 @_path_argument
 def check(
@@ -1309,6 +1312,7 @@ def check(
     as_json: bool,
     old_urls: Path | None,
     notes: str | None,
+    theme_demo: bool = False,
 ) -> None:
     """Проверить контент и конфиг, ничего не собирая."""
     lang = _lang(notes, path)
@@ -1317,7 +1321,7 @@ def check(
     _need_site(path, lang)
     env = BuildEnv.resolve(env_name)
     if as_json:
-        _check_json(path, strict, drafts, env, allow_schema, old_urls, lang)
+        _check_json(path, strict, drafts, env, allow_schema, old_urls, lang, theme_demo)
         return
     click.secho(
         say(lang, "check_head", version=__version__, path=_shown(path)), bold=True, err=True
@@ -1330,6 +1334,7 @@ def check(
             env=env,
             allow_schema=list(allow_schema),
             notes_lang=lang,
+            theme_demo=theme_demo,
         )
     except HeronError as error:
         _fail(error, lang)
@@ -1724,9 +1729,15 @@ def theme_get(source: str, path: Path, notes: str | None) -> None:
     click.secho(say(lang, "theme_done", name=installed.name), fg="green", bold=True)
     if installed.backup:
         click.echo("  " + say(lang, "setup_backup", file=installed.backup))
-    pages = [x for x in installed.created if x.startswith("content/")]
-    if pages:
-        click.echo("  " + say(lang, "theme_demo", count=len(pages)))
+    placed = [x for x in installed.created if x != "theme/"]
+    if placed:
+        # что именно легло: человек видит, какие файлы появились в его папке
+        pages = len([x for x in placed if x.startswith("content/")])
+        click.echo("  " + say(lang, "theme_demo", count=pages, files=len(placed)))
+        for rel in placed:
+            click.echo(f"    {rel}")
+    if installed.kept:
+        click.echo("  " + say(lang, "theme_demo_kept", count=len(installed.kept)))
     click.echo(say(lang, "setup_next", path=_shown(path)))
 
 
@@ -1776,10 +1787,13 @@ def theme_pack(path: Path, out: Path | None, notes: str | None) -> None:
 
     lang = _lang(notes, path)
     target = out or (path / "dist" / "theme.tar.gz")
+    notices: list = []
     try:
-        made = themes.pack(path, target)
+        made = themes.pack(path, target, notices)
     except HeronError as error:
         _fail(error, lang)
+    for notice in notices:
+        _err(say(lang, "theme_pack_warning", warning=rendered(notice, lang)), "yellow")
     click.echo(str(made))
 
 
@@ -1897,6 +1911,11 @@ def docs(
     if name is None:
         click.echo(library.contents(lang), nl=False)
         return
+    if name == "theme-ref":
+        site = Path(file or ".")
+        # без --lang - язык пояснений самого сайта, а не текущей папки
+        _theme_ref(site, lang_flag or _lang(notes, site))
+        return
     if name == "template":
         names = library.templates(lang)
         if file not in names:
@@ -1913,6 +1932,18 @@ def docs(
         _err(say(lang, "docs_no_topic", name=name))
         sys.exit(1)
     click.echo(library.read(item.path, lang), nl=False)
+
+
+def _theme_ref(path: Path, lang: str) -> None:
+    """`heron docs theme-ref [путь]`: справка темы сайта из контракта и демо (21 §7)."""
+    from heron.core.render import themeref
+
+    _need_site(path, lang)
+    try:
+        data = themeref.load(path, lang)
+    except HeronError as error:
+        _fail(error, lang)
+    click.echo((rendered(themeref.text(data, lang), lang) or "").rstrip("\n"))
 
 
 if __name__ == "__main__":

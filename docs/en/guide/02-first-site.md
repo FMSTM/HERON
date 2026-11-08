@@ -81,8 +81,8 @@ At the end the engine shows a "Summary" and asks you to confirm. Enter - and the
 Site created: my-site
 Created:
   + config: site.yaml, .gitignore
-  + content en: home page, blocks.md, themes.md, docs.md, 404 page
-  + content ru: home page, blocks.md, themes.md, docs.md, 404 page
+  + content en: home page, blocks.md, themes.md, docs.md, structure/_index.md, structure/one-intent.md, structure/categories.md, 404 page
+  + content ru: home page, blocks.md, themes.md, docs.md, structure/_index.md, structure/one-intent.md, structure/categories.md, 404 page
   + theme: 25 files - theme.yaml, templates, modules, styles
   ...
 
@@ -110,11 +110,12 @@ my-site/
 └── AGENTS.md, CLAUDE.md, GEMINI.md, agents/   instructions for an AI agent, if it writes the texts (see below)
 ```
 
-Besides the home page, `content/` holds three demo pages:
+Besides the home page, `content/` holds demo pages:
 
 - "Blocks" (`blocks.md`) - every kind of block the theme can show;
 - "Themes" (`themes.md`) - how to change the look;
-- "Documentation" (`docs.md`) - where to read next.
+- "Documentation" (`docs.md`) - where to read next;
+- "Structure" (the folder `structure/`) - a section with its own page `_index.md` and two pages inside: how to lay a site out as pages and sections.
 
 They are handy to look at like this: the file in the editor on the left, the same page in the browser on the right. The demo pages have texts in Russian and English; other languages get the English ones. When you no longer need the pages, delete the files and remove them from the menu - `nav.main` in `site.yaml`.
 

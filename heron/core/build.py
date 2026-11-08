@@ -21,6 +21,7 @@ from heron.core import check as templates_check
 from heron.core import data as data_module
 from heron.core import (
     dates,
+    demo,
     links,
     media,
     notes,
@@ -40,6 +41,7 @@ from heron.core.parser import markdown
 from heron.core.progress import Progress, Silent
 from heron.core.render import env as render_env
 from heron.core.render import pages as renderer
+from heron.core.render import themeref
 from heron.messages import Msg
 from heron.modules import feed, jsonld, llms, nginx, redirects, robots, sitemap
 from heron.schemaorg import policy
@@ -327,8 +329,20 @@ def run(
             return result
 
         say.step("step_templates")
+        # Черновая сборка пишет, что нарисовал каждый модуль: из этого и из
+        # контракта темы собирается служебная справка темы /_heron/theme/.
+        seen: demo.Seen | None = None if env.is_prod else set()
         html = renderer.render_site(
-            theme_dir, site, config, theme, collector, manifest, env, progress=say, hooks=hooks
+            theme_dir,
+            site,
+            config,
+            theme,
+            collector,
+            manifest,
+            env,
+            progress=say,
+            hooks=hooks,
+            seen=seen,
         )
         say.done("done_pages", count=len(html))
         if collector.failed:
@@ -367,6 +381,17 @@ def run(
         claim(redirects.files(moves), "generator", Msg("build_owner_redirects"))
         claim(nginx.generate(config, moves), "generator", Msg("build_owner_nginx"))
         claim(feed.generate(site, config), "generator", Msg("build_owner_feed"))
+        if seen is not None:
+            # Справка темы - только в черновой сборке: в боевую, в карту сайта
+            # и в llms.txt она не попадает, у неё noindex (21 §7 «Справка темы»).
+            found = demo.shown(site, theme, seen)
+            claim(
+                themeref.pages(
+                    theme_dir, site, config, theme, found, manifest, env, hooks, notes_lang
+                ),
+                "generator",
+                Msg("build_owner_theme_ref"),
+            )
         say.done()
 
         for extra in hooks.call("on_generate", site, config):
@@ -646,10 +671,14 @@ def check(
     env: BuildEnv | None = None,
     allow_schema: Sequence[str] = (),
     notes_lang: str | None = None,
+    theme_demo: bool = False,
 ) -> Result:
     """Обойти и проверить, ничего не собирая.
 
     Строгий режим тот же, что у сборки: `strict` или `build.fail_on_warning`.
+    `theme_demo` (`check --theme`) - сайт ещё и демо своей темы: страницы
+    собираются шаблонами темы, и каждый тип, блок и вид раздела должен быть
+    показан (`core/demo.py`, E037).
     """
     collector = Collector()
     site_root = site_root.resolve()
@@ -678,6 +707,8 @@ def check(
     media.verify(site, site_root, collector, config)
     media.verify_covers(site, site_root, collector, theme.images, config)
     redirects.generate(site, collector, config)
+    if theme_demo and not collector.failed:
+        demo.verify(theme, theme_dir, site, config, collector, hooks)
 
     built = report.build(
         site, config, theme, theme_dir=theme_dir, site_root=site_root, lang=notes_lang

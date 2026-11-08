@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import shutil
 import time
 from pathlib import Path
 
@@ -127,9 +128,7 @@ def test_symlinked_theme_and_content_on_theme_install(tmp_path):
 def test_symlinked_content_on_init(tmp_path):
     root = _site(tmp_path)
     out = _outside(tmp_path)
-    for path in (root / "content" / "en").glob("*.md"):
-        path.unlink()
-    (root / "content" / "en").rmdir()
+    shutil.rmtree(root / "content" / "en")  # демо: страницы и раздел structure/
     (root / "content" / "en").symlink_to(out)
     before = _snapshot(out)
     _refused(lambda: adopt(root, notes="en"))

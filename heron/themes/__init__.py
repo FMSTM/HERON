@@ -21,6 +21,10 @@
 `.heron-cache/setup/`, а не стирается. Демо-контент кладётся только в пустые
 места: существующая страница сайта не перезаписывается никогда.
 
+Демо обязательно: `pack` упаковывает тему, только если контент сайта
+показывает каждый её тип, блок и вид раздела (`core/demo.py`, E037; у старой
+темы без `fields` - предупреждение).
+
 Спецификация: docs/spec/21-engine.md, раздел «heron theme».
 """
 
@@ -70,6 +74,8 @@ class Installed:
     created: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     backup: str = ""
+    # файлы демо, которые не легли: у сайта уже есть файл по этому пути
+    kept: list[str] = field(default_factory=list)
 
 
 def _fail(message: Msg, hint: Msg | None = None) -> HeronError:
@@ -339,6 +345,7 @@ def _place(root: Path, stage: Path, result: Installed) -> None:
     result.created.append("theme/")
     for path, target, rel in demo:
         if target.exists() or target.is_symlink():
+            result.kept.append(rel)
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
         paths.in_site(root, rel)  # папки созданы — проверить ещё раз
@@ -439,11 +446,57 @@ def install(
         return result
 
 
-def pack(root: Path, out: Path) -> Path:
-    """Упаковать тему сайта и его контент (демонстрационные страницы темы) в архив темы."""
+def check_demo(root: Path) -> list[Msg]:
+    """Контент сайта - полное демо темы `theme/`: иначе HeronError (E037 или ошибка контента).
+
+    Возвращает предупреждения: у старой темы без `fields` неполное демо - не отказ.
+    """
+    from heron.contracts.site import load_site
+    from heron.contracts.theme import load_theme
+    from heron.core import build as pipeline
+    from heron.core import demo
+    from heron.core import resolver as found_theme
+    from heron.core.errors import Collector
+    from heron.core.hooks import Hooks
+
+    root = Path(root).resolve()
+    if not (root / "site.yaml").is_file():
+        raise HeronError(
+            code=demo.CODE,
+            message=Msg("demo_no_site", path=str(root)),
+            path=str(root / "site.yaml"),
+            hint=Msg("demo_no_site_hint"),
+        )
+    collector = Collector()
+    config = load_site(root / "site.yaml")
+    theme_dir = root / "theme"
+    theme = load_theme(theme_dir / "theme.yaml")
+    hooks = Hooks()
+    found_theme.plugins(root, config.plugins, hooks)
+    site = pipeline.content(root, config, theme, theme_dir, hooks, collector, False)
+    if not collector.errors:
+        demo.verify(theme, theme_dir, site, config, collector, hooks)
+    if collector.errors:
+        raise collector.errors[0]
+    return [
+        warning.message
+        for warning in collector.warnings
+        if getattr(warning.message, "key", None) == "demo_incomplete_old"
+    ]
+
+
+def pack(root: Path, out: Path, notices: list[Msg] | None = None) -> Path:
+    """Упаковать тему сайта и его контент (демонстрационные страницы темы) в архив темы.
+
+    Сначала - проверка демо (`check_demo`): тема, у которой демо показывает не
+    всё, не упаковывается. Предупреждения проверки - в `notices`.
+    """
     root = Path(root)
     theme = root / "theme"
     name = _check_theme(theme, {})
+    warned = check_demo(root)
+    if notices is not None:
+        notices.extend(warned)
     from heron import __version__
 
     major, minor, *_ = __version__.split(".")

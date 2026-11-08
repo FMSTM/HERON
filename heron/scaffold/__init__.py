@@ -91,15 +91,29 @@ STRINGS = {
 
 # Демонстрационный сайт белой темы: тема без своих страниц — пустая витрина.
 # Главная, «Блоки» (все виды блоков, которые рисует тема), «Темы»,
-# «Документация» — в каждом языке сайта: страницы стоят в меню, и без них
-# меню второго языка вело бы в никуда (строгая сборка падает). Тексты есть
-# на украинском, русском и английском; остальные языки получают английские.
+# «Документация», раздел «Структура» со своими страницами (вид list) и 404 —
+# в каждом языке сайта: страницы стоят в меню, и без них меню второго языка
+# вело бы в никуда (строгая сборка падает). Демо показывает каждый тип, блок
+# и вид раздела темы: без этого тема не упаковывается (`heron theme pack`,
+# 21 §10 «heron theme»). Тексты есть на украинском, русском и английском;
+# остальные языки получают английские.
 DEMO = HERE / "demo"
 DEMO_MEDIA = DEMO / "media"
 # Обложка по умолчанию заготовки: seo.og_default_image в site.yaml ведёт сюда
 COVER_NAME = "cover.png"
 DEMO_LANGS = ("uk", "ru", "en")
-DEMO_PAGES = ("index", "blocks", "themes", "docs")
+DEMO_PAGES = (
+    "index",
+    "blocks",
+    "themes",
+    "docs",
+    "structure/_index",
+    "structure/one-intent",
+    "structure/categories",
+)
+DEMO_ORDER = (0, 10, 20, 30, 40, 10, 20)
+# Страница раздела, у которой демо показывает вид list: строка `view: list`
+DEMO_VIEWS = {"structure/_index": "list"}
 DEMO_TITLES = {
     # страница → (title, h1, description, пункт меню), {name} — название сайта
     "uk": {
@@ -128,6 +142,25 @@ DEMO_TITLES = {
             "Головні команди HERON: створити, налаштувати, подивитися, перевірити, зібрати.",
             "Документація",
         ),
+        "structure/_index": (
+            "Структура сайту - як розкласти сторінки",
+            "Структура сайту",
+            "Як розкласти сайт на сторінки й розділи: одна сторінка - одне запитання, "
+            "розділ - тека зі своєю сторінкою.",
+            "Структура",
+        ),
+        "structure/one-intent": (
+            "Одна сторінка - одне запитання: як розкласти сайт",
+            "Одна сторінка - одне запитання",
+            "Чому кожна сторінка відповідає на одне запитання людини і як це допомагає в пошуку.",
+            "Одне запитання",
+        ),
+        "structure/categories": (
+            "Розділи і вкладеність - як завести розділ",
+            "Розділи і вкладеність",
+            "Як завести розділ сайту: тека, сторінка _index.md, вигляд карток або рядків.",
+            "Розділи",
+        ),
     },
     "ru": {
         "index": (
@@ -154,6 +187,25 @@ DEMO_TITLES = {
             "Документация",
             "Главные команды HERON: создать, настроить, посмотреть, проверить, собрать.",
             "Документация",
+        ),
+        "structure/_index": (
+            "Структура сайта - как разложить страницы",
+            "Структура сайта",
+            "Как разложить сайт по страницам и разделам: одна страница - один вопрос, "
+            "раздел - папка со своей страницей.",
+            "Структура",
+        ),
+        "structure/one-intent": (
+            "Одна страница - один вопрос: как разложить сайт",
+            "Одна страница - один вопрос",
+            "Почему каждая страница отвечает на один вопрос человека и как это помогает в поиске.",
+            "Один вопрос",
+        ),
+        "structure/categories": (
+            "Разделы и вложенность - как завести раздел",
+            "Разделы и вложенность",
+            "Как завести раздел сайта: папка, страница _index.md, вид карточками или строками.",
+            "Разделы",
         ),
     },
     "en": {
@@ -182,9 +234,28 @@ DEMO_TITLES = {
             "The main HERON commands: create, set up, look, check, build.",
             "Documentation",
         ),
+        "structure/_index": (
+            "Site structure - how to lay out the pages",
+            "Site structure",
+            "How to lay a site out as pages and sections: one page - one question, "
+            "a section - a folder with its own page.",
+            "Structure",
+        ),
+        "structure/one-intent": (
+            "One page - one question: how to lay out a site",
+            "One page - one question",
+            "Why every page answers one question of a person and how it helps in search.",
+            "One question",
+        ),
+        "structure/categories": (
+            "Sections and nesting - how to make a section",
+            "Sections and nesting",
+            "How to make a section of a site: a folder, the page _index.md, cards or rows.",
+            "Sections",
+        ),
     },
 }
-DEMO_NAV = ["/", "blocks", "themes", "docs"]
+DEMO_NAV = ["/", "blocks", "themes", "docs", "structure"]
 
 # Язык комментариев и пояснений, которые кладёт скелет: site.yaml,
 # theme.yaml, SEO-блок страниц, записки heron-readme.md.
@@ -481,9 +552,19 @@ STARTER = {
 }
 
 
+# Комментарии SEO-блока: строка type, строка без type, строка вида раздела view
+# (демо-страница раздела, `DEMO_VIEWS`)
 _TYPE_HINTS = {
-    "ru": ("тип страницы: какой шаблон темы её рисует", "тип, если не задан папкой"),
-    "en": ("page type: which theme template renders it", "type, if not set by the folder"),
+    "ru": (
+        "тип страницы: какой шаблон темы её рисует",
+        "тип, если не задан папкой",
+        "вид списка страниц раздела: list - строками; без ключа - карточками",
+    ),
+    "en": (
+        "page type: which theme template renders it",
+        "type, if not set by the folder",
+        "how the section lists its pages: list - as rows; without the key - as cards",
+    ),
 }
 _THEME_TITLE = {"ru": "Тема сайта {name}", "en": "Theme of {name}"}
 
@@ -552,11 +633,17 @@ def _demo(root: Path, lang: str, name: str, plan: Plan, force: bool, notes: str)
     Ссылки на репозиторий движка и образ в команде — на канал образа (`_demo_links`).
     """
     source = lang if lang in DEMO_LANGS else "en"
-    for page, order in zip(DEMO_PAGES, (0, 10, 20, 30), strict=True):
+    for page, order in zip(DEMO_PAGES, DEMO_ORDER, strict=True):
         title, h1, description, nav = (part.format(name=name) for part in DEMO_TITLES[source][page])
         head = seo_block(title, h1, description, order=order, notes=notes, nav_title=nav)
+        view = DEMO_VIEWS.get(page)
+        if view:
+            marker = "\n# children_type:"
+            line = f"\nview: {view}\n# ↑ {_TYPE_HINTS[notes][2]}"
+            head = head.replace(marker, line + marker, 1)
         body = _demo_links((DEMO / source / f"{page}.md").read_text(encoding="utf-8"))
         _put(root, f"content/{lang}/{page}.md", head + "\n" + body, plan, force)
+    _starter(root, lang, name, plan, force, notes, pages=("404",))
     for image in sorted(DEMO_MEDIA.glob("*")):
         if image.name == COVER_NAME:
             continue  # обложка по умолчанию лежит в media/ сайта, а не в media/demo/
@@ -735,7 +822,6 @@ def create(
     for lang in languages:
         if demo:
             _demo(root, lang, name, plan, force, notes)
-            _starter(root, lang, name, plan, force, notes, pages=("404",))
         else:
             _starter(root, lang, name, plan, force, notes)
 

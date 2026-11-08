@@ -78,6 +78,10 @@ def built(root: Path) -> set[str]:
 def links(root: Path) -> set[str]:
     found: set[str] = set()
     for path in (root / "dist").rglob("*"):
+        # служебная справка темы черновой сборки (/_heron/theme/) пишет пути
+        # картинок текстом - исходный markdown и подсказки, - а не ссылками
+        if "_heron" in path.relative_to(root / "dist").parts:
+            continue
         if path.is_file() and path.suffix in {".html", ".xml", ".txt", ".json", ".css"}:
             found.update(LINK.findall(path.read_text(encoding="utf-8")))
     return found

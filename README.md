@@ -56,7 +56,7 @@ docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/
 docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod setup my-site
 ```
 
-**3. Look at it.** The site opens at <http://localhost:8000> and is rebuilt on every file save. A new site already has the white theme and its demo pages: the home page, "Blocks" (every kind of block), "Themes", "Documentation":
+**3. Look at it.** The site opens at <http://localhost:8000> and is rebuilt on every file save. A new site already has the white theme and its demo pages: the home page, "Blocks" (every kind of block), "Themes", "Documentation", the section "Structure":
 
 ```bash
 docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod serve my-site

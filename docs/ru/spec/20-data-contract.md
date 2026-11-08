@@ -54,7 +54,7 @@
 │   ├── en/                   по папке на каждый язык из site.languages;
 │   │   ├── index.md          главная - кладёт heron new/init
 │   │   └── 404.md            страница «не найдено» - кладёт heron new/init
-│   │   └── blocks.md, docs.md, themes.md   демо-страницы - кладёт heron new; лишние удаляют
+│   │   └── blocks.md, docs.md, themes.md, structure/   демо-страницы - кладёт heron new; лишние удаляют
 │   └── ru/
 │
 ├── data/                     yaml-справочники: перечни, таблицы, реквизиты

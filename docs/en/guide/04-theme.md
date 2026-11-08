@@ -10,11 +10,11 @@ A HERON site is split into two independent parts. **The theme** decides how the 
 
 There are three ways:
 
-- **The starter theme** is already in every new site after `new`. It is white, with a light and a dark mode, and can show all thirteen section forms. It comes with demo pages in Russian and English: the home page, "Blocks" (every kind of block on one page), "Themes" and "Documentation". If you changed the theme and want the starter one back, run `theme get starter .`.
+- **The starter theme** is already in every new site after `new`. It is white, with a light and a dark mode, and can show all thirteen section forms. It comes with demo pages in Ukrainian, Russian and English: the home page, "Blocks" (every kind of block on one page), "Themes", "Documentation", the section "Structure" with two pages inside and the 404 page. If you changed the theme and want the starter one back, run `theme get starter .`.
 - **A theme from the catalog** is installed by name: `theme get <name> .`. To see the catalog - `theme list`. For now it has only `starter`.
 - **A theme by link or from an archive**: `theme get https://…/theme.tar.gz .` or `theme get ./theme.zip .`.
 
-To move your own theme to another site, pack it into an archive: `theme pack . --out theme.tar.gz`. The archive holds the theme and the site content - the content becomes the demo pages of the theme. Without `--out` the archive goes to `dist/theme.tar.gz`.
+To move your own theme to another site, pack it into an archive: `theme pack . --out theme.tar.gz`. The archive holds the theme and the site content - the content becomes the demo pages of the theme. That is why a theme is packed only if the content shows everything it can do (["The theme demo and reference"](#theme-demo)). Without `--out` the archive goes to `dist/theme.tar.gz`.
 
 The same commands in full:
 
@@ -24,7 +24,7 @@ docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmst
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod theme pack . --out theme.tar.gz
 ```
 
-When you install a new theme, the old one is not lost: it moves to `.heron-cache/setup/`, and the engine tells you exactly where. Site pages are not overwritten: the demo pages of the new theme are put only where there is no file yet. What an archive may and may not contain - [`21` §10](../spec/21-engine.md#heron-theme).
+When you install a new theme, the old one is not lost: it moves to `.heron-cache/setup/`, and the engine tells you exactly where. Site pages are not overwritten: the demo pages of the new theme are put only where there is no file yet. The engine lists every file it placed and says how many files it kept as they are because the site already had them. What an archive may and may not contain - [`21` §10](../spec/21-engine.md#heron-theme).
 
 ## What a theme consists of
 
@@ -156,6 +156,25 @@ docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmst
 ```
 
 All keys of the description - [`21` "Theme contract"](../spec/21-engine.md#theme-contract), the form of the `describe --json` output - [`21` §10](../spec/21-engine.md#heron-describe).
+
+## The theme demo and reference <a id="theme-demo"></a>
+
+The demo is not a decoration of a theme but its sample of presentation: which pages a site of this kind needs, which blocks they carry and in what order. The author of a theme thinks this structure through once, and whoever installs the theme gets it ready and replaces the texts with their own. That is why the demo is required and shows everything `theme.yaml` declares:
+
+- **every page type** - at least one page of that type: the home page, an ordinary page, 404 and any type of your own;
+- **every block** - the module drew something on at least one page, page modules (`breadcrumbs`, `children`) included;
+- **every section view** - a section page (a folder with `_index.md` and pages inside) with `view: <view>`, and for the default view - without this line.
+
+The demo of a theme is the content of the site it is packed from. To check it without packing, run `check . --theme`: the engine draws the pages with the templates of the theme and lists what is missing. The same list stops `theme pack` with error `E037`, and no archive is made. For an old theme without a field description an incomplete demo is only a warning. A plain `check .` does not require a demo: on your own site you may delete the demo pages you do not need.
+
+**The theme reference** is built from `theme.yaml` and the demo by itself, nobody writes it by hand: page types with their sections, every block with its hint and fields, next to it a live example from the demo and its source markdown, section views with the line that turns them on, schema.org markup, style variables and interface strings. Change the contract or the demo - the reference changes too. There are two ways to see it:
+
+```bash
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod docs theme-ref .
+docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod serve .
+```
+
+The first command prints the reference as text in the terminal: the examples there are the source markdown and the file it is in. The second starts the preview of the site: open `localhost:8000/_heron/theme/` in the browser - the same reference with live examples in the styles of the theme, in the other languages of the site - `/_heron/theme/<lang>/`. This service page exists only in a draft build and in the preview: it is not in the production build (`--env prod`), in the sitemap or in search.
 
 ## A page type template
 
@@ -387,10 +406,12 @@ The engine serves pages with the security rule `script-src 'self'`: the browser 
 
 ```bash
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod check .
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod check . --theme
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod build .
 ```
 
 - `check` - a report without a build: it quickly shows errors and warnings, including those in templates;
+- `check --theme` - the theme demo too: every type has a page, every block and section view is shown (["The theme demo and reference"](#theme-demo));
 - `build` - the theme draws every page; a template error names the page and the template;
 - the report after the build shows sections that are not in `uses`, forms of the wrong kind and missing `i18n` strings.
 

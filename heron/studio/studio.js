@@ -257,7 +257,14 @@
     const key = into ? into + "/" + name : name;
     if (key === what.key || (what.kind === "category" && (into + "/").startsWith(what.key + "/"))) return;
     if (!confirm(tr("move_q", { a: what.key, b: into || "/" }))) return;
-    const j = await api("save", { target: what, answers: { key } });
+    const body = { target: what, answers: { key } };
+    let j = await api("save", body);
+    // перенос в папку 0.2 заводит раздел попутно и может спрятать переведённые страницы:
+    // тот же вопрос, что у «Сохранить»; отказ - ничего не записано и не перенесено
+    if (j.ok && j.confirm) {
+      if (!window.confirm(j.confirm.message)) return;
+      j = await api("save", { ...body, confirm_pending: true });
+    }
     if (!j.ok) { note("bad", tr("error"), errLines(j)); return; }
     report(j.saved);
     if (S.target && S.target.key === what.key && S.target.kind === what.kind) { S.target = j.state.target; S.state = j.state; }

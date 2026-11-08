@@ -365,3 +365,68 @@ def test_typing_while_the_form_reloads_is_not_lost(tmp_path, monkeypatch):
     assert f":{port + 1}/" in result["preview"] and "k=" not in result["preview"], result
     console = [m for m in result["console"] if "can escape its sandboxing" not in m]
     assert not [m for m in console if "error" in m.lower()], console
+
+
+def test_dragging_a_page_into_a_0_2_folder_asks_before_hiding_pages(tmp_path, monkeypatch):
+    """STUDIO.FIX3: перенос в папку без _index.md спрашивает, как «Сохранить».
+
+    На en в папке уже есть переведённая страница: раздел без перевода спрятал бы её из
+    prod. Отказ - ничего не записано и перенос не показан; согласие - перенос и раздел.
+    """
+    python = _python()
+    if python is None:
+        pytest.skip("нет Playwright для Python: e2e студии пропущен")
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    root = tmp_path / "site"
+    create(root, name="Demo", languages=LANGS, notes="ru", demo=True)
+    for lang in ("ru", "en"):
+        folder = root / "content" / lang / "services"
+        folder.mkdir()
+        shutil.copy(root / "content" / lang / "docs.md", folder / "roofing.md")
+    (root / "content" / "ru" / "about.md").write_bytes(
+        (root / "content" / "ru" / "docs.md").read_bytes()
+    )
+    before = sorted(p.relative_to(root).as_posix() for p in (root / "content").rglob("*.md"))
+    port = _free_port()
+    box: dict[str, str] = {}
+    ready = threading.Event()
+
+    def on_ready(token: str) -> None:
+        box["token"] = token
+        ready.set()
+
+    thread = threading.Thread(
+        target=server.run,
+        args=(root, "127.0.0.1", port),
+        kwargs={"on_ready": on_ready, "start": {"tab": "pages"}},
+        daemon=True,
+    )
+    thread.start()
+    assert ready.wait(10)
+    try:
+        url = f"http://localhost:{port}/#{box['token']}"
+        done = subprocess.run(
+            [python, str(DRIVER), "move_into", url, str(root)],
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
+        )
+    finally:
+        _stop(port, box["token"], thread)
+    if done.returncode == 77:
+        pytest.skip("Chromium для Playwright не запускается: e2e студии пропущен")
+    assert done.returncode == 0, done.stdout + done.stderr
+    result = json.loads(done.stdout.strip().splitlines()[-1])
+    first, second = result["first"], result["second"]
+    # отказ: вопрос был, с пострадавшей страницей; ничего не записано и не показано
+    assert any("content/en/services/roofing.md" in m for m in first["asked"]), result
+    assert first["about"] == 1 and "services/about" not in first["toast"], result
+    assert first["files"] == before, result
+    assert [m for m in result["console"] if "pageerror" in m] == [], result
+    assert any("prod" in m for m in second["asked"]), result
+    assert "services/about" in second["toast"], result
+    after = sorted(p.relative_to(root).as_posix() for p in (root / "content").rglob("*.md"))
+    assert "content/ru/services/about.md" in after and "content/ru/about.md" not in after
+    assert (root / "content" / "en" / "services" / "_index.md").is_file()
+    assert set(after) - set(before) >= {"content/ru/services/_index.md"}

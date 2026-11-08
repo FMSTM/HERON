@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 
 SKIP = 77
 
@@ -214,6 +215,63 @@ def race(url: str) -> int:
     return 0
 
 
+def move_into(url: str, root: str) -> int:
+    """Перетаскивание страницы в папку 0.2: вопрос о страницах, которые выпадут из prod.
+
+    Первый раз вопрос отклоняется (ничего не записано, итога переноса нет), второй -
+    принимается. Печатает тексты вопросов, итоги и консоль браузера.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return SKIP
+    console: list[str] = []
+    asked: list[str] = []
+    with sync_playwright() as play:
+        try:
+            browser = play.chromium.launch()
+        except Exception:  # noqa: BLE001 - браузера нет или он не запускается
+            return SKIP
+        page = browser.new_page(viewport={"width": 1400, "height": 1000})
+        page.on("console", lambda m: console.append(f"{m.type}: {m.text}"))
+        page.on("pageerror", lambda e: console.append(f"pageerror: {e}"))
+        refuse = {"on": True}
+
+        def dialog(d) -> None:
+            asked.append(d.message)
+            # вопрос «перенести?» - да; вопрос о страницах из prod - как скажет сценарий
+            if "prod" in d.message and refuse["on"]:
+                d.dismiss()
+            else:
+                d.accept()
+
+        page.on("dialog", dialog)
+        page.goto(url)
+        source = '.st-node[data-key="about"]'
+        folder = '.st-node[data-key="services"]'
+        page.wait_for_selector(folder, timeout=30000)
+        page.drag_and_drop(source, folder)
+        page.wait_for_timeout(1500)
+        first = {
+            "asked": list(asked),
+            "toast": page.inner_text("#toast") if page.is_visible("#toast") else "",
+            "about": page.locator(source).count(),
+            # файлы сайта сразу после отказа: запись не должна была ничего тронуть
+            "files": sorted(
+                p.relative_to(root).as_posix() for p in Path(root, "content").rglob("*.md")
+            ),
+        }
+        refuse["on"] = False
+        asked.clear()
+        page.drag_and_drop(source, folder)
+        page.wait_for_selector("#toast li", state="visible", timeout=30000)
+        page.wait_for_timeout(500)
+        second = {"asked": list(asked), "toast": page.inner_text("#toast")}
+        browser.close()
+    print(json.dumps({"first": first, "second": second, "console": console}))
+    return 0
+
+
 def main(url: str, picture: str, shots: str) -> int:
     try:
         from playwright.sync_api import sync_playwright
@@ -304,4 +362,6 @@ if __name__ == "__main__":
         sys.exit(remap(sys.argv[2]))
     if sys.argv[1] == "race":
         sys.exit(race(sys.argv[2]))
+    if sys.argv[1] == "move_into":
+        sys.exit(move_into(sys.argv[2], sys.argv[3]))
     sys.exit(main(*sys.argv[1:4]))

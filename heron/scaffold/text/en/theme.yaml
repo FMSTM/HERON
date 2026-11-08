@@ -9,6 +9,7 @@ requires: []
 # The contract for people and programs that fill pages: page types and their
 # sections, the fields of every block, category views and hints in ru and en. The
 # template of a type is templates/<type>.html, a form may follow a colon in uses: "how:steps".
+# See it whole: `heron describe`
 {contract}
 
 # Ratios and widths the engine fits masters from media/ into

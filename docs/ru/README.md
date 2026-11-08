@@ -70,7 +70,7 @@ heron docs --lang ru --search E023   # поиск: файл, строка, ко�
 | Путь файла → адрес, ключ, `slug`; ссылки; старые адреса; 404 | [`20`](spec/20-data-contract.md) §2 · языки §3 · SEO-блок и поля §4.1-4.2 · секции и формы §4.3-4.4 · ключи `site.yaml` §5 · `theme.yaml` §6 · картинки §7 · ограничения §10 |
 | Что видит шаблон · команды и флаги · коды ошибок · отчёт `check` | [`21`](spec/21-engine.md) §6-7 · §10 · §11 · §12 |
 | Образ сайта, nginx, smoke · модель безопасности и границы агента · каналы инструкций | [`23`](spec/23-distribution.md) §5 · §9 · §12 |
-| Машиночитаемые контракты | `schemas/`: `site.schema.json`, `theme.schema.json`, `frontmatter.schema.json`, `setup.schema.json`, `errors.json` - или `heron schema --export` |
+| Машиночитаемые контракты | `schemas/`: `site.schema.json`, `theme.schema.json`, `frontmatter.schema.json`, `setup.schema.json`, `errors.json`, `describe.schema.json` - или `heron schema --export` |
 
 ## Про этот комплект
 

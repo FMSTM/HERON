@@ -1077,7 +1077,8 @@ TEXT["ru"].update(
             "heron schema                  site.yaml\n"
             "heron schema --frontmatter    фронтматтер страницы\n"
             "heron schema --errors         реестр кодов ошибок\n"
-            "heron schema --export папка   все пять файлов"
+            "heron schema --describe       вывод heron describe --json\n"
+            "heron schema --export папка   все шесть файлов"
         ),
         "help_recipe": (
             "Рецепт образа nginx для собранного сайта (Dockerfile) этой версии HERON; "
@@ -1099,6 +1100,20 @@ TEXT["ru"].update(
             "Упаковать тему сайта вместе с его контентом - демо-страницами для heron theme get."
         ),
         "help_page": "Заготовка страницы со всеми секциями своего типа.",
+        "help_describe": (
+            "Описание темы сайта: типы страниц и их секции, поля каждого блока, виды "
+            "категорий, служебные поля страницы и подсказки к ним.\n\n"
+            "Без имени - всё коротко; с именем типа или блока - он один, с подробной "
+            "справкой и примером markdown. Значения по умолчанию - из site.yaml.\n\n"
+            "\b\n"
+            "heron describe              всё описание\n"
+            "heron describe faq          один блок или тип\n"
+            "heron describe --json       для агента и программ"
+        ),
+        "help_opt_describe_json": ("Одним JSON-объектом: форма - heron schema --describe."),
+        "help_opt_describe_lang": (
+            "Язык подсказок: ru, en или другой язык темы. По умолчанию язык пояснений."
+        ),
         "help_docs": (
             "Документация этой версии движка: оглавление, тема, поиск, выгрузка (21 §10).\n\n"
             "Нет файла на нужном языке - печатается файл другого языка с пометкой "
@@ -1164,7 +1179,8 @@ TEXT["ru"].update(
         "help_opt_schema_frontmatter": "Фронтматтер страницы.",
         "help_opt_schema_setup": "Ответы конфигуратора heron setup.",
         "help_opt_schema_errors": "Реестр кодов ошибок.",
-        "help_opt_schema_export": "Записать все пять файлов в папку.",
+        "help_opt_schema_export": "Записать все шесть файлов в папку.",
+        "help_opt_schema_describe": "Вывод heron describe --json.",
         "help_opt_schema_lang": (
             "Язык описаний в схемах. Иначе --notes, HERON_NOTES, build.notes из site.yaml "
             "текущей папки, иначе en."
@@ -1254,7 +1270,8 @@ TEXT["en"].update(
             "heron schema                  site.yaml\n"
             "heron schema --frontmatter    page front matter\n"
             "heron schema --errors         error code registry\n"
-            "heron schema --export folder  all five files"
+            "heron schema --describe       the output of heron describe --json\n"
+            "heron schema --export folder  all six files"
         ),
         "help_recipe": (
             "The nginx image recipe for a built site (Dockerfile) of this HERON version; "
@@ -1274,6 +1291,21 @@ TEXT["en"].update(
             "Pack the site's theme together with its content - demo pages for heron theme get."
         ),
         "help_page": "A page draft with every section of its type.",
+        "help_describe": (
+            "The description of the site theme: page types and their sections, the fields "
+            "of every block, category views, the service fields of a page and their hints.\n\n"
+            "Without a name - everything in short; with the name of a type or a block - only "
+            "it, with full help and a markdown example. Defaults come from site.yaml.\n\n"
+            "\b\n"
+            "heron describe              the whole description\n"
+            "heron describe faq          one block or type\n"
+            "heron describe --json       for an agent and programs"
+        ),
+        "help_opt_describe_json": "One JSON object: its form is heron schema --describe.",
+        "help_opt_describe_lang": (
+            "The language of hints: ru, en or another language of the theme. "
+            "The notes language by default."
+        ),
         "help_docs": (
             "Documentation of this engine version (21 §10): contents, topic, search, "
             "export.\n\n"
@@ -1340,7 +1372,8 @@ TEXT["en"].update(
         "help_opt_schema_frontmatter": "Page front matter.",
         "help_opt_schema_setup": "Answers of the heron setup configurator.",
         "help_opt_schema_errors": "Error code registry.",
-        "help_opt_schema_export": "Write all five files into a folder.",
+        "help_opt_schema_export": "Write all six files into a folder.",
+        "help_opt_schema_describe": "The output of heron describe --json.",
         "help_opt_schema_lang": (
             "Language of the descriptions in the schemas. Else --notes, HERON_NOTES, "
             "build.notes from site.yaml in the current folder, else en."
@@ -2055,6 +2088,165 @@ TEXT["en"].update(
             "Common mistakes: two equal anchors in a file (error E003), Cyrillic in an "
             "anchor (error E016)."
         ),
+    }
+)
+
+# --- heron describe: контракт темы и служебные поля (21 §10) -----------------------
+TEXT["ru"].update(
+    {
+        "describe_unknown": (
+            "{name}: такого типа страниц и модуля в теме нет\n  типы: {types}\n  модули: {modules}"
+        ),
+        "describe_unknown_hint": "без имени `heron describe` покажет всё описание темы",
+        "describe_bad_lang": "--lang {lang}: нужен код языка вида ru, en или pt-br",
+        "describe_head": "Тема {theme} «{title}» {version} · подсказки: {langs}",
+        "describe_site": "Сайт: языки {langs}, основной {default} · описание на языке {lang}",
+        "describe_not_described": (
+            "Тема не описала поля блоков (fields в theme.yaml): опросник и студия покажут "
+            "только служебные поля. Как описать - `heron docs theme`, «Поля блоков и подсказки»."
+        ),
+        "describe_service_head": "Служебные поля (описывает движок, у любой темы одинаковые)",
+        "describe_types_head": "Типы страниц и их секции по порядку (* - обязательно)",
+        "describe_modules_head": "Блоки (модули темы) и их поля",
+        "describe_any": "любые блоки",
+        "describe_children": "страницы внутри категории этого типа: {type}",
+        "describe_views": "виды категории (ключ {key}): {views}",
+        "describe_by_default": " (по умолчанию)",
+        "describe_page_module": "модуль страницы, заполнять нечего",
+        "describe_example": "как это выглядит в markdown:",
+        "describe_more": (
+            "Подробно о типе или блоке, с примерами - `heron describe <имя>`, "
+            "для агента и программ - `heron describe --json`"
+        ),
+        "describe_md": "в markdown: {place}",
+        "describe_default": "если не заполнить: {value}",
+        "describe_from_file_name": "по имени файла",
+        "describe_from_category_children_type": "тип страниц категории (children_type), иначе page",
+        "describe_from_h1": "h1",
+        "describe_from_cover_chain": (
+            "og_image, затем первая картинка текста, затем seo.og_default_image"
+        ),
+        "describe_from_title": "title",
+        "describe_from_description": "description",
+        "describe_from_site": "из site.yaml: {path}",
+        "describe_of": "пункты: {item}",
+        "describe_max_length": "до {n} {n:знака|знаков|знаков}",
+        "describe_min_items": "от {n} {n:пункта|пунктов|пунктов}",
+        "describe_min_width": "от {n} px в ширину",
+        "describe_type_text": "текст",
+        "describe_type_markdown": "markdown",
+        "describe_type_list": "список",
+        "describe_type_image": "картинка",
+        "describe_type_link": "ссылка",
+        "describe_type_number": "число",
+        "describe_type_date": "дата",
+        "describe_type_enum": "выбор из списка",
+        "describe_type_ref": "ссылка на страницу",
+        "describe_type_flag": "да или нет",
+        "describe_md_body": "всё содержимое блока",
+        "describe_md_first_paragraph": "первый абзац вводного блока",
+        "describe_md_second_paragraph": "второй абзац вводного блока",
+        "describe_md_lead": "абзацы перед списком, таблицей или группами",
+        "describe_md_quote": "цитата «> …»",
+        "describe_md_items": "пункты списка «- …»",
+        "describe_md_numbered": "пункты нумерованного списка «1. …»",
+        "describe_md_bold": "жирный зачин пункта «**Термин.**»",
+        "describe_md_tag": "метка «[МЕТКА]» в начале жирного зачина",
+        "describe_md_text": "текст пункта после зачина",
+        "describe_md_more": "продолжение пункта с отступом: код, второй абзац",
+        "describe_md_groups": "группы «### Заголовок» с содержимым",
+        "describe_md_heading": "текст заголовка «###»",
+        "describe_md_heading_id": "якорь «{{#id}}» в заголовке «###»",
+        "describe_md_content": "всё под заголовком группы",
+        "describe_md_pairs": "строки «ключ | значение»",
+        "describe_md_key": "левая часть строки, до «|»",
+        "describe_md_value": "правая часть строки, после «|»",
+        "describe_md_table_head": "шапка таблицы",
+        "describe_md_table_rows": "строки таблицы после «|---|»",
+        "describe_md_cells": "ячейки строки таблицы",
+        "describe_md_image": "путь картинки «![подпись](путь)»",
+        "describe_md_alt": "подпись картинки в квадратных скобках",
+    }
+)
+TEXT["en"].update(
+    {
+        "describe_unknown": (
+            "{name}: the theme has no such page type or module\n"
+            "  types: {types}\n"
+            "  modules: {modules}"
+        ),
+        "describe_unknown_hint": "without a name `heron describe` shows the whole theme",
+        "describe_bad_lang": "--lang {lang}: a language code like ru, en or pt-br is needed",
+        "describe_head": 'Theme {theme} "{title}" {version} · hints: {langs}',
+        "describe_site": "Site: languages {langs}, main {default} · described in {lang}",
+        "describe_not_described": (
+            "The theme has not described the fields of its blocks (fields in theme.yaml): "
+            "the questionnaire and the studio will show only the service fields. How to "
+            'describe them - `heron docs theme`, "Block fields and hints".'
+        ),
+        "describe_service_head": "Service fields (described by the engine, the same for any theme)",
+        "describe_types_head": "Page types and their sections in order (* - required)",
+        "describe_modules_head": "Blocks (theme modules) and their fields",
+        "describe_any": "any blocks",
+        "describe_children": "pages inside a category of this type: {type}",
+        "describe_views": "category views (key {key}): {views}",
+        "describe_by_default": " (default)",
+        "describe_page_module": "a page module, nothing to fill in",
+        "describe_example": "what it looks like in markdown:",
+        "describe_more": (
+            "A type or a block in detail, with examples - `heron describe <name>`, "
+            "for an agent and programs - `heron describe --json`"
+        ),
+        "describe_md": "in markdown: {place}",
+        "describe_default": "if left empty: {value}",
+        "describe_from_file_name": "the file name",
+        "describe_from_category_children_type": (
+            "the page type of the category (children_type), otherwise page"
+        ),
+        "describe_from_h1": "h1",
+        "describe_from_cover_chain": (
+            "og_image, then the first picture of the text, then seo.og_default_image"
+        ),
+        "describe_from_title": "title",
+        "describe_from_description": "description",
+        "describe_from_site": "from site.yaml: {path}",
+        "describe_of": "items: {item}",
+        "describe_max_length": "up to {n} {n:character|characters}",
+        "describe_min_items": "at least {n} {n:item|items}",
+        "describe_min_width": "{n} px wide or more",
+        "describe_type_text": "text",
+        "describe_type_markdown": "markdown",
+        "describe_type_list": "list",
+        "describe_type_image": "image",
+        "describe_type_link": "link",
+        "describe_type_number": "number",
+        "describe_type_date": "date",
+        "describe_type_enum": "choice from a list",
+        "describe_type_ref": "link to a page",
+        "describe_type_flag": "yes or no",
+        "describe_md_body": "the whole content of the block",
+        "describe_md_first_paragraph": "the first paragraph of the intro",
+        "describe_md_second_paragraph": "the second paragraph of the intro",
+        "describe_md_lead": "paragraphs before the list, the table or the groups",
+        "describe_md_quote": 'a quote "> …"',
+        "describe_md_items": 'items of a "- …" list',
+        "describe_md_numbered": 'items of a numbered "1. …" list',
+        "describe_md_bold": 'the bold start of an item "**Term.**"',
+        "describe_md_tag": 'a tag "[TAG]" at the start of the bold start',
+        "describe_md_text": "the text of an item after the start",
+        "describe_md_more": "the indented rest of an item: code, a second paragraph",
+        "describe_md_groups": 'groups "### Heading" with content',
+        "describe_md_heading": 'the text of a "###" heading',
+        "describe_md_heading_id": 'the anchor "{{#id}}" in a "###" heading',
+        "describe_md_content": "everything under the heading of a group",
+        "describe_md_pairs": '"key | value" lines',
+        "describe_md_key": 'the left part of a line, before "|"',
+        "describe_md_value": 'the right part of a line, after "|"',
+        "describe_md_table_head": "the header of a table",
+        "describe_md_table_rows": 'the rows of a table after "|---|"',
+        "describe_md_cells": "the cells of a table row",
+        "describe_md_image": 'the path of a picture "![caption](path)"',
+        "describe_md_alt": "the caption of a picture in square brackets",
     }
 )
 

@@ -123,7 +123,7 @@ What matters here:
 
 - **Fields describe real markdown.** `md` says where the value lies in the file: `heading` - the text of a `###` heading, `content` - everything under it, `items` - list items, `bold` - the bold start of an item. The vocabulary of places is one for all themes, it is in [`21` "Theme contract"](../spec/21-engine.md#theme-contract). Do not invent your own data model: describe what a person writes in the file anyway, otherwise the questionnaire cannot write the value back.
 - **`hint` is required in every language of the theme**: on every type, section, module, field and category view. It is one line a person sees on hover. If even one is missing, `heron check` stops with `E008` and lists where exactly.
-- **`help` is for a newcomer.** Write what the block is, what it affects on the site and in search, a good example and common mistakes. A module can also have `example_ru` and `example_en` - a markdown sample for the questionnaire and the reference.
+- **`help` is for a newcomer.** Write what the block is, what it affects on the site and in search, a good example and common mistakes. A module can also have `example_ru` and `example_en` - a markdown sample, `heron describe <name>` shows it.
 - **You do not write the service fields.** `title`, `h1`, `description`, the address, the cover, the menu, `noindex` are described by the engine itself, with hints in ru and en.
 
 The sections of a type are described next to `uses`: whether a section is required and what its hint is. If pages of the type can be a category (a folder with `_index.md`), name the type of the pages inside and the views the category shows them with:
@@ -147,7 +147,15 @@ types:
 
 The theme invents the views - exactly those its templates draw. In the starter theme the module `children` reads `page.meta.get('view')` and shows the pages as cards or as a list.
 
-All keys of the description - [`21` "Theme contract"](../spec/21-engine.md#theme-contract).
+To see the result, use the `describe` command. Without a name it briefly shows the whole description together with the service fields and the values from `site.yaml`, with the name of a block or a type - only it with full help, with `--json` - the same for an agent:
+
+```bash
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod describe
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod describe faq
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod describe --json --lang en
+```
+
+All keys of the description - [`21` "Theme contract"](../spec/21-engine.md#theme-contract), the form of the `describe --json` output - [`21` §10](../spec/21-engine.md#heron-describe).
 
 ## A page type template
 

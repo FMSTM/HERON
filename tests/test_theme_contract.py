@@ -21,13 +21,14 @@ from heron.contracts import schemas
 from heron.contracts.theme import (
     FIELD_TYPES,
     KINDS,
+    MD_PLACES,
     ThemeConfig,
     kinds_of,
     missing_hints,
 )
 from heron.core import build as pipeline
 from heron.core.parser import blocks, markdown, sections
-from heron.messages import TEXT
+from heron.messages import TEXT, say
 from heron.scaffold import create
 
 MODULES = Path(scaffold.__file__).parent / "templates" / "modules"
@@ -337,6 +338,12 @@ def test_service_fields_have_hints_and_help_in_ru_and_en():
     for name in ("title", "h1", "description", "slug", "category", "image", "og_image"):
         assert name in names
     assert {"noindex", "menu", "anchor"} <= set(names)
+
+
+def test_md_places_have_hints_in_both_languages():
+    for place in MD_PLACES:
+        key = "describe_md_" + place.replace("-", "_")
+        assert say("ru", key) and say("en", key) and say("ru", key) != say("en", key)
 
 
 # --- виды категории стартовой темы --------------------------------------------------

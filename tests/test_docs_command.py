@@ -299,7 +299,7 @@ def test_skills_topic_lists_every_skill():
 @pytest.mark.parametrize("lang", docs.LANGS)
 def test_schemas_topic_names_every_file(lang):
     text = docs.read_topic("schemas", lang)
-    assert len(SCHEMA_FILES) == 5
+    assert len(SCHEMA_FILES) == 6
     for name in SCHEMA_FILES:
         assert name in text
     assert "heron schema --export" in text

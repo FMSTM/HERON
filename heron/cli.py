@@ -1554,11 +1554,12 @@ SCHEMA_KINDS = {
     "frontmatter": "frontmatter.schema.json",
     "setup": "setup.schema.json",
     "errors": "errors.json",
+    "describe": "describe.schema.json",
 }
 
 
 def _write_schemas(target: Path, lang: str = "en", schema_lang: str | None = None) -> list[str]:
-    """Пять файлов схем в папку `target` — общим безопасным писателем (E024).
+    """Шесть файлов схем в папку `target` — общим безопасным писателем (E024).
 
     Папку называет человек, и она может быть ссылкой. А вот ссылка или папка
     на месте файла схемы — ошибка до первой записи: `--export` не пишет туда,
@@ -1578,6 +1579,7 @@ def _write_schemas(target: Path, lang: str = "en", schema_lang: str | None = Non
 @_option("--frontmatter", "of_frontmatter", is_flag=True, help="help_opt_schema_frontmatter")
 @_option("--setup", "of_setup", is_flag=True, help="help_opt_schema_setup")
 @_option("--errors", "of_errors", is_flag=True, help="help_opt_schema_errors")
+@_option("--describe", "of_describe", is_flag=True, help="help_opt_schema_describe")
 @_option(
     "--export",
     "target",
@@ -1601,6 +1603,7 @@ def schema(
     of_frontmatter: bool,
     of_setup: bool,
     of_errors: bool,
+    of_describe: bool,
     target: Path | None,
     lang_flag: str | None,
     notes: str | None,
@@ -1623,6 +1626,7 @@ def schema(
             ("frontmatter", of_frontmatter),
             ("setup", of_setup),
             ("errors", of_errors),
+            ("describe", of_describe),
         )
         if flag
     ]
@@ -1803,6 +1807,36 @@ def page(
         _fail(error, language)
     click.secho(say(language, "page_done", path=created), fg="green")
     click.echo(say(language, "page_next", root=_shown(path)))
+
+
+@main.command(help="help_describe")
+@_argument("name", required=False, metavar="help_mv_name")
+@_option("--json", "as_json", is_flag=True, help="help_opt_describe_json")
+@_option("--lang", "lang_flag", default=None, metavar="help_mv_code", help="help_opt_describe_lang")
+@NOTES_OPTION
+@_path_argument
+def describe(
+    name: str | None, as_json: bool, lang_flag: str | None, path: Path, notes: str | None
+) -> None:
+    """Контракт темы и служебные поля: человеку текстом, агенту - JSON (21 §10)."""
+    import json
+
+    from heron.contracts.site import LANG_RE
+    from heron.core import describe as library
+
+    language = _lang(notes, path)
+    if lang_flag is not None and not LANG_RE.match(lang_flag):
+        raise click.UsageError(say(language, "describe_bad_lang", lang=lang_flag))
+    _need_site(path, language)
+    try:
+        theme_config, config = library.load(path)
+        data = library.contract(theme_config, config, lang_flag or language, name)
+    except HeronError as error:
+        _fail(error, language)
+    if as_json:
+        click.echo(json.dumps(data, ensure_ascii=False, indent=2))
+        return
+    click.echo((rendered(library.text(data, lang_flag or language), language) or "").rstrip("\n"))
 
 
 @main.command(help="help_docs")

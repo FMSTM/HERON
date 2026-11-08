@@ -7,7 +7,7 @@ TEXT: dict[str, dict[str, str]] = {
         "build_theme_no_fields": (
             "тема {theme} не описала поля блоков (fields в theme.yaml): опросник и студия "
             "покажут только SEO-блок и служебные поля. Как описать - `heron docs theme`, "
-            "«Поля блоков и подсказки»"
+            "«Поля блоков и подсказки»; что уже есть - `heron describe`"
         ),
         "build_theme_hints": (
             "тема {theme}: нет подсказки hint на языках темы ({langs}):\n    {missing}"
@@ -61,7 +61,8 @@ TEXT: dict[str, dict[str, str]] = {
         "build_theme_no_fields": (
             "theme {theme} has not described the fields of its blocks (fields in theme.yaml): "
             "the questionnaire and the studio will show only the SEO block and the service "
-            'fields. How to describe them - `heron docs theme`, "Block fields and hints"'
+            'fields. How to describe them - `heron docs theme`, "Block fields and hints"; '
+            "what is there already - `heron describe`"
         ),
         "build_theme_hints": (
             "theme {theme}: no hint in the languages of the theme ({langs}):\n    {missing}"

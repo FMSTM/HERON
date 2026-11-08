@@ -47,7 +47,7 @@
 │   ├── README.md             что это за папка, зачем, как работать
 │   ├── heron-kit.yaml        манифест комплекта: версия движка, язык, файлы с sha256
 │   ├── roles/  templates/  guide/  spec/  architecture.md     копия документации движка
-│   ├── schemas/              JSON Schema site.yaml, theme.yaml, фронтматтера, конфигуратора; errors.json
+│   ├── schemas/              JSON Schema site.yaml, theme.yaml, фронтматтера, конфигуратора, describe; errors.json
 │   └── work/                 результаты агента: structure.md, questions.md, report.md
 │
 ├── content/
@@ -95,7 +95,7 @@
 
 `AGENTS.md` сайта - 60-100 строк: язык проекта и комплекта, версия и канал движка, одна фраза о проекте (после конфигуратора - `organization.about`, до него - маркер «заполняет архитектор»), таблица ролей со ссылками в `agents/roles/`, общие правила целиком, «готово, когда» по ролям, границы полномочий (раздел 10), команды проверки, ссылки на документацию этой версии. Тело файла - текст `agents/README.md`; подробности ролей - в `agents/roles/<роль>.md`.
 
-**Состав `agents/`.** `README.md`; `heron-kit.yaml` (манифест, ниже); `roles/` - `architect.md`, `content.md`, `designer.md`, `builder.md`, `capabilities.md`; `templates/` - образцы `structure.md`, `site.yaml`, `theme.yaml`, `page.md`, `report.md`, `questions.md`; `guide/` 01-06; `spec/` 20-23; `architecture.md`; `schemas/` - `site.schema.json`, `theme.schema.json`, `frontmatter.schema.json`, `setup.schema.json`, `errors.json`, сгенерированные той же версией движка (`21` §10, `heron schema`); `work/` - пустая папка с `.gitkeep` и записка. Всё, кроме `schemas/`, `work/` и манифеста, - байт в байт `docs/<язык>/` репозитория движка, с двумя исключениями. Оба касаются только файлов `.md` (и тела `AGENTS.md`), делаются при выкладке, а `docs/<язык>/` в репозитории не меняют (`23` §12):
+**Состав `agents/`.** `README.md`; `heron-kit.yaml` (манифест, ниже); `roles/` - `architect.md`, `content.md`, `designer.md`, `builder.md`, `capabilities.md`; `templates/` - образцы `structure.md`, `site.yaml`, `theme.yaml`, `page.md`, `report.md`, `questions.md`; `guide/` 01-06; `spec/` 20-23; `architecture.md`; `schemas/` - `site.schema.json`, `theme.schema.json`, `frontmatter.schema.json`, `setup.schema.json`, `errors.json`, `describe.schema.json`, сгенерированные той же версией движка (`21` §10, `heron schema`); `work/` - пустая папка с `.gitkeep` и записка. Всё, кроме `schemas/`, `work/` и манифеста, - байт в байт `docs/<язык>/` репозитория движка, с двумя исключениями. Оба касаются только файлов `.md` (и тела `AGENTS.md`), делаются при выкладке, а `docs/<язык>/` в репозитории не меняют (`23` §12):
 
 - **канал не `prod`** (`HERON_CHANNEL`, например `beta`): ссылки на ветку `prod` репозитория движка на GitHub (`…/FMSTM/HERON/blob/prod/`) ведут на `blob/<канал>/`, а образ в готовых командах `ghcr.io/fmstm/heron:prod` (перед кавычкой или пробелом) - на `heron:<канал>`; тег в обратных кавычках в таблице тегов не меняется. `heron docs --export` делает ту же подстановку;
 - **`build.agents: kit`**: относительные ссылки markdown на `guide/` и `spec/`, которых в сокращённом комплекте нет, становятся абсолютными адресами GitHub `https://github.com/FMSTM/HERON/blob/<канал>/docs/<язык>/<путь>#якорь`.

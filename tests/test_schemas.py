@@ -26,6 +26,7 @@ BUILDERS = {
     "frontmatter.schema.json": schemas.frontmatter_schema,
     "setup.schema.json": schemas.setup_schema,
     "errors.json": schemas.errors_registry,
+    "describe.schema.json": schemas.describe_schema,
 }
 
 

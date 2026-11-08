@@ -44,6 +44,7 @@ FILES = (
     "frontmatter.schema.json",
     "setup.schema.json",
     "errors.json",
+    "describe.schema.json",
 )
 
 # Английские описания. Ключ - файл и JSON Pointer русского текста в схеме; значение -
@@ -143,6 +144,37 @@ EN: dict[str, tuple[str, str]] = {
         "Views of a category: the front matter key that picks them and the default view.\n\n"
         "The theme invents the list of views: a grid, a list, a table - what its templates\n"
         "draw. The engine only checks that the default view is in the list.",
+    ),
+    "describe.schema.json#/$defs/Field/description": (
+        "acd915cb0e",
+        "A field of a theme block: type, place in markdown (`md`), limits, schema.org property.",
+    ),
+    "describe.schema.json#/$defs/Module/description": (
+        "603801e450",
+        "A theme module - the form of a block; `fields` null - the theme has not described fields.",
+    ),
+    "describe.schema.json#/$defs/Section/description": (
+        "27702727d0",
+        'A section of a type in the order of `uses`; `any` - "any blocks" (`*`).',
+    ),
+    "describe.schema.json#/$defs/ServiceField/description": (
+        "df20cb79cd",
+        "A service field of a page or a block: the engine describes it, "
+        "it is the same for any theme.",
+    ),
+    "describe.schema.json#/$defs/Site/description": (
+        "2af138b608",
+        "Defaults from site.yaml in the language `lang`.",
+    ),
+    "describe.schema.json#/$defs/Views/description": (
+        "2446208419",
+        "Category views: the front matter key, the default view, the list of the theme views.",
+    ),
+    "describe.schema.json#/description": (
+        "2f36c81e2a",
+        "The output of `heron describe --json`: the contract of the site theme and the service "
+        "fields of the engine. Every key is always there; what is missing is null or an empty "
+        "list. Hints (`hint`, `help`, `example`) are in the language `lang`.",
     ),
     "theme.schema.json#/$defs/LinkSpec/description": (
         "3bc9f9dcab",
@@ -305,6 +337,202 @@ def setup_schema(lang: str = "ru") -> dict[str, Any]:
     return _finish(Answers.model_json_schema(), "setup.schema.json", lang)
 
 
+# --- describe.schema.json: вывод `heron describe --json` (21 §10) ----------------
+
+_TEXT = {"type": ["string", "null"]}
+_INT = {"type": ["integer", "null"]}
+_STR_NULL = {"type": ["string", "null"]}
+_STRINGS = {"type": "array", "items": {"type": "string"}}
+
+
+def _object(props: dict[str, Any], description: str | None = None) -> dict[str, Any]:
+    """Объект со всеми ключами обязательными: describe отдаёт каждый ключ всегда."""
+    out: dict[str, Any] = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": sorted(props),
+        "properties": props,
+    }
+    if description:
+        out["description"] = description
+    return out
+
+
+def _ref(name: str) -> dict[str, str]:
+    return {"$ref": f"#/$defs/{name}"}
+
+
+def _array(name: str) -> dict[str, Any]:
+    return {"type": "array", "items": _ref(name)}
+
+
+DESCRIBE_TEXT = (
+    "Вывод `heron describe --json`: контракт темы сайта и служебные поля движка. "
+    "Каждый ключ есть всегда; чего нет - null или пустой список. Подсказки (`hint`, "
+    "`help`, `example`) - на языке `lang`."
+)
+
+
+def describe_schema(lang: str = "ru") -> dict[str, Any]:
+    """Схема вывода `heron describe --json`. Модели нет: объект собирает core/describe.py."""
+    from heron.contracts.fields import GROUPS, PLACES
+    from heron.contracts.theme import FIELD_TYPES, MD_PLACES
+
+    field_types = {"enum": list(FIELD_TYPES)}
+    hints = {"hint": _TEXT, "help": _TEXT}
+    field = _object(
+        {
+            "name": {"type": "string"},
+            "type": field_types,
+            "required": {"type": "boolean"},
+            "md": {"anyOf": [{"enum": list(MD_PLACES)}, {"type": "null"}]},
+            "min_length": _INT,
+            "max_length": _INT,
+            "min_items": _INT,
+            "max_items": _INT,
+            "ratio": _STR_NULL,
+            "min_width": _INT,
+            "values": _STRINGS,
+            "ref": _STR_NULL,
+            "schemaorg": _STR_NULL,
+            "item": {"anyOf": [field_types, {"type": "null"}]},
+            "fields": {"anyOf": [_array("Field"), {"type": "null"}]},
+            "example": _TEXT,
+            **hints,
+        },
+        "Поле блока темы: тип, место в markdown (`md`), ограничения, свойство schema.org.",
+    )
+    service = _object(
+        {
+            "name": {"type": "string"},
+            "type": field_types,
+            "group": {"enum": list(GROUPS)},
+            "scope": {"enum": ["page", "section"]},
+            "where": {"enum": list(PLACES)},
+            "key": _STR_NULL,
+            "required": {"type": "boolean"},
+            "max_length": _INT,
+            "min_width": _INT,
+            "item": {"anyOf": [field_types, {"type": "null"}]},
+            "values": _STRINGS,
+            "only": _STR_NULL,
+            "default": {},
+            "default_from": _STR_NULL,
+            "hint": {"type": "string"},
+            "help": {"type": "string"},
+        },
+        "Служебное поле страницы или блока: его описывает движок, у любой темы одно и то же.",
+    )
+    section = _object(
+        {
+            "id": {"type": "string"},
+            "any": {"type": "boolean"},
+            "kind": _STR_NULL,
+            "module": _STR_NULL,
+            "required": {"type": "boolean"},
+            "fields": {"anyOf": [_array("Field"), {"type": "null"}]},
+            **hints,
+        },
+        "Секция типа в порядке `uses`; `any` - «любые блоки» (`*`).",
+    )
+    view = _object({"name": {"type": "string"}, **hints})
+    views = _object(
+        {
+            "key": {"type": "string"},
+            "default": {"type": "string"},
+            "options": _array("View"),
+            **hints,
+        },
+        "Виды категории: ключ фронтматтера, вид по умолчанию, перечень видов темы.",
+    )
+    page_type = _object(
+        {
+            "name": {"type": "string"},
+            "template": {"type": "string"},
+            "jsonld": _STRINGS,
+            "children_type": _STR_NULL,
+            "views": {"anyOf": [_ref("Views"), {"type": "null"}]},
+            "sections": _array("Section"),
+            **hints,
+        }
+    )
+    kind = _object({"kind": {"type": "string"}, "class": _STR_NULL, "auto": {"type": "boolean"}})
+    module = _object(
+        {
+            "name": {"type": "string"},
+            "scope": {"enum": ["section", "page"]},
+            "kinds": _array("Kind"),
+            "schemaorg": _STR_NULL,
+            "fields": {"anyOf": [_array("Field"), {"type": "null"}]},
+            "example": _TEXT,
+            **hints,
+        },
+        "Модуль темы - форма блока; `fields` null - тема полей не описала.",
+    )
+    site = _object(
+        {
+            "name": _STR_NULL,
+            "languages": _STRINGS,
+            "default_lang": {"type": "string"},
+            "title_suffix": {"type": "string"},
+            "og_default_image": _STR_NULL,
+            "menu": _STRINGS,
+            "updated_from": {"type": "string"},
+        },
+        "Значения по умолчанию из site.yaml на языке `lang`.",
+    )
+    theme = _object(
+        {
+            "name": {"type": "string"},
+            "title": {"type": "string"},
+            "version": {"type": "string"},
+            "heron": _STR_NULL,
+            "languages": _STRINGS,
+            "described": {"type": "boolean"},
+        }
+    )
+    data = _object(
+        {
+            "$schema": {"type": "string"},
+            "heron": {"type": "string"},
+            "lang": {"type": "string"},
+            "selected": {
+                "anyOf": [
+                    _object({"kind": {"enum": ["type", "module"]}, "name": {"type": "string"}}),
+                    {"type": "null"},
+                ]
+            },
+            "site": {"anyOf": [_ref("Site"), {"type": "null"}]},
+            "theme": _ref("Theme"),
+            "groups": {
+                "type": "array",
+                "items": _object({"name": {"enum": list(GROUPS)}, "title": {"type": "string"}}),
+            },
+            "service": _object({"page": _array("ServiceField"), "section": _array("ServiceField")}),
+            "md_places": {
+                "type": "array",
+                "items": _object({"name": {"enum": list(MD_PLACES)}, "hint": {"type": "string"}}),
+            },
+            "types": _array("Type"),
+            "modules": _array("Module"),
+        },
+        DESCRIBE_TEXT,
+    )
+    data["$defs"] = {
+        "Field": field,
+        "Kind": kind,
+        "Module": module,
+        "Section": section,
+        "ServiceField": service,
+        "Site": site,
+        "Theme": theme,
+        "Type": page_type,
+        "View": view,
+        "Views": views,
+    }
+    return _finish(data, "describe.schema.json", lang)
+
+
 def frontmatter_schema(lang: str = "ru") -> dict[str, Any]:
     data = PageMeta.model_json_schema()
     data["additionalProperties"] = True
@@ -346,11 +574,12 @@ def all_schemas(lang: str = "ru") -> dict[str, str]:
         "frontmatter.schema.json": dump(frontmatter_schema(lang)),
         "setup.schema.json": dump(setup_schema(lang)),
         "errors.json": dump(errors_registry(lang)),
+        "describe.schema.json": dump(describe_schema(lang)),
     }
 
 
 def export(target: Path, lang: str = "ru") -> list[str]:
-    """Пишет пять файлов в `target` (создаётся), возвращает их имена."""
+    """Пишет шесть файлов в `target` (создаётся), возвращает их имена."""
     target = Path(target)
     target.mkdir(parents=True, exist_ok=True)
     names: list[str] = []

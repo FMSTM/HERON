@@ -72,6 +72,7 @@ KIT_FILES = {
             "frontmatter.schema.json",
             "setup.schema.json",
             "errors.json",
+            "describe.schema.json",
         )
     ),
     "work/.gitkeep",

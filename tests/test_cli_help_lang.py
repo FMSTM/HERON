@@ -29,6 +29,8 @@ CYRILLIC = re.compile(r"[А-Яа-яЁё]")
 # программ и значений, которые набирают как есть.
 TOKENS = {
     "heron",
+    "markdown",
+    "faq",
     "HERON",
     "JSON",
     "Schema",

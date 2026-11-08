@@ -59,7 +59,9 @@ After `page add` come the page **key** (`about`; if the page lies in a section f
 
 - in square brackets - the value that stays if you just press **Enter**: from `site.yaml`, from the theme or from the stub;
 - next to the field name - a one-line hint, and **`?`** instead of an answer shows detailed help: what it is, what it affects on the site and in search, a good example and common mistakes. The help on blocks is written by the author of the theme;
+- what you type **replaces** the value in brackets entirely;
 - **`-`** clears the field, **Ctrl+C** - quit without writing;
+- **`<`** - back to the previous question, across groups and blocks: the earlier answer stands in brackets, Enter keeps it, and the answers further on are kept. In a list `<` on an item line goes back to the previous item. At the first question `<` says there is nothing before it. The sign `<` itself as a value is `\<`. Nothing is written until the last "Write?";
 - an answer with an error is marked at once and asked again: an empty required field, a value not from the list, a picture not from `media/` or without a file. A remark is shown and the engine goes on, the answer is written: `title` longer than 60 characters, `description` longer than 155, `title` equals `h1`, a text shorter or longer than the theme asks. The rules are the same as for `check`;
 - a list (items, `redirect_from`) is asked one item per line: type the first item, then the next ones, an empty line ends the list, Enter at once keeps it as it is. For items with fields (a question and an answer, a term and a text) first `+`, then the fields of each item in turn; an empty first field ends the list.
 
@@ -67,7 +69,7 @@ The order of questions: the category - a number from the list (`0` - the root of
 
 ```
 New page about - languages: en (main), ru
-Enter - keep the value in brackets, ? - help on the field, - - clear the field, Ctrl+C - quit without writing
+Enter - keep the value in brackets, what you type replaces it; ? - help on the field, - - clear the field, < - back to the previous question (the sign < itself - \<), Ctrl+C - quit without writing
 Category - the section of the site the page lives in; the address of the page starts with it
     0  / - the root of the site, no category
     1  structure  Structure

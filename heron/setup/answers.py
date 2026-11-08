@@ -198,11 +198,18 @@ class SiteAnswers(Model):
         return out
 
     @model_validator(mode="after")
-    def _default(self) -> SiteAnswers:
+    def _default(self, info: ValidationInfo) -> SiteAnswers:
         if not self.default_lang:
             self.default_lang = self.languages[0]
-        if self.default_lang not in self.languages:
-            raise Reason("default_lang_missing", value=repr(self.default_lang))
+        # чтение записанного site.yaml (read) оставляет основной язык как есть: страница
+        # конфигуратора предложит дописать его в языки, а не начнёт блок «Сайт» с нуля
+        stale = bool(info.context and info.context.get("stale"))
+        if self.default_lang not in self.languages and not stale:
+            raise Reason(
+                "default_lang_missing",
+                value=repr(self.default_lang),
+                langs=", ".join(self.languages),
+            )
         if self.preview_domain and self.preview_domain == self.domain:
             raise Reason("preview_same")
         return self

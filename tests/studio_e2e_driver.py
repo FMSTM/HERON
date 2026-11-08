@@ -215,6 +215,53 @@ def race(url: str) -> int:
     return 0
 
 
+def lost_lang(url: str) -> int:
+    """Вкладка «Сайт»: основного языка нет в языках сайта - предложение дописать его.
+
+    Печатает: видно ли предложение и его текст, языки и основной язык до и после
+    кнопки «Добавить», осталось ли предложение, текст итога записи и консоль.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return SKIP
+
+    console: list[str] = []
+    with sync_playwright() as play:
+        try:
+            browser = play.chromium.launch()
+        except Exception:  # noqa: BLE001 - браузера нет или он не запускается
+            return SKIP
+        page = browser.new_context(viewport={"width": 1400, "height": 1000}).new_page()
+        page.on("console", lambda m: console.append(f"{m.type}: {m.text}"))
+        page.on("pageerror", lambda e: console.append(f"pageerror: {e}"))
+        page.goto(url)
+        page.wait_for_selector("#lang-lost", timeout=30000)
+        langs = "() => [...document.querySelectorAll('.chips .chip')].map((c) => c.textContent)"
+        before = {
+            "offer": page.inner_text("#lang-lost"),
+            "chips": page.evaluate(langs),
+            "main": page.input_value('[id="site.default_lang"]'),
+        }
+        page.click("#lang-lost-add")
+        page.wait_for_selector("#lang-lost", state="detached", timeout=10000)
+        after = {
+            "chips": page.evaluate(langs),
+            "main": page.input_value('[id="site.default_lang"]'),
+        }
+        page.click("#save")
+        page.wait_for_selector("#toast li", state="visible", timeout=60000)
+        result = {
+            "before": before,
+            "after": after,
+            "saved": page.inner_text("#toast"),
+            "console": console,
+        }
+        browser.close()
+    print(json.dumps(result, ensure_ascii=False))
+    return 0
+
+
 def move_into(url: str, root: str) -> int:
     """Перетаскивание страницы в папку 0.2: вопрос о страницах, которые выпадут из prod.
 
@@ -362,6 +409,8 @@ if __name__ == "__main__":
         sys.exit(remap(sys.argv[2]))
     if sys.argv[1] == "race":
         sys.exit(race(sys.argv[2]))
+    if sys.argv[1] == "lost_lang":
+        sys.exit(lost_lang(sys.argv[2]))
     if sys.argv[1] == "move_into":
         sys.exit(move_into(sys.argv[2], sys.argv[3]))
     sys.exit(main(*sys.argv[1:4]))

@@ -61,6 +61,7 @@ const T = {
     g_lang: "Языки", g_lang_about: "Какие языки у сайта и какой основной. Основной живёт в корне сайта, остальные - с приставкой: /de/. У каждого языка своя папка в content/.",
     langs: "Языки сайта", langs_h: "Выберите из списка - язык появится ниже. Крестик убирает язык. Новый язык получит папку с главной и страницей 404.",
     lang_add: "- добавить язык -", main_lang: "Основной язык", main_lang_h: "Выбирается из языков сайта. Отдаётся из корня сайта.",
+    main_lang_lost: "{lang} нет в языках сайта. Добавить его в языки или выбрать основной из них?", main_lang_lost_add: "Добавить {lang} в языки", main_lang_lost_opt: "нет в языках сайта",
     g_who: "О ком сайт: schema.org для вашего сайта", g_who_about: "Поисковики сами пытаются понять по страницам сайта, о ком он: компания это или человек, чем занимается, где находится, как связаться. Получается не всегда: что-то они не находят, что-то путают. Чтобы помочь им, Google, Bing, Яндекс и другие поисковики договорились о словаре schema.org - разметке, в которой эти сведения записаны однозначно. По ней поисковик может показать в выдаче карточку с адресом, часами работы и телефоном. Заполните конфигуратор один раз - HERON добавит разметку на каждую страницу. Пропущенный вопрос просто не попадёт в разметку: пустых или выдуманных значений не будет.",
     type: "Кто вы", type_h: "Человек или организация; у организации - вид. Затем сфера деятельности и специализация. Нет точной - выберите ближайшую: разметка останется верной, только менее подробной.",
     type_none: "- не сейчас -", type_more: "точнее (необязательно)",
@@ -120,6 +121,7 @@ const T = {
     g_lang: "Languages", g_lang_about: "Which languages the site has and which one is the main. The main one lives at the root, the others get a prefix: /de/. Each language gets its own folder in content/.",
     langs: "Languages of the site", langs_h: "Pick from the list, the language appears below. The cross removes it. A new language gets a folder with a home page and a 404 page.",
     lang_add: "- add a language -", main_lang: "Main language", main_lang_h: "Chosen from the languages of the site. Served from the root.",
+    main_lang_lost: "{lang} is not among the site languages. Add it to the languages or pick the main one from them?", main_lang_lost_add: "Add {lang} to the languages", main_lang_lost_opt: "not among the site languages",
     g_who: "Who the site is about: schema.org for your site", g_who_about: "Search engines try to work out from the pages who a site is about: a company or a person, what they do, where they are, how to reach them. It does not always work: some things they miss, some they mix up. To help them, Google, Bing and others agreed on schema.org, a vocabulary that states these facts unambiguously. From it a search engine can show a card with the address, opening hours and phone right in the results. Fill in the configurator once and HERON adds the markup to every page. A skipped question simply stays out: nothing empty or invented.",
     type: "Who you are", type_h: "A person or an organization; for an organization, its kind. Then the field of work and the specialization. Nothing exact? Take the nearest: the markup stays correct, only less detailed.",
     type_none: "- not now -", type_more: "more specific (optional)",
@@ -273,12 +275,21 @@ function gLang() {
       for (const k of Object.keys(A.search.llms_note || {})) if (!A.site.languages.includes(k)) delete A.search.llms_note[k];
       render();
     } }, "×") : null)));
-  const main = h("select", { id: "site.default_lang" }, ...chosen.map((c) => h("option", { value: c, selected: c === A.site.default_lang }, langName(c))));
-  main.addEventListener("change", () => { A.site.default_lang = main.value; render(); });
+  // Основного языка нет в языках сайта (так записан site.yaml): не только ошибка при
+  // записи, а предложение - дописать его в языки или выбрать основной из них.
+  const lost = A.site.default_lang && !chosen.includes(A.site.default_lang) ? A.site.default_lang : "";
+  const main = h("select", { id: "site.default_lang" },
+    lost ? h("option", { value: lost, selected: true }, langName(lost) + " - " + t("main_lang_lost_opt")) : null,
+    ...chosen.map((c) => h("option", { value: c, selected: c === A.site.default_lang }, langName(c))));
+  main.addEventListener("change", () => { A.site.default_lang = main.value; refresh(); render(); });
+  const missing = lost ? h("div", { class: "lang-lost", id: "lang-lost", role: "alert" },
+    h("span", {}, t("main_lang_lost").replace("{lang}", langName(lost))),
+    h("button", { type: "button", id: "lang-lost-add", onclick: () => { A.site.languages = [...chosen, lost]; refresh(); render(); } },
+      t("main_lang_lost_add").replace("{lang}", lost))) : null;
   return group("lang", "2", t("g_lang"), t("g_lang_about"), "need",
     h("div", { class: "grid" },
       h("div", { class: "field" }, h("label", { for: "lang-add" }, t("langs")), add, chips, hint(t("langs_h")), track("site.languages")),
-      h("div", { class: "field" }, h("label", { for: "site.default_lang" }, t("main_lang")), main, hint(t("main_lang_h")), track("site.default_lang"))));
+      h("div", { class: "field" }, h("label", { for: "site.default_lang" }, t("main_lang")), main, missing, hint(t("main_lang_h")), track("site.default_lang"))));
 }
 function lineage(kind) {
   const chain = []; const types = ST.vocab.types;

@@ -165,7 +165,8 @@ TEXT: dict[str, dict[str, str]] = {
         "edit_con_head_new": "Новая {kind} {key} - языки: {langs}",
         "edit_con_head_edit": "Правка: {kind} {key} уже есть. Языки: {langs}",
         "edit_con_keys": (
-            "Enter - оставить значение в скобках, ? - справка по полю, - - очистить поле, "
+            "Enter - оставить значение в скобках, введённое заменяет его; ? - справка по полю, "
+            "- - очистить поле, < - назад к предыдущему вопросу (сам знак < - \\<), "
             "Ctrl+C - выйти без записи"
         ),
         "edit_con_page_word": "страница",
@@ -404,8 +405,9 @@ TEXT: dict[str, dict[str, str]] = {
         "edit_con_head_new": "New {kind} {key} - languages: {langs}",
         "edit_con_head_edit": "Editing: the {kind} {key} already exists. Languages: {langs}",
         "edit_con_keys": (
-            "Enter - keep the value in brackets, ? - help on the field, - - clear the field, "
-            "Ctrl+C - quit without writing"
+            "Enter - keep the value in brackets, what you type replaces it; ? - help on the "
+            "field, - - clear the field, < - back to the previous question (the sign < itself "
+            "- \\<), Ctrl+C - quit without writing"
         ),
         "edit_con_page_word": "page",
         "edit_con_category_word": "category",

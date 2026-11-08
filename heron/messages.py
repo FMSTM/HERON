@@ -87,7 +87,9 @@ TEXT: dict[str, dict[str, str]] = {
         ),
         # --- опрос ---
         "ask_intro": (
-            "Несколько вопросов о сайте. Enter - принять значение в скобках.\n"
+            "Несколько вопросов о сайте. Enter - оставить значение в скобках; введённое "
+            "заменяет его целиком.\n"
+            "< - назад к предыдущему вопросу, Ctrl+C - выйти без изменений. "
             "Всё это потом правится в site.yaml."
         ),
         "ask_name": "Название сайта",
@@ -97,7 +99,14 @@ TEXT: dict[str, dict[str, str]] = {
             "без https:// и слешей, например example.com. Не знаете - Enter, останется заглушка"
         ),
         "ask_langs": "Языки сайта",
-        "ask_langs_help": "коды через запятую: en или en, ru. Каждый язык - папка content/<код>/",
+        "ask_langs_help": (
+            "коды через запятую: en или en, ru. Введённое заменяет список в скобках; "
+            "Enter - оставить. Каждый язык - папка content/<код>/"
+        ),
+        "ask_add_lang": "{lang} нет в языках сайта. Добавить?",
+        "ask_langs_now": "языки сайта: {langs}",
+        "back_first": "раньше вопросов нет: это первый",
+        "bad_yes_no": "ответ - y (да) или n (нет)",
         "ask_default": "Основной язык",
         "ask_default_help": "отдаётся из корня (/about/), остальные - с префиксом (/ru/about/)",
         "ask_confirm": "Создать сайт?",
@@ -300,7 +309,9 @@ TEXT: dict[str, dict[str, str]] = {
             "  For the questions run it in a terminal; with docker, add -it."
         ),
         "ask_intro": (
-            "A few questions about the site. Enter accepts the value in brackets.\n"
+            "A few questions about the site. Enter keeps the value in brackets; what you type "
+            "replaces it entirely.\n"
+            "< - back to the previous question, Ctrl+C - quit without changes. "
             "Everything can be changed later in site.yaml."
         ),
         "ask_name": "Site name",
@@ -311,8 +322,13 @@ TEXT: dict[str, dict[str, str]] = {
         ),
         "ask_langs": "Site languages",
         "ask_langs_help": (
-            "comma-separated codes: en or en, ru. Each language is a content/<code>/ folder"
+            "comma-separated codes: en or en, ru. What you type replaces the list in brackets; "
+            "Enter keeps it. Each language is a content/<code>/ folder"
         ),
+        "ask_add_lang": "{lang} is not among the site languages. Add it?",
+        "ask_langs_now": "site languages: {langs}",
+        "back_first": "there is nothing before: this is the first question",
+        "bad_yes_no": "the answer is y (yes) or n (no)",
         "ask_default": "Main language",
         "ask_default_help": "served from the root (/about/), the others with a prefix (/ru/about/)",
         "ask_confirm": "Create the site?",

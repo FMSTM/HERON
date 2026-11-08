@@ -430,3 +430,61 @@ def test_dragging_a_page_into_a_0_2_folder_asks_before_hiding_pages(tmp_path, mo
     assert "content/ru/services/about.md" in after and "content/ru/about.md" not in after
     assert (root / "content" / "en" / "services" / "_index.md").is_file()
     assert set(after) - set(before) >= {"content/ru/services/_index.md"}
+
+
+def test_site_tab_offers_to_add_a_main_language_missing_from_the_list(tmp_path, monkeypatch):
+    """STUDIO.FIX3: основной язык из site.yaml не в списке языков - не только ошибка.
+
+    Вкладка «Сайт» показывает предложение с кнопкой «Добавить»: язык дописывается в
+    конец списка, остаётся основным, и запись проходит.
+    """
+    python = _python()
+    if python is None:
+        pytest.skip("нет Playwright для Python: e2e студии пропущен")
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    root = tmp_path / "site"
+    create(root, name="Demo", languages=["ru", "de"], notes="ru")
+    site_yaml = root / "site.yaml"
+    text = site_yaml.read_text("utf-8")
+    assert "default_lang: ru" in text
+    site_yaml.write_text(text.replace("default_lang: ru", "default_lang: en"), "utf-8")
+    port = _free_port()
+    box: dict[str, str] = {}
+    ready = threading.Event()
+
+    def on_ready(token: str) -> None:
+        box["token"] = token
+        ready.set()
+
+    thread = threading.Thread(
+        target=server.run,
+        args=(root, "127.0.0.1", port),
+        kwargs={"on_ready": on_ready, "start": {"tab": "site"}},
+        daemon=True,
+    )
+    thread.start()
+    assert ready.wait(10)
+    try:
+        url = f"http://localhost:{port}/#{box['token']}"
+        done = subprocess.run(
+            [python, str(DRIVER), "lost_lang", url],
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
+        )
+    finally:
+        _stop(port, box["token"], thread)
+    if done.returncode == 77:
+        pytest.skip("Chromium для Playwright не запускается: e2e студии пропущен")
+    assert done.returncode == 0, done.stdout + done.stderr
+    result = json.loads(done.stdout.strip().splitlines()[-1])
+    before, after = result["before"], result["after"]
+    assert "en" in before["offer"] and "нет в языках сайта" in before["offer"], result
+    assert before["main"] == "en" and not any(c.endswith("en×") for c in before["chips"]), result
+    assert after["main"] == "en" and len(after["chips"]) == 3, result
+    assert "- en" in after["chips"][-1], result
+    site = yaml.safe_load(site_yaml.read_text("utf-8"))["site"]
+    assert site["default_lang"] == "en" and set(site["languages"]) == {"ru", "de", "en"}, site
+    assert (root / "content" / "en" / "index.md").is_file()
+    assert [m for m in result["console"] if "pageerror" in m or "error" in m.lower()] == [], result

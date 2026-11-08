@@ -47,7 +47,7 @@ docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/
 
 ### Questions
 
-`new` asks a few questions. The answer in square brackets is the default: if it suits you, press Enter.
+`new` asks a few questions. The answer in square brackets is the default: if it suits you, press Enter. What you type **replaces** the value in brackets entirely, it is not added to it.
 
 ```
 Language you prefer to work in: hints, messages, comments in files
@@ -57,7 +57,7 @@ Site name - what people call the site: header, <title>, structured data
   › [my-site] Workshop
 Domain - no https:// and no slashes, e.g. example.com. Not sure - Enter keeps a placeholder
   › [workshop.example] workshop.example
-Site languages - comma-separated codes: en or en, ru. Each language is a content/<code>/ folder
+Site languages - comma-separated codes: en or en, ru. What you type replaces the list in brackets; Enter keeps it. Each language is a content/<code>/ folder
   › [en] en, ru
 Main language - served from the root (/about/), the others with a prefix (/ru/about/)
   › [en] en
@@ -70,10 +70,12 @@ What is asked and what it affects:
 - **working language** - the engine writes its messages and the comments in files in it. It is not tied to the languages of the site itself: you can work in English on a site that is only in Russian;
 - **name** - what people call the site: in the header and in the browser tab;
 - **domain** - the address the site will open at, for example `workshop.example`. Don't know it yet - press Enter and change it later;
-- **site languages** - which languages the pages will be in. Each language gets its own folder of texts;
-- **main language** - its pages open at short addresses (`/about/`), the pages of other languages with a prefix (`/ru/about/`). This question is asked only if there is more than one language.
+- **site languages** - which languages the pages will be in. Each language gets its own folder of texts. The answer replaces the list in brackets: at `[en]` the answer `ru, de` means two languages, ru and de; to keep en as well, type `en, ru, de`;
+- **main language** - its pages open at short addresses (`/about/`), the pages of other languages with a prefix (`/ru/about/`). This question is asked only if there is more than one language. Name a language that is not in the list, and the engine asks "en is not among the site languages. Add it? [Y/n]": Enter or `y` appends it to the list and makes it the main one, `n` asks for the main language again.
 
 At the end the engine shows a "Summary" and asks you to confirm. Enter - and the site is created.
+
+Made a mistake in an answer - type `<` and Enter: the engine goes back to the previous question, and your earlier answer stands in brackets (Enter keeps it). You can step back as many questions as you like, the answers further on are kept too. At the very first question `<` says there is nothing before it. Nothing is created until the last "Create the site?", and Ctrl+C quits without changes. If the answer has to be the sign `<` itself, type `\<`.
 
 ### What the engine prints
 

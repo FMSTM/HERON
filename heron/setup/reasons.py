@@ -27,7 +27,10 @@ TEXT: dict[str, dict[str, str]] = {
         "languages_none": "нужен хотя бы один язык",
         "languages_bad": "не код языка: {codes} (ожидается en, de, pt-br)",
         "languages_repeat": "языки повторяются",
-        "default_lang_missing": "основного языка {value} нет в списке",
+        "default_lang_missing": (
+            "основного языка {value} нет в языках сайта ({langs}): допишите его в "
+            "site.languages или выберите site.default_lang из них"
+        ),
         "preview_same": "служебный домен должен отличаться от рабочего",
         # связь
         "contact_empty": "у канала связи нет значения",
@@ -124,7 +127,10 @@ TEXT: dict[str, dict[str, str]] = {
         "languages_none": "at least one language is needed",
         "languages_bad": "not a language code: {codes} (expected en, de, pt-br)",
         "languages_repeat": "languages repeat",
-        "default_lang_missing": "main language {value} is not in the list",
+        "default_lang_missing": (
+            "main language {value} is not among the site languages ({langs}): add it to "
+            "site.languages or pick site.default_lang from them"
+        ),
         "preview_same": "the service domain must differ from the working one",
         "contact_empty": "a contact needs a value",
         "purpose_bad": "purpose {value}: one of {names}",

@@ -938,19 +938,52 @@ def main(debug: bool, notes: str | None) -> None:
     """Корень команд: --debug и --notes действуют на любую подкоманду."""
 
 
-def _ask(lang: str, key: str, default: str, check) -> str:
+YES = ("y", "yes", "д", "да")
+NO = ("n", "no", "н", "нет")
+
+
+def _terminal_steps(lang: str):
+    """Ввод опроса `new`/`init`: строка из терминала, `<` - шаг назад (heron.steps)."""
+    from heron.steps import Steps
+
+    def ask(prompt: str) -> str:
+        return str(click.prompt(prompt, default="", show_default=False, prompt_suffix=" "))
+
+    def echo(text: str = "", color: str | None = None, err: bool = False) -> None:
+        click.secho(text, fg=color, err=err or color is not None)
+
+    return Steps(ask, echo, say(lang, "back_first"))
+
+
+def _ask(steps, lang: str, key: str, default: str, check) -> str:
     """Один вопрос: подсказка, значение по умолчанию, повтор до годного ответа."""
-    click.echo(
+    steps.echo(
         click.style(say(lang, key), bold=True)
         + click.style(f" - {say(lang, key + '_help')}", dim=True)
     )
+    again = False
     while True:
-        answer = click.prompt("  ›", default=default, show_default=True, prompt_suffix=" ")
-        answer = str(answer).strip()
+        prompt = f"  › [{default}]" if default else "  ›"
+        answer = steps.ask(prompt, key=key, again=again).strip() or default
         problem = check(answer)
         if problem is None:
             return answer
-        _err(f"  {problem}", "yellow")
+        steps.echo(f"  {problem}", "yellow")
+        again = True
+
+
+def _yes(steps, lang: str, question: str, key: str, default: bool = True) -> bool:
+    """Вопрос да/нет; Enter - `default`."""
+    again = False
+    while True:
+        mark = "[Y/n]" if default else "[y/N]"
+        answer = steps.ask(f"{question} {mark}", key=key, again=again).strip().lower()
+        if answer == "":
+            return default
+        if answer in YES or answer in NO:
+            return answer in YES
+        steps.echo(f"  {say(lang, 'bad_yes_no')}", "yellow")
+        again = True
 
 
 def _parse_langs(text: str) -> list[str]:
@@ -978,26 +1011,32 @@ def _check_domain(lang: str):
 def _questionnaire(
     lang: str, name: str, domain: str, languages: list[str], default: str
 ) -> tuple[str, str, list[str], str] | None:
-    """Опрос в терминале. Отказ на последнем шаге — None, ничего не создаётся."""
-    click.echo(say(lang, "ask_intro") + "\n")
-    name = _ask(lang, "ask_name", name, lambda text: None if text else "-")
-    domain = _ask(lang, "ask_domain", domain or placeholder_domain(name), _check_domain(lang))
+    """Опрос в терминале. Отказ на последнем шаге — None, ничего не создаётся.
+
+    `<` на любом вопросе - назад к предыдущему (heron.steps): опрос проходит заново
+    с данными ответами, ответ на тот вопрос стоит в скобках.
+    """
+    steps = _terminal_steps(lang)
+    return steps.run(lambda: _questions(steps, lang, name, domain, languages, default))
+
+
+def _questions(
+    steps, lang: str, name: str, domain: str, languages: list[str], default: str
+) -> tuple[str, str, list[str], str] | None:
+    steps.echo(say(lang, "ask_intro") + "\n")
+    name = _ask(steps, lang, "ask_name", name, lambda text: None if text else "-")
+    domain = _ask(
+        steps, lang, "ask_domain", domain or placeholder_domain(name), _check_domain(lang)
+    )
     domain = site_contract.domain(domain) or domain.lower()
-    raw = _ask(lang, "ask_langs", ", ".join(languages), _check_langs(lang))
+    raw = _ask(steps, lang, "ask_langs", ", ".join(languages), _check_langs(lang))
     languages = list(dict.fromkeys(_parse_langs(raw)))
     if len(languages) > 1:
         default = default if default in languages else languages[0]
-        default = _ask(
-            lang,
-            "ask_default",
-            default,
-            lambda text: (
-                None if text in languages else say(lang, "bad_default", langs=", ".join(languages))
-            ),
-        )
+        default, languages = _ask_default(steps, lang, default, languages)
     else:
         default = languages[0]
-    click.echo("\n" + say(lang, "ask_summary"))
+    steps.echo("\n" + say(lang, "ask_summary"))
     found = domain_note(domain, name)
     if found is None:
         note = ""
@@ -1005,12 +1044,35 @@ def _questionnaire(
         note = f"  ({say(lang, 'placeholder')})"
     else:
         note = f"  ({say(lang, 'reserved_domain', zone=found[1])})"
-    click.echo(f"  name: {name}\n  domain: {domain}{note}")
-    click.echo(f"  languages: {', '.join(languages)}\n  default_lang: {default}")
-    click.echo(f"  notes: {lang}")
-    if not click.confirm(say(lang, "ask_confirm"), default=True):
+    steps.echo(f"  name: {name}\n  domain: {domain}{note}")
+    steps.echo(f"  languages: {', '.join(languages)}\n  default_lang: {default}")
+    steps.echo(f"  notes: {lang}")
+    if not _yes(steps, lang, say(lang, "ask_confirm"), "ask_confirm"):
         return None
     return name, domain, languages, default
+
+
+def _ask_default(steps, lang: str, default: str, languages: list[str]) -> tuple[str, list[str]]:
+    """Основной язык. Кода нет в языках сайта - вопрос «добавить?», а не только отказ.
+
+    Да - язык дописан в конец списка и стал основным; нет - вопрос об основном
+    языке снова.
+    """
+
+    def check(text: str) -> str | None:
+        code = text.strip().lower()
+        return None if LANG_RE.match(code) else say(lang, "bad_langs", bad=code or "-")
+
+    while True:
+        code = _ask(steps, lang, "ask_default", default, check).lower()
+        if code in languages:
+            return code, languages
+        question = say(lang, "ask_add_lang", lang=code)
+        if _yes(steps, lang, question, "ask_add_lang"):
+            languages = [*languages, code]
+            steps.echo(f"  {say(lang, 'ask_langs_now', langs=', '.join(languages))}")
+            return code, languages
+        default = default if default in languages else languages[0]
 
 
 def site_name_guess(path: Path) -> str:
@@ -2014,8 +2076,7 @@ def _edit_session(
     elif can_ask() and not yes:
         session = console.Console(entity, console.Io.terminal(), lang)
         try:
-            session.run(only=edit_lang, asked=asked)
-            if not session.confirm():
+            if not session.interview(only=edit_lang, asked=asked):
                 click.echo(say(lang, "edit_cancelled"))
                 return
         except click.exceptions.Abort:

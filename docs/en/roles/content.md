@@ -10,13 +10,16 @@ Write and move pages, fill in the SEO block, keep translations and old addresses
 ## 1. Create a file
 
 ```bash
-heron page service roof my-site --folder services             # → content/<main language>/services/roof.md
-heron page service roof my-site --folder services --lang ru   # translation
+heron describe --json my-site                                     # the fields and hints of the theme
+heron page add roof --type service --category services my-site --dump > roof.yaml
+heron page add roof --type service --category services my-site --answers roof.yaml
 ```
+
+One command - a page in **all** languages of `site.yaml`: `content/<lang>/services/roof.md`. Exists - edit, missing - create. `--dump` prints all fields per language (for a new page - the stub), you fill them in and pass them back with `--answers`; the path of a field is as in `heron describe --json` (`title`, `sections.faq.items`). A language you do not translate yet is `de: pending` or one without fields: the file gets the main-language text and `translation: pending`, the production build does not publish it (`20` §4.2). `heron page list my-site --json` shows where the translation is pending. A section is `heron category add services my-site`, moving a page is `--category` of another section (the 301 from the old addresses is set by itself). Answer errors are `E039`, the old form `heron page <type> <name>` is `E038`.
 
 The type must be declared in the theme's `types`. The starter theme has only `home`, `page`, `404`; another type gives `E008`, the designer adds it first.
 
-`heron page` puts the full SEO block and stubs of **all** sections the theme declared for the type (`types.<type>.uses`). You can also copy a ready file - the result is the same. A sample of a filled-in page - [`templates/page.md`](../templates/page.md).
+`heron page add` puts the full SEO block and stubs of **all** sections the theme declared for the type (`types.<type>.uses`). You can also copy a ready file - the result is the same. A sample of a filled-in page - [`templates/page.md`](../templates/page.md).
 
 The file name is the page key: Latin letters, digits, hyphen; **the same in all languages**. A different address for a translation is the `slug` field.
 
@@ -41,7 +44,7 @@ All fields and default values - `20` §4.2.
 - **intro** - before the first `##`, no more than two paragraphs: the lead and the promise;
 - **sections** - `## Heading {#anchor}`, anchors come from the type's `uses`. A typo in an anchor shows up as a "the theme does not use" line in the report;
 - the section **form** is set by markup: a list, `1.` steps, `### Question?` FAQ, `key | value` facts, a table, `>` a tip; the classes `.alert`, `.timeline`, `.gallery` go in the anchor. The table is in `20` §4.4;
-- **no material - no section.** Delete the stub from `heron page`, do not fill it with generic words.
+- **no material - no section.** Delete the stub from `heron page add`, do not fill it with generic words.
 
 ## 4. Links and relations
 

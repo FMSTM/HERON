@@ -4,25 +4,25 @@
 # files — файлы docs/ru; root_files — пара README репозитория: русский README.ru.md — исходник, английский README.md — перевод.
 files:
   - path: README.md
-    ru_sha256: "a983b487a8a49e93f6b6f9bd9ac004d2ed235f614ca9f404391ae979e92186d6"
+    ru_sha256: "38487f0067c7925c270a98fc330c519f07a4c3bb51b287187b023e3883f5d601"
     en_status: current
   - path: architecture.md
-    ru_sha256: "d13e49cbc1200d8b339b0539ff8d74a4cc0961e98e94e28b86ee6e962b141b32"
+    ru_sha256: "07c18aeff2a629a59bf27f0de2e90a890aa59fbe15a5b1e8e2a6897c82d8bbfe"
     en_status: current
   - path: guide/00-install.md
     ru_sha256: "622c8fdc9464df89748092655828817acda65aeb02df3e64890a930a61885195"
     en_status: current
   - path: guide/01-concepts.md
-    ru_sha256: "2175f89a519ed040c3fc3b8203d63b5379c354e3a78a584306acc536d5d3978e"
+    ru_sha256: "48be6b9541ae929a19d6f01c94428748010ff6c37a223270bef2fd1cffcbfbd6"
     en_status: current
   - path: guide/02-first-site.md
-    ru_sha256: "245421743aa4d474bfa92caf6de3bc90f9d6730e621e943ce6a212c1c399ec11"
+    ru_sha256: "d4d853d952bed71c9b79fdfa15f4d4d8f0967c0321ce539d5e210492318be920"
     en_status: current
   - path: guide/03-content.md
-    ru_sha256: "20a68a0a21bb3dac1c97044c2388f34bbc3aec05c796ca29adb2f863ef3b54d6"
+    ru_sha256: "20fa1712354730904817afd9e1a2bc3a60b44392104fb1cf5872a90f09408db3"
     en_status: current
   - path: guide/04-theme.md
-    ru_sha256: "78f94b61bde1629b637f160769239f952c549d4761a12e832bff4feeb5e2f2b5"
+    ru_sha256: "76b6c786fc45fc78cea6b4dfe8ec777052a72b18ec87af6e2a4aadbfbd7aba29"
     en_status: current
   - path: guide/05-seo.md
     ru_sha256: "8fe293df854d7a768f3b8ff1ad7c6fc077ec1d489979530cc58293e1bc663d1b"
@@ -34,28 +34,28 @@ files:
     ru_sha256: "357ccd262a83d03b911520e0effc32427904e786d1a691946673e2e0774cf2da"
     en_status: current
   - path: roles/builder.md
-    ru_sha256: "9d3792678a0173892e3a542c98bede17e6a819a082840bf27f872c8c968e6f93"
+    ru_sha256: "091d98d44edb4d57cf4fc99ca53925f2ffc67d7fd0ce6495100fe618411cf15d"
     en_status: current
   - path: roles/capabilities.md
-    ru_sha256: "a94e97797e56b5b2eb1a32c9f1bda7802fd38b0b648ebaf98b4d5f57fe33b874"
+    ru_sha256: "56501fb2ab8949a46a2d4b8604c9ac97cb47caad737b2b297e65cfca223b3279"
     en_status: current
   - path: roles/content.md
-    ru_sha256: "7351c5c3cad68171d38cea93f4244b38e8bb86746485ee046c2e68052790abf7"
+    ru_sha256: "9e5e1dc38bd9d523b8179bc6f2043aad37020088531342c202e6272ef0617bb9"
     en_status: current
   - path: roles/designer.md
-    ru_sha256: "dbb4cfc49facd9dbce31bc19497d453f3be9acaafc0443bfedae4c5f8494a789"
+    ru_sha256: "bafbfe6bd0acb575bf2e813a9bee5925e17af840bc8380fe7485acdee3bf98bd"
     en_status: current
   - path: spec/20-data-contract.md
-    ru_sha256: "31eb7ed3b815e0b98a39c5c22023451dddcb2ecc8e20ce413db7aabf4e54848b"
+    ru_sha256: "cc4b363775f307039e7abf23e7e9d49f3c395cb402b221f5b0fc24408a111c67"
     en_status: current
   - path: spec/21-engine.md
-    ru_sha256: "1e56ce1296d98f39d889425f535dda9a2de55db7ee03653591115dee043f82bd"
+    ru_sha256: "3a3551f68ca3089c1974d3c8d0c45bf65cc922cf3f49598e6d437ab23e6db354"
     en_status: current
   - path: spec/22-deploy.md
     ru_sha256: "52e43ba657d1008bbc8dcca5584d3cfd84e8e271382bb38e5fd48e9282fd060e"
     en_status: current
   - path: spec/23-distribution.md
-    ru_sha256: "9070b481d70ffdaa4b979414c436b63149d4416f99af7fdbd8457d850a077d4c"
+    ru_sha256: "e7e746a3cde1175e1ad82022f30e80235b0c62989beb2297aa930172b566afcc"
     en_status: current
   - path: templates/page.md
     ru_sha256: "c45fa56cdf289625f2bcb0b274e454d8e400508977cc4af958edc825ec393c07"
@@ -78,5 +78,5 @@ files:
 root_files:
   - ru: README.ru.md
     en: README.md
-    ru_sha256: "6d76b6c62760d891df35593e04f9495be76ea243425b1ea6242d032408164ae9"
+    ru_sha256: "cc7c1dd506e7f5a3432a45b54b1bf30cd233b92f31b84d5bc7a74092483c9cde"
     en_status: current

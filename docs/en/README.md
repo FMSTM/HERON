@@ -12,7 +12,7 @@ heron docs --lang en --search E023   # search: file, line, context
 
 ## What HERON is, in one minute
 
-A static site engine: the image `ghcr.io/fmstm/heron:<channel>` or a package from the repository (`pip install git+https://github.com/FMSTM/HERON.git@<channel>`). It **creates** a site folder (`new`, `init`, `page`), **configures** it (`setup` - the configurator, `theme get` - the theme) and **builds** it by the contract (`build`, `check`, `serve`). A site is a folder without engine code: `site.yaml`, `content/<lang>/`, `media/`, `data/`, `static/`, `theme/`. A page is a file, the file path is the address; every file starts with an SEO block, then come the intro and the sections `## Heading {#anchor}`, which the theme puts in place. New to HERON - [`guide/01-concepts.md`](guide/01-concepts.md).
+A static site engine: the image `ghcr.io/fmstm/heron:<channel>` or a package from the repository (`pip install git+https://github.com/FMSTM/HERON.git@<channel>`). It **creates** a site folder (`new`, `init`, `page add`, `category add`), **configures** it (`setup` - the configurator, `theme get` - the theme) and **builds** it by the contract (`build`, `check`, `serve`). A site is a folder without engine code: `site.yaml`, `content/<lang>/`, `media/`, `data/`, `static/`, `theme/`. A page is a file, the file path is the address; every file starts with an SEO block, then come the intro and the sections `## Heading {#anchor}`, which the theme puts in place. New to HERON - [`guide/01-concepts.md`](guide/01-concepts.md).
 
 ## Roles
 
@@ -44,7 +44,7 @@ Before you propose an engine change, read [`roles/capabilities.md`](roles/capabi
 
 ## What you decide alone, what you ask, what is forbidden
 
-**Alone:** the files of your role (content - `content/`, `media/`, `data/`; designer - `theme/`; architect - `work/structure.md`, a draft `site.yaml`, the theme `types`/`links`; builder - all of these when leading the roles); the commands `check`, `build`, `serve`, `page`, `init`, `setup --dump`/`--answers`, `schema`, `docs`, `recipe`, `theme list`; the report and questions in `work/`; commits to a branch.
+**Alone:** the files of your role (content - `content/`, `media/`, `data/`; designer - `theme/`; architect - `work/structure.md`, a draft `site.yaml`, the theme `types`/`links`; builder - all of these when leading the roles); the commands `check`, `build`, `serve`, `page add`, `page list`, `category add`, `init`, `setup --dump`/`--answers`, `schema`, `docs`, `recipe`, `theme list`; the report and questions in `work/`; commits to a branch.
 
 **You ask** - with an entry in `work/questions.md` with options and a recommendation, leave the field empty and move on: any fact; deleting a page, changing the key or address of an existing one; `redirect_from`/`gone` for addresses not from the source; `languages`, `default_lang`, `domain`, `theme` outside the architect role; a theme by link or archive that the human did not name.
 

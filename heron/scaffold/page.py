@@ -1,22 +1,20 @@
-"""Заготовка страницы.
+"""Заготовка файла страницы и категории.
 
 Сайт ведёт не разработчик. Набор секций своего типа не надо помнить
-и подсматривать в чужом файле: команда кладёт файл со всеми секциями,
-которые ждёт тема, и построчными подсказками.
+и подсматривать в чужом файле: заготовка кладёт полный SEO-блок с
+комментариями и все секции, которые ждёт тема, с построчными подсказками.
+
+Заготовку пишут команды `heron page add` и `heron category add`
+(`heron/edit/entity.py`) - сразу на всех языках сайта.
 """
 
 from __future__ import annotations
 
+import json
 import re
-from pathlib import Path
 
-from heron.contracts.site import load_site
-from heron.contracts.theme import load_theme
-from heron.core import paths
-from heron.core.errors import HeronError
-from heron.core.resolver import theme as find_theme
-from heron.messages import Msg
-from heron.scaffold import seo_block
+from heron.contracts.theme import ThemeConfig
+from heron.scaffold import _TYPE_HINTS, seo_block
 
 SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\Z")
 
@@ -36,68 +34,49 @@ BODY = {
         "description": "TODO: what the visitor gets",
     },
 }
+MARKER = "\n# children_type:"
 
 
-def write_page(
-    root: Path,
+def title_of(key: str) -> str:
+    """Заголовок по умолчанию: последняя часть ключа словами, `about-agency` - `About agency`."""
+    name = key.strip("/").rsplit("/", 1)[-1]
+    return name.replace("-", " ").capitalize() or name
+
+
+def stub(
+    theme: ThemeConfig,
     page_type: str,
-    slug: str,
-    lang: str | None = None,
-    folder: str = "",
-) -> Path:
-    """Создать файл страницы со всеми секциями типа."""
-    if not SLUG.match(slug):
-        raise HeronError(
-            code="E005",
-            message=Msg("scaffold_bad_slug", slug=slug),
-            hint=Msg("scaffold_bad_slug_hint"),
-        )
+    title: str,
+    notes: str,
+    *,
+    category: bool = False,
+    children_type: str | None = None,
+    view: str | None = None,
+) -> str:
+    """Текст нового файла: SEO-блок и все секции типа `page_type`.
 
-    config = load_site(root / "site.yaml")
-    found = find_theme(root, config.site.theme)
-    theme = load_theme(found.path / "theme.yaml")
-
-    if page_type not in theme.types:
-        known = ", ".join(sorted(theme.types))
-        raise HeronError(
-            code="E008",
-            message=(
-                Msg("scaffold_unknown_type", page_type=page_type, known=known)
-                if known
-                else Msg("scaffold_unknown_type_none", page_type=page_type)
-            ),
-            path=str(found.path / "theme.yaml"),
-        )
-
-    lang = lang or config.site.default_lang
-    if lang not in config.site.languages:
-        raise HeronError(
-            code="E005",
-            message=Msg("scaffold_bad_lang", lang=lang),
-            hint=", ".join(config.site.languages),
-        )
-    clean = paths.normalize(folder)
-    if clean == ".":
-        clean = ""
-    if paths.escapes(clean) or any(part.startswith(".") for part in clean.split("/") if part):
-        raise HeronError(
-            code=paths.CODE,
-            message=Msg("scaffold_bad_folder", folder=folder, lang=lang),
-            hint=Msg("scaffold_bad_folder_hint"),
-        )
-    rel = "/".join(part for part in ("content", lang, clean, f"{slug}.md") if part)
-    target = paths.in_site(root, rel)
-    if target.exists():
-        raise HeronError(code="E004", message=Msg("scaffold_exists"), path=str(target))
-
-    import os
-
-    # Заготовка — подсказка автору, а не текст страницы: она на языке
-    # пояснений, как SEO-блок над ней. Язык страницы (`lang`) — язык того
-    # текста, которым автор заменит подсказки.
-    notes = (os.environ.get("HERON_NOTES", "").strip() or config.build.notes).lower()
+    Категория (`_index.md`) получает ещё `children_type` - тип страниц внутри -
+    и ключ вида отображения из `views` своего типа, если вид выбран.
+    """
     notes = notes if notes in BODY else "en"
     words = BODY[notes]
+    head = seo_block(title, title, words["description"], page_type=page_type, notes=notes)
+    spec = theme.types.get(page_type)
+    views = spec.views if spec is not None else None
+    lines = ""
+    if view and views is not None:
+        lines += (
+            f"\n{views.key}: {json.dumps(view, ensure_ascii=False)}\n# ↑ {_TYPE_HINTS[notes][2]}"
+        )
+    elif category and views is not None:
+        # заготовка: опросник и --answers ставят вид на это место, с подсказкой
+        lines += f"\n# {views.key + ':':<26} # {_TYPE_HINTS[notes][2]}"
+    if category and children_type:
+        lines += f"\nchildren_type: {json.dumps(children_type, ensure_ascii=False)}"
+        # строка-заготовка `# children_type:` заменяется настоящим ключом
+        head = re.sub(r"\n# children_type:[^\n]*", lines, head, count=1)
+    elif lines:
+        head = head.replace(MARKER, lines + MARKER, 1)
 
     sections = theme.sections_of(page_type) or ["intro"]
     body: list[str] = []
@@ -106,9 +85,6 @@ def write_page(
             body.append(words["intro"] + "\n")
             continue
         body.append(f"## {words['heading']} {{#{section}}}\n\n{words['content']}\n")
-
-    title = slug.replace("-", " ").capitalize()
-    target.parent.mkdir(parents=True, exist_ok=True)
-    head = seo_block(title, title, words["description"], page_type=page_type, notes=notes)
-    target.write_text(head + "\n" + "\n".join(body), encoding="utf-8")
-    return target
+    if "intro" not in sections:
+        body.insert(0, words["intro"] + "\n")
+    return head + "\n" + "\n".join(body)

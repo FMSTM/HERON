@@ -1,13 +1,13 @@
-"""Сообщения заготовки страницы на ключах texts/scaffold.py: ru прежний, en без кириллицы."""
+"""Сообщения заготовки и команд страниц на ключах texts/: ru прежний, en без кириллицы."""
 
 import re
 
 import pytest
 
 from heron.core.errors import HeronError
+from heron.edit import entity as ops
 from heron.messages import Msg
 from heron.scaffold import _THEME_TITLE, _TYPE_HINTS, create
-from heron.scaffold.page import write_page
 
 CYR = re.compile("[а-яА-ЯёЁ]")
 
@@ -28,30 +28,22 @@ def _check(err: HeronError, ru_message: str, ru_hint: str | None = None):
         assert err.hint.text("ru") == ru_hint
 
 
-def test_bad_slug(tmp_path):
+def test_bad_key():
     with pytest.raises(HeronError) as e:
-        write_page(tmp_path, "page", "Bad Slug")
+        ops.norm_key("Bad Slug")
+    assert e.value.code == "E005"
     _check(
         e.value,
-        "недопустимый слаг 'Bad Slug'",
-        "латиница, цифры и дефис: getting-started. Заголовок может быть любым",
+        "ключ 'Bad Slug': части через /, в каждой латиница в нижнем регистре, цифры и дефис",
+        "например about-agency или services/roofing",
     )
 
 
-def test_exists_and_language_and_folder(tmp_path):
-    root = _site(tmp_path)
+def test_unknown_type(tmp_path):
+    ctx = ops.context(_site(tmp_path), "en")
     with pytest.raises(HeronError) as e:
-        write_page(root, "page", "ok", lang="xx")
-    _check(e.value, "языка 'xx' нет в site.languages")
-    with pytest.raises(HeronError) as e:
-        write_page(root, "page", "ok", folder="../up")
-    _check(
-        e.value,
-        "папка '../up' выходит за пределы content/en/",
-        "относительный путь без `..`: guides/intro",
-    )
-    with pytest.raises(HeronError) as e:
-        write_page(root, "nonexistent-type", "ok")
+        ops.open_entity(ctx, "ok", page_type="nonexistent-type")
+    assert e.value.code == "E008"
     assert isinstance(e.value.message, Msg)
     assert not CYR.search(e.value.message.text("en"))
     assert e.value.message.text("ru").startswith("тема не знает тип страницы 'nonexistent-type'")

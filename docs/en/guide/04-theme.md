@@ -147,6 +147,8 @@ types:
 
 The theme invents the views - exactly those its templates draw. In the starter theme the module `children` reads `page.meta.get('view')` and shows the pages as cards or as a list.
 
+This description is exactly what a person who runs a site on your theme sees. `heron page add <key>` asks the fields of a page by groups: first the service fields of the engine, then the sections of the type in the order of `uses` with the fields of their blocks, each with your `hint`, and on `?` - your `help`. `heron category add <path>` offers the type of the pages inside (`children_type`) and the views from `views` with their hints, the `--view` flag is checked against the same options. The more precise the hints, the less a person needs to open the files.
+
 To see the result, use the `describe` command. Without a name it briefly shows the whole description together with the service fields and the values from `site.yaml`, with the name of a block or a type - only it with full help, with `--json` - the same for an agent:
 
 ```bash

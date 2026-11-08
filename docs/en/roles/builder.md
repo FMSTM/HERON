@@ -64,7 +64,7 @@ What not to do: do not write an "approximate" domain, phone or analytics counter
 
 ## 4. Content
 
-A file for each page of the structure; file name = key, the same in all languages. A new page - `heron page <type> <name> my-site`. How to write the SEO block and the sections - [`content.md`](content.md).
+A file for each page of the structure; file name = key, the same in all languages. A new page - `heron page add <key> my-site` (in all languages at once; a section - `heron category add`). How to write the SEO block and the sections - [`content.md`](content.md).
 
 ## 5. The check loop
 

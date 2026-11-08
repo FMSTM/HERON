@@ -117,13 +117,25 @@ TEXT: dict[str, dict[str, str]] = {
             "Домен сейчас заглушка {domain} - впишите настоящий в конфигураторе или в site.yaml."
         ),
         "next_home": "Главная - {files}: SEO-блок наверху (title, h1, description), ниже текст.",
-        "next_page": "Новая страница: `heron page page about {path}`",
+        "next_page": "Новая страница: `heron page add about {path}`",
         "next_build": "Собрать: `heron build {path}` - результат в {path}/dist/",
         "next_check": "Проверить без сборки: `heron check {path}`",
         "next_langs": "Добавили язык в site.yaml - снова `heron init {path}`",
         # --- page ---
-        "page_done": "Создана страница: {path}",
-        "page_next": "Заполните SEO-блок и секции, затем `heron build {root}`",
+        "page_old_form": (
+            "форма `page <тип> <ключ>` убрана в 0.3.0: страницу создаёт и правит одна "
+            "команда page add - сразу на всех языках сайта"
+        ),
+        "page_old_form_hint": "та же страница новой командой: `heron {command}`",
+        "page_list_head": "Страницы сайта {path} - языки: {langs}",
+        "page_list_legend": (
+            "Обозначения: ru - файл есть, de! - перевод не готов (translation: pending), "
+            "-- нет файла; имя с / - категория"
+        ),
+        "page_list_pending": (
+            "Не переведено: {count}. Боевая сборка их не публикует; перевели - удалите "
+            "строку translation: pending или ответьте «готов» в page add"
+        ),
         # --- пути ---
         "no_path": "Папки {path} нет.",
         "no_site": (
@@ -304,12 +316,24 @@ TEXT: dict[str, dict[str, str]] = {
             "or in site.yaml."
         ),
         "next_home": "Home page - {files}: SEO block on top (title, h1, description), text below.",
-        "next_page": "New page: `heron page page about {path}`",
+        "next_page": "New page: `heron page add about {path}`",
         "next_build": "Build: `heron build {path}` - output in {path}/dist/",
         "next_check": "Check without building: `heron check {path}`",
         "next_langs": "Added a language to site.yaml - run `heron init {path}` again",
-        "page_done": "Page created: {path}",
-        "page_next": "Fill in the SEO block and the sections, then `heron build {root}`",
+        "page_old_form": (
+            "the form `page <type> <key>` was removed in 0.3.0: one command, page add, "
+            "creates and edits a page - in all languages of the site at once"
+        ),
+        "page_old_form_hint": "the same page with the new command: `heron {command}`",
+        "page_list_head": "Pages of the site {path} - languages: {langs}",
+        "page_list_legend": (
+            "Legend: en - the file exists, de! - translation pending (translation: pending), "
+            "-- no file; a name with / - a category"
+        ),
+        "page_list_pending": (
+            "Not translated: {count}. The production build does not publish them; once "
+            'translated, delete the line translation: pending or answer "ready" in page add'
+        ),
         "no_path": "There is no folder {path}.",
         "no_site": (
             "Folder {path} has no site.yaml - it is not a site folder.\n"
@@ -430,6 +454,8 @@ TITLES: dict[str, dict[str, str]] = {
         "E035": "the cache or lock file cannot be created next to the build folder",
         "E036": "an image master cannot be read as an image",
         "E037": "the theme demo does not show every type, block or section view",
+        "E038": "this form of the command was removed",
+        "E039": "a field value or a questionnaire answer does not fit",
     },
 }
 
@@ -521,6 +547,8 @@ IMAGE = "ghcr.io/fmstm/heron"
 # останавливаются по Ctrl+C (setup, serve). Последним двум ещё нужен порт.
 _ASKS = {"new", "init", "setup", "serve"}
 _PORT = {"setup", "serve"}
+# Команды правки: опросник в терминале, если ответы не пришли файлом.
+_EDITS = {"page", "category"}
 _COMMAND = re.compile(r"`heron ([^`]+)`")
 
 
@@ -533,10 +561,22 @@ def image() -> str:
     return f"{IMAGE}:{channel if channel in ('prod', 'beta', 'dev') else 'prod'}"
 
 
+def _asks(args: str) -> bool:
+    """Спрашивает ли команда: `page add` и `category add` - да, если ответы не из файла."""
+    words = args.split()
+    if not words:
+        return False
+    if words[0] in _ASKS:
+        return True
+    if words[0] in _EDITS and words[1:2] == ["add"]:
+        return not any(w.startswith(("--answers", "--dump", "--web")) for w in words)
+    return False
+
+
 def docker_command(args: str) -> str:
     """`heron <args>` целиком для Docker: та же команда, готовая к копированию."""
     name = args.split(maxsplit=1)[0] if args.strip() else ""
-    flags = " -it" if name in _ASKS else ""
+    flags = " -it" if _asks(args) else ""
     if name in _PORT:
         flags += " -p 127.0.0.1:8000:8000"
     return (
@@ -1121,7 +1161,35 @@ TEXT["ru"].update(
             "Упаковать тему сайта вместе с его контентом - демо-страницами для heron theme get. "
             "Демо должно показать каждый тип, блок и вид раздела темы, иначе E037."
         ),
-        "help_page": "Заготовка страницы со всеми секциями своего типа.",
+        "help_page": (
+            "Страницы сайта: создать или править одной командой (add), показать дерево (list)."
+        ),
+        "help_page_add": (
+            "Страница по ключу: есть - открыть на правку, нет - создать сразу на всех языках "
+            "site.yaml.\n\n"
+            "В терминале - опросник: поля по группам, у каждого - значение по умолчанию "
+            "(`Enter` его оставляет), подсказка и справка по ?. Основной язык спрашивается "
+            "целиком, на остальных - перевод полей с текстом или `Enter`, чтобы пропустить: "
+            "тогда файл языка получает `translation: pending` и в боевую сборку не идёт.\n\n"
+            "Без терминала (агент, CI) - флаги и --answers файл; образец ответов - --dump.\n\n"
+            "\b\n"
+            "`heron page add about`                        о нас, в корне сайта\n"
+            "`heron page add roofing --category services`  страница в категории\n"
+            "`heron page add about --answers about.yaml`   ответы из файла\n"
+            "`heron page add about --lang en`              править только en"
+        ),
+        "help_page_list": (
+            "Дерево категорий и страниц: на каких языках есть файл и где перевод не готов."
+        ),
+        "help_category": "Категории сайта: создать или править одной командой (add).",
+        "help_category_add": (
+            "Категория - папка со своей страницей _index.md: заголовок и описание для поиска, "
+            "вид списка страниц внутри (`views` темы), тип страниц внутри (children_type). "
+            "Вложенность любая: services/roofing.\n\n"
+            "Есть - открыть на правку, нет - создать на всех языках site.yaml; недостающие "
+            "категории выше по пути создаются тоже. Опросник, --answers и --dump - как у "
+            "heron page add."
+        ),
         "help_describe": (
             "Описание темы сайта: типы страниц и их секции, поля каждого блока, виды "
             "категорий, служебные поля страницы и подсказки к ним.\n\n"
@@ -1213,8 +1281,23 @@ TEXT["ru"].update(
             "текущей папки, иначе en."
         ),
         "help_opt_pack_out": "Файл архива; по умолчанию dist/theme.tar.gz.",
-        "help_opt_page_lang": "Язык страницы. По умолчанию основной язык сайта.",
-        "help_opt_folder": "Папка внутри языкового дерева.",
+        "help_opt_page_type": "Тип новой страницы. По умолчанию - тип страниц категории.",
+        "help_opt_page_category": (
+            "Категория: путь вида services/roofing. У существующей страницы - перенос с 301."
+        ),
+        "help_opt_category_type": "Тип страницы самой категории. По умолчанию - page.",
+        "help_opt_children_type": "Тип страниц внутри категории (children_type).",
+        "help_opt_view": "Вид списка страниц категории - из `views` темы (`heron describe`).",
+        "help_opt_edit_lang": (
+            "Править только этот язык, все поля. Создание всегда идёт на всех языках."
+        ),
+        "help_opt_edit_answers": (
+            "Ответы из файла YAML (- значит stdin): поля по языкам, как у --dump."
+        ),
+        "help_opt_edit_dump": "Напечатать текущие значения полей в YAML (образец ответов) и выйти.",
+        "help_opt_web": "Открыть в студии в браузере (появится в следующем шаге выпуска).",
+        "help_opt_edit_yes": "Без вопросов: значения по умолчанию и флаги.",
+        "help_opt_list_json": "Вывод в JSON - для агента и программ.",
         "help_opt_docs_lang": (
             "Язык документации. Иначе --notes, HERON_NOTES, build.notes из site.yaml "
             "текущей папки, иначе en."
@@ -1248,7 +1331,8 @@ TEXT["ru"].update(
         "help_mv_host": "АДРЕС",
         "help_mv_source": "ИСТОЧНИК",
         "help_mv_type": "ТИП",
-        "help_mv_slug": "СЛАГ",
+        "help_mv_category": "КАТЕГОРИЯ",
+        "help_mv_view": "ВИД",
         "help_mv_text": "ТЕКСТ",
         "help_mv_topic": "ТЕМА",
     }
@@ -1318,7 +1402,37 @@ TEXT["en"].update(
             "Pack the site's theme together with its content - demo pages for heron theme get. "
             "The demo must show every type, block and section view of the theme, otherwise E037."
         ),
-        "help_page": "A page draft with every section of its type.",
+        "help_page": (
+            "Pages of the site: create or edit with one command (add), show the tree (list)."
+        ),
+        "help_page_add": (
+            "A page by its key: exists - open it for editing, missing - create it in all "
+            "languages of site.yaml at once.\n\n"
+            "In a terminal - a questionnaire: fields by groups, each with its default (Enter "
+            "keeps it), a hint and help on ?. The main language is asked in full, the others - "
+            "a translation of the text fields or Enter to skip: then the language file gets "
+            "translation: pending and stays out of the production build.\n\n"
+            "Without a terminal (an agent, CI) - flags and --answers file; a sample of the "
+            "answers - --dump.\n\n"
+            "\b\n"
+            "`heron page add about`                        about, at the root of the site\n"
+            "`heron page add roofing --category services`  a page in a category\n"
+            "`heron page add about --answers about.yaml`   answers from a file\n"
+            "`heron page add about --lang de`              edit only de"
+        ),
+        "help_page_list": (
+            "The tree of categories and pages: which languages have a file and where the "
+            "translation is pending."
+        ),
+        "help_category": "Categories of the site: create or edit with one command (add).",
+        "help_category_add": (
+            "A category is a folder with its own page _index.md: the SEO block, the view of "
+            "the list of pages inside (theme views), the type of pages inside (children_type). "
+            "Any depth: services/roofing.\n\n"
+            "Exists - open it for editing, missing - create it in all languages of site.yaml; "
+            "missing categories above it are created too. The questionnaire, --answers and "
+            "--dump work as in heron page add."
+        ),
         "help_describe": (
             "The description of the site theme: page types and their sections, the fields "
             "of every block, category views, the service fields of a page and their hints.\n\n"
@@ -1412,8 +1526,23 @@ TEXT["en"].update(
             "build.notes from site.yaml in the current folder, else en."
         ),
         "help_opt_pack_out": "Archive file; dist/theme.tar.gz by default.",
-        "help_opt_page_lang": "Page language. The site's main language by default.",
-        "help_opt_folder": "A folder inside the language tree.",
+        "help_opt_page_type": "The type of a new page. By default - the page type of the category.",
+        "help_opt_page_category": (
+            "Category: a path like services/roofing. For an existing page - a move with a 301."
+        ),
+        "help_opt_category_type": "The page type of the category itself. By default - page.",
+        "help_opt_children_type": "The type of the pages inside the category (children_type).",
+        "help_opt_view": "The view of the list of pages of the category - from theme views.",
+        "help_opt_edit_lang": (
+            "Edit only this language, all fields. Creating always goes to all languages."
+        ),
+        "help_opt_edit_answers": (
+            "Answers from a YAML file (- means stdin): fields per language, as in --dump."
+        ),
+        "help_opt_edit_dump": "Print the current values of the fields as YAML (an answers sample).",
+        "help_opt_web": "Open in the studio in a browser (arrives in the next step of 0.3.0).",
+        "help_opt_edit_yes": "No questions: the defaults and the flags.",
+        "help_opt_list_json": "Output as JSON - for agents and programs.",
         "help_opt_docs_lang": (
             "Documentation language. Else --notes, HERON_NOTES, build.notes from "
             "site.yaml in the current folder, else en."
@@ -1448,7 +1577,8 @@ TEXT["en"].update(
         "help_mv_host": "HOST",
         "help_mv_source": "SOURCE",
         "help_mv_type": "TYPE",
-        "help_mv_slug": "SLUG",
+        "help_mv_category": "CATEGORY",
+        "help_mv_view": "VIEW",
         "help_mv_text": "TEXT",
         "help_mv_topic": "TOPIC",
     }

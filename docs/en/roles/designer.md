@@ -29,7 +29,7 @@ images:
   ratios: ["1:1", "16:9"]
 ```
 
-- `uses` - **all** sections of the type, optional ones included; after the colon, the expected form (`20` §4.4). `"*"` - any sections. From `uses` the `heron page` command puts the stubs, and the report names the empty sections;
+- `uses` - **all** sections of the type, optional ones included; after the colon, the expected form (`20` §4.4). `"*"` - any sections. From `uses` the commands `heron page add` and `heron category add` put the stubs, and the report names the empty sections;
 - `jsonld` - markup types for pages of this type;
 - `requires` - paths in `site.yaml` the theme does not work without (`E011` if empty);
 - `links` - relation fields; `back` builds the reverse list.

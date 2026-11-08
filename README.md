@@ -107,7 +107,7 @@ site:
 - **A language that is not in `languages` is not read.** The folder `content/de/` without `de` in the list is silently skipped.
 - **`default_lang` changes all addresses at once.** On a live site this is a migration: the old addresses must be listed in `redirect_from` ([05 · SEO](docs/en/guide/05-seo.md#migrate-from-old-site)).
 
-**Every file starts with a service block**, the SEO block of eight groups: basics, search queries, Open Graph, Twitter, schema.org, card, service, relations. The comments are hints: what the field means, when to fill it, what the engine fills in itself. The language of the comments is chosen when the site is created (`--notes ru|en`). Three fields are required: `title`, `h1`, `description`. The home page and the 404 page already have this block, a new page is `heron page` or a copy of a ready file with the values edited.
+**Every file starts with a service block**, the SEO block of eight groups: basics, search queries, Open Graph, Twitter, schema.org, card, service, relations. The comments are hints: what the field means, when to fill it, what the engine fills in itself. The language of the comments is chosen when the site is created (`--notes ru|en`). Three fields are required: `title`, `h1`, `description`. The home page and the 404 page already have this block, a new page is `heron page add` (in all languages at once, with a question for every field) or a copy of a ready file with the values edited.
 
 **After the block comes the text.** An intro, then sections `## Heading {#anchor}`, blocks that the theme puts in its places. A list, steps, questions and answers, a table are ordinary markdown; the engine understands the form by itself and gives the theme parsed data.
 
@@ -115,13 +115,16 @@ In detail: [concepts](docs/en/guide/01-concepts.md) · [first site](docs/en/guid
 
 ## Commands
 
-Eleven commands. The path to the site defaults to the current folder. Here the commands are written short, with `heron` - this is how you run them if the engine is installed without Docker. With Docker the command is preceded by `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod`, plus `-it` for `new`, `setup`, `serve` and `init` in a folder without `site.yaml` (`new` and `init` ask questions, `setup` and `serve` stop with Ctrl+C), and `-p 127.0.0.1:8000:8000` for `setup` and `serve`, as in the quick start above.
+Thirteen commands. The path to the site defaults to the current folder. Here the commands are written short, with `heron` - this is how you run them if the engine is installed without Docker. With Docker the command is preceded by `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod`, plus `-it` for `new`, `setup`, `serve`, `page add`, `category add` and `init` in a folder without `site.yaml` (`new`, `init`, `page add` and `category add` ask questions, `setup` and `serve` stop with Ctrl+C), and `-p 127.0.0.1:8000:8000` for `setup` and `serve`, as in the quick start above.
 
 | Command | What it does |
 |---|---|
 | `heron new <folder>` | creates a site: asks for the notes language, name, domain, languages and lays out the folder |
 | `heron init <folder>` | builds the missing folders after the languages in `site.yaml` changed; `--agents` refreshes the instructions for agents |
-| `heron page <type> <slug>` | adds a page with a ready SEO block |
+| `heron page add <key>` | a page in all languages at once: missing - creates it with a ready SEO block, exists - opens it for editing; asks the fields with hints, `--answers`/`--dump` - without questions, `--category` - a section or a move with a 301 |
+| `heron page list` | the tree of sections and pages: languages and what is not translated (`translation: pending`) |
+| `heron category add <path>` | a section of any depth (`services/roofing`) in all languages: the page `_index.md`, the view of the list, the type of pages inside |
+| `heron describe` | the description of the theme: types, blocks, fields and hints; `--json` - for an agent |
 | `heron check <folder>` | checks the site against the contract without building; `--strict` turns warnings into errors, `--json` - machine-readable output, `--old-urls` - a check of the old addresses |
 | `heron build <folder>` | builds `dist/`: HTML, sitemap, markup, redirects, nginx config; `--env prod` for a production build |
 | `heron serve <folder>` | local preview with rebuild, the port is set by `--port`, the address by `--host` |

@@ -19,7 +19,10 @@ References: `20` = [`spec/20-data-contract.md`](../spec/20-data-contract.md), `2
 | A short name in menus and breadcrumbs | `nav_title` | `20` §4.2 |
 | Breadcrumbs | built automatically: `page.breadcrumbs` | `21` §6 |
 | A draft that is not built | `published: false` (`--drafts` includes it) | `20` §4.2 |
-| A new page with the full SEO block and the stubs of the type's sections | `heron page <type> <name>`; the home page and 404 are put by `new`/`init` | `21` §10 |
+| A new page with the full SEO block and the stubs of the type's sections - in all languages at once | `heron page add <key>` (editing with the same command, `--answers`/`--dump`); the home page and 404 are put by `new`/`init` | `21` §10 |
+| A new section of any depth: the page `_index.md`, the view, the type of pages inside | `heron category add <path>` | `21` §10 |
+| Moving a page or a section with a 301 from the old addresses | `heron page add <key> --category <path>`, `key` in `--answers` | `21` §10 |
+| The tree of pages, languages, what is not translated | `heron page list --json` | `21` §10 |
 | Messages, help and comments in site files in Russian or in English | `--notes ru\|en`, `HERON_NOTES`, `build.notes` | `23` §4 |
 | A section of 100+ pages | one catalog page, without pagination; the theme does the grouping | `21` §4 |
 

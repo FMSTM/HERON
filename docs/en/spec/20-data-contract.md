@@ -188,7 +188,7 @@ content/ru/services/design.md        →  /ru/uslugi/dizajn/      slug: dizajn
 Rules:
 
 - a folder name is a URL segment, a file name without the extension is the slug
-- `_index.md` is the page of the folder itself
+- `_index.md` is the page of the folder itself: this makes the folder a category (a section). A category of any depth is created and edited by `heron category add services/roofing` - in all languages at once, with the page `_index.md`, the view of the list of pages (theme `views`) and the type of pages inside (`children_type`); moving a category moves its folder in all languages and sets a 301 from the old addresses of all its pages (`21` §10)
 - the default language (`default_lang` from `site.yaml`) is served from the root, the others with a prefix
 - all URLs end with a slash, the canonical form has the slash
 - a slug is only Latin letters, digits and hyphens. A file with another name fails the build (`E005`)
@@ -398,7 +398,7 @@ Groups and their order:
 | 7 | Service | `updated` `published` `translation` `priority` |
 | 8 | Relations | relation fields declared by the theme, plus `redirect_from` |
 
-The block with all eight groups and comments is put by `heron new` and `heron init` into the starter pages (`index.md`, `404.md`) and by `heron page` into every new one. A new page is a copy of a file with edited values; the comments stay as they are, their language is set by `build.notes` (`ru` or `en`).
+The block with all eight groups and comments is put by `heron new` and `heron init` into the starter pages (`index.md`, `404.md`) and by `heron page add` and `heron category add` into every new one, in all languages of the site. A new page is a copy of a file with edited values; the comments stay as they are, their language is set by `build.notes` (`ru` or `en`).
 
 The stub contains all eight groups but not all fields: `og_type`, `twitter_card`, `children_type`, `video`, `video_poster`, `video_title` and `priority` are added by hand from table 4.2.
 
@@ -436,7 +436,7 @@ A short explanation in plain words…
 
 ### 4.2 Frontmatter <a id="frontmatter"></a>
 
-YAML between `---`. This is **the only authoritative list of fields**: the page model (`21` §6) and the `heron page` sample follow it.
+YAML between `---`. This is **the only authoritative list of fields**: the page model (`21` §6) and the `heron page add` stub follow it.
 
 The machine form is `heron schema --frontmatter`; the fields marked "theme" and the relation fields are not listed in it and pass as additional ones.
 
@@ -947,7 +947,7 @@ The starter theme (`heron new`) already outputs `<title>` with the suffix, `og:*
 
 | Key | Values | Default | What it does |
 |---|---|---|---|
-| `notes` | `ru` \| `en` | `en` | the language of comments and explanations put by `heron init` and `heron page`, and of the `agents/` kit. Overridden by the `--notes` flag and the `HERON_NOTES` variable. Does not affect the build, except the language of comments in `dist/.heron-nginx.conf` (only `build.notes`) |
+| `notes` | `ru` \| `en` | `en` | the language of comments and explanations put by `heron init`, `heron page add` and `heron category add`, and of the `agents/` kit. Overridden by the `--notes` flag and the `HERON_NOTES` variable. Does not affect the build, except the language of comments in `dist/.heron-nginx.conf` (only `build.notes`) |
 | `agents` | `true` \| `kit` \| `false` | `true` | the kit of instructions for agents (section 1): `true` - full, `kit` - without `guide/` and `spec/`, `false` - do not put it and do not bring it back on `init`/`setup`. Written by the flags `--no-agents`/`--agents`; does not affect the build |
 | `fail_on_warning` | `true`/`false` | `false` | strict mode permanently: the same as `--strict`, for `build`, `check` and the programmatic call (`pipeline.run`, `pipeline.check`). A warning is a failed build, the build folder is not touched |
 | `allow_raw_html` | `true`/`false` | `false` | raw HTML in markdown; with `false` - `E015` with the line number. Not counted as raw HTML: `<br>` and `<wbr>` inside a line, HTML comments (author notes) and any HTML inside code blocks and `inline code` - these are examples, not markup |

@@ -45,19 +45,23 @@ The file has three parts, always in this order:
 
 ## A new page
 
-The easiest way to create a page is the `page` command:
+The easiest way to create a page is the `page add` command:
 
 ```bash
-docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page page about my-site
+docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add about my-site
 ```
 
-After `page` come the page **type** (here `page` - an ordinary text page), its **name** (here it is also the key - `about`; if the page lies in a section folder, the key is the folder plus the name, for example `services/roof`) and the site folder. The engine puts in a file with a full SEO block and drafts of every section the theme expects for this type. You can also do without the command: copy a ready file under a new name.
+After `page add` come the page **key** (`about`; if the page lies in a section folder, the key is the folder plus the name, for example `services/roof`) and the site folder. The command has one rule: no page - it is created in all languages of the site at once, the page exists - it opens for editing. The engine asks the fields in order - the category, the type (if the theme has several), the titles, the description, the menu, the cover, the texts of the sections - each with a hint, a default value (Enter keeps it) and help on `?`. Then - the translations into the other languages: Enter skips a field, and such a language gets the mark `translation: pending` (below). The file gets a full SEO block and drafts of every section the theme expects for this type. You can also do without the command: copy a ready file under a new name into every language folder.
+
+Agents and scripts do not need questions: `--dump` prints all fields of the page as YAML, `--answers file` writes the answers from a file (the same fields per language), and `--lang de` edits one language only. Without a terminal and without answers the command creates a page from the stub and leaves an existing one alone.
 
 Then:
 
 - change `title`, `h1` and `description`. Fill in group 2, "key queries": the engine does not read it, but it helps keep the rule "one query - one page", so that two pages do not compete in search for the same thing;
 - write the intro and the sections. If there is no material for a section - **do not create it**: the theme does not draw an empty block, and the "Not filled in" summary after the build shows what is missing;
 - build the site. The page appears by itself in the catalog of its section, in the sitemap, in the links between translations (hreflang) and in `llms.txt`.
+
+**Translation pending.** If a translation is skipped while creating, the language file gets the text of the main language and the line `translation: pending` in group 7 of the SEO block. A draft build and the preview show such a page with a yellow "translation pending" banner, and a production build (`--env prod`) does not publish it in this language: neither the page nor links to it in the menu, the sitemap and hreflang; the build report names such pages in a list, and with `--strict` it is an error. Once translated, delete the line, and the page appears.
 
 To delete a page, delete its file. If the old address was already in search, do not abandon it: add this address to `redirect_from` of the page that replaces it (the visitor is redirected, code 301), or to `gone` in `site.yaml` (the address answers "gone for good", code 410).
 
@@ -74,11 +78,19 @@ content/ru/services/roof.md        →  /ru/uslugi/krovlya/       slug: krovlya
 content/ru/services/gutter.md      →  /ru/uslugi/vodostok/      slug: vodostok
 ```
 
-The `--folder` flag puts a page straight into the right folder:
+A section (a category) is created by `category add` - in all languages at once, with its page `_index.md`, the view of the list of pages and the type of the pages inside; a nested section - by a path with `/`:
 
 ```bash
-docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page page roof my-site --folder services
+docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod category add services my-site
 ```
+
+The `--category` flag puts a page straight into the right section (if there is no section, it is created):
+
+```bash
+docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add roof --category services my-site
+```
+
+The same flag on an existing page is a move: the files move in all languages, and a 301 is set from the old addresses (`redirect_from`). A whole section moves the same way - with all pages inside.
 
 What matters about sections:
 

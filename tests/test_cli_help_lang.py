@@ -161,7 +161,7 @@ def test_optional_arguments_are_bracketed(here):
         "Использование: heron build [ПАРАМЕТРЫ] [ПУТЬ]"
         in run("build", "--notes", "ru", "-h").output
     )
-    assert "Usage: heron page [OPTIONS] TYPE SLUG [PATH]" in run("page", "--help").output
+    assert "Usage: heron page add [OPTIONS] KEY [PATH]" in run("page", "add", "--help").output
     assert "heron docs [OPTIONS] [TOPIC] [FILE]" in run("docs", "--help").output
 
 
@@ -240,7 +240,7 @@ def test_version_line_is_the_same_in_both_languages(here):
         (["new", "x", "--notes", "de", "-y"], "неверное значение '--notes'", "Invalid value"),
         (["build", "--bogus"], "нет такого параметра '--bogus'", "No such option"),
         (["nosuchcommand"], "нет такой команды 'nosuchcommand'", "No such command"),
-        (["page", "page"], "не хватает аргумента", "Missing argument"),
+        (["page", "add"], "не хватает аргумента", "Missing argument"),
         (["serve", "--port", "0"], "вне диапазона", "is not in the range"),
         (["build", "--workers", "x"], "не число", "is not a valid integer"),
         (["check", "a", "b"], "лишний аргумент", "unexpected extra argument"),
@@ -363,7 +363,7 @@ def test_every_command_takes_notes(here, path):
 
 @pytest.mark.parametrize("command", ["check", "build", "serve", "page", "setup", "init"])
 def test_folder_messages_follow_notes_outside_a_site(here, command):
-    args = [command, "nosuch"] if command != "page" else ["page", "page", "x", "nosuch"]
+    args = [command, "nosuch"] if command != "page" else ["page", "add", "x", "nosuch"]
     ru = run(*args, "--notes", "ru")
     assert ru.exit_code == 1 and "Папки nosuch нет." in ru.output, ru.output
     root = run("--notes", "ru", *args)
@@ -387,15 +387,15 @@ def test_check_and_build_messages_follow_notes(here):
 
 def test_page_notes_sets_the_draft_comments_and_leaves_the_env_alone(here):
     assert run("new", "s", "--notes", "en", "-y").exit_code == 0
-    made = run("page", "page", "about", "s", "--notes", "ru")
+    made = run("page", "add", "about", "s", "--notes", "ru")
     assert made.exit_code == 0, made.output
-    assert "Создана страница:" in made.output
+    assert "Создана страница about:" in made.output
     text = (here / "s" / "content" / "en" / "about.md").read_text(encoding="utf-8")
     assert "TODO: что человек получит на странице" in text
     assert "HERON_NOTES" not in os.environ
-    again = run("page", "page", "faq", "s")
+    again = run("page", "add", "faq", "s")
     assert "TODO: what the visitor gets" in (here / "s/content/en/faq.md").read_text("utf-8")
-    assert "Page created:" in again.output
+    assert "Created the page faq:" in again.output
 
 
 def test_docs_and_schema_follow_notes(here):

@@ -23,7 +23,7 @@ Forms service (`heron-relay`, a separate component, later): FastAPI, no database
 - **`heron/core/`** - markdown parser, tree and URLs, relation resolve, renderer, image processing
 - **`heron/modules/`** - generators: sitemap, robots, llms.txt, JSON-LD, redirects, feed, the nginx config (`nginx.py`)
 - **`heron/contracts/`** - pydantic schemas of `site.yaml`, `theme.yaml`, the frontmatter, the engine version; `schemas.py` - export of JSON Schema and the error registry (`heron schema`)
-- **`heron/cli.py`** - the commands `new`, `init`, `check`, `serve`, `build`, `page`, `setup`, `theme`, `docs`, `schema`, `recipe`
+- **`heron/cli.py`** - the commands `new`, `init`, `check`, `serve`, `build`, `page`, `category`, `describe`, `setup`, `theme`, `docs`, `schema`, `recipe`
 - **`heron/setup/`** - the `heron setup` configurator: the answer model, writing `site.yaml` and the publishing files, the local server, the sphere classifier
 - **`heron/schemaorg/`** - the schema.org 29.3 vocabulary for markup checks (`SCH001`-`SCH006`)
 - **`heron/themes/`** - installing and packing themes for `heron theme`: the built-in `starter` (files in `heron/scaffold/templates/`), a directory, a link, an archive

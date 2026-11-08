@@ -12,7 +12,7 @@ heron docs --lang ru --search E023   # поиск: файл, строка, ко�
 
 ## Что такое HERON - за минуту
 
-Движок статических сайтов: образ `ghcr.io/fmstm/heron:<канал>` или пакет из репозитория (`pip install git+https://github.com/FMSTM/HERON.git@<канал>`). Он **создаёт** папку сайта (`new`, `init`, `page`), **настраивает** её (`setup` - конфигуратор, `theme get` - тема) и **собирает** по контракту (`build`, `check`, `serve`). Сайт - папка без кода движка: `site.yaml`, `content/<язык>/`, `media/`, `data/`, `static/`, `theme/`. Страница = файл, путь файла = адрес; каждый файл начинается с SEO-блока, дальше вступление и секции `## Заголовок {#якорь}`, которые тема ставит на места. Впервые видишь HERON - [`guide/01-concepts.md`](guide/01-concepts.md).
+Движок статических сайтов: образ `ghcr.io/fmstm/heron:<канал>` или пакет из репозитория (`pip install git+https://github.com/FMSTM/HERON.git@<канал>`). Он **создаёт** папку сайта (`new`, `init`, `page add`, `category add`), **настраивает** её (`setup` - конфигуратор, `theme get` - тема) и **собирает** по контракту (`build`, `check`, `serve`). Сайт - папка без кода движка: `site.yaml`, `content/<язык>/`, `media/`, `data/`, `static/`, `theme/`. Страница = файл, путь файла = адрес; каждый файл начинается с SEO-блока, дальше вступление и секции `## Заголовок {#якорь}`, которые тема ставит на места. Впервые видишь HERON - [`guide/01-concepts.md`](guide/01-concepts.md).
 
 ## Роли
 
@@ -44,7 +44,7 @@ heron docs --lang ru --search E023   # поиск: файл, строка, ко�
 
 ## Что решаешь сам, что спрашиваешь, что запрещено
 
-**Сам:** файлы своей роли (контент - `content/`, `media/`, `data/`; дизайнер - `theme/`; архитектор - `work/structure.md`, черновик `site.yaml`, `types`/`links` темы; сборщик - всё это, когда ведёт роли); команды `check`, `build`, `serve`, `page`, `init`, `setup --dump`/`--answers`, `schema`, `docs`, `recipe`, `theme list`; отчёт и вопросы в `work/`; коммиты в ветку.
+**Сам:** файлы своей роли (контент - `content/`, `media/`, `data/`; дизайнер - `theme/`; архитектор - `work/structure.md`, черновик `site.yaml`, `types`/`links` темы; сборщик - всё это, когда ведёт роли); команды `check`, `build`, `serve`, `page add`, `page list`, `category add`, `init`, `setup --dump`/`--answers`, `schema`, `docs`, `recipe`, `theme list`; отчёт и вопросы в `work/`; коммиты в ветку.
 
 **Спрашиваешь** - записью в `work/questions.md` с вариантами и рекомендацией, поле оставляешь пустым и идёшь дальше: любой факт; удаление страницы, смена ключа или адреса существующей; `redirect_from`/`gone` для адресов не из источника; `languages`, `default_lang`, `domain`, `theme` вне роли архитектора; тема по ссылке или архивом, которую не назвал человек.
 

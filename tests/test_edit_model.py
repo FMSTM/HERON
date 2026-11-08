@@ -9,8 +9,7 @@ import pytest
 from heron import edit
 from heron.core.parser import blocks, markdown, sections
 from heron.scaffold import create
-from heron.scaffold.page import write_page
-from tests.edit_corpus import contract
+from tests.edit_corpus import contract, write_page
 
 PAGE = """---
 title: "About the studio"

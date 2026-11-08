@@ -32,7 +32,7 @@ from heron.core import report as report_module
 from heron.core.environment import BuildEnv
 from heron.core.errors import HeronError
 from heron.core.notes import NOTE
-from heron.messages import CLICK_RU, RECIPE_EN, title
+from heron.messages import CLICK_RU, RECIPE_EN, Msg, title
 from heron.scaffold import (
     ENV_NOTES,
     NOTE_LANGS,
@@ -1804,30 +1804,467 @@ def theme_pack(path: Path, out: Path | None, notes: str | None) -> None:
     click.echo(str(made))
 
 
-@main.command(help="help_page")
-@_argument("page_type", metavar="help_mv_type")
-@_argument("slug", metavar="help_mv_slug")
-@_option("--lang", default=None, metavar="help_mv_code", help="help_opt_page_lang")
-@_option("--folder", default="", metavar="help_mv_folder", help="help_opt_folder")
+# --- страницы и категории: page add, page list, category add (21 §10) ----------------
+
+PAGE_OLD_OPTIONS = ("--lang", "--folder", "--notes")
+
+
+def _old_page_command(args: list[str]) -> str:
+    """Старая форма `page <тип> <ключ> [путь] [--folder F]` - той же командой в новом виде."""
+    positional: list[str] = []
+    folder = None
+    skip = False
+    for index, arg in enumerate(args):
+        if skip:
+            skip = False
+            continue
+        if arg in PAGE_OLD_OPTIONS:
+            if arg == "--folder" and index + 1 < len(args):
+                folder = args[index + 1]
+            skip = True
+            continue
+        if arg.startswith("--folder="):
+            folder = arg.split("=", 1)[1]
+            continue
+        if arg.startswith("-"):
+            continue
+        positional.append(arg)
+    kind = positional[0] if positional else "page"
+    key = positional[1] if len(positional) > 1 else "<key>"
+    # тип page - основной у любой темы: подсказка без лишнего флага
+    parts = ["page", "add", key] + (["--type", kind] if kind != "page" else [])
+    if folder:
+        parts += ["--category", folder.strip("/")]
+    if len(positional) > 2:
+        parts.append(positional[2])
+    return " ".join(parts)
+
+
+class PageGroup(HeronGroup):
+    """`heron page`: подкоманды add и list; старая форма `page <тип> <ключ>` - E038."""
+
+    def resolve_command(self, ctx: click.Context, args: list[str]):
+        name = args[0] if args else None
+        if name is not None and not name.startswith("-") and name not in self.commands:
+            positional = [a for a in args if not a.startswith("-")]
+            site = Path(positional[2]) if len(positional) > 2 else Path(".")
+            lang = _lang(None, site)
+            raise HeronError(
+                code="E038",
+                message=Msg("page_old_form"),
+                hint=messages.say(lang, "page_old_form_hint", command=_old_page_command(args)),
+            )
+        return super().resolve_command(ctx, args)
+
+
+def _edit_options(func):
+    """Флаги, общие для `page add` и `category add`: язык, ответы, выгрузка, студия."""
+    for decorator in reversed(
+        (
+            _option(
+                "--lang",
+                "edit_lang",
+                default=None,
+                metavar="help_mv_code",
+                help="help_opt_edit_lang",
+            ),
+            _option(
+                "--answers",
+                "answers_file",
+                default=None,
+                metavar="help_mv_file",
+                help="help_opt_edit_answers",
+            ),
+            _option("--dump", is_flag=True, help="help_opt_edit_dump"),
+            _option("--web", is_flag=True, help="help_opt_web"),
+            _option("-y", "--yes", is_flag=True, help="help_opt_edit_yes"),
+        )
+    ):
+        func = decorator(func)
+    return func
+
+
+def _read_answers(source: str, lang: str) -> dict:
+    import yaml
+
+    text = sys.stdin.read() if source == "-" else Path(source).read_text("utf-8")
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError as error:
+        raise HeronError(
+            code="E039", message=Msg("edit_answers_yaml", problem=str(error).splitlines()[0])
+        ) from error
+    return data if data is not None else {}
+
+
+def _edit_session(
+    path: Path,
+    lang: str,
+    entity,
+    *,
+    edit_lang: str | None,
+    answers_file: str | None,
+    dump: bool,
+    web: bool,
+    yes: bool,
+    asked: tuple[str, ...],
+    preset,
+) -> None:
+    """Общий ход `page add` и `category add`: выгрузка, ответы, опросник или флаги, запись."""
+    import yaml
+
+    from heron.edit import console
+    from heron.edit import entity as ops
+
+    ctx = entity.ctx
+    if edit_lang is not None and edit_lang not in ctx.langs:
+        raise HeronError(
+            code="E005",
+            message=Msg("scaffold_bad_lang", lang=edit_lang),
+            hint=", ".join(ctx.langs),
+        )
+    if web:
+        # Студия в браузере (ST8) открывает тот же объект; пока её нет - честно говорим.
+        click.secho(say(lang, "edit_web_soon"), fg="yellow")
+        click.echo(say(lang, "edit_web_now", command=_again(path, entity)))
+        return
+    if dump:
+        data = ops.dump_answers(entity)
+        # заголовок - комментарий YAML: без подстановки команд Docker, файл должен читаться
+        click.echo(messages.say(lang, "edit_dump_head", key=entity.target or "/"))
+        click.echo(yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100), nl=False)
+        return
+    preset()
+    if answers_file is not None:
+        ops.apply_answers(entity, _read_answers(answers_file, lang))
+    elif can_ask() and not yes:
+        session = console.Console(entity, console.Io.terminal(), lang)
+        try:
+            session.run(only=edit_lang, asked=asked)
+            if not session.confirm():
+                click.echo(say(lang, "edit_cancelled"))
+                return
+        except click.exceptions.Abort:
+            click.echo("\n" + say(lang, "edit_cancelled"))
+            return
+    elif not entity.new and not entity.moved and not entity.site and not _changed(entity):
+        _status(entity, lang, path)
+        return
+    else:
+        for code in ctx.langs[1:]:
+            if entity.created(code):
+                ops.mark(entity, code, True)
+    _validate(entity, lang)
+    saved = ops.save(entity)
+    _saved_report(entity, saved, lang, path)
+
+
+def _changed(entity) -> bool:
+    return any(page.text != entity.disk.get(lang) for lang, page in entity.pages.items())
+
+
+def _again(path: Path, entity) -> str:
+    kind = "category add" if entity.category else "page add"
+    tail = f" {_shown(path)}" if _shown(path) != "." else ""
+    return f"{kind} {entity.target or '/'}{tail}"
+
+
+def _validate(entity, lang: str) -> None:
+    """Ошибки полей - E039 до записи; предупреждения печатаются и запись не держат."""
+    from heron.edit import entity as ops
+
+    errors: list[str] = []
+    for code in entity.ctx.langs:
+        for issue in ops.issues(entity, code):
+            line = f"{code}: {issue.path} - {issue.message.text(lang)}"
+            if issue.level == "error":
+                errors.append(line)
+            elif code == entity.ctx.default or not ops.is_pending(entity, code):
+                # у непереведённой копии те же замечания, что у основного языка
+                click.secho("  " + say(lang, "edit_warning", text=line), fg="yellow", err=True)
+    if errors:
+        raise HeronError(
+            code="E039",
+            message=Msg("edit_invalid", lines=errors),
+            hint=Msg("edit_invalid_hint"),
+        )
+
+
+def _status(entity, lang: str, path: Path) -> None:
+    """Страница есть, а ни вопросов, ни ответов нет: что лежит на диске и как править."""
+    from heron.edit import entity as ops
+
+    kind = "edit_con_category_word" if entity.category else "edit_con_page_word"
+    click.secho(say(lang, "edit_exists", kind=say(lang, kind), key=entity.target or "/"), bold=True)
+    for code in entity.ctx.langs:
+        rel = entity.rel(code)
+        if entity.disk.get(code) is None:
+            state = say(lang, "edit_state_missing")
+        elif ops.is_pending(entity, code):
+            state = say(lang, "edit_con_pending")
+        else:
+            state = "ok"
+        click.echo(f"  {rel} - {state}")
+    click.echo(say(lang, "edit_exists_next", command=_again(path, entity)))
+
+
+def _saved_report(entity, saved, lang: str, path: Path) -> None:
+    kind = say(lang, "edit_con_category_word" if entity.category else "edit_con_page_word")
+    key = entity.target or "/"
+    if not (saved.created or saved.written or saved.moved or saved.site_yaml):
+        click.echo(say(lang, "edit_nothing", kind=kind, key=key))
+        return
+    head = "edit_saved_new" if entity.new else "edit_saved_edit"
+    click.secho(say(lang, head, kind=kind, key=key), fg="green", bold=True)
+    for made in saved.categories:
+        click.echo("  " + say(lang, "edit_saved_category", key=made))
+    for old, new in saved.moved:
+        click.echo("  " + say(lang, "edit_saved_moved", old=old, new=new))
+    for rel in saved.created:
+        mark = f" - {say(lang, 'edit_con_pending')}" if rel in saved.pending else ""
+        click.echo(f"  + {rel}{mark}")
+    for rel in saved.written:
+        mark = f" - {say(lang, 'edit_con_pending')}" if rel in saved.pending else ""
+        click.echo(f"  ~ {rel}{mark}")
+    for old, new in saved.redirects:
+        click.echo("  " + say(lang, "edit_saved_redirect", old=old, new=new))
+    if saved.site_yaml:
+        click.echo(
+            "  ~ site.yaml"
+            + (f" - {say(lang, 'edit_comments_lost')}" if saved.comments_lost else "")
+        )
+    if saved.pending:
+        click.echo(say(lang, "edit_saved_pending", command=_again(path, entity)))
+    click.echo(say(lang, "edit_saved_next", path=_shown(path)))
+
+
+def _page_key(ctx, key: str, category: str | None, lang: str) -> tuple[str, str | None]:
+    """Ключ страницы по аргументу и `--category`: (какую открыть, куда перенести).
+
+    Есть страница в указанной категории - она; есть страница под ключом как
+    написан, а категория другая - она же с переносом; нет ни той ни другой -
+    новая в категории. Без категории и без слеша ищется страница с таким именем
+    в любой категории: одна нашлась - она.
+    """
+    from heron.edit import entity as ops
+
+    key = ops.norm_key(key)
+    existing: str | None = key if ops.where(ctx, key) is not None else None
+    if existing is None and "/" not in key:
+        named = [
+            node.key for node in ops.tree(ctx) if not node.category and ops.name_of(node.key) == key
+        ]
+        if len(named) == 1:
+            existing = named[0]
+    if category is not None:
+        wanted = ops.join(ops.norm_key(category), ops.name_of(key))
+        if ops.where(ctx, wanted) is not None or existing is None:
+            return wanted, None
+        if existing != key:
+            click.echo(say(lang, "edit_found_by_name", key=existing), err=True)
+        return existing, wanted
+    if existing is not None and existing != key:
+        click.echo(say(lang, "edit_found_by_name", key=existing), err=True)
+    return existing or key, None
+
+
+@main.group(cls=PageGroup, help="help_page", invoke_without_command=False)
+@NOTES_OPTION
+def page(notes: str | None) -> None:
+    """Страницы сайта: создать или править (add), список (list)."""
+
+
+@page.command("add", help="help_page_add")
+@_argument("key", metavar="help_mv_key")
+@_option("--type", "page_type", default=None, metavar="help_mv_type", help="help_opt_page_type")
+@_option("--category", default=None, metavar="help_mv_category", help="help_opt_page_category")
+@_edit_options
 @NOTES_OPTION
 @_path_argument
-def page(
-    page_type: str, slug: str, lang: str | None, folder: str, path: Path, notes: str | None
+def page_add(
+    key: str,
+    page_type: str | None,
+    category: str | None,
+    edit_lang: str | None,
+    answers_file: str | None,
+    dump: bool,
+    web: bool,
+    yes: bool,
+    path: Path,
+    notes: str | None,
 ) -> None:
-    """Заготовка страницы со всеми секциями своего типа."""
-    from heron.scaffold.page import write_page
+    """Есть - правка, нет - создание на всех языках site.yaml (21 §10)."""
+    from heron.edit import entity as ops
 
-    language = _lang(notes, path)
-    _need_site(path, language)
-    try:
-        # Комментарии заготовки write_page берёт из HERON_NOTES или build.notes:
-        # --notes этого запуска передаётся ей тем же путём, на время записи.
-        with _notes_env(notes or ctx_notes()):
-            created = write_page(path, page_type=page_type, slug=slug, lang=lang, folder=folder)
-    except HeronError as error:
-        _fail(error, language)
-    click.secho(say(language, "page_done", path=created), fg="green")
-    click.echo(say(language, "page_next", root=_shown(path)))
+    lang = _lang(notes, path)
+    _need_site(path, lang)
+    ctx = ops.context(path, lang)
+    target, move_to = _page_key(ctx, key, category, lang)
+    entity = ops.open_entity(ctx, target, False, page_type=page_type)
+
+    def preset() -> None:
+        if move_to is not None:
+            ops.move(entity, move_to)
+        if page_type is not None and not entity.new:
+            for code in ctx.langs:
+                if code in entity.pages:
+                    ops.set_value(entity, code, "type", page_type)
+
+    asked = tuple(
+        name for name, given in (("type", page_type), ("category", category)) if given is not None
+    )
+    _edit_session(
+        path,
+        lang,
+        entity,
+        edit_lang=edit_lang,
+        answers_file=answers_file,
+        dump=dump,
+        web=web,
+        yes=yes,
+        asked=asked,
+        preset=preset,
+    )
+
+
+@page.command("list", help="help_page_list")
+@_option("--json", "as_json", is_flag=True, help="help_opt_list_json")
+@NOTES_OPTION
+@_path_argument
+def page_list(as_json: bool, path: Path, notes: str | None) -> None:
+    """Дерево категорий и страниц с языками и пометками перевода."""
+    import json
+
+    from heron.edit import entity as ops
+
+    lang = _lang(notes, path)
+    _need_site(path, lang)
+    ctx = ops.context(path, lang)
+    nodes = ops.tree(ctx)
+    if as_json:
+        data = {
+            "languages": ctx.langs,
+            "default_lang": ctx.default,
+            "items": [
+                {
+                    "key": node.key,
+                    "category": node.category,
+                    "type": node.type,
+                    "title": node.title,
+                    "langs": node.langs,
+                }
+                for node in nodes
+            ],
+        }
+        click.echo(json.dumps(data, ensure_ascii=False, indent=2))
+        return
+    click.secho(
+        say(lang, "page_list_head", path=_shown(path), langs=", ".join(ctx.langs)), bold=True
+    )
+    width = max(
+        [
+            len("  " * max(n.depth - 1, 0) + (n.key.rsplit("/", 1)[-1] or "/"))
+            + (1 if n.category else 0)
+            for n in nodes
+        ]
+        + [8]
+    )
+    pending = 0
+    for node in nodes:
+        name = node.key.rsplit("/", 1)[-1] or "/"
+        label = "  " * max(node.depth - 1, 0) + name + ("/" if node.category and node.key else "")
+        cells = []
+        for code in ctx.langs:
+            state = node.langs[code]
+            pending += state == "pending"
+            mark = {"pending": code + "!", "missing": "-" * len(code)}.get(state, code)
+            cells.append(f"{mark:<{len(code) + 1}}")
+        title = f"  {node.title}" if node.title else ""
+        click.echo(f"  {label:<{width}}  {' '.join(cells)}{title}".rstrip())
+    click.echo(say(lang, "page_list_legend"))
+    if pending:
+        click.secho(say(lang, "page_list_pending", count=pending), fg="yellow")
+
+
+@main.group(cls=HeronGroup, help="help_category")
+@NOTES_OPTION
+def category(notes: str | None) -> None:
+    """Категории сайта: создать или править (add)."""
+
+
+@category.command("add", help="help_category_add")
+@_argument("key", metavar="help_mv_category")
+@_option("--type", "page_type", default=None, metavar="help_mv_type", help="help_opt_category_type")
+@_option(
+    "--children-type",
+    "children_type",
+    default=None,
+    metavar="help_mv_type",
+    help="help_opt_children_type",
+)
+@_option("--view", default=None, metavar="help_mv_view", help="help_opt_view")
+@_edit_options
+@NOTES_OPTION
+@_path_argument
+def category_add(
+    key: str,
+    page_type: str | None,
+    children_type: str | None,
+    view: str | None,
+    edit_lang: str | None,
+    answers_file: str | None,
+    dump: bool,
+    web: bool,
+    yes: bool,
+    path: Path,
+    notes: str | None,
+) -> None:
+    """Категория любой вложенности: есть - правка, нет - создание на всех языках (21 §10)."""
+    from heron.edit import entity as ops
+
+    lang = _lang(notes, path)
+    _need_site(path, lang)
+    ctx = ops.context(path, lang)
+    entity = ops.open_entity(
+        ctx, key, True, page_type=page_type, children_type=children_type, view=view
+    )
+
+    def preset() -> None:
+        if entity.new:
+            return
+        for name, value in (("type", page_type), ("children_type", children_type)):
+            if value is not None:
+                for code in ctx.langs:
+                    if code in entity.pages:
+                        ops.set_value(entity, code, name, value)
+        if view is not None:
+            spec = ctx.theme.types.get(entity.main.type)
+            if spec is None or spec.views is None:
+                raise HeronError(
+                    code="E008",
+                    message=Msg("edit_unknown_view", view=view, type=entity.main.type, views="-"),
+                )
+            for code in ctx.langs:
+                if code in entity.pages:
+                    ops.set_value(entity, code, spec.views.key, view)
+
+    asked = tuple(
+        name
+        for name, given in (("type", page_type), ("children_type", children_type), ("view", view))
+        if given is not None
+    )
+    _edit_session(
+        path,
+        lang,
+        entity,
+        edit_lang=edit_lang,
+        answers_file=answers_file,
+        dump=dump,
+        web=web,
+        yes=yes,
+        asked=asked,
+        preset=preset,
+    )
 
 
 @main.command(help="help_describe")

@@ -21,7 +21,8 @@ from heron.core import build as pipeline
 from heron.core.environment import BuildEnv
 from heron.modules import nginx
 from heron.scaffold import create
-from heron.scaffold.page import BODY, write_page
+from heron.scaffold.page import BODY
+from tests.edit_corpus import write_page
 
 CYRILLIC = re.compile(r"[а-яА-ЯёЁ]")
 # латиница в русской заготовке — только токены: TODO, имена ключей и типов
@@ -92,7 +93,7 @@ def test_cli_page_in_english_site(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     runner = CliRunner()
     assert runner.invoke(main, ["new", "site", "--notes", "en", "-y"]).exit_code == 0
-    result = runner.invoke(main, ["page", "page", "about", "site"])
+    result = runner.invoke(main, ["page", "add", "about", "site"])
     assert result.exit_code == 0, result.output
     text = (tmp_path / "site" / "content" / "en" / "about.md").read_text(encoding="utf-8")
     assert "Вводный" not in text and not CYRILLIC.search(text)

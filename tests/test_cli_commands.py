@@ -9,7 +9,7 @@ from click.testing import CliRunner
 from heron import __version__
 from heron.cli import main
 
-EXPECTED = {"new", "init", "check", "serve", "build", "page"}
+EXPECTED = {"new", "init", "check", "serve", "build", "page", "category"}
 
 
 @pytest.fixture
@@ -191,9 +191,10 @@ def test_broken_site_exits_with_one(run):
 
 def test_page_command_creates_a_draft(run):
     run(main, ["new", "demo"])
-    result = run(main, ["page", "page", "нова", "demo"])
-    assert result.exit_code == 1  # нелатинский слаг не пройдёт обход
-    good = run(main, ["page", "page", "nova", "demo"])
+    result = run(main, ["page", "add", "нова", "demo"])
+    assert result.exit_code == 1  # нелатинский ключ не станет адресом
+    assert "E005" in result.output
+    good = run(main, ["page", "add", "nova", "demo"])
     assert good.exit_code == 0, good.output
     text = pathlib.Path("demo/content/en/nova.md").read_text(encoding="utf-8")
     assert "title:" in text and "{#intro}" not in text
@@ -201,6 +202,6 @@ def test_page_command_creates_a_draft(run):
 
 def test_page_refuses_unknown_type(run):
     run(main, ["new", "demo"])
-    result = run(main, ["page", "неттакого", "slug", "demo"])
+    result = run(main, ["page", "add", "slug", "--type", "неттакого", "demo"])
     assert result.exit_code == 1
     assert "E008" in result.output

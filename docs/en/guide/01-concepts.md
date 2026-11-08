@@ -92,7 +92,7 @@ Only three fields are required:
 
 The rest is filled in as needed. Empty fields stay commented out - they hint at what else you can set.
 
-Starter pages come with the full block, and the `page` command puts it into every new page. Or simpler: a new page is a copy of any file with the values edited.
+Starter pages come with the full block, and the `page add` command puts it into every new page - in all languages of the site at once. Or simpler: a new page is a copy of any file with the values edited.
 
 → In detail: [`20` §4.1-4.2](../spec/20-data-contract.md#page-overview)
 

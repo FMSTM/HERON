@@ -235,18 +235,20 @@ Save the files. If the preview is running, refresh the browser tab and look at t
 Let's add an "About us" page with the key `about`:
 
 ```bash
-docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page page about my-site
+docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add about my-site
 ```
 
-How to read the end of the command: `page` - "create a page", the next `page` - the page **type** (an ordinary text page; which other types exist depends on the theme), `about` - its **key**, `my-site` - the site folder. The engine creates `my-site/content/en/about.md` in the main language - with a ready SEO block and drafts of the sections.
+How to read the end of the command: `page add` - "create a page, and if it already exists - open it for editing", `about` - its **key** (the file name and the address come from it), `my-site` - the site folder. `-it` is needed because the engine asks questions: which category the page lives in, the title for search, the heading on the page itself, the description and the other fields. Every question shows in brackets the value that stays if you just press Enter, next to it - a one-line hint, and `?` shows the detailed help. An answer with a mistake (for example, a title that is too long) is flagged at once and asked again. First the engine asks everything in the main language, then for every other language - a translation of the same texts: type the translation or press Enter to skip the field.
 
-The Russian version - the same command with `--lang ru` at the end:
+At the end the engine shows a summary and asks "Write?". The page appears in all languages at once: `my-site/content/en/about.md` and `my-site/content/ru/about.md` - with a ready SEO block and drafts of the sections. If you skipped the translation, the Russian file keeps the English text and the line `translation: pending`: a draft build and the preview show such a page with a yellow "translation pending" banner, and a production build does not publish it in Russian until you translate the text and delete this line.
+
+The same command a second time opens the page for editing and creates nothing. All pages, their languages and what is not translated (marked with `!`) are shown by `page list`:
 
 ```bash
-docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page page about my-site --lang ru
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page list my-site
 ```
 
-`my-site/content/ru/about.md` appears. File names are the same in every language - this is how the engine knows they are translations of one page. The addresses can differ, though: to make the Russian page open at `/ru/o-nas/`, add `slug: o-nas` to its SEO block.
+File names are the same in every language - this is how the engine knows they are translations of one page. The addresses can differ, though: to make the Russian page open at `/ru/o-nas/`, add `slug: o-nas` to its SEO block (the questionnaire asks this field too).
 
 ```
 content/en/about.md   →  /about/

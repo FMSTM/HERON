@@ -18,7 +18,23 @@ from pathlib import Path
 from heron.contracts.theme import load_theme
 from heron.core import describe
 from heron.scaffold import DEMO, create, starter_theme
-from heron.scaffold.page import write_page
+from heron.scaffold.page import stub
+
+
+def write_page(root: Path, page_type: str, key: str, lang: str | None = None) -> Path:
+    """Заготовка одной страницы, как её кладёт `heron page add` (scaffold.page.stub)."""
+    from heron.contracts.site import load_site
+    from heron.scaffold import resolve_notes
+    from heron.scaffold.page import title_of
+
+    config = load_site(root / "site.yaml")
+    theme = load_theme(root / "theme" / "theme.yaml")
+    notes = resolve_notes(None, root / "site.yaml")
+    target = root / "content" / (lang or config.site.default_lang) / f"{key}.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(stub(theme, page_type, title_of(key), notes), encoding="utf-8")
+    return target
+
 
 REPO = Path(__file__).resolve().parent.parent
 TESTS = REPO / "tests"

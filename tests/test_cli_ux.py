@@ -229,7 +229,9 @@ def test_next_steps_in_container_are_ready_docker_commands(here, monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert "`heron " not in result.output
-    assert f"\n      {DOCKER}beta page page about my-site\n" in result.output
+    # page add спрашивает в терминале: -it, как у new и init
+    page = DOCKER.replace("--rm ", "--rm -it ") + "beta page add about my-site"
+    assert f"\n      {page}\n" in result.output
     assert f"\n      {DOCKER}beta check my-site\n" in result.output
     setup = (
         'docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site '
@@ -444,7 +446,7 @@ def frame_lines(output: str) -> list[str]:
 
 @pytest.mark.parametrize(
     "args",
-    [["check"], ["build"], ["page", "page", "about"]],
+    [["check"], ["build"], ["page", "add", "about"]],
     ids=["check", "build", "page"],
 )
 def test_broken_site_yaml_of_a_russian_site_gives_a_russian_frame(here, args):

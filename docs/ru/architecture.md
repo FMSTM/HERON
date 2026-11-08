@@ -23,7 +23,7 @@ HERON - файловый движок сайтов. На вход папка с 
 - **`heron/core/`** - парсер markdown, дерево и URL, резолв связей, рендерер, обработка картинок
 - **`heron/modules/`** - генераторы: sitemap, robots, llms.txt, JSON-LD, redirects, feed, конфиг nginx (`nginx.py`)
 - **`heron/contracts/`** - pydantic-схемы `site.yaml`, `theme.yaml`, фронтматтера, версии движка; `schemas.py` - экспорт JSON Schema и реестра ошибок (`heron schema`)
-- **`heron/cli.py`** - команды `new`, `init`, `check`, `serve`, `build`, `page`, `setup`, `theme`, `docs`, `schema`, `recipe`
+- **`heron/cli.py`** - команды `new`, `init`, `check`, `serve`, `build`, `page`, `category`, `describe`, `setup`, `theme`, `docs`, `schema`, `recipe`
 - **`heron/setup/`** - конфигуратор `heron setup`: модель ответов, запись `site.yaml` и файлов публикации, локальный сервер, классификатор сфер
 - **`heron/schemaorg/`** - словарь schema.org 29.3 для проверки разметки (`SCH001`-`SCH006`)
 - **`heron/themes/`** - установка и упаковка тем для `heron theme`: встроенная `starter` (файлы в `heron/scaffold/templates/`), каталог, ссылка, архив

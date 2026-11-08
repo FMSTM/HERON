@@ -1,11 +1,11 @@
 # Role: Designer
 
-Make a theme that draws every page type of the structure and does not break on incomplete content. Common rules - [`README.md`](../README.md); how a theme works, in plain words - the guide [04 · Theme and design](../guide/04-theme.md).
+Make a theme that draws every page type of the structure and does not break on incomplete content. Common rules - [`README.md`](../README.md); how a theme works, in plain words - the guide [04 · Theme and design](../guide/04-theme.md), the contract, hints, demo and moving a theme from 0.2 - [07 · Your own theme](../guide/07-theme-author.md).
 
 **Input:** page types and their sections from the architect (or an existing `theme.yaml`), a mockup or a description of the look.
 **Output:** the `theme/` folder: `theme.yaml`, `base.html`, type templates, form modules, `partials/`, `assets/`, `i18n/<lang>.yaml`.
 
-**Limits.** You write only to `theme/`. `content/`, `data/`, `site.yaml`, `.github/`, scripts are not yours. A theme by link or archive is installed only if the human named it. The report is `agents/work/report.md` in the form of [`templates/report.md`](../templates/report.md). Done when the build passes on the starter and on the full content and the report has no missing `i18n` strings.
+**Limits.** You write only to `theme/`. `content/`, `data/`, `site.yaml`, `.github/`, scripts are not yours. A theme by link or archive is installed only if the human named it. The report is `agents/work/report.md` in the form of [`templates/report.md`](../templates/report.md). Done when the build passes on the starter and on the full content, `heron check . --theme` has no `E008` and `E037` and the report has no missing `i18n` strings.
 
 ## 1. Start with the starter theme
 
@@ -34,7 +34,21 @@ images:
 - `requires` - paths in `site.yaml` the theme does not work without (`E011` if empty);
 - `links` - relation fields; `back` builds the reverse list.
 
-## 3. Type templates
+## 3. The contract: fields, hints, views
+
+By the contract of the theme a person fills pages in the console (`heron page add`) and in the studio, an agent - by `heron describe --json`, and the theme reference is built by itself. So the theme describes in `theme.yaml` everything it declares (`21` ["The theme contract"](../spec/21-engine.md#theme-contract), in plain words - the guide [07 · Your own theme](../guide/07-theme-author.md)):
+
+- `types.<type>`: `hint_<lang>`, `help_<lang>`; `sections.<anchor>` - `required`, hints, `fields` for a section without a form (`intro`); a category type has `children_type` and `views` (`key`, `default`, `options` with hints) - exactly the views the templates draw (`page.meta.get('view')`);
+- `modules.<name>`: `scope` (`section` or `page`), `kinds`, `schemaorg`, `example_<lang>`, `fields` - every field has `name`, `type`, `md` (a place from the dictionary in `21`), limits; page modules have `fields: []`;
+- `languages` - the hint languages; `hint` is mandatory in each of them for a type, a section, a module, a field, a view, otherwise `heron check` gives `E008` with a list of paths;
+- `help` is written for a newcomer: what it is, what it affects on the site and in search, a good example, common mistakes. The sample is `theme.yaml` of the starter theme;
+- service fields (`title`, `h1`, `description`, the address, the menu, the cover, `noindex`, `translation`) are described by the engine - do not repeat them in the theme.
+
+## 4. Demo and reference
+
+The demo - the content of the site the theme is packed from - must show every type (a page from a file, `404.md` too), every module from `modules` (a non-empty render) and every view from `views` (a category page with pages inside and `view: <view>`; the default view - without the key). The check is `heron check . --theme` (`E037` with a list of gaps), `heron theme pack` repeats it and writes no archive without a complete demo. The demo is a sample of presentation for the niche: plausible texts, pages explain themselves. It is easy to create with `heron category add` and `heron page add` (in every language at once). The theme reference is `heron docs theme-ref .` and `/_heron/theme/` in `heron serve`: read it with the eyes of a newcomer before handing over.
+
+## 5. Type templates
 
 For each type - `templates/<type>.html` (otherwise `E008`):
 
@@ -60,11 +74,11 @@ For each type - `templates/<type>.html` (otherwise `E008`):
 - `site.*` is already in the page language in all blocks: `site.contact.address` on a Russian page is `address_ru`, there is no need to pick the language by hand;
 - the full list of variables is in `21` §7, the page model in `21` §6.
 
-## 4. Modules
+## 6. Modules
 
 For each form the theme draws - `modules/<name>.html`. Inside: `section` (the section with `title`, `kind`, `lead`, `note`, `callout`), `items` (the parsed data of the form), `html` (the ready content). What `items` holds for each form - `20` §4.4.
 
-## 5. Images and assets
+## 7. Images and assets
 
 - only `picture(src, ratio, alt=…)` - renditions, WebP/AVIF, sizes; building `<picture>` by hand means losing the variants;
 - the ratios you use go in `images.ratios`;
@@ -88,11 +102,11 @@ Do not assemble `og:image`, `twitter:image`, `robots` or the image markup (`prim
 - `primaryImageOfPage` or `entity.image` set by the site in `schema` take precedence over the computed ones; the computed `primaryImageOfPage` appears only if the theme declared `WebPage` or a derived type for the type in `types.<type>.jsonld`.
 - The engine does not check the `modules` list in `theme.yaml` against the files.
 
-## 6. Interface strings
+## 8. Interface strings
 
 Everything that belongs to the theme and not to the page ("Read more", "Questions and answers") goes in `theme/i18n/<lang>.yaml`, and in a template it is `t.<key>`. Each site language has its own file; `init` puts a stub. The keys `on`, `off`, `yes`, `no` go in quotes.
 
-## 7. What a theme does not do
+## 9. What a theme does not do
 
 - it holds no content texts and no site details: texts are in sections, phone and address are in `site.contact.*`;
 - it does not load content with a script: text and numbers must be in the HTML;
@@ -107,3 +121,6 @@ Everything that belongs to the theme and not to the page ("Read more", "Question
 - [ ] templates hold no texts or site details; interface strings go through `t`
 - [ ] the report has no missing `i18n` strings and no template errors
 - [ ] images go through `picture()`; ratios are declared
+- [ ] every type, section, module, field and view has a `hint` in every language of `languages`, blocks have a `help` for a newcomer
+- [ ] `heron check . --theme` - no `E008` and `E037`: the demo shows every type, block and view
+- [ ] templates without inline scripts and `on*=` handlers, everything from `assets/` (strict CSP)

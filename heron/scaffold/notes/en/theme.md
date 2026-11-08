@@ -11,7 +11,15 @@ anchor, but not what that section says.
 - `modules/` - one module per section form;
 - `assets/` - styles, script, logo, icons, fonts;
 - `i18n/<lang>.yaml` - interface strings: buttons, labels, block headings;
-- `theme.yaml` - which sections the theme expects from each page type.
+- `theme.yaml` - the passport and the contract: page types and their sections,
+  the fields of every block, section views and hints in every language of the
+  theme. The questions of `page add`, the studio and the theme reference
+  (`/_heron/theme/` in the preview) work by it. The check is
+  `check . --theme`: the description is complete, the demo shows every type,
+  block and view. How to write it - the guide "Your own theme" (`docs theme-author`).
+
+Code only as files in `assets/`: the browser does not run inline `<script>` and
+`onclick=` handlers (strict CSP).
 
 ## Does not belong here
 

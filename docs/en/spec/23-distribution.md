@@ -45,7 +45,7 @@ Versioning is semantic. A breaking change of the folder contract, of the `site.y
 
 ## 3. Commands
 
-The engine commands - `new`, `init`, `check`, `serve`, `build`, `page`, `category`, `describe`, `setup`, `theme`, `docs`, `schema`, `recipe` - are described in `21-engine.md` §10; this is its whole surface. Packing into an image is not among them: `heron recipe` only prints the Dockerfile of the site image, and the host runs `docker build` (section 5).
+The engine commands - `new`, `init`, `check`, `serve`, `build`, `page`, `category`, `describe`, `setup`, `studio`, `theme`, `docs`, `schema`, `recipe` - are described in `21-engine.md` §10; this is its whole surface. Packing into an image is not among them: `heron recipe` only prints the Dockerfile of the site image, and the host runs `docker build` (section 5).
 
 ### Two entries, one exit
 
@@ -93,7 +93,7 @@ docker run --rm -it -v "$PWD":/site -w /site --user $(id -u):$(id -g) ghcr.io/fm
 ├── AGENTS.md              entry point for an AI agent; CLAUDE.md and GEMINI.md - one line "@AGENTS.md"
 ├── agents/                the agent kit in the --notes language: README, manifest,
 │                          roles/, templates/, guide/, spec/, architecture.md, schemas/, work/
-├── content/<lang>/        home, 404 and the demo pages of the white theme (blocks, themes, docs)
+├── content/<lang>/        home, 404 and the demo pages of the white theme (blocks, themes, docs, structure/)
 │                          with the full SEO block - for each language from site.yaml
 ├── media/                 cover.png - the default cover; demo/ - images of the demo pages (light.svg, dark.svg)
 ├── data/  static/  plugins/          empty

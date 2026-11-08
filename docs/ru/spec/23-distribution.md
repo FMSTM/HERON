@@ -45,7 +45,7 @@ heron: ">=0.3,<0.4"
 
 ## 3. Команды
 
-Команды движка - `new`, `init`, `check`, `serve`, `build`, `page`, `category`, `describe`, `setup`, `theme`, `docs`, `schema`, `recipe` - описаны в `21-engine.md` §10, это вся его поверхность. Упаковки в образ среди них нет: `heron recipe` только печатает Dockerfile образа сайта, а `docker build` делает хост (раздел 5).
+Команды движка - `new`, `init`, `check`, `serve`, `build`, `page`, `category`, `describe`, `setup`, `studio`, `theme`, `docs`, `schema`, `recipe` - описаны в `21-engine.md` §10, это вся его поверхность. Упаковки в образ среди них нет: `heron recipe` только печатает Dockerfile образа сайта, а `docker build` делает хост (раздел 5).
 
 ### Два входа, один выход
 
@@ -93,7 +93,7 @@ docker run --rm -it -v "$PWD":/site -w /site --user $(id -u):$(id -g) ghcr.io/fm
 ├── AGENTS.md              точка входа для AI-агента; CLAUDE.md и GEMINI.md - по строке «@AGENTS.md»
 ├── agents/                комплект инструкций для агентов на языке --notes: README, манифест,
 │                          roles/, templates/, guide/, spec/, architecture.md, schemas/, work/
-├── content/<lang>/        главная, 404 и демонстрационные страницы белой темы (blocks, themes, docs)
+├── content/<lang>/        главная, 404 и демонстрационные страницы белой темы (blocks, themes, docs, structure/)
 │                          с полным SEO-блоком - на каждый язык из site.yaml
 ├── media/                 cover.png - обложка по умолчанию; demo/ - картинки демо-страниц (light.svg, dark.svg)
 ├── data/  static/  plugins/          пусто

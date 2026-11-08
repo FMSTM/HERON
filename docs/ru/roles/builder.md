@@ -60,7 +60,7 @@ heron init мой-сайт          # content/<язык>/index.md и 404.md, the
 
 ## 3. Тема
 
-`types` и `links` в `theme/theme.yaml` - из структуры; шаблон на каждый тип, модуль на каждую форму. Как - [`designer.md`](designer.md).
+`types` и `links` в `theme/theme.yaml` - из структуры; шаблон на каждый тип, модуль на каждую форму; у темы, которую сдают отдельно, - полный контракт с подсказками и демо (`heron check . --theme`). Как - [`designer.md`](designer.md).
 
 ## 4. Контент
 

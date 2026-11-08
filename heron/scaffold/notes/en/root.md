@@ -80,6 +80,9 @@ Each command can simply be copied as a whole line:
 docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod setup .
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod init .
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod check .
+docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add about .
+docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod category add services .
+docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod studio .
 docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod serve .
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod build . --env prod --strict
 ```
@@ -88,12 +91,18 @@ docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmst
   address it prints in full - with the key after "#";
 - `init` - folders catch up with `site.yaml`;
 - `check` - what to fill in and what to fix, without a build;
+- `page add` - a page in every language at once: missing - create it, there -
+  open it for editing. The engine asks the fields with hints, `?` - detailed help;
+- `category add` - a section (a folder with its own page `_index.md`), the same;
+- `studio` - the same with a mouse in the browser, plus the theme reference:
+  every block with an example. Open the address in full, with the key after "#";
 - `serve` - look at the site in the browser at <http://localhost:8000>;
 - `build . --env prod --strict` - build the working version into `dist/`.
 
-`setup` and `serve` have `-p 127.0.0.1:8000:8000` in the command: it forwards
+`setup`, `studio` and `serve` have `-p 127.0.0.1:8000:8000` in the command: it forwards
 port 8000 from the container to your computer, otherwise the page does not
-open in the browser. The other commands need no port.
+open in the browser. The other commands need no port. `-it` is for the
+commands that ask questions or run until Ctrl+C.
 
 ### Shorter: the name `heron` while you work
 

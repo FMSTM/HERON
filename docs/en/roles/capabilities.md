@@ -23,6 +23,8 @@ References: `20` = [`spec/20-data-contract.md`](../spec/20-data-contract.md), `2
 | A new section of any depth: the page `_index.md`, the view, the type of pages inside | `heron category add <path>` | `21` §10 |
 | Moving a page or a section with a 301 from the old addresses | `heron page add <key> --category <path>`, `key` in `--answers` | `21` §10 |
 | The tree of pages, languages, what is not translated | `heron page list --json` | `21` §10 |
+| The fields of a page and its blocks with hints - for an agent and programs | `heron describe [type\|module] --json` | `21` §10 |
+| Create and edit pages with a mouse, for a human | `heron studio`, `--web` of `page add` and `category add` | `21` §10 |
 | Messages, help and comments in site files in Russian or in English | `--notes ru\|en`, `HERON_NOTES`, `build.notes` | `23` §4 |
 | A section of 100+ pages | one catalog page, without pagination; the theme does the grouping | `21` §4 |
 
@@ -116,6 +118,8 @@ References: `20` = [`spec/20-data-contract.md`](../spec/20-data-contract.md), `2
 | An image without a clone of the engine | the shared workflow `site-image.yml`, the image recipe - `heron recipe` | `23` §5 |
 | Build and publication helpers, a workflow in the site folder | written by the configurator: `.heron/scripts/`, `.github/workflows/` | `21` §10 |
 | Install a theme, show the catalog, pack your own | `heron theme get`, `list`, `pack` | `21` §10 |
+| Describe a theme for people: block fields, hints, section views | `theme.yaml`: `fields`, `hint_<lang>`, `help_<lang>`, `views`, `children_type` | `21` §7 |
+| Check the theme demo, the theme reference | `heron check --theme`; `heron docs theme-ref`, `/_heron/theme/` in `heron serve` | `21` §7, §10 |
 | A preview with rebuilding | `heron serve` | `21` §10 |
 | Documentation and schemas of this version | `heron docs`, `heron schema` | `21` §10 |
 

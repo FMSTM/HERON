@@ -60,7 +60,7 @@ What not to do: do not write an "approximate" domain, phone or analytics counter
 
 ## 3. Theme
 
-`types` and `links` in `theme/theme.yaml` come from the structure; a template for each type, a module for each form. How - [`designer.md`](designer.md).
+`types` and `links` in `theme/theme.yaml` come from the structure; a template for each type, a module for each form; a theme handed over on its own has a full contract with hints and a demo (`heron check . --theme`). How - [`designer.md`](designer.md).
 
 ## 4. Content
 

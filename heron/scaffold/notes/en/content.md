@@ -13,6 +13,10 @@ if the file sets `slug`.
 - `_index.md` of a section - its heading, intro and the type of its children;
 - page frontmatter: title, description, relations, declared files.
 
+A new page and a section are easy to create with the commands `page add <key>`
+and `category add <path>` or in the studio (`studio`): the files appear in
+every language at once, and what is not translated gets `translation: pending`.
+
 ## Does not belong here
 
 - **Image and video files.** They live in `media/`; the page only declares

@@ -78,6 +78,9 @@ HERON - открытый проект. Нашли ошибку или хотит
 docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod setup .
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod init .
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod check .
+docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add about .
+docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod category add services .
+docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod studio .
 docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod serve .
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod build . --env prod --strict
 ```
@@ -86,12 +89,18 @@ docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmst
   который он напечатает, целиком - с ключом после «#»;
 - `init` - папки догоняют `site.yaml`;
 - `check` - что заполнить и что поправить, без сборки;
+- `page add` - страница сразу на всех языках: нет - создать, есть - открыть
+  на правку. Движок спросит поля с подсказками, `?` - подробная справка;
+- `category add` - раздел (папка со своей страницей `_index.md`), так же;
+- `studio` - то же мышью в браузере, плюс справка темы: каждый блок
+  с примером. Адрес открывайте целиком, с ключом после «#»;
 - `serve` - посмотреть сайт в браузере на <http://localhost:8000>;
 - `build . --env prod --strict` - собрать рабочую версию в `dist/`.
 
-У `setup` и `serve` в команде есть `-p 127.0.0.1:8000:8000`: он пробрасывает
+У `setup`, `studio` и `serve` в команде есть `-p 127.0.0.1:8000:8000`: он пробрасывает
 порт 8000 из контейнера на ваш компьютер, иначе страницу не открыть в
-браузере. Остальным командам порт не нужен.
+браузере. Остальным командам порт не нужен. `-it` нужен тем, кто задаёт
+вопросы или работает до Ctrl+C.
 
 ### Короче: имя `heron` на время работы
 

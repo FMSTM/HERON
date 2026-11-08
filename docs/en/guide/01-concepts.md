@@ -123,9 +123,9 @@ The **page type** chooses which template draws the page: a page of type `service
 - with the `children_type` field in the `_index.md` of a section - then the pages of the section get this type;
 - by default: the home page has type `home`, the others `page`.
 
-Which types exist is up to the theme: in the file `theme/theme.yaml` it describes its types, their sections, relations between pages and image proportions.
+Which types exist is up to the theme: in the file `theme/theme.yaml` it describes its types, their sections, the fields of every block with hints for whoever fills the page in, section views, relations between pages and image proportions. A theme comes with a **demo** - pages that show everything it can do - and a **theme reference** the engine builds itself: in the preview it is the page `/_heron/theme/`.
 
-→ In detail: [`20` §6](../spec/20-data-contract.md#theme-yaml), [theme guide](04-theme.md)
+→ In detail: [`20` §6](../spec/20-data-contract.md#theme-yaml), [theme guide](04-theme.md), [your own theme](07-theme-author.md)
 
 ## Build
 

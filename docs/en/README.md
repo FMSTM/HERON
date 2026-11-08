@@ -25,7 +25,7 @@ A static site engine: the image `ghcr.io/fmstm/heron:<channel>` or a package fro
 |---|---|---|---|
 | "Here is the old site / a report - design the new one" | Architect | [`roles/architect.md`](roles/architect.md) | every page has a key, a type and a language; every type has sections with forms; every old address has a 301/410; `work/structure.md` is handed in |
 | "Write the pages", "move the texts", "fix the SEO", "translate" | Content and SEO | [`roles/content.md`](roles/content.md) | `check --strict --json` → 0; every page has `title`, `h1`, `description`; images have `alt`; debts are in the report |
-| "Make a theme", "build the layout from the mockup", "add a type" | Designer | [`roles/designer.md`](roles/designer.md) | every type has a template, every form has a module or a branch in `partials/sections.html`; the build passes on the starter and on the full content; the `i18n` strings are in place |
+| "Make a theme", "build the layout from the mockup", "add a type" | Designer | [`roles/designer.md`](roles/designer.md) | every type has a template, every form has a module or a branch in `partials/sections.html`; the contract with hints and the demo - `check --theme` without `E008`, `E037`; the build passes on the starter and on the full content; the `i18n` strings are in place |
 | "Build it by the structure", "get it ready for deploy" | Builder (leads the other roles) | [`roles/builder.md`](roles/builder.md) | `build --env prod --strict` → 0; the report is handed in; publication is up to the human |
 
 Before you propose an engine change, read [`roles/capabilities.md`](roles/capabilities.md): almost everything a site needs is already there. Samples - [`templates/`](templates/structure.md): `structure.md`, `site.yaml`, `theme.yaml`, `page.md`, `report.md`, `questions.md`. An outdated sample breaks the engine tests before you get to take it.
@@ -44,7 +44,7 @@ Before you propose an engine change, read [`roles/capabilities.md`](roles/capabi
 
 ## What you decide alone, what you ask, what is forbidden
 
-**Alone:** the files of your role (content - `content/`, `media/`, `data/`; designer - `theme/`; architect - `work/structure.md`, a draft `site.yaml`, the theme `types`/`links`; builder - all of these when leading the roles); the commands `check`, `build`, `serve`, `page add`, `page list`, `category add`, `init`, `setup --dump`/`--answers`, `schema`, `docs`, `recipe`, `theme list`; the report and questions in `work/`; commits to a branch.
+**Alone:** the files of your role (content - `content/`, `media/`, `data/`; designer - `theme/`; architect - `work/structure.md`, a draft `site.yaml`, the theme `types`/`links`; builder - all of these when leading the roles); the commands `check`, `build`, `serve`, `describe`, `page add`, `page list`, `category add` (with flags and `--answers`, no questions), `init`, `setup --dump`/`--answers`, `schema`, `docs`, `recipe`, `theme list`; the report and questions in `work/`; commits to a branch.
 
 **You ask** - with an entry in `work/questions.md` with options and a recommendation, leave the field empty and move on: any fact; deleting a page, changing the key or address of an existing one; `redirect_from`/`gone` for addresses not from the source; `languages`, `default_lang`, `domain`, `theme` outside the architect role; a theme by link or archive that the human did not name.
 

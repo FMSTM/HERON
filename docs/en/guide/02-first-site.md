@@ -28,7 +28,7 @@ The engine creates the folder `my-site` inside the current one - you get `~/site
 What the parts of the command mean - once, since they repeat from here on:
 
 - `docker run --rm` - run the engine and clean up after it when the command finishes;
-- `-it` - attach the terminal. For `new` - so the engine can ask questions, for the configurator and the preview - so you can stop them with Ctrl+C;
+- `-it` - attach the terminal. For `new`, `page add` and `category add` - so the engine can ask questions, for the configurator, the studio and the preview - so you can stop them with Ctrl+C;
 - `-v "$PWD:/site" -w /site` - show the engine the current folder and work in it;
 - `--user "$(id -u):$(id -g)"` - create files under your name. Without it they would belong to the system user root, and you would have to edit them with `sudo`;
 - `ghcr.io/fmstm/heron:prod` - the engine itself, the stable version;
@@ -117,7 +117,7 @@ Besides the home page, `content/` holds demo pages:
 - "Documentation" (`docs.md`) - where to read next;
 - "Structure" (the folder `structure/`) - a section with its own page `_index.md` and two pages inside: how to lay a site out as pages and sections.
 
-They are handy to look at like this: the file in the editor on the left, the same page in the browser on the right. The demo pages have texts in Russian and English; other languages get the English ones. When you no longer need the pages, delete the files and remove them from the menu - `nav.main` in `site.yaml`.
+They are handy to look at like this: the file in the editor on the left, the same page in the browser on the right. The demo pages have texts in Russian and English; other languages get the English ones. This is the demo of the theme - a sample its author thought through: which pages a site needs and which blocks they have. Replace the texts with your own or, when you no longer need the pages, delete the files and remove them from the menu - `nav.main` in `site.yaml`. How to remove the demo and how to bring it back - [04 · Theme and design](04-theme.md#demo-pages).
 
 **If an AI agent writes the texts.** Give it a link to the site repository and the task: "Read `AGENTS.md` and write the page texts." `AGENTS.md` describes the agent roles; texts and SEO are the "Content and SEO" role. The `agents/` folder holds the engine documentation of the same version and in the same language you chose; it does not get onto the site. If you do not need agents, create the site with the `--no-agents` flag at the end of the `new` command - the engine remembers it in `site.yaml`. When a new engine version comes out, the command `init my-site --agents` updates the instructions you have not edited. More - [`agents/README.md`](../README.md).
 
@@ -136,7 +136,7 @@ open: http://localhost:8000/  (Ctrl+C to stop)
 HERON runs in a container: open the address on your computer. ...
 ```
 
-Open <http://localhost:8000> in the browser. It is already a working site: home page, menu, language switch, demo pages.
+Open <http://localhost:8000> in the browser. It is already a working site: home page, menu, language switch, demo pages. And at <http://localhost:8000/_heron/theme/> there is the theme reference: every block the theme can do, with its hint, a live example and its markdown next to it. The reference is seen only in the preview: it does not get onto the site.
 
 While the preview is running, the engine watches the files: you save an edit - the page is rebuilt, refresh the browser tab. So it is handy to keep the preview running the whole time you work and to run other commands **in another terminal tab** (don't forget to go to `~/sites` there too). To stop the preview - Ctrl+C.
 
@@ -238,7 +238,7 @@ Let's add an "About us" page with the key `about`:
 docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add about my-site
 ```
 
-How to read the end of the command: `page add` - "create a page, and if it already exists - open it for editing", `about` - its **key** (the file name and the address come from it), `my-site` - the site folder. `-it` is needed because the engine asks questions: which category the page lives in, the title for search, the heading on the page itself, the description and the other fields. Every question shows in brackets the value that stays if you just press Enter, next to it - a one-line hint, and `?` shows the detailed help. An answer with a mistake (for example, a title that is too long) is flagged at once and asked again. First the engine asks everything in the main language, then for every other language - a translation of the same texts: type the translation or press Enter to skip the field.
+How to read the end of the command: `page add` - "create a page, and if it already exists - open it for editing", `about` - its **key** (the file name and the address come from it), `my-site` - the site folder. `-it` is needed because the engine asks questions: which category the page lives in, the title for search, the heading on the page itself, the description and the other fields. Every question shows in brackets the value that stays if you just press Enter, next to it - a one-line hint, and `?` shows the detailed help. An answer with a mistake (for example, a title that is too long) is flagged at once and asked again. First the engine asks everything in the main language, then for every other language - a translation of the same texts: type the translation or press Enter to skip the field. How to answer the questions, with an example, - [03 · Pages and content](03-content.md#questions).
 
 At the end the engine shows a summary and asks "Write?". The page appears in all languages at once: `my-site/content/en/about.md` and `my-site/content/ru/about.md` - with a ready SEO block and drafts of the sections. If you skipped the translation, the Russian file keeps the English text and the line `translation: pending`: a draft build and the preview show such a page with a yellow "translation pending" banner, and a production build does not publish it in Russian until you translate the text and delete this line.
 
@@ -248,7 +248,7 @@ The same command a second time opens the page for editing and creates nothing. A
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page list my-site
 ```
 
-File names are the same in every language - this is how the engine knows they are translations of one page. The addresses can differ, though: to make the Russian page open at `/ru/o-nas/`, add `slug: o-nas` to its SEO block (the questionnaire asks this field too).
+File names are the same in every language - this is how the engine knows they are translations of one page. The addresses can differ, though: to make the Russian page open at `/ru/o-nas/`, add `slug: o-nas` to its SEO block (`page add` asks this field too).
 
 ```
 content/en/about.md   →  /about/
@@ -258,6 +258,14 @@ content/ru/about.md   →  /ru/o-nas/      (in the SEO block: slug: o-nas)
 The new page gets into the sitemap for search engines by itself. It appears in the menu if its key `about` is in `nav.main` (step 3), and on Russian pages this item leads to `/ru/o-nas/` by itself.
 
 You can also do without the command: copy any page file under a new name and edit it. The result is the same.
+
+Or with a mouse, in the studio in the browser: the page tree on the left, the fields with hints on the right, languages as tabs. Stop the preview (Ctrl+C) - the studio needs the same port - and run:
+
+```bash
+docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod studio my-site
+```
+
+Open the address the engine prints in full - with the key after `#`, as for the configurator. What is in the studio - [03 · Pages and content](03-content.md#studio).
 
 ## Step 6. Check and build
 
@@ -311,7 +319,8 @@ The finished `dist/` folder can be put on any hosting. How to pack it into a Doc
 ## What next
 
 - [03 · Pages and content](03-content.md) - all about pages: sections, images, links, translations;
-- [04 · Theme and design](04-theme.md) - how to change the look;
+- [04 · Theme and design](04-theme.md) - a ready theme: demo, reference, section views; how to change the look;
+- [07 · Your own theme](07-theme-author.md) - if you make a theme yourself: block fields, hints, demo, packing;
 - [05 · SEO](05-seo.md) - what the engine does for search engines by itself and what you can set.
 
 The documentation of the same version as your engine is built into the engine itself:

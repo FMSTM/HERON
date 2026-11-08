@@ -25,7 +25,7 @@ my-site/
 
 The engine reads this folder and builds a finished site from it. It does not change your files while building.
 
-Which engine a site needs is written in the first key of `site.yaml`, for example `heron: ">=0.2,<0.3"` - "any 0.2 version will do". That is why one engine serves any number of sites, and each site can have its own version: an old site keeps running on the previous version while a new one tries the latest.
+Which engine a site needs is written in the first key of `site.yaml`, for example `heron: ">=0.3,<0.4"` - "any 0.3 version will do". That is why one engine serves any number of sites, and each site can have its own version: an old site keeps running on the previous version while a new one tries the latest.
 
 → In detail: [`20` §0-1](../spec/20-data-contract.md#what-the-system-is)
 

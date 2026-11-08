@@ -2,7 +2,7 @@
 # The values below are examples. What the site does not have is deleted or left empty:
 # an invented phone number is worse than a missing one.
 
-heron: ">=0.2,<0.3"            # engine version the site requires. Required, the first line
+heron: ">=0.3,<0.4"            # engine version the site requires. Required, the first line
 
 site:
   domain: example.com          # no scheme, no slashes

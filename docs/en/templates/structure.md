@@ -1,7 +1,7 @@
 # <domain> on HERON - site structure
 
 **Status:** draft · **Based on:** <where the data comes from: export, sitemap, report, interview>
-**Engine:** HERON `>=0.2,<0.3` · **Languages:** <en, ru> · **Main:** <en>
+**Engine:** HERON `>=0.3,<0.4` · **Languages:** <en, ru> · **Main:** <en>
 **Rule:** facts come only from the source. What is missing is marked **GAP** and listed in section 8.
 
 ---
@@ -58,7 +58,7 @@ Sections of each type:
 ## 4. `site.yaml`
 
 ```yaml
-heron: ">=0.2,<0.3"
+heron: ">=0.3,<0.4"
 site:
   domain: <domain>
   theme: main

@@ -215,7 +215,7 @@ If the check fails, the container is stopped and the nginx logs are printed. Mor
 **The site itself pins which engine suits it** - with the first key of `site.yaml`, `heron:`:
 
 ```yaml
-heron: ">=0.2,<0.3"
+heron: ">=0.3,<0.4"
 ```
 
 An engine outside this range refuses to build the site (error `E012`). Updating the engine for a site means changing this key: deliberately and one site at a time.

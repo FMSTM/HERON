@@ -35,7 +35,7 @@ If a folder with content already exists - not `new` but `heron init my-site`: it
 The sample with all keys is [`templates/site.yaml`](../templates/site.yaml). The minimum:
 
 ```yaml
-heron: ">=0.2,<0.3"
+heron: ">=0.3,<0.4"
 site:
   domain: example.com
   theme: main

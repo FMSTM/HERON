@@ -26,7 +26,7 @@ The practical consequence: the order of sections in the file does not affect the
 
 **The engine is absent from the site folder.** It ships as one artifact - the image `heron:<version>`, also published as a pip package for local development. The site folder holds only content, data, images, the theme and the config; it has no lines of Python.
 
-The site declares the required engine version with the `heron` key in `site.yaml` (`heron: ">=0.2,<0.3"`). The engine refuses to build a site whose version it does not support - this is the only thing that keeps three sites from drifting apart onto incompatible engines.
+The site declares the required engine version with the `heron` key in `site.yaml` (`heron: ">=0.3,<0.4"`). The engine refuses to build a site whose version it does not support - this is the only thing that keeps three sites from drifting apart onto incompatible engines.
 
 Everything described below is the contract between the engine and the site folder. It is the same for all sites on the engine, whatever theme they belong to.
 
@@ -755,7 +755,7 @@ The machine form is `heron schema`.
 Everything that repeats on every page lives here in a single copy. An address typed by hand into the header and into the footer sooner or later drifts apart - this is exactly the problem this file solves.
 
 ```yaml
-heron: ">=0.2,<0.3"          # engine version the site requires. Mandatory
+heron: ">=0.3,<0.4"          # engine version the site requires. Mandatory
 
 site:
   domain: example.com        # no scheme or path; https:// and the slash are stripped. Labels - Latin letters, digits, hyphen not at the edges; one rule for site.yaml and heron new

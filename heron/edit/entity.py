@@ -24,7 +24,7 @@ from typing import Any
 
 import yaml
 
-from heron.contracts.fields import PER_LANGUAGE, TRANSLATABLE
+from heron.contracts.fields import ALT_OF, FALLBACK, PER_LANGUAGE, TRANSLATABLE
 from heron.contracts.frontmatter import PENDING
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
@@ -70,13 +70,24 @@ def translatable(item: Field) -> bool:
     return False
 
 
-def own_value(item: Field) -> bool:
-    """Поле, которое язык может иметь своим: перевод, свои адреса и пометки, разметка.
+def inherits(item: Field) -> bool:
+    """Своё значение у языка, нет своего - основного языка (подстановка - при сборке).
 
-    Остальное (тип, порядок, обложка, флаги, даты, свои поля темы без текста,
-    меню, категория, якорь секции) - одно на все языки и правится на основном.
+    Обложка `image`, картинка для соцсетей `og_image` и свои поля типа с
+    `translatable: true` без текста. Язык без своего значения его не хранит:
+    новая копия языка их не копирует, правка на основном в другие файлы не пишет.
     """
-    if translatable(item):
+    return item.editable and item.where == "frontmatter" and item.inherits
+
+
+def own_value(item: Field) -> bool:
+    """Поле, которое язык может иметь своим: перевод, свои адреса и пометки, разметка, обложка.
+
+    Остальное (тип, порядок, флаги, даты, свои поля темы без текста и без
+    `translatable`, меню, категория, якорь секции) - одно на все языки и правится
+    на основном.
+    """
+    if translatable(item) or inherits(item):
         return True
     if item.where == "frontmatter":
         return item.name in PER_LANGUAGE or item.type == "schema"
@@ -87,7 +98,7 @@ def shared(item: Field) -> bool:
     """Поле SEO-блока, одно на все языки: правка на основном языке пишет его во все файлы.
 
     Служебные из них - ровно `SHARED` (тот же список сверяет `heron check`), а ещё
-    свои поля темы без текста и вид раздела (ключ `views` типа).
+    свои поля темы без текста (без `translatable`) и вид раздела (ключ `views` типа).
     """
     return item.where == "frontmatter" and item.editable and not own_value(item)
 
@@ -468,10 +479,17 @@ def translation_of(entity: Entity, lang: str) -> Page:
 
     Поля со своим значением у каждого языка (`PER_LANGUAGE`: прежние адреса, дата
     правки) не копируются: `redirect_from` основного языка на копии - те же старые
-    адреса у двух страниц (E009), `updated` - дата чужой правки.
+    адреса у двух страниц (E009), `updated` - дата чужой правки. Не копируются и
+    поля, которые язык без своего значения берёт у основного при сборке
+    (`inherits`: обложка с подписью, картинка для соцсетей, свои поля типа с
+    `translatable: true`): копия следовала бы за основным языком только до его
+    первой правки.
     """
     page = _load(entity.ctx, entity.main.text, rel_for(lang, entity.key, entity.category))
-    for name in sorted(PER_LANGUAGE - {TRANSLATION}):
+    names = set(PER_LANGUAGE - {TRANSLATION})
+    names |= {item.path for item in fields(page) if inherits(item)}
+    names |= {ALT_OF[name] for name in FALLBACK}
+    for name in sorted(names):
         if name in page.front.data:
             page = set_field(page, name, None)
     return set_field(page, TRANSLATION, PENDING)
@@ -480,11 +498,21 @@ def translation_of(entity: Entity, lang: str) -> Page:
 def fields_of(entity: Entity, lang: str, only_translatable: bool = False) -> list[Field]:
     """Поля страницы языка по порядку показа; категорию можно менять (перенос)."""
     out = []
+    main = lang == entity.ctx.default
+    base: dict[str, Field] = {}
+    if not main:
+        base = {item.path: item for item in fields(page_of(entity, entity.ctx.default))}
     for item in fields(page_of(entity, lang)):
         if item.name == CATEGORY and item.where == "path":
-            item.editable = lang == entity.ctx.default and entity.key != ""
+            item.editable = main and entity.key != ""
             item.readonly = None if item.editable else item.readonly
             item.value = parent_of(entity.target) or None
+        if not main and inherits(item) and item.path in base:
+            # своего значения нет - сборка возьмёт значение основного языка: оно и есть
+            # умолчание (Enter в опроснике, пустое поле в студии)
+            source = base[item.path]
+            if _filled(source.value):
+                item.default = source.value
         if only_translatable and not translatable(item):
             continue
         out.append(item)
@@ -1198,8 +1226,9 @@ def dump_answers(entity: Entity) -> dict[str, Any]:
     """Текущие значения полей по языкам - тот же вид, что принимает `apply_answers`.
 
     Основной язык - все поля, которые можно записать; остальные - поля перевода,
-    свои `redirect_from` и `updated` и пометка `translation`. Значения с диска; у новой
-    страницы - заготовка.
+    свои `redirect_from` и `updated`, своя обложка (`image`, `og_image`, свои поля типа
+    с `translatable: true`) - только если она в файле есть, и пометка `translation`.
+    Значения с диска; у новой страницы - заготовка.
     """
     ctx = entity.ctx
     out: dict[str, Any] = {"key": entity.target, "kind": KINDS[entity.category]}
@@ -1209,7 +1238,12 @@ def dump_answers(entity: Entity) -> dict[str, Any]:
         for item in fields_of(entity, lang):
             if not item.editable:
                 continue
-            # неосновной язык: перевод и свои адреса и дата (`redirect_from`, `updated`)
+            # неосновной язык: перевод, свои адреса и дата (`redirect_from`, `updated`)
+            # и своя обложка - только если она в файле есть (нет - как на основном)
+            if not main and inherits(item):
+                if item.present and _filled(item.value):
+                    values[item.path] = _plain(item.value)
+                continue
             if not main and not translatable(item) and item.path not in PER_LANGUAGE:
                 continue
             if not main and item.path == TRANSLATION:

@@ -31,7 +31,8 @@
       lang_skip: "Пропустить язык целиком (перевод не готов)",
       lang_pending: "Перевод не готов (translation: pending)",
       lang_pending_h: "Пометка в SEO-блоке файла языка. Черновая сборка показывает страницу с плашкой, боевая её на этом языке не публикует: нет в карте сайта, hreflang и меню. Снимите, когда перевод готов.",
-      lang_only: "На этом языке - только поля с текстом. Остальное (тип, порядок, картинки, флаги) общее и правится на основном языке.",
+      lang_only: "На этом языке - поля с текстом и своя обложка (пусто - как на основном языке). Остальное (тип, порядок, флаги) общее и правится на основном языке.",
+      as_main: "пусто - как на основном языке: ",
       need_tr: "нужен перевод", from_main: "на основном языке: ",
       errors: "Не сохранится, пока не исправлено:", warnings: "Замечания (сохранить можно):",
       readonly: "только для чтения: ", default: "по умолчанию: ", default_from: " (из {x})", empty: "пусто",
@@ -92,7 +93,8 @@
       lang_skip: "Skip the whole language (translation not ready)",
       lang_pending: "Translation not ready (translation: pending)",
       lang_pending_h: "A mark in the SEO block of the language file. The draft build shows the page with a banner, the production build does not publish it in this language: not in the sitemap, hreflang or menu. Clear it when the translation is ready.",
-      lang_only: "This language has only the fields with text. The rest (type, order, pictures, flags) is shared and edited in the main language.",
+      lang_only: "This language has the fields with text and its own cover (empty - as in the main language). The rest (type, order, flags) is shared and edited in the main language.",
+      as_main: "empty - as in the main language: ",
       need_tr: "needs translation", from_main: "in the main language: ",
       errors: "Will not save until fixed:", warnings: "Remarks (saving is fine):",
       readonly: "read only: ", default: "default: ", default_from: " (from {x})", empty: "empty",
@@ -501,8 +503,13 @@
       const f = list.find((x) => x.path === box.dataset.path);
       if (!f) continue;
       const def = box.querySelector(":scope > [data-default]"), main = box.querySelector(":scope > [data-main]");
-      if (def) def.textContent = !blankValue(f.default) && blankValue(f.value) ? tr("default") + human(f.default) + (f.default_from ? tr("default_from", { x: f.default_from }) : "") : "";
+      // своё у языка, нет своего - как на основном (обложка): умолчание - значение основного
+      const inherit = f.inherits && S.edit !== S.state.default_lang;
+      const mineBlank = f.path in mine ? blankValue(mine[f.path]) : blankValue(f.value);
+      if (def && inherit) def.textContent = mineBlank && !blankValue(f.default) ? tr("as_main") + human(f.default) : "";
+      else if (def) def.textContent = !blankValue(f.default) && blankValue(f.value) ? tr("default") + human(f.default) + (f.default_from ? tr("default_from", { x: f.default_from }) : "") : "";
       if (!main) continue;
+      if (inherit) { main.textContent = ""; continue; }
       const value = S.edit !== S.state.default_lang ? mainValue(f.path) : undefined;
       if (blankValue(value)) { main.textContent = ""; continue; }
       const todo = created(S.edit) && !(f.path in mine) && !S.skip[S.edit];

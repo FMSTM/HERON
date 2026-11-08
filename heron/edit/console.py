@@ -166,10 +166,13 @@ class Console:
 
     # --- одно поле -------------------------------------------------------------
 
-    def _hint(self, item: Field) -> None:
+    def _hint(self, item: Field, lang: str | None = None) -> None:
         hint = item.hint or ""
         need = f" {self._say('edit_con_required')}" if item.required else ""
         self._echo(f"  {item.path}{need}" + (f" - {hint}" if hint else ""), None, False, True)
+        if lang is not None and lang != self.entity.ctx.default and ops.inherits(item):
+            # своего значения у языка нет - сборка возьмёт значение основного языка
+            self._echo(f"    {self._say('edit_con_inherit')}", None, True)
         if item.type == "enum" and item.fields:
             for number, option in enumerate(item.fields, 1):
                 tail = f" - {option['hint']}" if option.get("hint") else ""
@@ -193,7 +196,7 @@ class Console:
     def field(self, lang: str, item: Field, prompt_value: Any = None, hint: bool = True) -> bool:
         """Спросить поле; True - значение изменилось."""
         if hint:
-            self._hint(item)
+            self._hint(item, lang)
         if not item.editable:
             reason = item.readonly or "-"
             shown = _shown(item.value, self.lang)
@@ -252,26 +255,7 @@ class Console:
             if bad:
                 self.entity.pages = before
                 continue
-            if lang == self.entity.ctx.default and ops.shared(item):
-                self._others(item.path)
             return True
-
-    def _others(self, path: str) -> None:
-        """Общее поле записалось во все языки: их замечания из-за него - сразу, как у `check`.
-
-        Обложка (`image`) без подписи `image_alt` на другом языке - то же замечание,
-        что напишет `heron check`; подпись спросит перевод этого языка.
-        """
-        related = {"image": "image_alt"}.get(path)
-        if related is None:
-            return
-        for code in self.entity.ctx.langs[1:]:
-            if code not in self.entity.pages or ops.is_pending(self.entity, code):
-                continue
-            for issue in ops.issues(self.entity, code):
-                if issue.path == related:
-                    text = issue.message.text(self.lang)
-                    self._echo(f"    {code}: {related} - {text}", "yellow")
 
     def _list(
         self, item: Field, current: Any, label: str | None = None, key: str | None = None
@@ -480,24 +464,32 @@ class Console:
                 self._echo(f"  {self._say('edit_con_drops', lang=lang)}", "yellow")
                 for rel in inside:
                     self._echo(f"    {rel}", None, True)
-        main = {
-            f.path: f for f in ops.fields_of(entity, entity.ctx.default, only_translatable=True)
-        }
+        main = {f.path: f for f in ops.fields_of(entity, entity.ctx.default)}
         given: set[str] = set()
-        for item in ops.fields_of(entity, lang, only_translatable=True):
+        for item in ops.fields_of(entity, lang):
+            own = ops.inherits(item)
+            if not (own or ops.translatable(item)):
+                continue
             source = main.get(item.path)
             if source is None or not _askable(item):
                 continue
-            # подпись обложки спрашивается и при пустой на основном: `check` ждёт её у всех
-            needed = item.path == "image_alt" and ops._filled(
-                ops.page_of(entity, lang).front.data.get("image")
-            )
-            if not ops._filled(source.value) and not needed:
+            # обложка языка: своя или основного - спрашивается, если на основном она есть
+            if own and not ops._filled(source.value) and not ops._filled(item.value):
                 continue
-            self._hint(item)
+            # подпись обложки спрашивается и при пустой на основном, если у языка есть
+            # обложка - своя или основного (`check` ждёт подпись у каждого языка)
+            needed = item.path == "image_alt" and (
+                ops._filled(ops.page_of(entity, lang).front.data.get("image"))
+                or ops._filled(ops.page_of(entity, entity.ctx.default).front.data.get("image"))
+            )
+            if not own and not ops._filled(source.value) and not needed:
+                continue
+            self._hint(item, lang)
             self._echo(f"    {entity.ctx.default}: {_shown(source.value, self.lang)}", None, True)
             shown = None if created else item.value
-            if created:
+            if own:
+                shown = None  # Enter - как на основном языке: умолчание поля
+            elif created:
                 shown = self._say("edit_con_skip")
             if self.field(lang, item, prompt_value=shown, hint=False) or (
                 not created and ops._filled(item.value) and item.value != source.value

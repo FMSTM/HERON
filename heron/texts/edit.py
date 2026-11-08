@@ -161,6 +161,7 @@ TEXT: dict[str, dict[str, str]] = {
         ),
         "edit_con_translate": "Перевод на {lang}: Enter оставляет текущий текст",
         "edit_con_skip": "пропустить",
+        "edit_con_inherit": "Enter - как на основном языке",
         "edit_con_ready": "Перевод на {lang} готов - снять пометку translation: pending? [y/N]",
         "edit_con_head_new": "Новая {kind} {key} - языки: {langs}",
         "edit_con_head_edit": "Правка: {kind} {key} уже есть. Языки: {langs}",
@@ -399,6 +400,7 @@ TEXT: dict[str, dict[str, str]] = {
         ),
         "edit_con_translate": "Translation into {lang}: Enter keeps the current text",
         "edit_con_skip": "skip",
+        "edit_con_inherit": "Enter - as on the main language",
         "edit_con_ready": (
             "Is the {lang} translation ready - remove the mark translation: pending? [y/N]"
         ),

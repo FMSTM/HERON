@@ -8,7 +8,7 @@
 - `--json` остаётся JSON, даже если в тексте есть DEL и C1.
 - Новая копия языка не наследует `redirect_from` и `updated` основного (было `E009`).
 - Раздел на месте папки 0.2 без перевода не прячет молча переведённые страницы внутри.
-- Общие поля страницы - один список у редактора и `check` (в нём `published`).
+- Общие поля страницы - один список у редактора и `check` (в нём `published`; обложки нет).
 """
 
 from __future__ import annotations
@@ -527,10 +527,13 @@ def test_one_language_run_shows_skip_for_a_language_without_a_file(tmp_path, mon
     assert not (root / "content" / "de" / "services" / "roofing.md").exists()
 
 
-def test_a_cover_on_the_main_language_warns_about_image_alt_elsewhere(site):
+def test_a_cover_on_the_main_language_stays_in_its_file(site):
+    # обложка у каждого языка своя (нет своей - как на основном): правка на основном
+    # языке другие файлы не трогает (tests/test_cover_per_language.py)
     shutil.copy(next((site / "media").rglob("*.png")), site / "media" / "cover-x.png")
+    other = (site / "content" / "en" / "blocks.md").read_bytes()
     entity = ops.open_entity(ops.context(site, "en"), "blocks")
     item = next(f for f in ops.fields_of(entity, "ru") if f.path == "image")
-    io, out = _io(["media/cover-x.png"])
-    console.Console(entity, io, "en").field("ru", item)
-    assert any(line.strip().startswith("en: image_alt") for line in out), out
+    io, _out = _io(["media/cover-x.png"])
+    assert console.Console(entity, io, "en").field("ru", item)
+    assert ops.page_of(entity, "en").text.encode("utf-8") == other

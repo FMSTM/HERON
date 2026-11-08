@@ -18,9 +18,15 @@ from pathlib import Path
 from typing import Any
 
 from heron.contracts import wiring
-from heron.contracts.fields import SHARED
+from heron.contracts.fields import ALT_OF, FALLBACK, SHARED
 from heron.contracts.site import SiteConfig, load_site
-from heron.contracts.theme import ThemeConfig, load_theme, missing_hints
+from heron.contracts.theme import (
+    TEXT_FIELD_TYPES,
+    ThemeConfig,
+    load_theme,
+    missing_hints,
+    redundant_translatable,
+)
 from heron.core import check as templates_check
 from heron.core import data as data_module
 from heron.core import (
@@ -545,6 +551,7 @@ def content(
         custom=hooks.blocks(),
         hold_pending=prod,
     )
+    inherit(site, theme, config.site.default_lang, collector)
     pending_warnings(site, collector)
     placeholders(site, collector, prod)
     anchors_mismatch(site, collector)
@@ -558,6 +565,65 @@ def content(
     notfound.ensure(site, config, theme_dir, collector)
     links.resolve(site, config, theme, collector)
     return site
+
+
+def _all_pages(site: Site) -> list[Page]:
+    return [*site.pages, *site.held, *site.unpublished]
+
+
+def _unset(value: Any) -> bool:
+    if isinstance(value, str):
+        return not value.strip()
+    return value in (None, [], {})
+
+
+def inherit(site: Site, theme: ThemeConfig, default: str, collector: Collector) -> None:
+    """Своё у языка, нет своего - основного языка: обложка, картинка для соцсетей (20 §4.2).
+
+    Одно место на всю сборку: после обхода значение языка без своего `image`
+    (`og_image`, своих полей типа с `translatable: true` без текста) - значение
+    основного языка. Его видят все, кто читает страницу дальше: шаблоны
+    (`page.meta.image`, `page.cover`), `og:image` и `twitter:image`, разметка,
+    карта сайта, нарезка и проверки. Подпись (`image_alt`, `og_image_alt`) приходит
+    с картинкой, если своей подписи у языка нет. Что подставлено, - `page.inherited`.
+
+    Подставленная обложка без подписи - то же предупреждение, что у своей
+    (`loader_fm_image_alt`): у языка она своя, и замечание - про его файл.
+    """
+    mains = {page.key: page for page in _all_pages(site) if page.lang == default}
+    for page in _all_pages(site):
+        main = mains.get(page.key)
+        if page.lang == default or main is None:
+            continue
+        for name in sorted(FALLBACK):
+            if not _unset(getattr(page.meta, name)) or _unset(getattr(main.meta, name)):
+                continue
+            setattr(page.meta, name, getattr(main.meta, name))
+            page.inherited.add(name)
+            alt = ALT_OF[name]
+            if _unset(page.meta.get(alt)) and not _unset(main.meta.get(alt)):
+                _set_meta(page, alt, main.meta.get(alt))
+                page.inherited.add(alt)
+        spec = theme.types.get(page.type)
+        for item in (spec.fields or []) if spec is not None else []:
+            if not item.inherits or not _unset(page.meta.get(item.name)):
+                continue
+            value = main.meta.get(item.name)
+            if not _unset(value):
+                _set_meta(page, item.name, value)
+                page.inherited.add(item.name)
+        if "image" in page.inherited and _unset(page.meta.image_alt):
+            collector.warnings.append(Warning_(Msg("loader_fm_image_alt"), path=page.source))
+
+
+def _set_meta(page: Page, name: str, value: Any) -> None:
+    if name in type(page.meta).model_fields:
+        setattr(page.meta, name, value)
+    else:
+        extra = page.meta.__pydantic_extra__
+        if extra is None:
+            page.meta.__pydantic_extra__ = extra = {}
+        extra[name] = value
 
 
 def pending_warnings(site: Site, collector: Collector) -> None:
@@ -739,20 +805,20 @@ def anchors_mismatch(site: Site, collector: Collector) -> None:
 
 # Поля SEO-блока, одни на все языки страницы (опросник и студия правят их только на
 # основном языке и пишут во все файлы, 21 §10) - тот же список, что у редактора.
+# Обложки и картинки для соцсетей в нём нет: у языка она может быть своя (`FALLBACK`).
 SHARED_FIELDS = SHARED
-# Свои поля типа без текста - тоже одни на все языки (21 §7, `types.<тип>.fields`).
-TEXT_FIELD_TYPES = ("text", "markdown", "list", "link")
 
 
 def shared_mismatch(site: Site, theme: ThemeConfig, default: str, collector: Collector) -> None:
     """Общие поля страницы расходятся между языками (`heron check`, предупреждение).
 
-    Тип, порядок, обложка, флаги, дата, вид раздела и свои поля темы без текста -
-    одни на все языки: расхождение - след ручной правки одного файла (или 0.2,
-    где языки правили по отдельности). Сверка - с основным языком.
+    Тип, порядок, флаги, дата, вид раздела и свои поля темы без текста (без
+    `translatable: true`) - одни на все языки: расхождение - след ручной правки
+    одного файла (или 0.2, где языки правили по отдельности). Сверка - с основным
+    языком. Обложка и картинка для соцсетей сюда не входят: своя у языка - не ошибка.
     """
     by_key: dict[str, list] = {}
-    for page in [*site.pages, *site.held, *site.unpublished]:
+    for page in _all_pages(site):
         by_key.setdefault(page.key, []).append(page)
     for _key, pages in sorted(by_key.items()):
         if len(pages) < 2:
@@ -783,7 +849,7 @@ def _theme_shared(theme: ThemeConfig, page_type: str) -> list[str]:
     if spec is None:
         return []
     out = [spec.views.key] if spec.views is not None else []
-    out += [f.name for f in spec.fields or [] if f.type not in TEXT_FIELD_TYPES]
+    out += [f.name for f in spec.fields or [] if f.type not in TEXT_FIELD_TYPES and not f.inherits]
     return out
 
 
@@ -1080,6 +1146,8 @@ def theme_contract(theme: ThemeConfig, theme_dir: Path, collector: Collector) ->
             Warning_(Msg("build_theme_no_fields", theme=theme.name), path=where)
         )
         return
+    for spot in redundant_translatable(theme):
+        collector.warnings.append(Warning_(Msg("build_theme_translatable", field=spot), path=where))
     missing = missing_hints(theme)
     if missing:
         collector.errors.append(

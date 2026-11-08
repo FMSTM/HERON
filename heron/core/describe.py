@@ -20,6 +20,7 @@ from heron.contracts.site import SiteConfig, load_site
 from heron.contracts.theme import (
     ANY,
     MD_PLACES,
+    TEXT_FIELD_TYPES,
     USES_RE,
     FieldSpec,
     Hinted,
@@ -79,6 +80,7 @@ def field(spec: FieldSpec, lang: str) -> dict[str, Any]:
         "schemaorg": spec.schemaorg,
         "item": spec.item,
         "fields": None if spec.fields is None else [field(f, lang) for f in spec.fields],
+        "translatable": spec.translatable,
         **_hints(spec, lang, example=True),
     }
 
@@ -142,6 +144,8 @@ def _service(theme: ThemeConfig, config: SiteConfig | None, lang: str, scope: st
                 "only": spec.only,
                 "default": default,
                 "default_from": spec.default_from,
+                # своё у языка, нет своего - основного языка (обложка, картинка для соцсетей)
+                "inherits": spec.name in service.FALLBACK,
                 "hint": spec.hint(lang),
                 "help": spec.help(lang),
             }
@@ -316,6 +320,8 @@ def _limits(item: dict[str, Any], lang: str) -> str:
         parts.append(" | ".join(item["values"]))
     if item.get("schemaorg"):
         parts.append(f"schema.org {item['schemaorg']}")
+    if item.get("inherits") or (item.get("translatable") and item["type"] not in TEXT_FIELD_TYPES):
+        parts.append(say(lang, "describe_inherits"))
     return ", ".join(parts)
 
 

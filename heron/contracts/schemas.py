@@ -110,14 +110,19 @@ EN: dict[str, tuple[str, str]] = {
         "Written the same way, as the beginning of a path: `media/docs/`.",
     ),
     "theme.schema.json#/$defs/FieldSpec/description": (
-        "a5bec6a392",
+        "b213c76d48",
         "A field of a block: name, value type, place in markdown, limits, schema.org property.\n\n"
         "`md` - where the value lies in markdown (the engine vocabulary of places, `MD_PLACES`).\n"
         "A list has `item` (the type of every item) or `fields` (the fields of every item).\n"
         "Limits - length (`min_length`, `max_length`), number of items (`min_items`,\n"
         "`max_items`), picture (`ratio`, `min_width`), allowed values (`values`),\n"
         "the page type of a link (`ref`). `schemaorg` - the markup property the value\n"
-        "goes into: `Question.name`.",
+        "goes into: `Question.name`.\n\n"
+        "`translatable` - only for an own field of a type (`types.<type>.fields`) without text\n"
+        "(a picture, a number, a date, an enumeration, a link to a page, a flag): its own value\n"
+        "in every language, no own value - the value of the main language. For a text field and\n"
+        "a block field it changes nothing (they already have their own text in every language):\n"
+        "`heron check` warns.",
     ),
     "theme.schema.json#/$defs/ModuleSpec/description": (
         "8863f03c91",
@@ -412,6 +417,7 @@ def describe_schema(lang: str = "ru") -> dict[str, Any]:
             "schemaorg": _STR_NULL,
             "item": {"anyOf": [field_types, {"type": "null"}]},
             "fields": {"anyOf": [_array("Field"), {"type": "null"}]},
+            "translatable": {"type": "boolean"},
             "example": _TEXT,
             **hints,
         },
@@ -433,6 +439,7 @@ def describe_schema(lang: str = "ru") -> dict[str, Any]:
             "only": _STR_NULL,
             "default": {},
             "default_from": _STR_NULL,
+            "inherits": {"type": "boolean"},
             "hint": {"type": "string"},
             "help": {"type": "string"},
         },

@@ -234,6 +234,11 @@ def declared_by(site: Site, config=None) -> dict[str, list[str]]:
     for page in site.pages:
         for src in _page_images(page):
             where.setdefault(src, []).append(page.source)
+    # Обложка, которую язык взял у основного (`page.inherited`), объявлена там:
+    # страница основного языка - первой, к ней и ведёт предупреждение.
+    taken = _taken(site)
+    for src, owners in where.items():
+        owners.sort(key=lambda source: (source, src) in taken)
     # Сквозные блоки живут в data/ — картинка оттуда такая же настоящая.
     # Владельцем называем файл справочника: искать объявление всё равно там.
     for name, node in (getattr(site, "data", None) or {}).items():
@@ -278,6 +283,17 @@ def walk(value, found: set[str], depth: int = 0) -> None:
     elif isinstance(value, (list, tuple)):
         for item in value:
             walk(item, found, depth + 1)
+
+
+def _taken(site: Site) -> set[tuple[str, str]]:
+    """(страница, картинка), которую язык взял у основного (`page.inherited`), а не объявил."""
+    out = set()
+    for page in site.pages:
+        for name in getattr(page, "inherited", ()):
+            value = page.meta.get(name)
+            if isinstance(value, str) and value and not EXTERNAL.match(value):
+                out.add((page.source, paths.normalize(value)))
+    return out
 
 
 def _page_images(page) -> set[str]:

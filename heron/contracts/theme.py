@@ -74,6 +74,10 @@ FIELD_TYPES = ("text", "markdown", "list", "image", "link", "number", "date", "e
 FieldType = Literal[
     "text", "markdown", "list", "image", "link", "number", "date", "enum", "ref", "flag"
 ]
+# Свои поля типа с текстом: у каждого языка свой текст, его спрашивают при переводе.
+# Остальные типы - одно значение на все языки, если тема не отметила поле
+# `translatable: true` (тогда своё у языка, нет своего - основного языка).
+TEXT_FIELD_TYPES = ("text", "markdown", "list", "link")
 
 # Где значение поля лежит в markdown секции. Словарь общий для всех тем: по нему
 # редактор находит значение в файле и пишет его обратно на то же место. Каждое
@@ -171,6 +175,12 @@ class FieldSpec(Hinted):
     `max_items`), картинка (`ratio`, `min_width`), допустимые значения (`values`),
     тип страниц ссылки (`ref`). `schemaorg` - свойство разметки, в которое уходит
     значение: `Question.name`.
+
+    `translatable` - только у своего поля типа (`types.<тип>.fields`) без текста
+    (картинка, число, дата, перечисление, ссылка на страницу, флаг): своё значение
+    у каждого языка, нет своего - значение основного языка. У поля с текстом и у
+    поля блока оно ничего не меняет (у них и так свой текст на каждом языке):
+    `heron check` предупреждает.
     """
 
     name: str
@@ -188,6 +198,12 @@ class FieldSpec(Hinted):
     schemaorg: str | None = None
     item: FieldType | None = None
     fields: list[FieldSpec] | None = None
+    translatable: bool = False
+
+    @property
+    def inherits(self) -> bool:
+        """Своё значение у языка, нет своего - основного: `translatable` у поля без текста."""
+        return self.translatable and self.type not in TEXT_FIELD_TYPES
 
     @field_validator("name")
     @classmethod
@@ -703,6 +719,23 @@ def missing_hints(theme: ThemeConfig) -> list[str]:
         if lacking:
             tail = ", ".join(lang for lang in lacking if lang)
             out.append(f"{where} ({tail})" if tail else where)
+    return out
+
+
+def redundant_translatable(theme: ThemeConfig) -> list[str]:
+    """Где `translatable: true` ничего не меняет: поле с текстом или поле блока.
+
+    У них и так свой текст на каждом языке: флаг лишний, но не ошибка -
+    `heron check` предупреждает, сборка его не замечает.
+    """
+    out: list[str] = []
+    for where, spec in _all_fields(theme):
+        if not spec.translatable:
+            continue
+        own = where.startswith("types.") and where.count(".fields.") == 1
+        own = own and ".sections." not in where
+        if not own or spec.type in TEXT_FIELD_TYPES:
+            out.append(where)
     return out
 
 

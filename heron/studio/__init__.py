@@ -246,12 +246,12 @@ def state(entity: ops.Entity, lang: str) -> dict[str, Any]:
     files: dict[str, dict[str, Any]] = {}
     for code in ctx.langs:
         main = code == ctx.default
-        # неосновной язык: перевод и свои адреса и дата (`redirect_from`, `updated`);
-        # пометку `translation` форма ставит своим флажком
+        # неосновной язык: перевод, свои адреса и дата (`redirect_from`, `updated`) и своя
+        # обложка (пусто - как на основном); пометку `translation` форма ставит своим флажком
         fields[code] = [
             item.to_dict()
             for item in ops.fields_of(entity, code)
-            if main or ops.translatable(item) or item.path in OWN_FIELDS
+            if main or ops.translatable(item) or ops.inherits(item) or item.path in OWN_FIELDS
         ]
         files[code] = {
             "rel": entity.rel(code),

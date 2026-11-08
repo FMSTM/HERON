@@ -23,6 +23,8 @@ from typing import Any
 
 from markdown_it import MarkdownIt
 
+from heron.contracts.fields import FALLBACK
+from heron.contracts.theme import TEXT_FIELD_TYPES
 from heron.core.parser import markdown
 from heron.edit import body as bodies
 from heron.edit import front as fronts
@@ -128,6 +130,9 @@ class Field:
     module: str | None = None
     limits: dict[str, Any] = field(default_factory=dict)
     fields: list[dict[str, Any]] | None = None
+    # своё значение у языка, нет своего - основного языка (обложка, картинка для
+    # соцсетей, своё поле типа с `translatable: true` без текста; 20 §4.2)
+    inherits: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         out = {name: getattr(self, name) for name in self.__slots__}  # type: ignore[attr-defined]
@@ -292,8 +297,9 @@ def groups(page: Page) -> list[dict[str, str]]:
 
 THEME_GROUP = "theme"
 # Свои поля типа, у которых на каждом языке свой текст; остальные (enum, число,
-# флаг, дата, ссылка на страницу, картинка) - одни на все языки.
-TEXT_TYPES = ("text", "markdown", "list", "link")
+# флаг, дата, ссылка на страницу, картинка) - одни на все языки, если тема не
+# отметила поле `translatable: true`.
+TEXT_TYPES = TEXT_FIELD_TYPES
 
 
 def type_specs(page: Page) -> dict[str, dict[str, Any]]:
@@ -323,6 +329,7 @@ def _type_fields(page: Page) -> list[Field]:
                 where="frontmatter",
                 limits={k: spec.get(k) for k in LIMITS if spec.get(k) not in (None, [])},
                 fields=spec.get("fields"),
+                inherits=bool(spec.get("translatable")) and spec["type"] not in TEXT_TYPES,
                 **_hints(spec),
             )
         )
@@ -378,6 +385,7 @@ def _service_fields(page: Page) -> list[Field]:
                 help=item.get("help"),
                 where=where,
                 limits={k: item.get(k) for k in LIMITS if item.get(k) not in (None, [])},
+                inherits=name in FALLBACK,
             )
         )
         if name == "children_type" or (name == "type" and not page.category):

@@ -226,6 +226,7 @@ def test_build_four_pages_and_second_language(tmp_path, monkeypatch):
         "en/intro.md": _md("Intro", body="![В тексте](media/intro.png)"),
         "en/plain.md": _md("Plain"),
         "ru/_index.md": _md("Главная"),
+        "ru/plain.md": _md("Простая"),
     }
     for rel, text in files.items():
         (content / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -249,7 +250,10 @@ def test_build_four_pages_and_second_language(tmp_path, monkeypatch):
         ("en", "image.md"): "media/image.png",
         ("en", "intro.md"): "media/intro.png",
         ("en", "plain.md"): "media/default.png",
-        ("ru", "_index.md"): "media/default-ru.png",
+        # своего og_image у ru нет - тот же, что у основного языка (20 §4.2)
+        ("ru", "_index.md"): "media/og.png",
+        # у основного языка картинки нет - картинка по умолчанию своего языка
+        ("ru", "plain.md"): "media/default-ru.png",
     }
     for key, src in expected.items():
         assert key in covers, sorted(covers)

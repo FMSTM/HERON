@@ -28,6 +28,11 @@ TEXT: dict[str, dict[str, str]] = {
             "якоря секций на {lang} не те, что на {other}: нет {missing}, лишние {extra}. "
             "Якорь - часть структуры страницы, он один на всех языках"
         ),
+        "build_theme_translatable": (
+            "{field}: translatable: true ничего не меняет - у поля с текстом и у поля блока "
+            "и так свой текст на каждом языке; флаг нужен только своему полю типа без текста "
+            "(types.<тип>.fields: image, number, date, enum, ref, flag)"
+        ),
         "build_shared_differ": (
             "на {lang} не те значения, что на {other}: {fields}. Эти поля одни на все языки "
             "страницы - поправьте файл или задайте значение на основном языке через "
@@ -156,6 +161,12 @@ TEXT: dict[str, dict[str, str]] = {
         "build_anchors_differ": (
             "the section anchors in {lang} differ from {other}: missing {missing}, extra {extra}. "
             "An anchor is part of the page structure, one for all languages"
+        ),
+        "build_theme_translatable": (
+            "{field}: translatable: true changes nothing - a text field and a block field "
+            "already have their own text in every language; the flag is only for an own "
+            "field of a type without text (types.<type>.fields: image, number, date, enum, "
+            "ref, flag)"
         ),
         "build_shared_differ": (
             "{lang} has other values than {other}: {fields}. These fields are shared by every "

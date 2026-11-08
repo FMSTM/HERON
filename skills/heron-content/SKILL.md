@@ -22,6 +22,6 @@ Rules:
 - `title` (search result, up to 60 characters) differs from `h1` (the page heading); `description` up to 155.
 - Links to own pages by key from the root: `[About](/about/)`, without a language prefix.
 - No material for a section — no section. Never invent facts.
-- Images go to `media/`, every image has alt text.
+- Images go to `media/`, every image has alt text. The cover (`image`, `og_image`) is per language: a language file without `image` uses the main language's cover; give a language its own `image` (and `image_alt`) when the picture has text on it, clear it to follow the main one again.
 
 Done when `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta check .` shows no errors and every page has `title`, `h1`, `description`.

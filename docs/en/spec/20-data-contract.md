@@ -452,14 +452,14 @@ The "core" column says what the engine does with the field: **yes** - it reads a
 | `robots` | string | - | theme | 1 | the stub does not use the field and outputs `robots_meta` (section 9); the core decides indexing by `noindex` |
 | `og_title` | string | `title` | yes: type only; the template substitutes `title` (`page.meta.og_title or page.title`) | 3 | the title in social networks |
 | `og_description` | string | `description` | yes: type only; the template substitutes `description` | 3 | the description in social networks |
-| `og_image` | path in `media/` | `seo.og_default_image` | yes: a missing file is `E007` in a strict build (`--strict`, `build.fail_on_warning`), otherwise a warning | 3 | a 1200×630 image; first in the page cover choice (the "Page cover" paragraph below) |
+| `og_image` | path in `media/` | `seo.og_default_image` | yes: a missing file is `E007` in a strict build (`--strict`, `build.fail_on_warning`), otherwise a warning | 3 | a 1200×630 image; first in the page cover choice (the "Page cover" paragraph below); every language has its own, without its own - as in the main language (same place) |
 | `og_type` | string | - | theme | 3 | the stub does not use the field and always outputs `website`; a custom theme reads it itself |
-| `og_image_alt` | string | `image_alt` | yes: the cover caption (`page.cover.alt`) | 3 | |
+| `og_image_alt` | string | `image_alt` | yes: the cover caption (`page.cover.alt`) | 3 | a language without its own `og_image` and caption gets the caption of the main language |
 | `twitter_title`, `twitter_description` | string | from `og_*`, then `title` and `description` | theme | 4 | filled only if they must differ |
 | `twitter_card`, `twitter_image` | string | `seo.twitter_card`; the page cover | theme; `twitter_image` is a path in `media/`, the master goes into the build whole, a missing file is `E007` in a strict build (`--strict`, `build.fail_on_warning`), otherwise a warning | 4 | the stub does not output them: its card type comes from `seo.twitter_card`, and `twitter:image` is always the cover |
 | `schema` | map | - | yes: merged into JSON-LD on top of `site.yaml` | 5 | markup refinements of the page (section 5) |
-| `image` | path in `media/` | - | yes: a missing file is `E007` in a strict build (`--strict`, `build.fail_on_warning`), otherwise a warning | 6 | the preview in the catalog and in relation cards; second in the page cover choice, if there is no `og_image` |
-| `image_alt` | string | - | yes: a warning if there is `image` without `alt` | 6 | |
+| `image` | path in `media/` | - | yes: a missing file is `E007` in a strict build (`--strict`, `build.fail_on_warning`), otherwise a warning | 6 | the preview in the catalog and in relation cards; second in the page cover choice, if there is no `og_image`; every language has its own, without its own - as in the main language (the "Page cover" paragraph below) |
+| `image_alt` | string | - | yes: a warning if a language has a cover `image` (its own or of the main language) without a caption | 6 | translated; a language without its own `image` and caption gets the caption of the main language |
 | `nav_title` | string | file name, `h1` for the home page | yes | 1 | the short name in the menu and breadcrumbs (see below) |
 | `order` | integer | `999` | yes | 6 | the order in the section catalog and in links, ascending; the menu order is set by `nav.main` in `site.yaml` |
 | `type` | string | from the folder, see below | yes: the type must have a template (`E008`) | 6 | the page type - which template renders it |
@@ -495,6 +495,7 @@ Edge cases:
 
 - **no cover found** (none of the four sources) - `page.cover` is empty, `cover_url(page)` returns an empty string; on an empty string the template outputs no `og:image`, and `primaryImageOfPage` is not added. This is not a build error;
 - **the master is narrower than `images.cover_width`** (1200 px by default) - the whole master is served, and `heron check` warns: "cover is smaller than 1200 px: <path>";
+- **a language without its own picture** - a language file without `image` (without `og_image`) gets the value of the main language at build time, together with its caption if the language has no caption of its own (`image_alt`, `og_image_alt`). The substitution is one place of the build, right after the scan: templates (`page.meta.image`, `page.cover`), `og:image`, `twitter:image`, markup, the sitemap and the checks all see it. The own value of a language is its own, even if it equals the main one: a slide with text has its own picture in every language. Own fields of a type with `translatable: true` behave the same way (`21` §7). Video (`video`, `video_poster`) is per file, with no substitution;
 - **an external cover** (a full URL) - used as is, without sizes;
 - **a transparent cover** - the engine adds no backing, the crawler will show it on a black or white background. Make the cover opaque (section 7.9).
 

@@ -392,13 +392,21 @@ def main(url: str, picture: str, shots: str) -> int:
         page.click("#st-save")
         upload = saved()
 
+        # 3а. обложка на другом языке: своей нет - как на основном, картинка основного видна
+        page.click('.st-langtabs button[data-lang="en"]')
+        hint = '.st-field[data-path="image"] > [data-default]:not(:empty)'
+        page.wait_for_selector(hint, timeout=30000)
+        inherit = page.inner_text(hint)
+        shot("inherit")
+
         # 4. справка темы - та же страница, что /_heron/theme/ черновой сборки
         page.click("#tab-btn-ref")
         page.wait_for_selector('#st-ref-frame[src*="_heron/theme"]', timeout=60000)
         page.frame_locator("#st-ref-frame").locator("h1").wait_for(timeout=30000)
         shot("ref")
         browser.close()
-    print(json.dumps({"console": console, "edit": edit, "create": create, "upload": upload}))
+    result = {"console": console, "edit": edit, "create": create, "upload": upload}
+    print(json.dumps({**result, "inherit": inherit}))
     return 0
 
 

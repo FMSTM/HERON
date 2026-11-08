@@ -204,4 +204,4 @@ def test_page_refuses_unknown_type(run):
     run(main, ["new", "demo"])
     result = run(main, ["page", "add", "slug", "--type", "неттакого", "demo"])
     assert result.exit_code == 1
-    assert "E008" in result.output
+    assert "E041" in result.output

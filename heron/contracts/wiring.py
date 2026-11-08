@@ -29,7 +29,7 @@ def verify_engine(theme: ThemeConfig, theme_path: str = "theme.yaml") -> None:
         engine_ok = not theme.heron or version_contract.satisfies(__version__, theme.heron)
     except ValueError as exc:
         raise HeronError(
-            code="E008",
+            code="E041",
             message=(
                 exc.args[0]
                 if exc.args and isinstance(exc.args[0], Msg)

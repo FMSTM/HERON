@@ -50,7 +50,16 @@ GROUPS: dict[str, tuple[str, ...]] = {
 EXEMPT: dict[str, frozenset[str]] = {
     "report": frozenset({"ERRORS", "SCHEMA_CODES", "LIST", "ROOT"}),
     "scaffold": frozenset(
-        {"STRINGS", "DEMO_TITLES", "NAV_HOME", "STARTER", "BODY", "_TYPE_HINTS", "_THEME_TITLE"}
+        {
+            "STRINGS",
+            "DEMO_TITLES",
+            "DEMO_EYEBROW",
+            "NAV_HOME",
+            "STARTER",
+            "BODY",
+            "_TYPE_HINTS",
+            "_THEME_TITLE",
+        }
     ),
     "redirects": frozenset({"_NGINX_COMMENTS", "_COMMENTS", "COMMENTS"}),
 }

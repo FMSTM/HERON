@@ -256,7 +256,7 @@ def _check_type(ctx: Ctx, name: str) -> str:
     if name not in ctx.theme.types:
         known = ", ".join(ctx.theme.types)
         raise HeronError(
-            code="E008",
+            code="E041",
             message=(
                 Msg("scaffold_unknown_type", page_type=name, known=known)
                 if known
@@ -306,6 +306,13 @@ def open_entity(
     from heron.scaffold.page import stub, title_of
 
     key = norm_key(key)
+    if category and key == "":
+        # корень сайта - не категория: это главная, у неё свой файл index.md
+        raise HeronError(
+            code="E005",
+            message=Msg("edit_category_root"),
+            hint=Msg("edit_category_root_hint"),
+        )
     have = where(ctx, key)
     if have is not None and have != category:
         raise HeronError(
@@ -361,7 +368,7 @@ def _check_view(ctx: Ctx, kind: str, view: str) -> None:
     options = list(spec.options) if spec is not None else []
     if view not in options:
         raise HeronError(
-            code="E008",
+            code="E041",
             message=Msg("edit_unknown_view", view=view, type=kind, views=", ".join(options) or "-"),
         )
 
@@ -407,10 +414,31 @@ def fields_of(entity: Entity, lang: str, only_translatable: bool = False) -> lis
 
 
 def set_value(entity: Entity, lang: str, path: str, value: Any) -> None:
-    """Записать поле языка; `category` - перенос, `menu` - правка site.yaml (общая)."""
+    """Записать поле языка; `category` - перенос, `menu` - правка site.yaml (общая).
+
+    Якорь секции - структура страницы: он меняется сразу на всех языках, где
+    секция есть. Поле секции, которой на основном языке ещё нет, добавляет её
+    на всех языках с файлом (`add_section`): переведённые языки получают пометку.
+    """
     if path == CATEGORY:
         move(entity, join(_category_value(value), name_of(entity.target)))
         return
+    parts = path.split(".")
+    if len(parts) == 3 and parts[0] == "sections" and parts[2] == "anchor":
+        _set_anchor(entity, parts[1], value)
+        return
+    if (
+        len(parts) >= 3
+        and parts[0] == "sections"
+        and parts[1] != "intro"
+        and lang == entity.ctx.default
+        and page_of(entity, lang).body.get(parts[1]) is None
+        and page_of(entity, lang).body.error is None
+    ):
+        heading = value if parts[2] == "heading" else None
+        add_section(entity, parts[1], heading=heading)
+        if parts[2] == "heading":
+            return
     page = page_of(entity, lang)
     try:
         page = set_field(page, path, value)
@@ -620,11 +648,12 @@ def save(entity: Entity) -> Saved:
     for lang in ctx.langs:
         page_of(entity, lang)
     ensure_category(ctx, parent_of(entity.target), saved)
-    before = urls(ctx) if entity.moved else {}
+    # адреса до записи: перенос и правка slug (страницы или категории) меняют адреса
+    before = urls(ctx) if not entity.new else {}
     if entity.moved:
         _move_files(entity, saved)
     _write_files(entity, saved)
-    if entity.moved:
+    if before:
         _redirects(entity, before, saved)
     changes = dict(entity.site)
     renames = (entity.key, entity.target) if entity.moved else None
@@ -683,17 +712,22 @@ def urls(ctx: Ctx) -> dict[tuple[str, str], str]:
 
 
 def _redirects(entity: Entity, before: dict[tuple[str, str], str], saved: Saved) -> None:
-    """301 со старых адресов: у перенесённой страницы и у всего, что было в категории."""
+    """301 со старых адресов у каждой страницы, чей адрес эта запись поменяла.
+
+    Перенос и переименование (вместе со всем, что было в категории) и правка
+    `slug` страницы или категории на любом языке. Новый адрес страницы из её
+    `redirect_from` уходит: страница вернулась туда, где уже была (иначе E009).
+    """
     ctx = entity.ctx
     after = urls(ctx)
     taken = set(after.values())
     old, new = entity.key, entity.target
     for (lang, key), url in sorted(before.items()):
-        if key != old and not (entity.category and key.startswith(old + "/")):
-            continue
-        moved_key = new + key[len(old) :]
+        moved_key = key
+        if entity.moved and (key == old or (entity.category and key.startswith(old + "/"))):
+            moved_key = new + key[len(old) :]
         now = after.get((lang, moved_key))
-        if now is None or now == url or url in taken:
+        if now is None or now == url:
             continue
         category = (ctx.root / rel_for(lang, moved_key, True)).is_file()
         rel = rel_for(lang, moved_key, category)
@@ -701,13 +735,22 @@ def _redirects(entity: Entity, before: dict[tuple[str, str], str], saved: Saved)
         page = _load(ctx, path.read_text(encoding="utf-8"), rel)
         current = page.front.data.get("redirect_from")
         listed = list(current) if isinstance(current, list) else []
-        if url in listed:
+        kept = [item for item in listed if _stem(str(item)) != _stem(now)]
+        add = url not in taken and _stem(url) not in {_stem(str(item)) for item in kept}
+        wanted = [*kept, url] if add else kept
+        if wanted == listed:
             continue
-        page = set_field(page, "redirect_from", [*listed, url])
+        page = set_field(page, "redirect_from", wanted or None)
         path.write_bytes(page.text.encode("utf-8"))
-        saved.redirects.append((url, now))
+        if add:
+            saved.redirects.append((url, now))
         if rel not in saved.written and rel not in saved.created:
             saved.written.append(rel)
+
+
+def _stem(url: str) -> str:
+    """Адрес без завершающего слеша: так сверяет адреса проверка 301 (E009)."""
+    return url.strip().rstrip("/") or "/"
 
 
 def _rename(items: list[Any], old: str, new: str) -> list[Any]:
@@ -754,9 +797,54 @@ def write_site(
                     nav[group] = _rename(items, *renames)
     if data == (yaml.safe_load(current) or {}):
         return False, False
+    text = _in_place(current, yaml.safe_load(current) or {}, data)
+    if text is not None:
+        path.write_text(text, encoding="utf-8")
+        return True, False
     text, lost = carry(current, dump(data), "", data)
     path.write_text(text, encoding="utf-8")
     return True, lost
+
+
+def _in_place(text: str, old: dict[str, Any], new: dict[str, Any]) -> str | None:
+    """Правка site.yaml на месте, как SEO-блока: меняются только значения изменённых ключей.
+
+    Список меню в скобках (`main: [/, docs]`) остаётся в скобках, блочный - блочным,
+    комментарии и порядок ключей - как были. Не вышло (новая ветка, необычный
+    YAML) - None: тогда запись способом конфигуратора.
+    """
+    from heron.edit import front as fronts
+    from heron.edit.text import newline_of
+
+    changed: list[tuple[list[str], Any]] = []
+
+    def walk(a: Any, b: Any, path: list[str]) -> bool:
+        if isinstance(a, dict) and isinstance(b, dict):
+            for key in set(a) | set(b):
+                if key not in a or key not in b:
+                    return False
+                if a[key] != b[key] and not walk(a[key], b[key], [*path, str(key)]):
+                    return False
+            return True
+        changed.append((path, b))
+        return True
+
+    if not walk(old, new, []) or not changed:
+        return None
+    try:
+        root = yaml.compose(text)
+    except yaml.YAMLError:
+        return None
+    nl = newline_of(text)
+    for path, value in changed:
+        front = fronts.Front(True, 0, len(text), len(text), yaml.safe_load(text), root, raw=text)
+        try:
+            start, end, piece = fronts.set_value(text, front, path, value, nl)
+        except fronts.FrontError:
+            return None
+        text = text[:start] + piece + text[end:]
+        root = yaml.compose(text)
+    return text if yaml.safe_load(text) == new else None
 
 
 # --- ответы для агента: --answers и --dump --------------------------------------------
@@ -827,9 +915,14 @@ def apply_answers(entity: Entity, data: dict[str, Any]) -> list[str]:
         replaced = retype(entity, str(data["type"]))
         entity.pages, entity.key, entity.target = replaced.pages, replaced.key, replaced.target
     target = data.get("key")
-    if target not in (None, "") and norm_key(str(target)) != entity.target:
+    keyed = target not in (None, "") and norm_key(str(target)) != entity.target
+    if keyed:
         move(entity, str(target))
-    _apply_lang(entity, ctx.default, data.get(ctx.default) or {})
+    main = data.get(ctx.default) or {}
+    if keyed and isinstance(main, dict) and CATEGORY in main:
+        # `key` главнее: категория из выгрузки (`--dump`) - старое место, её не применять
+        main = {k: v for k, v in main.items() if k != CATEGORY}
+    _apply_lang(entity, ctx.default, main)
     pending: list[str] = []
     for lang in ctx.langs[1:]:
         given = data.get(lang)

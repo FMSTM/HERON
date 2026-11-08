@@ -570,6 +570,10 @@ def _debug(ctx: click.Context) -> bool:
 # --- сборка и проверка: итог ----------------------------------------------------
 
 
+# Ошибки `check --theme`, с которыми сайт собирается: их ловят только проверка темы и `theme pack`.
+THEME_ONLY = frozenset({"E037"})
+
+
 def _finish(
     result: pipeline.Result,
     strict: bool,
@@ -581,7 +585,10 @@ def _finish(
     summary = report_module.summary(result.collector, full=full, lang=lang)
     if result.collector.errors:
         _err(summary)
-        _err("\n" + say(lang, f"{kind}_failed", count=len(result.collector.errors)))
+        found = {error.code for error in result.collector.errors}
+        # только пробелы демо темы (E037): сайт соберётся, не упакуется тема
+        key = "check_theme_failed" if kind == "check" and found <= THEME_ONLY else f"{kind}_failed"
+        _err("\n" + say(lang, key, count=len(result.collector.errors)))
         sys.exit(1)
 
     if result.report is not None:
@@ -2286,7 +2293,7 @@ def category_add(
             spec = ctx.theme.types.get(entity.main.type)
             if spec is None or spec.views is None:
                 raise HeronError(
-                    code="E008",
+                    code="E041",
                     message=Msg("edit_unknown_view", view=view, type=entity.main.type, views="-"),
                 )
             for code in ctx.langs:

@@ -156,6 +156,32 @@ def _folder_types(root: Path) -> dict[str, tuple[str | None, str | None]]:
     return out
 
 
+def _hold_inside(site: Site, lang: str) -> None:
+    """Категория не переведена - не публикуются и страницы внутри неё (20 §4.2).
+
+    Иначе боевая сборка выпустила бы переведённую страницу по адресу раздела,
+    которого на этом языке нет: хлебные крошки и меню вели бы в 404.
+    """
+    folders = sorted(
+        page.key
+        for page in site.held
+        if page.lang == lang and page.source.endswith("/" + INDEX) and page.key
+    )
+    if not folders:
+        return
+    for page in list(site.pages):
+        if page.lang != lang:
+            continue
+        owner = next((f for f in folders if page.key.startswith(f + "/")), None)
+        if owner is None:
+            continue
+        site.pages.remove(page)
+        site.by_url.pop(page.url, None)
+        site.by_key.pop((lang, page.key), None)
+        page.held_by = owner
+        site.held.append(page)
+
+
 def scan(
     content_root: Path,
     config: SiteConfig,
@@ -343,6 +369,9 @@ def scan(
                     path=rel,
                     kind="прочее",
                 )
+
+        if hold_pending:
+            _hold_inside(site, lang)
 
         # Папка языка есть, страниц в ней нет. На деве это нормальная стадия:
         # второй язык часто пишут раньше основного. Но молчать нельзя — иначе

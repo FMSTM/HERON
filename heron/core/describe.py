@@ -241,7 +241,7 @@ def contract(
             types, modules = [], [name]
         else:
             raise HeronError(
-                code="E008",
+                code="E041",
                 message=Msg(
                     "describe_unknown",
                     name=name,

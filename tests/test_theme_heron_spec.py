@@ -1,4 +1,4 @@
-"""Негодное требование heron у темы: E008 с адресом, установка - E032."""
+"""Негодное требование heron у темы: E041 с адресом, установка - E032."""
 
 from __future__ import annotations
 
@@ -18,10 +18,10 @@ from heron.themes import install
 
 
 @pytest.mark.parametrize("spec", [">=x", "0.4", "~=1", ","])
-def test_bad_spec_is_e008_with_path(spec: str):
+def test_bad_spec_is_e041_with_path(spec: str):
     with pytest.raises(HeronError) as err:
         verify_engine(ThemeConfig(name="t", heron=spec), "/x/theme.yaml")
-    assert err.value.code == "E008"
+    assert err.value.code == "E041"
     assert err.value.path == "/x/theme.yaml"
     assert err.value.hint
 
@@ -37,7 +37,7 @@ def test_good_spec_passes(spec):
     verify_engine(ThemeConfig(name="t", heron=spec), "/x/theme.yaml")
 
 
-def test_cli_build_names_e008_and_theme_yaml(tmp_path: Path, monkeypatch):
+def test_cli_build_names_e041_and_theme_yaml(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     runner = CliRunner()
     assert runner.invoke(main, ["new", "demo"]).exit_code == 0
@@ -46,7 +46,7 @@ def test_cli_build_names_e008_and_theme_yaml(tmp_path: Path, monkeypatch):
     theme_yaml.write_text(text + '\nheron: ">=x"\n', encoding="utf-8")
     result = runner.invoke(main, ["build", "demo"])
     assert result.exit_code != 0
-    assert "E008" in result.output
+    assert "E041" in result.output
     assert "theme.yaml" in result.output
     assert "MsgError" not in result.output
 

@@ -24,6 +24,10 @@ TEXT: dict[str, dict[str, str]] = {
         "edit_ro_body": "текст страницы не разбирается: {reason}",
         "edit_front_broken": "SEO-блок не читается как YAML, сначала поправьте его в файле",
         "edit_front_flow": "значение записано в фигурных скобках {{…}}, правьте его в файле",
+        "edit_front_alias": (
+            "значение - якорь YAML (&имя) или ссылка на него (*имя): правка изменила бы "
+            "и другое поле, правьте его в файле"
+        ),
         "edit_front_not_mapping": "по этому пути в SEO-блоке не набор ключей",
         "edit_unknown_field": "нет такого поля: {path}",
         "edit_bad_index": "нет пункта с номером {index}",
@@ -47,7 +51,10 @@ TEXT: dict[str, dict[str, str]] = {
         "edit_few_items": "{field}: пунктов {count}, нужно не меньше {min}",
         "edit_many_items": "{field}: пунктов {count}, можно не больше {max}",
         "edit_not_in_values": "{field}: {value!r} - нет среди допустимых: {values}",
-        "edit_image_missing": "{field}: файла {src} нет в папке сайта",
+        "edit_image_missing": "{field}: файла {src} нет на диске (E007): положите его в media/",
+        "edit_image_outside": (
+            "{field}: {src} - вне папки media/ сайта (E024): картинки берутся только оттуда"
+        ),
         "edit_image_narrow": "{field}: {src} шириной {width} px, нужно от {min} px",
         "edit_image_ratio": "{field}: пропорции {src} - {actual}, тема ждёт {ratio}",
         "edit_image_unreadable": "{field}: {src} не читается как картинка",
@@ -94,6 +101,28 @@ TEXT: dict[str, dict[str, str]] = {
         "edit_con_example": "пример: {example}",
         "edit_con_readonly": "здесь не меняется: {reason}",
         "edit_con_in_file": "пункты с полями правят в файле или в студии",
+        "edit_con_unpublish": (
+            "новый блок появится и на {langs}: там он не переведён, эти языки уйдут из "
+            "публикации до перевода (translation: pending) - продолжить?"
+        ),
+        "edit_category_root": (
+            "/ - корень сайта, а не категория: у корня нет папки и _index.md, его страница - "
+            "главная (content/<язык>/index.md)"
+        ),
+        "edit_category_root_hint": (
+            "категории нужно имя латиницей: `heron category add services`; главная правится "
+            "командой `heron page add /`"
+        ),
+        "edit_con_list_keep": (
+            "Enter - оставить пункты как есть; новый список - по пункту на строке, "
+            "пустая строка - конец; - - очистить"
+        ),
+        "edit_con_list_fields_keep": (
+            "Enter - оставить пункты как есть; + - вписать заново (поля каждого пункта по "
+            "очереди, пустое первое поле - конец); - - очистить"
+        ),
+        "edit_con_list_more": "пункт {number}, пустая строка - конец",
+        "edit_con_list_sub": "пункт {number}: {name}",
         "edit_con_category": (
             "Категория - раздел сайта, в котором лежит страница; адрес страницы начинается с неё"
         ),
@@ -186,6 +215,10 @@ TEXT: dict[str, dict[str, str]] = {
         "edit_ro_body": "the text of the page does not parse: {reason}",
         "edit_front_broken": "the SEO block does not read as YAML, fix it in the file first",
         "edit_front_flow": "the value is written in curly braces {{…}}, edit it in the file",
+        "edit_front_alias": (
+            "the value is a YAML anchor (&name) or a reference to one (*name): editing it "
+            "would change another field too, edit it in the file"
+        ),
         "edit_front_not_mapping": "this path in the SEO block is not a set of keys",
         "edit_unknown_field": "there is no such field: {path}",
         "edit_bad_index": "there is no item number {index}",
@@ -210,7 +243,11 @@ TEXT: dict[str, dict[str, str]] = {
         "edit_few_items": "{field}: {count} items, needs at least {min}",
         "edit_many_items": "{field}: {count} items, at most {max} allowed",
         "edit_not_in_values": "{field}: {value!r} is not among the allowed values: {values}",
-        "edit_image_missing": "{field}: there is no file {src} in the site folder",
+        "edit_image_missing": "{field}: there is no file {src} on disk (E007): put it into media/",
+        "edit_image_outside": (
+            "{field}: {src} is outside the media/ folder of the site (E024): pictures come "
+            "only from there"
+        ),
         "edit_image_narrow": "{field}: {src} is {width} px wide, needs {min} px or more",
         "edit_image_ratio": "{field}: the proportions of {src} are {actual}, the theme expects {ratio}",
         "edit_image_unreadable": "{field}: {src} does not read as a picture",
@@ -262,6 +299,28 @@ TEXT: dict[str, dict[str, str]] = {
         "edit_con_example": "example: {example}",
         "edit_con_readonly": "not changed here: {reason}",
         "edit_con_in_file": "items with fields are edited in the file or in the studio",
+        "edit_con_unpublish": (
+            "the new block appears in {langs} too: it is not translated there, these languages "
+            "leave publication until translated (translation: pending) - continue?"
+        ),
+        "edit_category_root": (
+            "/ is the root of the site, not a category: the root has no folder and no _index.md, "
+            "its page is the home page (content/<lang>/index.md)"
+        ),
+        "edit_category_root_hint": (
+            "a category needs a Latin name: `heron category add services`; the home page is "
+            "edited with `heron page add /`"
+        ),
+        "edit_con_list_keep": (
+            "Enter - keep the items as they are; a new list - one item per line, "
+            "an empty line ends it; - - clear"
+        ),
+        "edit_con_list_fields_keep": (
+            "Enter - keep the items as they are; + - write them anew (the fields of each item "
+            "in turn, an empty first field ends the list); - - clear"
+        ),
+        "edit_con_list_more": "item {number}, an empty line ends the list",
+        "edit_con_list_sub": "item {number}: {name}",
         "edit_con_category": (
             "Category - the section of the site the page lives in; the address of the page starts "
             "with it"

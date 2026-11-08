@@ -129,14 +129,14 @@ def test_type_filter_keeps_the_modules_its_page_needs(site):
     assert names == ["steps", "breadcrumbs", "children"]
 
 
-def test_unknown_name_is_e008_with_the_known_names(site):
+def test_unknown_name_is_e041_with_the_known_names(site):
     with pytest.raises(HeronError) as caught:
         _contract(site, "en", "nope")
-    assert caught.value.code == "E008"
+    assert caught.value.code == "E041"
     text = caught.value.message.text("en")
     assert "home, page, 404" in text and "faq" in text
     result = _run("describe", "nope", str(site), "--notes", "en")
-    assert result.exit_code == 1 and "E008" in result.output
+    assert result.exit_code == 1 and "E041" in result.output
 
 
 def test_human_text_is_short_without_a_name_and_full_with_one(site):

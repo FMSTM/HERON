@@ -84,7 +84,7 @@ def stub(
         if section == "intro":
             body.append(words["intro"] + "\n")
             continue
-        body.append(f"## {words['heading']} {{#{section}}}\n\n{words['content']}\n")
+        body.append(_section(theme, page_type, section, notes, words))
     if "intro" not in sections:
         body.insert(0, words["intro"] + "\n")
     return head + "\n" + "\n".join(body)

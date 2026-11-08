@@ -193,6 +193,10 @@ TEXT: dict[str, dict[str, str]] = {
             "Исправьте и соберите снова."
         ),
         "check_failed": "Проверка нашла ошибок: {count}. Сборка с ними не пройдёт.",
+        "check_theme_failed": (
+            "Проверка темы нашла ошибок: {count}. Сайт соберётся, но тему с ними не упаковать "
+            "(theme pack) и демо показывает её не целиком."
+        ),
         "build_strict": (
             "Сборка остановлена: строгий режим (--strict или build.fail_on_warning), "
             "предупреждений {count}. Папка сборки не тронута - в ней прошлая удачная версия."
@@ -386,6 +390,11 @@ TEXT: dict[str, dict[str, str]] = {
             "Build failed: {count} {count:error|errors}. The output folder is untouched. "
             "Fix {count:it|them} and build again."
         ),
+        "check_theme_failed": (
+            "The theme check found {count} {count:error|errors}. The site builds, but the "
+            "theme cannot be packed with {count:it|them} (theme pack) and the demo does not "
+            "show all of it."
+        ),
         "check_failed": (
             "Check found {count} {count:error|errors}. A build would fail on {count:it|them}."
         ),
@@ -430,7 +439,7 @@ TITLES: dict[str, dict[str, str]] = {
         "E009": "redirect_from matches an existing URL",
         "E010": "the template uses a variable that does not exist",
         "E011": "site.yaml is not valid",
-        "E012": "the engine version does not match heron: in site.yaml",
+        "E012": "the engine version does not match heron: in site.yaml or theme.yaml",
         "E013": "the theme is found neither locally nor among installed packages",
         "E014": "a plugin is not installed or failed to load",
         "E015": "raw HTML in markdown with build.allow_raw_html: false",

@@ -122,8 +122,17 @@ def _parse(item: Field, raw: str, lang: str) -> Any:
 
 
 def _askable(item: Field) -> bool:
-    """Поле, которое опросник спрашивает строкой: список пунктов с полями - в файле или студии."""
-    return not (item.type == "list" and item.fields)
+    """Поле, которое опросник спрашивает: строкой, а список - по пункту на строке."""
+    return True
+
+
+KEEP = object()  # ответ «оставить как есть»
+
+
+def _entry_shown(entry: Any, lang: str) -> str:
+    if isinstance(entry, dict):
+        return " | ".join(_shown(v, lang) for v in entry.values() if v not in (None, ""))
+    return _shown(entry, lang)
 
 
 class Console:
@@ -176,17 +185,30 @@ class Console:
             return False
         current = _current(item) if prompt_value is None else prompt_value
         while True:
-            raw = self.io.ask(f"  › [{_shown(current, self.lang)}]").strip()
-            if raw == "":
+            if item.type == "list":
+                value = self._list(item, current)
+            else:
+                raw = self.io.ask(f"  › [{_shown(current, self.lang)}]").strip()
+                if raw == SKIP:
+                    self._help(item)
+                    continue
+                if raw == "":
+                    value = KEEP
+                else:
+                    try:
+                        value = _parse(item, raw, self.lang)
+                    except ValueError as error:
+                        self.io.echo(f"    {error}", "yellow")
+                        continue
+            if value is KEEP:
                 return False
-            if raw == SKIP:
-                self._help(item)
+            if value is SKIP:
                 continue
-            try:
-                value = _parse(item, raw, self.lang)
-            except ValueError as error:
-                self.io.echo(f"    {error}", "yellow")
-                continue
+            lost = ops.unpublishes(self.entity, item.path, lang)
+            if lost:
+                question = self._say("edit_con_unpublish", langs=", ".join(lost))
+                if self.io.ask(f"  {question} [y/N]").strip().lower() not in YES:
+                    return False
             before = dict(self.entity.pages)
             try:
                 ops.set_value(self.entity, lang, item.path, value)
@@ -203,6 +225,47 @@ class Console:
                 self.entity.pages = before
                 continue
             return True
+
+    def _list(self, item: Field, current: Any) -> Any:
+        """Список: Enter - оставить; иначе пункты по одному на строке до пустой строки.
+
+        Пункты с полями (`вопрос` и `ответ`) - по `+`: поля каждого пункта по очереди,
+        пустое первое поле - конец списка. Возвращает новый список, `KEEP` или `SKIP`
+        (показали справку - спросить снова).
+        """
+        items = current if isinstance(current, list) else []
+        for number, entry in enumerate(items, 1):
+            self.io.echo(f"    {number}. {_entry_shown(entry, self.lang)}", None, True)
+        subs = item.fields or []
+        key = "edit_con_list_fields_keep" if subs else "edit_con_list_keep"
+        self.io.echo(f"    {self._say(key)}", None, True)
+        raw = self.io.ask(f"  › [{_shown(items, self.lang)}]").strip()
+        if raw == "":
+            return KEEP
+        if raw == SKIP:
+            self._help(item)
+            return SKIP
+        if raw == CLEAR:
+            return None
+        out: list[Any] = []
+        if not subs:
+            out.append(raw)
+            while True:
+                more = self.io.ask(f"  {self._say('edit_con_list_more', number=len(out) + 1)} ›")
+                if not more.strip():
+                    return out
+                out.append(more.strip())
+        while True:
+            entry: dict[str, Any] = {}
+            for index, sub in enumerate(subs):
+                prompt = self._say("edit_con_list_sub", number=len(out) + 1, name=sub["name"])
+                hint = sub.get("hint")
+                answer = self.io.ask(f"  {prompt}" + (f" ({hint})" if hint else "") + " ›").strip()
+                if index == 0 and not answer:
+                    return out
+                if answer:
+                    entry[sub["name"]] = answer
+            out.append(entry)
 
     # --- категория и тип новой страницы -----------------------------------------
 

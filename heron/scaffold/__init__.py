@@ -16,6 +16,7 @@ Dockerfile, ни compose, ни скриптов сборки, ни .env здес
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -631,8 +632,12 @@ def _demo(root: Path, lang: str, name: str, plan: Plan, force: bool, notes: str)
     """Демонстрационные страницы белой темы в язык `lang` и картинки к ним.
 
     Ссылки на репозиторий движка и образ в команде — на канал образа (`_demo_links`).
+    Своего текста демо у языка нет (de) - копия английского; на неосновном языке
+    она получает `translation: pending`: боевая сборка не выпустит английский
+    текст под видом немецкого (20 §4.2).
     """
     source = lang if lang in DEMO_LANGS else "en"
+    copy = source != lang and not main
     for page, order in zip(DEMO_PAGES, DEMO_ORDER, strict=True):
         title, h1, description, nav = (part.format(name=name) for part in DEMO_TITLES[source][page])
         head = seo_block(title, h1, description, order=order, notes=notes, nav_title=nav)
@@ -668,7 +673,7 @@ def starter_theme(stage: Path, languages: list[str], notes: str = "en") -> None:
     for lang in languages:
         _put(stage, f"theme/i18n/{lang}.yaml", STRINGS.get(lang, STRINGS["en"]), plan, True)
     for lang in languages:
-        _demo(stage / "demo", lang, "HERON", plan, True, notes)
+        _demo(stage / "demo", lang, "HERON", plan, True, notes, main=lang == languages[0])
 
 
 def _starter(
@@ -679,8 +684,12 @@ def _starter(
     force: bool,
     notes: str,
     pages: tuple[str, ...] = ("home", "404"),
+    pending: bool = False,
 ) -> None:
-    """Главная и страница 404 языка: сайт собирается сразу после создания."""
+    """Главная и страница 404 языка: сайт собирается сразу после создания.
+
+    `pending` - текст чужого языка (у языка своего нет): пометка «перевод не готов».
+    """
     texts = STARTER.get(lang, STARTER["en"])
     for page, rel in (("home", "index.md"), ("404", "404.md")):
         if page not in pages:
@@ -689,6 +698,8 @@ def _starter(
         order = 0 if page == "home" else 999
         nav = NAV_HOME.get(lang, NAV_HOME["en"]) if page == "home" else None
         text = seo_block(title, h1, description, order=order, notes=notes, nav_title=nav)
+        if pending:
+            text = _pending(text)
         _put(root, f"content/{lang}/{rel}", text + "\n" + body + "\n", plan, force)
 
 
@@ -821,7 +832,7 @@ def create(
 
     for lang in languages:
         if demo:
-            _demo(root, lang, name, plan, force, notes)
+            _demo(root, lang, name, plan, force, notes, main=lang == default_lang)
         else:
             _starter(root, lang, name, plan, force, notes)
 

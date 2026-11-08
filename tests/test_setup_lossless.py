@@ -32,7 +32,9 @@ ENTITY = {
 
 def _site(tmp_path: Path, **extra) -> Path:
     root = tmp_path / "s"
-    create(root, name="S", languages=["en", "de"], demo=True)
+    create(
+        root, name="S", languages=["en", "uk"], demo=True
+    )  # у uk свой текст демо: прод собирается
     data = yaml.safe_load((root / "site.yaml").read_text("utf-8"))
     data.setdefault("contact", {})["phone"] = "+00000000000"
     data["schema"] = {"entity": ENTITY}

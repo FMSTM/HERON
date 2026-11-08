@@ -65,6 +65,14 @@ TEXT: dict[str, dict[str, str]] = {
         ),
         "build_no_home_page": "у языка {lang!r} нет главной страницы: {home} ответит 404",
         "build_no_home_page_hint": "создайте index.md в корне языка",
+        "build_home_pending": (
+            "главная языка {lang!r} не переведена (translation: pending): боевая сборка её "
+            "не публикует, и {home} ответит 404"
+        ),
+        "build_home_pending_hint": (
+            "переведите главную и уберите строку translation (`heron page add / --lang {lang}`) "
+            "или уберите язык {lang} из site.languages, пока перевода нет"
+        ),
     },
     "en": {
         "build_pending_held": (
@@ -131,5 +139,13 @@ TEXT: dict[str, dict[str, str]] = {
         ),
         "build_no_home_page": "language {lang!r} has no home page: {home} would answer 404",
         "build_no_home_page_hint": "create index.md in the language root",
+        "build_home_pending": (
+            "the home page of language {lang!r} is not translated (translation: pending): the "
+            "production build does not publish it, and {home} would answer 404"
+        ),
+        "build_home_pending_hint": (
+            "translate the home page and delete the translation line (`heron page add / --lang "
+            "{lang}`) or remove {lang} from site.languages until there is a translation"
+        ),
     },
 }

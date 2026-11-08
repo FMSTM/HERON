@@ -24,6 +24,11 @@ from heron.scaffold import create
 LANGS = ["ru", "en", "de"]
 
 
+def _yaml(path, data):
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    return path
+
+
 def run(*args, input=None):
     return CliRunner().invoke(main, [str(a) for a in args], input=input)
 
@@ -33,7 +38,18 @@ def site(tmp_path, monkeypatch):
     monkeypatch.delenv("HERON_NOTES", raising=False)
     root = tmp_path / "s"
     create(root, name="Demo", languages=LANGS, notes="ru", demo=True)
+    translated(root / "content" / "de")
     return root
+
+
+def translated(folder):
+    """Демо de - копия английского с пометкой; здесь считаем его переведённым (без пометки)."""
+    for path in folder.rglob("*.md"):
+        text = path.read_text(encoding="utf-8")
+        text = re.sub(
+            r"(?m)^translation: pending  (#.*)$", r"# translation:               \1", text
+        )
+        path.write_text(text, encoding="utf-8")
 
 
 def files(root, key, category=False):
@@ -68,8 +84,33 @@ ANSWERS = {
 # --- сценарий новичка ---------------------------------------------------------------
 
 
+SERVICES = {
+    "ru": {
+        "title": "Услуги агентства - ремонт и осмотр крыш",
+        "h1": "Услуги",
+        "description": "Что мы делаем: ремонт, осмотр и обслуживание крыш.",
+        "sections.intro.text": "Всё, что мы делаем для крыш.",
+    },
+    "en": {
+        "title": "Agency services - roof repair and inspection",
+        "h1": "Services",
+        "description": "What we do: roof repair, inspection and upkeep.",
+        "sections.intro.text": "Everything we do for roofs.",
+    },
+    "de": "pending",
+}
+
+
 def test_newcomer_scenario_from_new_to_production(site, tmp_path):
-    made = run("category", "add", "services", site, "-y")
+    # категория с текстом: заготовка (TODO) в боевую сборку не пройдёт (E040)
+    made = run(
+        "category",
+        "add",
+        "services",
+        site,
+        "--answers",
+        _yaml(tmp_path / "services.yaml", SERVICES),
+    )
     assert made.exit_code == 0, made.output
     for path in files(site, "services", category=True):
         assert path.is_file()
@@ -128,8 +169,24 @@ def test_newcomer_scenario_from_new_to_production(site, tmp_path):
     )
     assert run("page", "add", "services/about-agency", site, "--answers", done).exit_code == 0
     assert "translation" not in front(de)
+    # категория de ещё не переведена: страница внутри не выходит вместе с ней (решение D)
     pipeline.run(site, dist=tmp_path / "prod2", env=BuildEnv.named("prod"))
-    assert (tmp_path / "prod2" / "de" / "services" / "about-agency" / "index.html").is_file()
+    assert not (tmp_path / "prod2" / "de" / "services" / "about-agency").exists()
+    category = {
+        "de": {
+            "title": "Leistungen der Agentur - Dachreparatur",
+            "h1": "Leistungen",
+            "description": "Was wir tun: Dachreparatur, Inspektion und Pflege.",
+            "sections.intro.text": "Alles, was wir für Dächer tun.",
+            "translation": None,
+        }
+    }
+    made = run(
+        "category", "add", "services", site, "--answers", _yaml(tmp_path / "c.yaml", category)
+    )
+    assert made.exit_code == 0, made.output
+    pipeline.run(site, dist=tmp_path / "prod3", env=BuildEnv.named("prod"))
+    assert (tmp_path / "prod3" / "de" / "services" / "about-agency" / "index.html").is_file()
 
 
 # --- page add ---------------------------------------------------------------------------
@@ -187,7 +244,7 @@ def test_page_add_finds_the_page_by_name_in_its_category(site):
 
 def test_page_add_type_and_unknown_type(site):
     bad = run("page", "add", "x", "--type", "nosuch", site)
-    assert bad.exit_code == 1 and "E008" in bad.output
+    assert bad.exit_code == 1 and "E041" in bad.output
     assert not (site / "content" / "ru" / "x.md").exists()
 
 
@@ -325,7 +382,9 @@ def test_moving_a_category_moves_its_pages_with_301_and_menu_keys(site, tmp_path
         "/structure/"
     ]
     text = (site / "site.yaml").read_text(encoding="utf-8")
-    assert "- guide" in text and "- structure" not in text
+    menu = yaml.safe_load(text)["nav"]["main"]
+    assert "guide" in menu and "structure" not in menu
+    assert "main: [" in text  # меню в скобках так и осталось в скобках
     assert "# свой комментарий в конце" in text
     built = pipeline.run(site, dist=tmp_path / "d", env=BuildEnv.named("prod"))
     assert not built.collector.errors, built.collector.errors
@@ -367,7 +426,7 @@ def test_category_add_nested_on_every_language(site):
 
 def test_category_add_unknown_view_and_existing_category_view(site):
     bad = run("category", "add", "x", "--view", "grid3d", site)
-    assert bad.exit_code == 1 and "E008" in bad.output and "cards" in bad.output
+    assert bad.exit_code == 1 and "E041" in bad.output and "cards" in bad.output
     edit = run("category", "add", "structure", "--view", "cards", site)
     assert edit.exit_code == 0, edit.output
     assert front(site / "content" / "ru" / "structure" / "_index.md")["view"] == "cards"
@@ -447,6 +506,7 @@ def test_console_creates_with_help_validation_and_skipped_translation(site):
             "",  # обложка - не открывать
             "",  # соцсети
             "",  # публикация
+            "",  # поля темы: eyebrow стартовой темы - оставить пустым
             "Мы чиним крыши.",  # intro
             # en: всё переведено
             "About the agency - who we are",

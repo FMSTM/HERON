@@ -3,7 +3,7 @@
 Студия - форма поверх ядра правки: те же `open_entity`, `apply_answers`,
 `problems` и `save`, что у `heron page add`. Здесь проверяется, что каждое
 действие студии пишет те же файлы, что CLI, без потерь, и что граница доступа
-та же, что у конфигуратора: ключ в заголовке, а для просмотра - cookie с ним.
+та же, что у конфигуратора: ключ в заголовке; просмотр - на своём порту со своим ключом.
 """
 
 from __future__ import annotations
@@ -82,7 +82,8 @@ def test_open_gives_the_same_fields_as_the_console_with_hints(site):
     # на остальных языках - только поля с текстом
     assert {f["path"] for f in state["fields"]["en"]} < set(same)
     assert "type" not in {f["path"] for f in state["fields"]["en"]}
-    assert state["files"]["de"] == {"rel": "content/de/blocks.md", "exists": True, "pending": False}
+    # у de своего текста демо нет: копия английского с пометкой «перевод не готов»
+    assert state["files"]["de"] == {"rel": "content/de/blocks.md", "exists": True, "pending": True}
     assert [g["name"] for g in state["groups"]][0] == "seo"
     kinds = {k["kind"]: k for k in state["sections"]["kinds"]}
     assert kinds["faq"]["auto"] and kinds["tabs"]["class"] == "tabs"
@@ -209,7 +210,9 @@ FAQ = {
 
 
 def test_add_section_on_every_language_marks_ready_translations(site):
-    out = studio.save(site, {"target": PAGE, "ops": [FAQ]}, "ru")
+    asked = studio.save(site, {"target": PAGE, "ops": [FAQ]}, "ru")
+    assert asked["confirm"]["langs"] == ["en"]  # de уже не опубликован
+    out = studio.save(site, {"target": PAGE, "ops": [FAQ], "confirm_pending": True}, "ru")
     assert sorted(out["saved"]["written"]) == sorted(f"content/{c}/blocks.md" for c in LANGS)
     for lang in LANGS:
         text = (site / "content" / lang / "blocks.md").read_text("utf-8")
@@ -406,28 +409,55 @@ def test_studio_api_saves_and_reports_errors_in_the_page_language(served):
     assert (site / "media" / "pic.png").is_file()
 
 
-def test_preview_and_media_need_the_session_cookie(served):
+def _preview_info(base, token):
+    status, body, _ = _req(base, "/api/studio/start", data={}, token=token)
+    assert status == 200
+    return json.loads(body)["preview"]
+
+
+def test_preview_media_and_ref_live_on_their_own_port(served):
+    """Приёмка 0.3.0, блокер 2: скрипты темы - на другом источнике, без ключа API."""
     base, token, site = served
     studio.upload(site, "pic.png", png(20, 20))
-    assert _req(base, "/_studio/media/pic.png")[0] == 403
-    status, _body, headers = _req(base, "/api/session", data={}, token=token)
-    cookie = headers["Set-Cookie"]
-    assert status == 200 and "HttpOnly" in cookie and "SameSite=Strict" in cookie
-    pair = cookie.split(";", 1)[0]
-    status, body, _ = _req(base, "/_studio/media/pic.png", cookie=pair)
+    info = _preview_info(base, token)
+    port = int(base.rsplit(":", 1)[1])
+    assert info["port"] == port + 1 and info["key"] != token
+    other = f"http://127.0.0.1:{info['port']}"
+    # порт студии больше не отдаёт ни просмотр, ни картинки, ни cookie с ключом
+    assert _req(base, "/_studio/media/pic.png")[0] == 404
+    assert _req(base, "/api/session", data={}, token=token)[0] == 404
+    # порт просмотра: без ключа просмотра - 403, ключ API там не действует
+    assert _req(other, "/_studio/media/pic.png")[0] == 403
+    assert _req(other, f"/_studio/media/pic.png?k={token}")[0] == 403
+    status, body, headers = _req(other, f"/_studio/media/pic.png?k={info['key']}")
     assert status == 200 and body.startswith(b"\x89PNG")
-    assert _req(base, "/_studio/media/pic.png", cookie="heron-studio=wrong")[0] == 403
+    cookie = headers["Set-Cookie"]
+    assert "HttpOnly" in cookie and "SameSite=Lax" in cookie and "heron-preview=" in cookie
+    pair = cookie.split(";", 1)[0]
+    assert token not in cookie
+    assert _req(other, "/_studio/media/pic.png", cookie="heron-preview=wrong")[0] == 403
     status, body, _ = _req(base, "/api/studio/preview", data={"target": PAGE}, token=token)
     data = json.loads(body)
     assert status == 200 and data["ok"], data
     assert data["urls"]["ru"] == "/blocks/" and data["urls"]["en"] == "/en/blocks/"
-    assert _req(base, data["ref"])[0] == 403
-    status, body, headers = _req(base, data["ref"], cookie=pair)
+    assert _req(base, data["ref"])[0] == 404
+    assert _req(other, data["ref"])[0] == 403
+    status, body, headers = _req(other, data["ref"], cookie=pair)
     assert status == 200 and b"<h1>" in body
-    assert "frame-ancestors 'self'" in headers["Content-Security-Policy"]
-    status, body, _ = _req(base, "/blocks/", cookie=pair)
+    # в рамку - только студии; сама студия пускает рамки и картинки только с порта просмотра
+    assert f"frame-ancestors http://localhost:{port}" in headers["Content-Security-Policy"]
+    studio_csp = _req(base, "/")[2]["Content-Security-Policy"]
+    assert f"frame-src http://localhost:{info['port']};" in studio_csp
+    assert "frame-src 'self'" not in studio_csp
+    status, body, _ = _req(other, "/blocks/", cookie=pair)
     assert status == 200 and "Блоки".encode() in body
-    assert _req(base, "/../../site.yaml", cookie=pair)[0] == 404
+    assert _req(other, "/../../site.yaml", cookie=pair)[0] == 404
+    # писать на порту просмотра нечем: POST не принимается, файлы те же
+    before = snapshot(site)
+    request = {"target": PAGE, "answers": {"ru": {"title": "Взлом"}}}
+    status = _req(other, "/api/studio/save", data=request, token=token, cookie=pair)[0]
+    assert status >= 400
+    assert snapshot(site) == before
 
 
 def test_site_check_is_heron_check(served):
@@ -521,4 +551,45 @@ def test_docker_hint_for_the_studio_publishes_the_port(monkeypatch):
     for args in ("studio", "page add about --web", "category add services --web"):
         command = messages.docker_command(args)
         assert " -it " in command and "-p 127.0.0.1:8000:8000" in command, command
+        assert "-p 127.0.0.1:8001:8001" in command, command
     assert "-p 127.0.0.1" not in messages.docker_command("page add about --answers a.yaml")
+    assert "-p 127.0.0.1:8000:8000" in messages.docker_command("setup")
+    assert "-p 127.0.0.1:8001:8001" in messages.docker_command("setup")
+    serve = messages.docker_command("serve")
+    assert "-p 127.0.0.1:8000:8000" in serve and "8001" not in serve
+
+
+# --- SVG: разбор XML, а не поиск по тексту (приёмка 0.3.0, баг 10) ---------------------------
+
+SVG_NS = 'xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"'
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"<svg/onload=alert(1)>",
+        b"<svg onload=alert(1)>",
+        f'<svg {SVG_NS}><a href="java&#x73;cript:alert(1)"><text>x</text></a></svg>'.encode(),
+        f'<svg {SVG_NS}><a xlink:href=" jav&#9;ascript:alert(1)"/></svg>'.encode(),
+        f'<svg {SVG_NS}><rect ONCLICK="alert(1)"/></svg>'.encode(),
+        f"<svg {SVG_NS}><script>alert(1)</script></svg>".encode(),
+        f"<svg {SVG_NS}><foreignObject><div/></foreignObject></svg>".encode(),
+        f'<svg {SVG_NS}><image href="https://example.com/x.png"/></svg>'.encode(),
+        f'<svg {SVG_NS}><use href="data:image/svg+xml,&lt;svg/&gt;"/></svg>'.encode(),
+        f'<svg {SVG_NS}><set attributeName="onmouseover" to="alert(1)"/></svg>'.encode(),
+        f'<svg {SVG_NS}><animate attributeName="href" values="javascript:x"/></svg>'.encode(),
+        f"<svg {SVG_NS}><style>@import url(https://example.com/x.css);</style></svg>".encode(),
+        b'<!DOCTYPE svg [<!ENTITY x "y">]><svg xmlns="http://www.w3.org/2000/svg">&x;</svg>',
+    ],
+)
+def test_dangerous_svg_is_refused(site, body):
+    with pytest.raises(HeronError) as caught:
+        studio.upload(site, "logo.svg", body)
+    assert caught.value.code == "E039"
+    assert not (site / "media" / "logo.svg").exists()
+
+
+def test_plain_svg_with_local_links_is_taken(site):
+    body = f'<svg {SVG_NS} viewBox="0 0 2 2"><rect id="a" width="1" fill="#123"/>'
+    body += '<use href="#a"/><use xlink:href="#a"/></svg>'
+    assert studio.upload(site, "logo.svg", body.encode())["path"] == "media/logo.svg"

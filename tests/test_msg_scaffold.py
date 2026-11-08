@@ -43,7 +43,7 @@ def test_unknown_type(tmp_path):
     ctx = ops.context(_site(tmp_path), "en")
     with pytest.raises(HeronError) as e:
         ops.open_entity(ctx, "ok", page_type="nonexistent-type")
-    assert e.value.code == "E008"
+    assert e.value.code == "E041"
     assert isinstance(e.value.message, Msg)
     assert not CYR.search(e.value.message.text("en"))
     assert e.value.message.text("ru").startswith("тема не знает тип страницы 'nonexistent-type'")

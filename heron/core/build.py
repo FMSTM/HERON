@@ -554,7 +554,11 @@ def content(
 def pending_warnings(site: Site, collector: Collector) -> None:
     """Предупреждение о каждой странице с непереведённым текстом (`translation: pending`)."""
     for page in site.held:
-        collector.warn(Msg("build_pending_held", lang=page.lang), path=page.source, kind="переводы")
+        if page.held_by is not None:
+            message = Msg("build_pending_category", lang=page.lang, category=page.held_by)
+        else:
+            message = Msg("build_pending_held", lang=page.lang)
+        collector.warn(message, path=page.source, kind="переводы")
     for page in site.pages:
         if page.meta.pending:
             collector.warn(
@@ -580,9 +584,14 @@ def _roots(site: Site, config: SiteConfig, collector: Collector, prod: bool) -> 
         if lang == config.site.default_lang and "E021" in said:
             continue  # об этом уже сказано
         message = Msg("build_no_home_page", lang=lang, home=home)
+        hint = Msg("build_no_home_page_hint")
+        if any(p.url == home for p in site.held):
+            # главная есть, но не переведена: боевая сборка её не публикует
+            message = Msg("build_home_pending", lang=lang, home=home)
+            hint = Msg("build_home_pending_hint", lang=lang)
         where = f"content/{lang}/index.md"
         if prod:
-            collector.error("E028", message, path=where, hint=Msg("build_no_home_page_hint"))
+            collector.error("E028", message, path=where, hint=hint)
         else:
             collector.warn(message, path=where, kind="языки")
 
@@ -674,7 +683,7 @@ def theme_contract(theme: ThemeConfig, theme_dir: Path, collector: Collector) ->
     if missing:
         collector.errors.append(
             HeronError(
-                code="E008",
+                code="E041",
                 message=Msg(
                     "build_theme_hints",
                     theme=theme.name,

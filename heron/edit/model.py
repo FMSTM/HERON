@@ -304,7 +304,7 @@ def _service_fields(page: Page) -> list[Field]:
         present, value = (
             fronts.lookup(page.front, [item["key"]]) if where == "frontmatter" else (True, None)
         )
-        readonly = _front_readonly(page) if where == "frontmatter" else None
+        readonly = _front_readonly(page, [item["key"]]) if where == "frontmatter" else None
         default = item.get("default")
         if where == "path":
             value = _category_of(page)
@@ -351,7 +351,7 @@ def _view_field(page: Page, after: str) -> list[Field]:
         return []
     key = views["key"]
     present, value = fronts.lookup(page.front, [key])
-    readonly = _front_readonly(page)
+    readonly = _front_readonly(page, [key])
     return [
         Field(
             path=key,
@@ -442,6 +442,7 @@ def _schema_fields(page: Page) -> list[Field]:
     out = []
     for kind in _schema_kinds(page):
         value = own.get(kind)
+        readonly = _front_readonly(page, ["schema", kind])
         out.append(
             Field(
                 path=f"schema.{kind}",
@@ -660,6 +661,8 @@ def set_field(page: Page, path: str, value: Any) -> Page:
     if parts[0] in service and len(parts) == 1:
         value = _coerce(service[parts[0]]["type"], value)
         parts = [service[parts[0]]["key"]]
+    elif parts[0] in own and len(parts) == 1:
+        value = _coerce(own[parts[0]]["type"], value)
     parts, value = _list_index(page, parts, value)
     found, current = fronts.lookup(page.front, parts)
     if found and _same_value(current, value):

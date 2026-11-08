@@ -667,4 +667,28 @@ def missing_hints(theme: ThemeConfig) -> list[str]:
 
 def load_theme(path: Path) -> ThemeConfig:
     """Прочитать и проверить `theme.yaml`."""
-    return build(ThemeConfig, read_yaml(path, code="E008"), path, code="E008")
+    data = read_yaml(path, code="E041")
+    _engine_fields(data, path)
+    return build(ThemeConfig, data, path, code="E041")
+
+
+def _engine_fields(data: Any, path: Path) -> None:
+    """`fields` верхнего уровня - имена полей движка (строки), не описание полей блока.
+
+    Автор темы 0.3 по ошибке пишет туда описание полей блока (`- name: … type: …`):
+    вместо «Input should be a valid string» - E023 с объяснением, куда это перенести.
+    """
+    from heron.core.errors import HeronError
+    from heron.messages import Msg
+
+    if not isinstance(data, dict) or "fields" not in data:
+        return
+    value = data["fields"]
+    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return
+    raise HeronError(
+        code="E023",
+        message=Msg("site_th_fields_shape"),
+        path=str(path),
+        hint=Msg("site_th_fields_shape_hint"),
+    )

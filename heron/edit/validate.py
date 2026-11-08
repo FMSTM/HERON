@@ -88,7 +88,8 @@ def _field(page: Page, item: Field, site_root: Path | None) -> list[Issue]:
     limits = item.limits
     # обязательность SEO-блока проверяет _front, секции без файла - _sections
     seo = item.where == "frontmatter" and item.name in REQUIRED
-    in_file = item.section is None or _section_present(page, item.section)
+    # вводный блок есть всегда, даже пустой: его обязательное поле пустым не бывает
+    in_file = item.section in (None, "intro") or _section_present(page, item.section)
     if not seo and item.required and _empty(value) and in_file:
         out.append(Issue(item.path, "error", Msg("edit_required", field=item.path)))
     if item.type == "schema":
@@ -188,7 +189,7 @@ def _entries(item: Field, value: list, site_root: Path | None) -> list[Issue]:
             path = f"{item.path}.{index}.{sub['name']}"
             got = entry.get(sub["name"])
             if sub.get("required") and _empty(got):
-                out.append(Issue(path, "warning", Msg("edit_required", field=path)))
+                out.append(Issue(path, "error", Msg("edit_required", field=path)))
             limits = {k: sub.get(k) for k in ("max_length", "min_length", "min_items", "max_items")}
             out.extend(_text_limits(path, got, limits))
             if sub.get("type") == "list" and isinstance(got, list):
@@ -206,13 +207,19 @@ def _image(
 
     if "://" in src:
         return []
-    rel = src.lstrip("/")
+    # те же правила, что у `heron check` (media.locate и media.verify): картинка - только
+    # из media/ сайта (иначе E024), и файл есть на диске (иначе E007). Это ошибки: запись
+    # не идёт, как не пройдёт и проверка
+    rel = paths.normalize(src)
+    head, _, rest = rel.partition("/")
     try:
-        source = paths.in_site(site_root, rel)
+        if head not in media.FOLDERS or not rest:
+            raise HeronError(code=paths.CODE, message="")
+        source = paths.source(site_root / head, rest)
     except HeronError:
-        return [Issue(path, "warning", Msg("edit_image_missing", field=path, src=src))]
+        return [Issue(path, "error", Msg("edit_image_outside", field=path, src=src))]
     if not source.is_file():
-        return [Issue(path, "warning", Msg("edit_image_missing", field=path, src=src))]
+        return [Issue(path, "error", Msg("edit_image_missing", field=path, src=src))]
     if source.suffix.lower() not in media.KEEP:
         return []
     try:

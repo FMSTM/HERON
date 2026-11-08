@@ -207,13 +207,13 @@ def test_missing_hint_in_one_language_is_an_error_of_check(tmp_path):
 
     root = _site(tmp_path, drop)
     result = pipeline.check(root)
-    errors = [e for e in result.collector.errors if e.code == "E008"]
+    errors = [e for e in result.collector.errors if e.code == "E041"]
     assert len(errors) == 1
     text = errors[0].message.text("en")
     assert "modules.faq.fields.items.fields.q (en)" in text
     assert "types.page.views.options.list (ru)" in text
     out = CliRunner().invoke(main, ["check", str(root), "--notes", "en"])
-    assert out.exit_code == 1 and "E008" in out.output
+    assert out.exit_code == 1 and "E041" in out.output
     assert not pipeline.run(root).failed  # сборку подсказка не останавливает
 
 
@@ -243,7 +243,7 @@ def test_languages_default_to_the_suffixes_in_use():
     assert missing_hints(theme) == ["types.page (en)"]
 
 
-# --- негодное описание - E008 при чтении ----------------------------------------
+# --- негодное описание - E041 при чтении ----------------------------------------
 
 
 def _module(**field) -> dict:
@@ -290,11 +290,11 @@ def test_invalid_contract_is_refused(data, key):
         assert max(chunks, key=len).strip() in str(caught.value), (key, str(caught.value))
 
 
-def test_invalid_contract_in_a_site_is_e008(tmp_path):
+def test_invalid_contract_in_a_site_is_e041(tmp_path):
     root = _site(tmp_path, lambda d: d["modules"]["faq"]["fields"][0].update(md="nowhere"))
     out = CliRunner().invoke(main, ["check", str(root), "--notes", "en"])
     assert out.exit_code == 1
-    assert "E008" in out.output and "nowhere" in out.output
+    assert "E041" in out.output and "nowhere" in out.output
 
 
 def test_sections_wildcard_and_children_type_are_accepted():

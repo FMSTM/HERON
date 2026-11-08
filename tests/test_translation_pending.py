@@ -22,7 +22,18 @@ def site(tmp_path, monkeypatch):
     monkeypatch.delenv("HERON_NOTES", raising=False)
     root = tmp_path / "s"
     create(root, name="Demo", languages=["ru", "en", "de"], notes="ru", demo=True)
+    translated(root / "content" / "de")
     return root
+
+
+def translated(folder):
+    """Демо de - копия английского с пометкой; здесь считаем его переведённым (без пометки)."""
+    for path in folder.rglob("*.md"):
+        text = path.read_text(encoding="utf-8")
+        text = re.sub(
+            r"(?m)^translation: pending  (#.*)$", r"# translation:               \1", text
+        )
+        path.write_text(text, encoding="utf-8")
 
 
 def mark(path, value="pending"):

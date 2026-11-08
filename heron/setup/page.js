@@ -1,0 +1,863 @@
+"use strict";
+// Ключ доступа приходит в адресе после «#»: движок печатает его в терминале.
+// В саму страницу он не вшит, а на сервер браузер эту часть адреса не шлёт.
+const TOKEN = decodeURIComponent(location.hash.slice(1));
+const DOCS_BY_LANG = {
+  ru: "https://github.com/FMSTM/HERON/blob/prod/docs/ru/guide/06-deploy.md",
+  en: "https://github.com/FMSTM/HERON/blob/prod/docs/en/guide/06-deploy.md",
+};
+// Гайд на языке интерфейса конфигуратора; для остальных языков - английский.
+const docsUrl = () => DOCS_BY_LANG[L] || DOCS_BY_LANG.en;
+// Адрес Telegram-бота поддержки. Пусто — бот не подключён, кнопка показывает подсказку.
+const BOT_URL = "";
+const LANGS = [
+  ["ru", "Русский", "Russian"], ["en", "Английский", "English"], ["uk", "Украинский", "Ukrainian"],
+  ["de", "Немецкий", "German"], ["fr", "Французский", "French"], ["es", "Испанский", "Spanish"],
+  ["it", "Итальянский", "Italian"], ["pt", "Португальский", "Portuguese"], ["pt-br", "Португальский (Бразилия)", "Portuguese (Brazil)"],
+  ["pl", "Польский", "Polish"], ["cs", "Чешский", "Czech"], ["sk", "Словацкий", "Slovak"],
+  ["hu", "Венгерский", "Hungarian"], ["ro", "Румынский", "Romanian"], ["bg", "Болгарский", "Bulgarian"],
+  ["sr", "Сербский", "Serbian"], ["hr", "Хорватский", "Croatian"], ["sl", "Словенский", "Slovenian"],
+  ["nl", "Нидерландский", "Dutch"], ["da", "Датский", "Danish"], ["sv", "Шведский", "Swedish"],
+  ["no", "Норвежский", "Norwegian"], ["fi", "Финский", "Finnish"], ["et", "Эстонский", "Estonian"],
+  ["lv", "Латышский", "Latvian"], ["lt", "Литовский", "Lithuanian"], ["el", "Греческий", "Greek"],
+  ["tr", "Турецкий", "Turkish"], ["he", "Иврит", "Hebrew"], ["ar", "Арабский", "Arabic"],
+  ["ka", "Грузинский", "Georgian"], ["hy", "Армянский", "Armenian"], ["az", "Азербайджанский", "Azerbaijani"],
+  ["kk", "Казахский", "Kazakh"], ["uz", "Узбекский", "Uzbek"], ["be", "Белорусский", "Belarusian"],
+  ["zh", "Китайский", "Chinese"], ["ja", "Японский", "Japanese"], ["ko", "Корейский", "Korean"],
+  ["hi", "Хинди", "Hindi"], ["th", "Тайский", "Thai"], ["vi", "Вьетнамский", "Vietnamese"],
+  ["id", "Индонезийский", "Indonesian"], ["en-gb", "Английский (Британия)", "English (UK)"], ["en-us", "Английский (США)", "English (US)"],
+];
+const T = {
+  ru: {
+    workplace: "Место работы", workplace_other_address: "Адрес не как у сайта",
+    not_set: "не указано", filter: "Фильтр по названию", add_rule: "Добавить правило", remove: "Убрать строку", hours_preview: "В разметке будет", hours_order: "Закрытие должно быть позже открытия", not_in_vocab: "нет в словаре", remove_value: "Убрать", not_for_spec: "не подходит выбранной сфере", day_from: "С дня", day_to: "По день", opens: "Открытие", closes: "Закрытие", yes: "Да", no: "Нет", hours_bad: "не удалось разобрать, в разметку не попадёт", delete: "Удалить", hours_complex: "сложное правило, правится в site.yaml",
+    bot: "Нужна помощь или есть вопросы?", bot_off: "Скоро здесь будет связь с нами.",
+    dir: "Сфера деятельности", dir_none: "- сфера деятельности -", spec_none: "- специализация (необязательно) -", kind_none: "- вид (необязательно) -",
+    sep: "Разделитель", suffix_text: "Текст после разделителя",
+    helpers_t: "Помощники для вашего удобства", helpers_about: "site.yaml записывается всегда - это настройки сайта. Остальное - по желанию: скрипты лягут в скрытую папку .heron/ и в сборку сайта не попадут.",
+    h_build: "Скрипт сборки", h_build_s: ".heron/scripts/build.sh - итоговая сборка одной командой",
+    h_publish: "Скрипт публикации", h_publish_s: ".heron/scripts/publish.sh - публикует выбранным способом",
+    h_gitignore: ".gitignore", h_gitignore_s: "не пускает в git кэш и папку dist/",
+    h_workflow: ".github/workflows/image.yml - сборка на GitHub. Записывается вместе с автосборкой: GitHub ищет его только там.",
+    h_pages: ".github/workflows/pages.yml - сборка и публикация на GitHub Pages. GitHub ищет его только там.",
+    title: "настройка", save: "Сохранить", saving: "Сохраняю…", h1: "Настройка сайта",
+    lead: "Заполните, что знаете. Для начала нужны только первые две группы, остальное - к публикации. Каждый ответ ложится в site.yaml: к нему можно вернуться и поменять. Изменённое поле помечено, его можно вернуть.",
+    need: "нужно", dev: "в разработке", was: "было", undo: "вернуть", empty: "пусто",
+    g_site: "Сайт и домены", g_site_about: "Название сайта и два адреса: рабочий и служебный. Домена пока нет - оставьте заглушку и поменяйте перед публикацией.",
+    name: "Название сайта", name_h: "Название вашего сайта. Из него строятся шапка и заголовки страниц, подписи в выдаче поисковиков, файл llms.txt для нейросетей. Само по себе в поисковики оно не уходит - только вместе с опубликованным сайтом.",
+    domain: "Рабочий домен", domain_h: "Адрес, на котором будет работать рабочая версия сайта, без https://: example.com. Это основной домен: его видят посетители и поисковики.",
+    preview: "Служебный домен", preview_h: "Если вам нужны тесты и проверки, заведите для этого отдельный домен и укажите его здесь: dev.example.com. Такие сайты обычно закрыты от поисковиков. Сборка для dev и скрипт публикации возьмут этот адрес - при публикации обратите на это внимание.",
+    preview_link: "Как работают окружения dev и prod",
+    g_lang: "Языки", g_lang_about: "Какие языки у сайта и какой основной. Основной живёт в корне сайта, остальные - с приставкой: /de/. У каждого языка своя папка в content/.",
+    langs: "Языки сайта", langs_h: "Выберите из списка - язык появится ниже. Крестик убирает язык. Новый язык получит папку с главной и страницей 404.",
+    lang_add: "- добавить язык -", main_lang: "Основной язык", main_lang_h: "Выбирается из языков сайта. Отдаётся из корня сайта.",
+    g_who: "О ком сайт: schema.org для вашего сайта", g_who_about: "Поисковики сами пытаются понять по страницам сайта, о ком он: компания это или человек, чем занимается, где находится, как связаться. Получается не всегда: что-то они не находят, что-то путают. Чтобы помочь им, Google, Bing, Яндекс и другие поисковики договорились о словаре schema.org - разметке, в которой эти сведения записаны однозначно. По ней поисковик может показать в выдаче карточку с адресом, часами работы и телефоном. Заполните конфигуратор один раз - HERON добавит разметку на каждую страницу. Пропущенный вопрос просто не попадёт в разметку: пустых или выдуманных значений не будет.",
+    type: "Кто вы", type_h: "Человек или организация; у организации - вид. Затем сфера деятельности и специализация. Нет точной - выберите ближайшую: разметка останется верной, только менее подробной.",
+    type_none: "- не сейчас -", type_more: "точнее (необязательно)",
+    address: "Юридический адрес", address_person: "Адрес",
+    contacts: "Контакты", contacts_h: "Каждый канал - отдельной строкой: что это, для чего и значение. Телефонов, почт и мессенджеров может быть сколько угодно. Первый телефон и первая почта - основные: их покажет подвал сайта. Строка без значения не сохраняется.",
+    contact_add: "+ Добавить контакт", purpose_none: "- назначение -",
+    direction_none: "- выберите -",
+    g_search: "Поиск", g_search_about: "Как сайт выглядит в выдаче поисковиков и когда ссылкой делятся в соцсетях.",
+    g_ai: "ИИ-ассистенты", g_ai_about: "Что знать о сайте нейросетям: ChatGPT, Claude, Perplexity и другим. HERON собирает для них файл llms.txt - список страниц с описаниями, а в начало ставит вашу заметку.",
+    suffix_use: "подставить", suffix_warn: "Начните с пробела и разделителя - « - », « | » или « · », иначе хвост приклеится к заголовку.",
+    suffix: "Хвост заголовка", suffix_h: "Текст, который добавляется после заголовка каждой страницы. Его видно во вкладке браузера и в выдаче поисковиков: по нему понятно, чей это сайт. Обычно - тире и название.",
+    suffix_example: "Так будет выглядеть заголовок страницы «О нас»:", example: "пример",
+    note: "Заметка для ИИ", note_h: "Несколько строк фактов, которые HERON поставит в начало llms.txt - файла для нейросетей: чем занимаетесь, где, как связаться. На каждом языке сайта своя вкладка. Markdown.",
+    og: "Картинка для соцсетей", og_h: "Видна, когда ссылкой на сайт делятся в мессенджере или соцсети. Положите картинку 1200×630 в папку media/ в корне сайта и укажите путь: media/social.jpg.",
+    prices: "Показывать цены в разметке", prices_h: "Если включить, уровень цен и цены из страниц попадут в разметку schema.org, и поисковик может показать их в выдаче. Выключено по умолчанию: устаревшая цена в выдаче хуже, чем никакой. Включайте, только если цены на сайте актуальны и вы готовы их публиковать.",
+    g_an: "Аналитика", g_an_about: "Счётчики посещаемости. Это публичные номера, не пароли: они видны в коде страницы. Счётчики работают только в рабочей сборке (prod) и только после согласия посетителя.",
+    ga4: "Google Analytics", ga4_h: "Идентификатор потока: G-XXXXXXX.", gtm: "Google Tag Manager", gtm_h: "Идентификатор контейнера: GTM-XXXXXX.", metrika: "Яндекс Метрика", metrika_h: "Номер счётчика: только цифры.",
+    g_pub: "Где публикуете", g_pub_about: "Как хранить и публиковать сайт. Конфигуратор покажет только нужные этому способу поля и запишет его файлы.",
+    way_github: "GitHub", way_github_s: "код в репозитории", way_hub: "Docker Hub", way_hub_s: "свой реестр образов", way_static: "Статические файлы", way_static_s: "сервер или GitHub Pages", way_none: "Пока не знаю", way_none_s: "только сборка и просмотр",
+    repo: "Репозиторий", repo_h: "владелец/имя на GitHub: you/my-site.", branch: "Ветка", branch_h: "Отправка в эту ветку запускает сборку.",
+    auto: "Автоматическая сборка и публикация", auto_on: "Включено. Как это работает:", auto_steps: ["вы отправляете изменения в git;", "GitHub запускает проверки сайта;", "берёт актуальный образ HERON и на своих серверах собирает образ сайта;", "публикует его по адресу из таблицы ниже."], auto_off: "Выключено: GitHub только хранит код, а собираете и публикуете вы сами - scripts/build.sh и scripts/publish.sh.",
+    env: "Что собирается", env_h: "dev - проверочная версия на служебном домене, закрыта от поисковиков. prod - рабочая версия на рабочем домене. Обычно начинают с dev и переключают на prod, когда сайт готов.",
+    engine: "Версия HERON", engine_h: "prod - стабильная, beta - следующая. Закрепить точно: prod@sha256:<digest>.",
+    envs_t: "Что получится", env_col: "Сборка", env_domain: "Домен", env_index: "Поисковики", env_image: "Адрес образа", index_closed: "закрыт", index_open: "открыт", env_now: "сейчас",
+    hub_user: "Пользователь Docker Hub", hub_image: "Имя образа", hub_image_h: "строчными: my-site. Вход в Docker Hub - один раз на компьютере: docker login.",
+    target: "Куда", target_server: "Свой сервер", target_pages: "GitHub Pages",
+    server: "Сервер", server_h: "user@host для rsync по ssh.", path: "Папка на сервере", path_h: "Абсолютный путь: /var/www/example.com",
+    writes_t: "Что запишет конфигуратор",
+    w_site: "все настройки", w_build: "итоговая сборка одной командой", w_image: "сборка на GitHub: проверки, образ, публикация", w_publish: "публикует выбранным способом", w_ignore: "не пускает в git кэш и dist/", w_pages: "сборка и публикация на GitHub Pages",
+    g_keys: "Ключи доступа и модули", g_keys_about: "Токены для закрытых реестров и подключение модулей - например, внешней базы данных, CRM или другой CMS. Раздел в разработке: сейчас здесь ничего настраивать не нужно.",
+    g_theme: "Тема", g_theme_about: "Внешний вид сайта. Вместе с темой приезжают её страницы-примеры - только туда, где страниц ещё нет: ваши файлы не перезаписываются.",
+    th_keep: "Текущая", th_white: "белая", th_name: "Из каталога HERON", th_url: "По ссылке", th_file: "Свой архив",
+    th_url_h: "https-адрес .zip или .tar.gz; #sha256=<хеш> в конце сверяется.", th_file_h: ".zip или .tar.gz с папкой theme/ внутри.",
+    sch_title: "Разметка не пройдёт проверку schema.org", sch_fix: "Исправить", sch_save_anyway: "Сохранить всё равно", sch_drop_q: "Удалить неверные значения?", sch_drop: "Удалить", sch_keep: "Не удалять", sch_reason: "Причина", sch_reason_hint: "В site.yaml будет записано исключение, prod-сборка пройдёт, отчёт его покажет.", sch_except_title: "Сохранить с исключением", sch_saved_except: "Сохранено с исключением", sch_dropped: "Убрано из разметки", sch_banner: "В site.yaml есть разметка, которая не пройдёт проверку", sch_show: "Показать", sch_excepted: "Исключения", sch_expired: "Срок исключения истёк", sch_path: "Путь в site.yaml", sch_field: "Поле", sch_drop_hint: "Эти значения уйдут из site.yaml и из разметки:",
+    saved: "Сохранено", nothing: "Ничего не изменилось.", written: "Записано", removed: "Убрано", kept: "Оставлено, файл не наш", created: "Создано", backup: "Прежняя версия", next: "Дальше: heron serve . - посмотреть сайт.", error: "Не сохранено",
+  },
+  en: {
+    workplace: "Place of work", workplace_other_address: "Address differs from the site's",
+    not_set: "not set", filter: "Filter by name", add_rule: "Add rule", remove: "Remove row", hours_preview: "Markup will contain", hours_order: "Closing must be later than opening", not_in_vocab: "not in vocabulary", remove_value: "Remove", not_for_spec: "does not fit the chosen field", day_from: "From day", day_to: "To day", opens: "Opens", closes: "Closes", yes: "Yes", no: "No", hours_bad: "could not be parsed, will not reach the markup", delete: "Delete", hours_complex: "complex rule, edit it in site.yaml",
+    bot: "Need help or have questions?", bot_off: "A way to reach us will be here soon.",
+    dir: "Field of work", dir_none: "- field of work -", spec_none: "- specialization (optional) -", kind_none: "- kind (optional) -",
+    sep: "Separator", suffix_text: "Text after the separator",
+    helpers_t: "Helpers for your convenience", helpers_about: "site.yaml is always written: it is the settings of the site. The rest is up to you: scripts go to the hidden .heron/ folder and never into the build of the site.",
+    h_build: "Build script", h_build_s: ".heron/scripts/build.sh - the final build in one command",
+    h_publish: "Publish script", h_publish_s: ".heron/scripts/publish.sh - publishes the way you chose",
+    h_gitignore: ".gitignore", h_gitignore_s: "keeps caches and dist/ out of git",
+    h_workflow: ".github/workflows/image.yml - the build on GitHub. Written together with the automatic build: GitHub looks for it there only.",
+    h_pages: ".github/workflows/pages.yml - the build and publishing on GitHub Pages. GitHub looks for it there only.",
+    title: "setup", save: "Save", saving: "Saving…", h1: "Set up your site",
+    lead: "Fill in what you know. Only the first two groups are needed to start; the rest can wait until you publish. Every answer lands in site.yaml, you can come back and change it. A changed field is marked and can be undone.",
+    need: "needed", dev: "in development", was: "was", undo: "undo", empty: "empty",
+    g_site: "Site and domains", g_site_about: "The name of the site and two addresses: the working one and a service one. No domain yet? Leave the placeholder and change it before you publish.",
+    name: "Site name", name_h: "The name of your site. The header, page titles, search result captions and llms.txt for AI are built from it. It does not go to search engines by itself, only with the published site.",
+    domain: "Working domain", domain_h: "The address where the working version of the site will live, without https://: example.com. This is the main domain: visitors and search engines see it.",
+    preview: "Service domain", preview_h: "If you need tests and checks, get a separate domain for them and enter it here: dev.example.com. Such sites are usually closed to search engines. The dev build and the publishing script use this address - keep it in mind when you publish.",
+    preview_link: "How the dev and prod environments work",
+    g_lang: "Languages", g_lang_about: "Which languages the site has and which one is the main. The main one lives at the root, the others get a prefix: /de/. Each language gets its own folder in content/.",
+    langs: "Languages of the site", langs_h: "Pick from the list, the language appears below. The cross removes it. A new language gets a folder with a home page and a 404 page.",
+    lang_add: "- add a language -", main_lang: "Main language", main_lang_h: "Chosen from the languages of the site. Served from the root.",
+    g_who: "Who the site is about: schema.org for your site", g_who_about: "Search engines try to work out from the pages who a site is about: a company or a person, what they do, where they are, how to reach them. It does not always work: some things they miss, some they mix up. To help them, Google, Bing and others agreed on schema.org, a vocabulary that states these facts unambiguously. From it a search engine can show a card with the address, opening hours and phone right in the results. Fill in the configurator once and HERON adds the markup to every page. A skipped question simply stays out: nothing empty or invented.",
+    type: "Who you are", type_h: "A person or an organization; for an organization, its kind. Then the field of work and the specialization. Nothing exact? Take the nearest: the markup stays correct, only less detailed.",
+    type_none: "- not now -", type_more: "more specific (optional)",
+    address: "Registered address", address_person: "Address",
+    contacts: "Contacts", contacts_h: "Each channel on its own line: what it is, what for, and the value. As many phones, emails and messengers as you need. The first phone and the first email are the main ones: the footer shows them. A line without a value is not saved.",
+    contact_add: "+ Add a contact", purpose_none: "- purpose -",
+    direction_none: "- pick one -",
+    g_search: "Search", g_search_about: "How the site looks in search results and when a link to it is shared.",
+    g_ai: "AI assistants", g_ai_about: "What AI tools should know about the site: ChatGPT, Claude, Perplexity and others. HERON builds llms.txt for them, a list of pages with descriptions, with your note on top.",
+    suffix_use: "use it", suffix_warn: "Start with a space and a separator - « - », « | » or « · », or the suffix sticks to the title.",
+    suffix: "Title suffix", suffix_h: "Text added after the title of every page. It shows in the browser tab and in search results, so people see whose site it is. Usually a dash and the name.",
+    suffix_example: "This is how the title of the page «About» will look:", example: "example",
+    note: "Note for AI", note_h: "A few lines of facts HERON puts at the top of llms.txt, the file for AI: what you do, where, how to reach you. A tab per language of the site. Markdown.",
+    og: "Social image", og_h: "Shown when a link to the site is shared in a messenger or a social network. Put a 1200×630 picture into the media/ folder at the root of the site and enter its path: media/social.jpg.",
+    prices: "Show prices in markup", prices_h: "When on, the price range and the prices from your pages go into schema.org markup, and a search engine may show them in results. Off by default: an outdated price in results is worse than none. Turn it on only if the prices on the site are current and you are ready to publish them.",
+    g_an: "Analytics", g_an_about: "Visit counters. These are public IDs, not passwords: they are visible in the page code. Counters run only in the working build (prod) and only after the visitor agrees.",
+    ga4: "Google Analytics", ga4_h: "Measurement ID: G-XXXXXXX.", gtm: "Google Tag Manager", gtm_h: "Container ID: GTM-XXXXXX.", metrika: "Yandex Metrica", metrika_h: "Counter number: digits only.",
+    g_pub: "Where you publish", g_pub_about: "How you store and publish the site. The configurator shows only the fields that way needs and writes the files it uses.",
+    way_github: "GitHub", way_github_s: "code in a repository", way_hub: "Docker Hub", way_hub_s: "your own image registry", way_static: "Static files", way_static_s: "a server or GitHub Pages", way_none: "Not sure yet", way_none_s: "build and preview only",
+    repo: "Repository", repo_h: "owner/name on GitHub: you/my-site.", branch: "Branch", branch_h: "Pushes to this branch start the build.",
+    auto: "Automatic build and publishing", auto_on: "On. How it works:", auto_steps: ["you push the changes to git;", "GitHub runs the checks of the site;", "takes the current HERON image and builds the image of the site on its servers;", "publishes it at the address in the table below."], auto_off: "Off: GitHub only keeps the code, and you build and publish yourself with scripts/build.sh and scripts/publish.sh.",
+    env: "What is built", env_h: "dev is the check version on the service domain, closed to search engines. prod is the working version on the working domain. Usually you start with dev and switch to prod when the site is ready.",
+    engine: "HERON version", engine_h: "prod - stable, beta - the next one. Pin exactly: prod@sha256:<digest>.",
+    envs_t: "What you get", env_col: "Build", env_domain: "Domain", env_index: "Search engines", env_image: "Image address", index_closed: "closed", index_open: "open", env_now: "now",
+    hub_user: "Docker Hub user", hub_image: "Image name", hub_image_h: "lowercase: my-site. Sign in to Docker Hub once per computer: docker login.",
+    target: "Where to", target_server: "My server", target_pages: "GitHub Pages",
+    server: "Server", server_h: "user@host for rsync over ssh.", path: "Folder on the server", path_h: "Absolute path: /var/www/example.com",
+    writes_t: "What the configurator writes",
+    w_site: "all settings", w_build: "the final build in one command", w_image: "the build on GitHub: checks, image, publishing", w_publish: "publishes the way you chose", w_ignore: "keeps caches and dist/ out of git", w_pages: "the build and publishing on GitHub Pages",
+    g_keys: "Access keys and modules", g_keys_about: "Tokens for private registries and modules, such as an external database, a CRM or another CMS. In development: nothing to set up here yet.",
+    g_theme: "Theme", g_theme_about: "The look of the site. A theme brings its example pages, only where there are no pages yet: your files are never overwritten.",
+    th_keep: "Current", th_white: "white", th_name: "From the HERON catalog", th_url: "By link", th_file: "My archive",
+    th_url_h: "https address of a .zip or .tar.gz; #sha256=<hash> at the end is checked.", th_file_h: ".zip or .tar.gz with theme/ inside.",
+    sch_title: "The markup will not pass the schema.org check", sch_fix: "Fix", sch_save_anyway: "Save anyway", sch_drop_q: "Remove the invalid values?", sch_drop: "Remove", sch_keep: "Keep them", sch_reason: "Reason", sch_reason_hint: "An exception will be written to site.yaml, the prod build will pass, and the report will show it.", sch_except_title: "Save with an exception", sch_saved_except: "Saved with an exception", sch_dropped: "Removed from the markup", sch_banner: "site.yaml has markup that will not pass the check", sch_show: "Show", sch_excepted: "Exceptions", sch_expired: "The exception has expired", sch_path: "Path in site.yaml", sch_field: "Field", sch_drop_hint: "These values will leave site.yaml and the markup:",
+    saved: "Saved", nothing: "Nothing changed.", written: "Written", removed: "Removed", kept: "Kept, not ours", created: "Created", backup: "Previous version", next: "Next: heron serve . - look at the site.", error: "Not saved",
+  },
+};
+const CT = {
+  ru: { phone: "Телефон", email: "Почта", website: "Сайт", whatsapp: "WhatsApp", telegram: "Telegram", viber: "Viber", signal: "Signal", instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", youtube: "YouTube", tiktok: "TikTok", x: "X", other: "Другое" },
+  en: { phone: "Phone", email: "Email", website: "Website", whatsapp: "WhatsApp", telegram: "Telegram", viber: "Viber", signal: "Signal", instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", youtube: "YouTube", tiktok: "TikTok", x: "X", other: "Other" },
+};
+const PU = {
+  ru: { main: "основной", sales: "продажи", marketing: "маркетинг", support: "поддержка", booking: "запись", press: "пресса" },
+  en: { main: "main", sales: "sales", marketing: "marketing", support: "support", booking: "booking", press: "press" },
+};
+const PLACEHOLDER = { phone: "+00 000 000 00 00", email: "hello@example.com", website: "https://example.com", whatsapp: "+00 000 000 00 00", telegram: "@name / https://t.me/name", viber: "+00 000 000 00 00", signal: "+00 000 000 00 00", instagram: "@name", facebook: "https://facebook.com/name", linkedin: "https://linkedin.com/in/name", youtube: "@name", tiktok: "@name", x: "@name", other: "" };
+
+const HOURS_RE = new RegExp(String.raw`^(?:Mo|Tu|We|Th|Fr|Sa|Su)(?:-(?:Mo|Tu|We|Th|Fr|Sa|Su))?(?:,(?:Mo|Tu|We|Th|Fr|Sa|Su)(?:-(?:Mo|Tu|We|Th|Fr|Sa|Su))?)* (?:(?:[01]\d|2[0-3]):[0-5]\d|24:00)-(?:(?:[01]\d|2[0-3]):[0-5]\d|24:00)(?:,(?:(?:[01]\d|2[0-3]):[0-5]\d|24:00)-(?:(?:[01]\d|2[0-3]):[0-5]\d|24:00))*$`);
+const HOURS_SIMPLE = /^(Mo|Tu|We|Th|Fr|Sa|Su)(?:-(Mo|Tu|We|Th|Fr|Sa|Su))? (\d\d:\d\d)-(\d\d:\d\d)$/;
+const HOURS_ROWS = {};
+let L = "ru", ST = null, A = null, BASE = null, UPLOAD = "", NOTE_TAB = "";
+const TRACKS = [];
+const $ = (s, el = document) => el.querySelector(s);
+const t = (k) => (T[L] && T[L][k]) || T.en[k] || k;
+const clone = (x) => JSON.parse(JSON.stringify(x));
+function h(tag, attrs = {}, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false) el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  return el;
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function hint(text, link) {
+  const p = h("div", { class: "hint" });
+  p.innerHTML = esc(text).replace(/`([^`]+)`/g, "<code>$1</code>");
+  if (link) { p.append(" "); p.append(h("a", { href: link[0], target: "_blank", rel: "noopener" }, link[1])); }
+  return p;
+}
+function pick(obj, path) { return path.split(".").reduce((o, k) => (o == null ? undefined : o[k]), obj); }
+function get(path) { return pick(A, path); }
+function set(path, value) {
+  const parts = path.split("."); let o = A;
+  for (const k of parts.slice(0, -1)) { if (typeof o[k] !== "object" || o[k] === null) o[k] = {}; o = o[k]; }
+  if (value === undefined) delete o[parts.at(-1)]; else o[parts.at(-1)] = value;
+  refresh();
+}
+function blank(v) { return v === undefined || v === null || v === "" || (Array.isArray(v) && !v.length) || (typeof v === "object" && !Array.isArray(v) && !Object.keys(v).length); }
+function same(a, b) { return (blank(a) && blank(b)) || JSON.stringify(a) === JSON.stringify(b); }
+function shown(v) {
+  if (blank(v)) return t("empty");
+  if (Array.isArray(v)) return v.map((x) => (typeof x === "object" ? [CT[L][x.type] || x.type, x.purpose ? PU[L][x.purpose] : "", x.value].filter(Boolean).join(" · ") : x)).join("; ");
+  if (typeof v === "object") return Object.entries(v).map(([k, x]) => k + ": " + x).join("; ");
+  if (v === true) return "✓"; if (v === false) return "-";
+  return String(v);
+}
+// Отметка «было → стало» под полем: сравнение с тем, что сейчас записано в site.yaml.
+function track(path, names) {
+  const el = h("div", { class: "was", hidden: true });
+  TRACKS.push([path, el, names]);
+  return el;
+}
+function refresh() {
+  for (const [path, el, names] of TRACKS) {
+    const before = pick(BASE, path), now = get(path);
+    if (same(before, now)) { el.hidden = true; el.replaceChildren(); continue; }
+    el.hidden = false;
+    const text = names && !blank(before) && names[before] !== undefined ? names[before] : shown(before);
+    el.replaceChildren(h("span", {}, t("was") + ": " + text),
+      h("button", { type: "button", onclick: () => { set(path, clone(before === undefined ? undefined : before)); render(); } }, t("undo")));
+  }
+}
+function input(path, type = "text", attrs = {}) {
+  const value = get(path);
+  const el = h(type === "textarea" ? "textarea" : "input", { type: type === "textarea" ? null : type, id: path, name: path, ...attrs });
+  el.value = value ?? "";
+  el.addEventListener("input", () => set(path, el.value));
+  return el;
+}
+function field(label, path, help, type = "text", attrs = {}, wide = false, link = null) {
+  return h("div", { class: "field" + (wide ? " wide" : "") }, h("label", { for: path }, label), input(path, type, attrs), help ? hint(help, link) : null, track(path));
+}
+function choices(path, items, onchange) {
+  const box = h("div", { class: "choices", role: "radiogroup" });
+  for (const [value, title, sub] of items) {
+    const id = path + "-" + value;
+    const radio = h("input", { type: "radio", name: path, id, value });
+    radio.checked = get(path) === value;
+    radio.addEventListener("change", () => { set(path, value); onchange && onchange(); });
+    box.append(h("label", { class: "choice", for: id }, radio, h("span", {}, h("b", {}, title), sub ? h("small", {}, sub) : null)));
+  }
+  return h("div", {}, box, track(path, Object.fromEntries(items.map(([v, title]) => [v, title]))));
+}
+function group(id, n, title, about, flag, ...body) {
+  const tag = flag === "need" ? h("span", { class: "need" }, t("need")) : flag === "dev" ? h("span", { class: "dev" }, t("dev")) : null;
+  return h("section", { class: "group", id: "g-" + id }, h("h2", {}, h("span", { class: "n" }, n), h("span", { class: "title" }, title), tag), h("p", { class: "about" }, about), ...body);
+}
+function langName(code) { const row = LANGS.find((x) => x[0] === code); return row ? (L === "ru" ? row[1] : row[2]) + " - " + code : code; }
+
+// --- группы -----------------------------------------------------------------
+function gSite() {
+  return group("site", "1", t("g_site"), t("g_site_about"), "need",
+    h("div", { class: "grid" },
+      field(t("name"), "site.name", t("name_h")),
+      field(t("domain"), "site.domain", t("domain_h"), "text", { placeholder: "example.com", inputmode: "url" }),
+      field(t("preview"), "site.preview_domain", t("preview_h"), "text", { placeholder: "dev.example.com", inputmode: "url" }, false, [docsUrl(), t("preview_link")])));
+}
+function gLang() {
+  const chosen = A.site.languages || [];
+  const add = h("select", { id: "lang-add", "aria-label": t("langs") }, h("option", { value: "" }, t("lang_add")),
+    ...LANGS.filter(([c]) => !chosen.includes(c)).map(([c]) => h("option", { value: c }, langName(c))));
+  add.addEventListener("change", () => { if (!add.value) return; A.site.languages = [...chosen, add.value]; if (!A.site.default_lang) A.site.default_lang = add.value; refresh(); render(); });
+  const chips = h("div", { class: "chips" }, ...chosen.map((c) => h("span", { class: "chip" + (c === A.site.default_lang ? " main" : "") }, langName(c),
+    chosen.length > 1 ? h("button", { type: "button", "aria-label": "×", onclick: () => {
+      A.site.languages = chosen.filter((x) => x !== c);
+      if (A.site.default_lang === c) A.site.default_lang = A.site.languages[0];
+      for (const k of Object.keys(A.search.llms_note || {})) if (!A.site.languages.includes(k)) delete A.search.llms_note[k];
+      render();
+    } }, "×") : null)));
+  const main = h("select", { id: "site.default_lang" }, ...chosen.map((c) => h("option", { value: c, selected: c === A.site.default_lang }, langName(c))));
+  main.addEventListener("change", () => { A.site.default_lang = main.value; render(); });
+  return group("lang", "2", t("g_lang"), t("g_lang_about"), "need",
+    h("div", { class: "grid" },
+      h("div", { class: "field" }, h("label", { for: "lang-add" }, t("langs")), add, chips, hint(t("langs_h")), track("site.languages")),
+      h("div", { class: "field" }, h("label", { for: "site.default_lang" }, t("main_lang")), main, hint(t("main_lang_h")), track("site.default_lang"))));
+}
+function lineage(kind) {
+  const chain = []; const types = ST.vocab.types;
+  while (kind && types[kind] && !chain.includes(kind)) { chain.unshift(kind); kind = types[kind].parent; }
+  return chain;
+}
+function childrenOf(parent) { return Object.entries(ST.vocab.types).filter(([, v]) => (v.parent || "") === (parent || "")).map(([k]) => k); }
+function label(spec, person) { const src = (person && spec.label_person) || spec.label; return (src && (src[L] || src.en)) || ""; }
+function directions() { return ST.vocab.directions || []; }
+function dirLabel(d) { return d[L] || d.en; }
+function countryName(row) { return L === "ru" ? row[1] : row[2]; }
+function siteCountry() { return A.about.fields.country || ""; }
+function dialCode() { const row = (ST.countries || []).find((r) => r[0] === siteCountry()); return row ? row[3] : ""; }
+const TABS = {};
+function dirOf(id) { return (ST.classifier || []).find((d) => d.id === id); }
+function clabel(entry) { return entry[L] || entry.en; }
+function gWho() {
+  const chain = lineage(A.about.type);
+  const person = chain[0] === "Person";
+  const personName = person || !!(A.about.type && ST.vocab.types[A.about.type] && ST.vocab.types[A.about.type].person_name);
+  const ab = A.about;
+  const cascade = h("div", { class: "cascade" });
+  const arrow = () => h("span", { class: "arrow", "aria-hidden": "true" }, "→");
+  // 1. человек или организация
+  const root = h("select", { "aria-label": t("type") }, h("option", { value: "" }, t("type_none")),
+    ...childrenOf("").map((k) => h("option", { value: k, selected: chain[0] === k }, label(ST.vocab.types[k]))));
+  root.addEventListener("change", () => { ab.type = root.value; ab.direction = ""; ab.specialization = ""; prune(); render(); });
+  cascade.append(root);
+  // 2. вид организации
+  if (chain[0] === "Organization") {
+    const kinds = childrenOf("Organization");
+    const kind = h("select", { "aria-label": t("type") + " 2" }, h("option", { value: "" }, t("kind_none")),
+      ...kinds.map((k) => h("option", { value: k, selected: chain[1] === k }, label(ST.vocab.types[k]))));
+    kind.addEventListener("change", () => { ab.type = kind.value || "Organization"; prune(); render(); });
+    cascade.append(arrow(), kind);
+  }
+  // 3. сфера деятельности → 4. специализация
+  if (chain.length) {
+    const dir = h("select", { "aria-label": t("dir") }, h("option", { value: "" }, t("dir_none")),
+      ...(ST.classifier || []).map((d) => h("option", { value: d.id, selected: ab.direction === d.id }, clabel(d))));
+    dir.addEventListener("change", () => { ab.direction = dir.value; ab.specialization = ""; render(); });
+    cascade.append(arrow(), dir);
+    const d = dirOf(ab.direction);
+    if (d) {
+      const sp = h("select", { "aria-label": t("spec_none") }, h("option", { value: "" }, t("spec_none")),
+        ...d.items.map((it) => h("option", { value: it.id, selected: ab.specialization === it.id }, clabel(person ? it.person || it : it))));
+      sp.addEventListener("change", () => { ab.specialization = sp.value; render(); });
+      cascade.append(arrow(), sp);
+    }
+  }
+  const names = A.about.type ? ST.fields_by_type[A.about.type] : ST.vocab.common;
+  const main = h("div", { class: "grid" });
+  const address = h("div", { class: "grid" });
+  const work = h("div", { class: "grid" });
+  const workOther = h("div", { class: "grid" });
+  const afterWork = h("div", { class: "grid" });
+  const WORK_ADDR = ["practices_at_city", "practices_at_region", "practices_at_postal_code", "practices_at_country"];
+  // Поля, идущие в словаре после места работы (hospital_affiliation, accepts_new_patients), выводятся после его блока.
+  const workAt = names.findIndex((n) => n.startsWith("practices_at"));
+  const target = (name, spec) => name.startsWith("practices_at") ? (WORK_ADDR.includes(name) ? workOther : work)
+    : spec.group === "address" ? address : workAt >= 0 && names.indexOf(name) > workAt ? afterWork : main;
+  for (const name of names) {
+    const spec = ST.vocab.fields[name];
+    if (spec.money && !A.search.allow_prices) continue;
+    if (!fitsSpec(name)) {
+      if (hasValue(A.about.fields[name])) target(name, spec).append(unfitField(name, spec, personName));
+      continue;
+    }
+    target(name, spec).append(aboutField(name, spec, personName));
+  }
+  const typeNames = Object.fromEntries(Object.entries(ST.vocab.types).map(([k, v]) => [k, label(v)]));
+  const dirNames = Object.fromEntries((ST.classifier || []).map((d) => [d.id, clabel(d)]));
+  const specNames = Object.fromEntries((ST.classifier || []).flatMap((d) => d.items.map((it) => [it.id, clabel(person ? it.person || it : it)])));
+  const who = h("div", { class: "grid" }, h("div", { class: "field wide" }, h("span", { class: "legend" }, t("type")), cascade, hint(t("type_h")),
+    track("about.type", typeNames), track("about.direction", dirNames), track("about.specialization", specNames)));
+  const body = [who, h("div", { style: "height:1rem" }), main];
+  if (work.childNodes.length || workOther.childNodes.length) {
+    const box = h("fieldset", { class: "subbox", "data-group": "practices_at" }, h("legend", {}, t("workplace")), work);
+    if (workOther.childNodes.length) box.append(h("details", { style: "margin-top:.75rem" }, h("summary", {}, t("workplace_other_address")), workOther));
+    body.push(h("div", { style: "height:1rem" }), box);
+  }
+  if (afterWork.childNodes.length) body.push(h("div", { style: "height:1rem" }), afterWork);
+  if (address.childNodes.length) body.push(h("div", { style: "height:1rem" }), h("div", { class: "subbox" }, h("h3", {}, person ? t("address_person") : t("address")), address));
+  body.push(h("div", { style: "height:1rem" }), contactsBox());
+  return group("who", "3", t("g_who"), t("g_who_about"), null, ...body);
+}
+// Поле подходит итоговому типу, если голова его prop есть в props_by_spec["вид|специализация"];
+// пары без записи не отличаются от набора самого вида.
+function fitsSpec(name) {
+  const ab = A.about;
+  const allowedProps = ab.type && ab.specialization && ST.schema && ST.schema.props_by_spec ? ST.schema.props_by_spec[ab.type + "|" + ab.specialization] : null;
+  if (!allowedProps) return true;
+  const prop = ST.vocab.fields[name] && ST.vocab.fields[name].prop;
+  return !prop || allowedProps.includes(String(prop).split(".")[0]);
+}
+function hasValue(v) { return v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && !v.join("").trim()) && !(typeof v === "object" && !Array.isArray(v) && !Object.values(v).join("").trim()); }
+function unfitField(name, spec, person) {
+  return h("div", { class: "field wide was", "data-field": name, style: "opacity:.6" }, h("span", { class: "legend" }, label(spec, person)),
+    h("span", {}, t("not_for_spec")),
+    h("button", { type: "button", onclick: () => { delete A.about.fields[name]; render(); } }, t("remove_value")));
+}
+function prune() {
+  const allowed = new Set(A.about.type ? ST.fields_by_type[A.about.type] : ST.vocab.common);
+  for (const k of Object.keys(A.about.fields)) if (!allowed.has(k)) delete A.about.fields[k];
+}
+function schemaList(name) { return (ST.schema && ST.schema.lists && ST.schema.lists[name]) || null; }
+function enumBox(name, spec, path, put) {
+  const items = schemaList(name) || [];
+  const known = new Set(items.map((i) => i.value));
+  const cur = spec.multiple ? [...(Array.isArray(get(path)) ? get(path) : [])] : (get(path) ? [get(path)] : []);
+  const commit = (list) => { if (spec.multiple) put(list.length ? [...list] : ""); else put(list[0] || ""); };
+  if (!spec.multiple) {
+    const sel = h("select", { id: "f-" + name }, h("option", { value: "" }, t("not_set")),
+      ...items.map((i) => h("option", { value: i.value, selected: cur[0] === i.value }, i.label)));
+    sel.addEventListener("change", () => commit(sel.value ? [sel.value] : []));
+    const wrap = h("div", {}, sel);
+    for (const v of cur.filter((x) => !known.has(x))) wrap.append(h("div", { class: "was" }, h("span", {}, v + " (" + t("not_in_vocab") + ")"), h("button", { type: "button", onclick: () => { commit([]); render(); } }, t("remove_value"))));
+    return wrap;
+  }
+  const filter = h("input", { type: "text", id: "f-" + name, placeholder: t("filter"), "aria-label": t("filter") });
+  const list = h("div", { class: "enum-list", style: "max-height:14rem;overflow:auto;display:flex;flex-direction:column;gap:.2rem" });
+  const draw = () => {
+    const q = filter.value.trim().toLowerCase();
+    const chosen = new Set(cur);
+    const rows = [...items].sort((a, b) => Number(chosen.has(b.value)) - Number(chosen.has(a.value)));
+    list.replaceChildren(
+      ...cur.filter((v) => !known.has(v)).map((v) => h("div", { class: "was" }, h("span", {}, v + " (" + t("not_in_vocab") + ")"),
+        h("button", { type: "button", onclick: () => { cur.splice(cur.indexOf(v), 1); commit(cur); draw(); } }, t("remove_value")))),
+      ...rows.filter((i) => chosen.has(i.value) || !q || i.label.toLowerCase().includes(q)).map((i) => {
+        const cb = h("input", { type: "checkbox", checked: chosen.has(i.value) });
+        cb.addEventListener("change", () => { if (cb.checked) cur.push(i.value); else cur.splice(cur.indexOf(i.value), 1); commit(cur); draw(); });
+        return h("label", { style: "font-weight:400;display:flex;gap:.5rem;align-items:center" }, cb, i.label);
+      }));
+  };
+  filter.addEventListener("input", draw);
+  draw();
+  return h("div", {}, filter, list);
+}
+function subtypeSelect(name, path, put) {
+  const items = schemaList(name) || [];
+  const now = get(path);
+  const sel = h("select", { id: "f-" + name }, h("option", { value: "" }, t("not_set")),
+    ...items.map((i) => h("option", { value: i.value, selected: now === i.value }, i.label)));
+  sel.addEventListener("change", () => put(sel.value));
+  if (!now || items.some((i) => i.value === now)) return sel;
+  return h("div", {}, sel, h("div", { class: "was" }, h("span", {}, now + " (" + t("not_in_vocab") + ")"),
+    h("button", { type: "button", onclick: () => { put(""); render(); } }, t("remove_value"))));
+}
+function boolButtons(path) {
+  const now = get(path);
+  const wrap = h("div", { class: "bool-row", role: "group", style: "display:flex;gap:.4rem" });
+  for (const [val, key] of [[true, "yes"], [false, "no"], [undefined, "not_set"]]) {
+    const on = now === val || (val === undefined && now !== true && now !== false);
+    wrap.append(h("button", { type: "button", "aria-pressed": String(on), class: on ? "on" : null, style: on ? "background:var(--accent-soft);border-color:var(--accent)" : null,
+      onclick: () => { set(path, val); render(); } }, t(key)));
+  }
+  return wrap;
+}
+function hoursTimes() {
+  const out = [];
+  for (let m = 0; m <= 1440; m += 15) out.push(String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"));
+  return out;
+}
+function timesWith(value) {
+  const all = hoursTimes();
+  if (!value || all.includes(value)) return all;
+  return [...all, value].sort();
+}
+function hoursLine(r) {
+  if (r.state !== "rule" || r.close <= r.open) return null;
+  return (r.to && r.to !== r.from ? r.from + "-" + r.to : r.from) + " " + r.open + "-" + r.close;
+}
+function hoursBuilder(name, path, put) {
+  if (!HOURS_ROWS[name]) {
+    HOURS_ROWS[name] = (Array.isArray(get(path)) ? get(path) : []).map((line) => {
+      const m = HOURS_SIMPLE.exec(line);
+      if (m && HOURS_RE.test(line)) return { state: "rule", from: m[1], to: m[2] || "", open: m[3], close: m[4], line };
+      return { state: HOURS_RE.test(line) ? "complex" : "bad", line };
+    });
+  }
+  const rows = HOURS_ROWS[name];
+  const days = (ST.schema && ST.schema.days) || [];
+  const times = hoursTimes();
+  const wrap = h("div", { class: "hours-builder", style: "display:flex;flex-direction:column;gap:.4rem" });
+  const commit = () => { const lines = rows.map((r) => (r.state === "rule" ? hoursLine(r) : r.state === "complex" ? r.line : null)).filter(Boolean); put(lines.length ? lines : ""); };
+  const sel = (label, options, value, onchange) => {
+    const el = h("select", { "aria-label": label }, ...options.map(([v, text]) => h("option", { value: v, selected: v === value }, text)));
+    el.addEventListener("change", () => onchange(el.value));
+    return el;
+  };
+  const draw = () => {
+    const preview = h("div", { class: "hint" });
+    const lines = [];
+    wrap.replaceChildren();
+    rows.forEach((r, i) => {
+      if (r.state !== "rule") {
+        const red = r.state === "bad";
+        wrap.append(h("div", { class: "hours-row", style: "display:flex;gap:.5rem;align-items:center;flex-wrap:wrap" },
+          h("span", { style: red ? "color:var(--bad)" : "" }, r.line + (red ? " - " + t("hours_bad") : " - " + t("hours_complex"))),
+          h("button", { type: "button", onclick: () => { rows.splice(i, 1); commit(); draw(); } }, red ? t("delete") : t("remove"))));
+        if (!red) lines.push(r.line);
+        return;
+      }
+      const dayOpts = days.map((d) => [d.value, d.label]);
+      const bad = r.close <= r.open;
+      const row = h("div", { class: "hours-row", style: "display:flex;gap:.4rem;align-items:center;flex-wrap:wrap" + (bad ? ";outline:1px solid var(--bad);border-radius:6px;padding:.2rem" : "") },
+        sel(t("day_from"), dayOpts, r.from, (v) => { r.from = v; commit(); draw(); }),
+        sel(t("day_to"), [["", t("not_set")], ...dayOpts], r.to, (v) => { r.to = v; commit(); draw(); }),
+        sel(t("opens"), timesWith(r.open).map((x) => [x, x]), r.open, (v) => { r.open = v; commit(); draw(); }),
+        sel(t("closes"), timesWith(r.close).map((x) => [x, x]), r.close, (v) => { r.close = v; commit(); draw(); }),
+        h("button", { type: "button", onclick: () => { rows.splice(i, 1); commit(); draw(); } }, t("remove")));
+      if (bad) row.append(h("span", { style: "color:var(--bad)" }, t("hours_order")));
+      wrap.append(row);
+      const line = hoursLine(r); if (line) lines.push(line);
+    });
+    wrap.append(h("button", { type: "button", onclick: () => { rows.push({ state: "rule", from: days.length ? days[0].value : "Mo", to: "", open: "09:00", close: "18:00" }); commit(); draw(); } }, t("add_rule")));
+    preview.textContent = t("hours_preview") + ": " + (lines.length ? lines.join("; ") : t("empty"));
+    wrap.append(preview);
+  };
+  draw();
+  return wrap;
+}
+function aboutField(name, spec, person) {
+  const kind = spec.kind || "text";
+  const langs = A.site.languages || ["en"];
+  const mainLang = A.site.default_lang;
+  const wide = kind === "textarea" || kind === "lines";
+  const path = "about.fields." + name;
+  const put = (value) => { if (value === "" || (Array.isArray(value) && !value.join("").trim())) set(path, undefined); else set(path, value); };
+  const make = (value, onset, id) => {
+    if (kind === "direction") {
+      // в site.yaml — подпись на основном языке сайта: она и уходит в разметку
+      const sel = h("select", { id }, h("option", { value: "" }, t("direction_none")),
+        ...directions().map((d) => { const text = d[mainLang] || d.en; return h("option", { value: text, selected: value === text || value === d.ru || value === d.en }, dirLabel(d)); }));
+      sel.addEventListener("change", () => onset(sel.value));
+      return sel;
+    }
+    if (kind === "country") {
+      const sel = h("select", { id }, h("option", { value: "" }, t("direction_none")),
+        ...(ST.countries || []).map((r) => h("option", { value: r[0], selected: value === r[0] }, countryName(r) + (r[3] ? "  " + r[3] : ""))));
+      sel.addEventListener("change", () => { onset(sel.value); render(); });
+      return sel;
+    }
+    const tag = wide ? "textarea" : "input";
+    const type = { number: "number" }[kind] || "text";
+    const el = h(tag, { id, type: wide ? null : type, step: kind === "number" ? "any" : null, placeholder: kind === "media" ? "media/…" : null });
+    el.value = Array.isArray(value) ? value.join("\n") : (value ?? "");
+    el.addEventListener("input", () => onset(kind === "lines" ? el.value.split("\n") : el.value));
+    return el;
+  };
+  const box = h("div", { class: "field" + (wide ? " wide" : ""), "data-field": name }, h("label", { for: "f-" + name }, label(spec, person)));
+  for (const ev of ["input", "change"]) box.addEventListener(ev, () => box.classList.remove("bad"));
+  const current = A.about.fields[name];
+  if (kind === "enum" || kind === "subtype" || kind === "bool" || kind === "hours") {
+    if ((kind === "enum" || kind === "subtype") && !schemaList(name)) return document.createDocumentFragment();
+    box.append(kind === "enum" ? enumBox(name, spec, path, put) : kind === "subtype" ? subtypeSelect(name, path, put) : kind === "bool" ? boolButtons(path) : hoursBuilder(name, path, put));
+    const tip = spec.hint && (spec.hint[L] || spec.hint.en);
+    if (tip) box.append(hint(tip));
+    box.append(track(path));
+    return box;
+  }
+  if (spec.localized && langs.length > 1 && wide) {
+    // длинный текст — вкладками по языкам сайта, как заметка для ИИ
+    const values = typeof current === "object" && current && !Array.isArray(current) ? { ...current } : { [mainLang]: current ?? "" };
+    const order = [mainLang, ...langs.filter((x) => x !== mainLang)];
+    if (!order.includes(TABS[name])) TABS[name] = mainLang;
+    const tabs = h("div", { class: "tabs-row", role: "tablist" }, ...order.map((code) => h("button", { type: "button", role: "tab", "aria-selected": String(code === TABS[name]), onclick: () => { TABS[name] = code; render(); } }, langName(code))));
+    const code = TABS[name];
+    box.append(tabs, h("div", { class: "tab-body" }, make(values[code] ?? "", (v) => { values[code] = v; const clean = Object.fromEntries(Object.entries(values).filter(([, x]) => (Array.isArray(x) ? x.join("").trim() : String(x).trim()))); put(Object.keys(clean).length ? clean : ""); }, "f-" + name)));
+  } else if (spec.localized && langs.length > 1) {
+    const per = h("div", { class: "per-lang" });
+    const values = typeof current === "object" && current && !Array.isArray(current) ? { ...current } : { [mainLang]: current ?? "" };
+    for (const code of [mainLang, ...langs.filter((x) => x !== mainLang)]) {
+      per.append(h("div", { class: "row" }, h("span", { class: "code" }, code),
+        make(values[code] ?? "", (v) => { values[code] = v; const clean = Object.fromEntries(Object.entries(values).filter(([, x]) => (Array.isArray(x) ? x.join("").trim() : String(x).trim()))); put(Object.keys(clean).length ? clean : ""); }, code === mainLang ? "f-" + name : null)));
+    }
+    box.append(per);
+  } else {
+    const value = typeof current === "object" && current && !Array.isArray(current) ? current[mainLang] : current;
+    box.append(make(value, put, "f-" + name));
+  }
+  const help = spec.hint && (spec.hint[L] || spec.hint.en);
+  if (help) box.append(hint(help));
+  box.append(track(path));
+  return box;
+}
+function contactsBox() {
+  A.about.contacts = A.about.contacts || [];
+  const list = h("div", {});
+  A.about.contacts.forEach((c, i) => {
+    const type = h("select", { "aria-label": "type" }, ...ST.contact_types.map((k) => h("option", { value: k, selected: c.type === k }, CT[L][k] || k)));
+    type.addEventListener("change", () => { c.type = type.value; if (["phone", "whatsapp", "viber", "signal"].includes(c.type) && !(c.value || "").trim() && dialCode()) c.value = dialCode() + " "; render(); });
+    const purpose = h("select", { "aria-label": "purpose" }, h("option", { value: "" }, t("purpose_none")), ...ST.purposes.map((k) => h("option", { value: k, selected: c.purpose === k }, PU[L][k] || k)));
+    purpose.addEventListener("change", () => { c.purpose = purpose.value; refresh(); });
+    const value = h("input", { type: "text", placeholder: PLACEHOLDER[c.type] || "" });
+    value.value = c.value || "";
+    value.addEventListener("input", () => { c.value = value.value; refresh(); });
+    list.append(h("div", { class: "contact-row" + ((c.value || "").trim() && c.value.trim() !== dialCode() ? "" : " blank") }, type, purpose, value, h("button", { type: "button", class: "x", "aria-label": "×", onclick: () => { A.about.contacts.splice(i, 1); render(); } }, "×")));
+  });
+  const add = h("button", { type: "button", class: "add", onclick: () => {
+    const type = A.about.contacts.some((x) => x.type === "phone") ? "email" : "phone";
+    A.about.contacts.push({ type, purpose: "", value: type === "phone" && dialCode() ? dialCode() + " " : "" }); render();
+  } }, t("contact_add"));
+  return h("div", { class: "field wide" }, h("span", { class: "legend" }, t("contacts")), hint(t("contacts_h")), list, h("div", {}, add), track("about.contacts"));
+}
+const SEPS = ["-", "—", "|", "·", "–", "/", ":"];
+function splitSuffix(v) {
+  const m = /^\s*([—–\-|·:\/])\s*(.*)$/.exec(v || "");
+  if (m) return [m[1], m[2]];
+  return ["-", (v || "").trim()];
+}
+function gSearch() {
+  const name = A.site.name || "Smith Dental";
+  const [sepNow, textNow] = splitSuffix(A.search.title_suffix);
+  const sep = h("select", { id: "suffix-sep", "aria-label": t("sep") }, ...SEPS.map((x) => h("option", { value: x, selected: x === sepNow }, x)));
+  const text = h("input", { type: "text", id: "search.title_suffix", placeholder: name });
+  text.value = textNow;
+  const preview = h("div", { class: "preview" });
+  const page = L === "ru" ? "О нас" : "About";
+  const compose = () => {
+    const v = text.value.trim();
+    A.search.title_suffix = v ? " " + sep.value + " " + v : "";
+    if (v) preview.replaceChildren(page + A.search.title_suffix);
+    else preview.replaceChildren(page, h("span", { class: "ex" }, " " + sep.value + " " + name + "  (" + t("example") + ")"));
+    refresh();
+  };
+  text.addEventListener("input", compose); sep.addEventListener("change", compose);
+  const use = h("button", { type: "button", class: "use", onclick: () => { text.value = name; compose(); } }, t("suffix_use") + " «" + name + "»");
+  const row = h("div", { style: "display:grid;grid-template-columns:4.5rem 1fr;gap:.5rem" }, sep, text);
+  setTimeout(compose, 0);
+  const prices = h("input", { type: "checkbox", id: "search.allow_prices" });
+  prices.checked = !!A.search.allow_prices;
+  prices.addEventListener("change", () => { A.search.allow_prices = prices.checked; render(); });
+  return group("search", "4", t("g_search"), t("g_search_about"), null,
+    h("div", { class: "grid" },
+      h("div", { class: "field" }, h("label", { for: "search.title_suffix" }, t("suffix")), row, textNow ? null : use, hint(t("suffix_h")), h("div", { class: "hint" }, t("suffix_example")), preview, track("search.title_suffix")),
+      field(t("og"), "search.og_image", t("og_h"), "text", { placeholder: "media/social.jpg" }),
+      h("div", { class: "field wide" }, h("label", { class: "check" }, prices, t("prices")), hint(t("prices_h")), track("search.allow_prices"))));
+}
+function gAI() {
+  const langs = A.site.languages || ["en"];
+  if (!langs.includes(NOTE_TAB)) NOTE_TAB = A.site.default_lang || langs[0];
+  const tabs = h("div", { class: "tabs-row", role: "tablist" }, ...langs.map((code) => h("button", { type: "button", role: "tab", "aria-selected": String(code === NOTE_TAB), onclick: () => { NOTE_TAB = code; render(); } }, langName(code))));
+  const area = h("textarea", { "aria-label": t("note") + " " + NOTE_TAB });
+  area.value = (A.search.llms_note || {})[NOTE_TAB] || "";
+  area.addEventListener("input", () => { A.search.llms_note = A.search.llms_note || {}; if (area.value.trim()) A.search.llms_note[NOTE_TAB] = area.value; else delete A.search.llms_note[NOTE_TAB]; refresh(); });
+  return group("ai", "5", t("g_ai"), t("g_ai_about"), null,
+    h("div", { class: "field wide" }, h("span", { class: "legend" }, t("note")), tabs, h("div", { class: "tab-body" }, area), hint(t("note_h")), track("search.llms_note")));
+}
+function gAnalytics() {
+  return group("an", "6", t("g_an"), t("g_an_about"), null,
+    h("div", { class: "grid" },
+      field(t("ga4"), "analytics.ga4", t("ga4_h"), "text", { placeholder: "G-XXXXXXX" }),
+      field(t("gtm"), "analytics.gtm", t("gtm_h"), "text", { placeholder: "GTM-XXXXXX" }),
+      field(t("metrika"), "analytics.metrika", t("metrika_h"), "text", { placeholder: "00000000", inputmode: "numeric" })));
+}
+function imageOf(env) {
+  const p = A.publish;
+  if (p.way === "github") { const repo = (p.repo || ST.git_remote || "<owner>/<repo>").toLowerCase(); return "ghcr.io/" + repo + ":" + env; }
+  if (p.way === "dockerhub") return "docker.io/" + (p.dockerhub_user || "<user>") + "/" + (p.image || "<image>") + ":" + env;
+  return "-";
+}
+function toggle(id, on, title, sub, onchange) {
+  const box = h("input", { type: "checkbox", id, role: "switch" }); box.checked = on;
+  box.addEventListener("change", () => onchange(box.checked));
+  return h("div", { class: "field" }, h("label", { class: "switch", for: id }, box, h("span", { class: "track", "aria-hidden": "true" }), title), sub ? h("div", { class: "hint" }, sub) : null);
+}
+function gPublish() {
+  const p = A.publish;
+  if (p.way === "git") p.way = "github";
+  p.helpers = Object.assign({ build: true, publish: true, gitignore: true }, p.helpers || {});
+  const body = [choices("publish.way", [
+    ["none", t("way_none"), t("way_none_s")], ["github", t("way_github"), t("way_github_s")],
+    ["dockerhub", t("way_hub"), t("way_hub_s")], ["static", t("way_static"), t("way_static_s")],
+  ], render)];
+  const grid = h("div", { class: "grid", style: "margin-top:1rem" });
+  if (p.way === "github") grid.append(field(t("repo"), "publish.repo", t("repo_h"), "text", { placeholder: ST.git_remote || "you/my-site" }), field(t("branch"), "publish.branch", t("branch_h")));
+  if (p.way === "dockerhub") grid.append(field(t("hub_user"), "publish.dockerhub_user", ""), field(t("hub_image"), "publish.image", t("hub_image_h")));
+  if (p.way === "static") {
+    grid.append(h("div", { class: "field wide" }, h("span", { class: "legend" }, t("target")), choices("publish.static_target", [["server", t("target_server")], ["pages", t("target_pages")]], render)));
+    if (p.static_target === "server") grid.append(field(t("server"), "publish.server", t("server_h"), "text", { placeholder: "deploy@example.com" }), field(t("path"), "publish.path", t("path_h"), "text", { placeholder: "/var/www/" + (A.site.domain || "example.com") }));
+    else grid.append(field(t("branch"), "publish.branch", t("branch_h")));
+  }
+  if (p.way !== "none") {
+    grid.append(field(t("engine"), "publish.engine", t("engine_h")));
+    const env = h("select", { id: "publish.env" }, ...["dev", "prod"].map((x) => h("option", { value: x, selected: p.env === x }, x)));
+    env.addEventListener("change", () => { p.env = env.value; render(); });
+    grid.append(h("div", { class: "field" }, h("label", { for: "publish.env" }, t("env")), env, hint(t("env_h")), track("publish.env", { dev: "dev", prod: "prod" })));
+  }
+  if (p.way === "github") {
+    const on = p.auto !== false;
+    const auto = h("input", { type: "checkbox", id: "publish.auto", role: "switch" }); auto.checked = on;
+    auto.addEventListener("change", () => { p.auto = auto.checked; render(); });
+    const explain = on ? h("div", {}, h("div", { class: "hint" }, t("auto_on")), h("ol", {}, ...t("auto_steps").map((x) => h("li", {}, x)))) : h("div", { class: "hint" }, t("auto_off"));
+    grid.append(h("div", { class: "field wide" }, h("div", { class: "autobox " + (on ? "on" : "off") },
+      h("label", { class: "switch", for: "publish.auto" }, auto, h("span", { class: "track", "aria-hidden": "true" }), t("auto")), explain), track("publish.auto")));
+  }
+  const image = (p.way === "github" && p.auto !== false) || p.way === "dockerhub";
+  if (image) {
+    const rows = ["dev", "prod"].map((e) => h("tr", { class: e === p.env ? "on" : null },
+      h("td", {}, e, e === p.env ? " · " + t("env_now") : ""),
+      h("td", {}, h("code", {}, e === "dev" ? (A.site.preview_domain || "-") : (A.site.domain || "-"))),
+      h("td", {}, e === "dev" ? t("index_closed") : t("index_open")),
+      h("td", {}, h("code", {}, imageOf(e)))));
+    grid.append(h("div", { class: "field wide" }, h("span", { class: "legend" }, t("envs_t")),
+      h("table", { class: "envs" }, h("tr", {}, h("th", {}, t("env_col")), h("th", {}, t("env_domain")), h("th", {}, t("env_index")), h("th", {}, t("env_image"))), ...rows)));
+  }
+  body.push(grid);
+  const helpers = h("div", { class: "grid" },
+    toggle("h-build", p.helpers.build, t("h_build"), t("h_build_s"), (v) => { p.helpers.build = v; refresh(); }));
+  if (p.way !== "none") helpers.append(toggle("h-publish", p.helpers.publish, t("h_publish"), t("h_publish_s"), (v) => { p.helpers.publish = v; refresh(); }));
+  helpers.append(toggle("h-gitignore", p.helpers.gitignore, t("h_gitignore"), t("h_gitignore_s"), (v) => { p.helpers.gitignore = v; refresh(); }));
+  const fixed = [];
+  if (p.way === "github" && p.auto !== false) fixed.push(h("div", { class: "hint", style: "margin-top:.9rem" }, t("h_workflow")));
+  if (p.way === "static" && p.static_target === "pages") fixed.push(h("div", { class: "hint", style: "margin-top:.9rem" }, t("h_pages")));
+  body.push(h("div", { class: "subbox", style: "margin-top:1rem" }, h("h3", {}, t("helpers_t")), h("p", { class: "hint", style: "margin:0 0 .8rem" }, t("helpers_about")), helpers, ...fixed));
+  return group("pub", "7", t("g_pub"), t("g_pub_about"), null, ...body);
+}
+function gKeys() { return group("keys", "8", t("g_keys"), t("g_keys_about"), "dev"); }
+function gTheme() {
+  const th = A.theme;
+  if (!["keep", "name", "url", "file"].includes(th.source)) th.source = "keep";
+  const current = ST.site_theme || "main";
+  const white = ["main", "starter"].includes(current);
+  const body = [choices("theme.source", [
+    ["keep", t("th_keep") + ": " + current, white ? t("th_white") : ""],
+    ["name", t("th_name"), ""], ["url", t("th_url"), ""], ["file", t("th_file"), ""],
+  ], render)];
+  const grid = h("div", { class: "grid", style: "margin-top:1rem" });
+  if (th.source === "name") {
+    const list = ST.themes || [];
+    const sel = h("select", { id: "theme.value" }, ...list.map((x) => h("option", { value: x.name, selected: th.value === x.name }, (x.title || x.name) + (((L === "ru" && x.description_ru) || x.description) ? " - " + ((L === "ru" && x.description_ru) || x.description) : ""))));
+    if (!th.value && list.length) th.value = list[0].name;
+    sel.addEventListener("change", () => (th.value = sel.value));
+    grid.append(h("div", { class: "field wide" }, sel));
+  }
+  if (th.source === "url") grid.append(field(t("th_url"), "theme.value", t("th_url_h"), "url", { placeholder: "https://…/theme.tar.gz" }, true));
+  if (th.source === "file") {
+    const file = h("input", { type: "file", accept: ".zip,.tar.gz,.tgz,application/zip,application/gzip" });
+    file.addEventListener("change", async () => {
+      const f = file.files[0]; if (!f) return;
+      const r = await fetch("/api/upload", { method: "POST", headers: { "X-Heron-Token": TOKEN }, body: f });
+      const j = await r.json(); UPLOAD = j.upload || ""; th.value = f.name;
+    });
+    grid.append(h("div", { class: "field wide" }, file, hint(t("th_file_h"))));
+  }
+  body.push(grid);
+  return group("theme", "9", t("g_theme"), t("g_theme_about"), null, ...body);
+}
+
+function render() {
+  document.documentElement.lang = L;
+  for (const el of document.querySelectorAll("[data-t]")) el.textContent = t(el.dataset.t);
+  for (const b of document.querySelectorAll(".langswitch button")) b.setAttribute("aria-pressed", String(b.dataset.lang === L));
+  const y = window.scrollY;
+  TRACKS.length = 0;
+  const form = $("#form"); form.replaceChildren(schemaBanner(), gSite(), gLang(), gWho(), gSearch(), gAI(), gAnalytics(), gPublish(), gKeys(), gTheme());
+  $("#groups").replaceChildren(...[...form.querySelectorAll("section.group")].map((s) => h("a", { href: "#" + s.id }, h("span", { class: "n" }, $(".n", s).textContent), $(".title", s).textContent)));
+  refresh();
+  window.scrollTo(0, y);
+  $("#engine").textContent = "HERON " + ST.engine;
+}
+function toast(kind, title, lines) {
+  const el = $("#toast"); el.className = "toast" + (kind === "bad" ? " bad" : "");
+  el.replaceChildren(h("button", { type: "button", "aria-label": "close", onclick: () => (el.style.display = "none") }, "×"), h("b", {}, title), lines && lines.length ? h("ul", {}, ...lines.map((x) => h("li", {}, x))) : null);
+  el.style.display = "block";
+}
+// Находки schema.org: подсветка полей, баннер, окно решения
+function markBad(fields) {
+  const boxes = [];
+  for (const name of new Set(fields.filter(Boolean))) {
+    const box = document.querySelector('[data-field="' + CSS.escape(name) + '"]');
+    if (box) { box.classList.add("bad"); boxes.push(box); }
+  }
+  if (boxes.length) {
+    const d = boxes[0].closest("details"); if (d) d.open = true;
+    boxes[0].scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+function fieldLabel(name) {
+  const box = name && document.querySelector('[data-field="' + CSS.escape(name) + '"]');
+  const el = box && box.querySelector("label, .legend");
+  return el ? el.textContent.trim() : "";
+}
+function findingLine(f) {
+  const name = fieldLabel(f.field);
+  const where = name ? t("sch_field") + ": " + name : t("sch_path") + ": " + f.path;
+  return h("li", {}, h("b", {}, f.title), f.detail ? " " + f.detail : "", h("div", { class: "muted" }, where));
+}
+let SCH_LOOSE = [];
+function fixFindings(findings) {
+  closeSchema();
+  SCH_LOOSE = findings.filter((x) => !x.field || !document.querySelector('[data-field="' + CSS.escape(x.field) + '"]'));
+  render();
+  markBad(findings.map((x) => x.field));
+  if (SCH_LOOSE.length && !findings.some((x) => x.field && document.querySelector('[data-field="' + CSS.escape(x.field) + '"]'))) $("#form").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function schemaBanner() {
+  const f = (ST && ST.schema && ST.schema.findings) || { active: [], excepted: [], expired: [] };
+  if (!SCH_LOOSE.length && !f.active.length && !f.excepted.length && !f.expired.length) return document.createDocumentFragment();
+  const box = h("div", { class: "sch-banner", role: "alert" });
+  if (SCH_LOOSE.length) box.append(h("b", {}, schemaTitle()), h("ul", {}, ...SCH_LOOSE.map(findingLine)));
+  if (f.active.length) {
+    box.append(h("div", { class: "row" }, h("b", {}, t("sch_banner")), h("button", { type: "button", class: "add", onclick: () => markBad(f.active.map((x) => x.field)) }, t("sch_show"))),
+      h("ul", {}, ...f.active.map(findingLine)));
+  }
+  if (f.expired.length) box.append(h("div", {}, h("b", {}, t("sch_expired") + ": "), f.expired.map((x) => x.path + (x.reason ? " (" + x.reason + ")" : "")).join(", ")));
+  if (f.excepted.length) box.append(h("details", {}, h("summary", {}, t("sch_excepted") + " (" + f.excepted.length + ")"), h("ul", {}, ...f.excepted.map((x) => h("li", {}, h("code", {}, x.path), ": ", x.reason || "")))));
+  return box;
+}
+let SCH_FINDINGS = [];
+let SCH_RELEASE = "";
+function schemaTitle() { return t("sch_title") + (SCH_RELEASE ? " " + SCH_RELEASE : ""); }
+function closeSchema() { const d = $("#sch"); if (d.open) d.close(); }
+function schemaDialog(state, findings, busy, error) {
+  const d = $("#sch");
+  const acts = h("div", { class: "acts" });
+  const btn = (label, cls, fn, off) => h("button", { type: "button", class: cls || null, disabled: off || busy ? true : null, onclick: fn }, busy ? label + "…" : label);
+  let body;
+  if (state === "findings") {
+    body = [h("h3", { id: "sch-title" }, schemaTitle()), h("ul", {}, ...findings.map(findingLine))];
+    acts.append(btn(t("sch_fix"), "", () => fixFindings(findings)), btn(t("sch_save_anyway"), "primary", () => schemaDialog("drop", findings)));
+  } else if (state === "drop") {
+    body = [h("h3", { id: "sch-title" }, t("sch_drop_q")), h("p", { class: "muted" }, t("sch_drop_hint")), h("ul", {}, ...findings.map((x) => h("li", {}, x.drop_label))), error ? h("p", { class: "err" }, error) : null];
+    acts.append(btn(t("sch_keep"), "", () => schemaDialog("reason", findings)), btn(t("sch_drop"), "primary", () => save({ mode: "drop", drop: findings.map((x) => x.key) })));
+  } else {
+    const ta = h("textarea", { id: "sch-reason", "aria-label": t("sch_reason") });
+    ta.value = state === "reason" && schemaDialog.reason ? schemaDialog.reason : "";
+    const go = btn(t("save"), "primary", () => { schemaDialog.reason = ta.value.trim(); save({ mode: "except", reason: schemaDialog.reason }); }, !ta.value.trim());
+    ta.addEventListener("input", () => { go.disabled = !ta.value.trim(); });
+    body = [h("h3", { id: "sch-title" }, t("sch_except_title")), h("label", { for: "sch-reason" }, t("sch_reason")), ta, h("div", { class: "hint" }, t("sch_reason_hint")), error ? h("p", { class: "err" }, error) : null];
+    acts.append(btn(t("sch_fix"), "", () => fixFindings(findings)), go);
+  }
+  d.replaceChildren(...body, acts);
+  if (!d.open) d.showModal();
+  if (state === "reason") $("#sch-reason", d).focus();
+}
+function showSchemaDialog(schema) { SCH_RELEASE = schema.release || ""; SCH_FINDINGS = schema.findings || []; schemaDialog("findings", SCH_FINDINGS); }
+$("#sch").addEventListener("cancel", (e) => { e.preventDefault(); fixFindings(SCH_FINDINGS); });
+$("#sch").addEventListener("click", (e) => { if (e.target === e.currentTarget) fixFindings(SCH_FINDINGS); });
+function load(state) { ST = state; A = clone(state.answers); BASE = clone(state.answers); UPLOAD = ""; SCH_LOOSE = []; for (const k of Object.keys(HOURS_ROWS)) delete HOURS_ROWS[k]; }
+async function save(decision) {
+  const btn = $("#save"); btn.disabled = true; btn.textContent = t("saving");
+  for (const b of document.querySelectorAll("#sch .acts button")) { b.disabled = true; if (decision) b.textContent += "…"; }
+  try {
+    const answers = clone(A);
+    answers.about.contacts = (answers.about.contacts || []).filter((c) => (c.value || "").trim());
+    const r = await fetch("/api/save", { method: "POST", headers: { "Content-Type": "application/json", "X-Heron-Token": TOKEN }, body: JSON.stringify({ answers, upload: UPLOAD, lang: L, ...(decision ? { schema: decision } : {}) }) });
+    const j = await r.json();
+    if (r.status === 409 && j.schema) { showSchemaDialog(j.schema); return; }
+    if (!j.ok) {
+      if (decision && decision.mode === "except" && $("#sch").open) { schemaDialog("reason", SCH_FINDINGS, false, [j.error, j.hint].filter(Boolean).join(" ")); return; }
+      if (decision && decision.mode === "drop" && $("#sch").open) { schemaDialog("drop", SCH_FINDINGS, false, [j.error, j.hint].filter(Boolean).join(" ")); return; }
+      toast("bad", t("error"), [j.error, j.hint].filter(Boolean)); return;
+    }
+    closeSchema();
+    const lines = [];
+    if (j.written.length) lines.push(t("written") + ": " + j.written.join(", "));
+    if (j.created.length) lines.push(t("created") + ": " + j.created.slice(0, 8).join(", ") + (j.created.length > 8 ? " …" : ""));
+    if (j.removed.length) lines.push(t("removed") + ": " + j.removed.join(", "));
+    if (j.kept.length) lines.push(t("kept") + ": " + j.kept.join(", "));
+    if (j.backup) lines.push(t("backup") + ": " + j.backup);
+    if (!lines.length) lines.push(t("nothing"));
+    lines.push(t("next"));
+    if (j.dropped && j.dropped.length) lines.push(t("sch_dropped") + ": " + j.dropped.join(", "));
+    load(j.state);
+    render();
+    if (j.excepted && j.excepted.length) toast("ok", t("sch_saved_except") + ": " + j.excepted.length, lines);
+    else toast("ok", t("saved"), lines);
+  } catch (e) { closeSchema(); toast("bad", t("error"), [String(e)]); }
+  finally { btn.disabled = false; btn.textContent = t("save"); }
+}
+// Смена языка - событие heron:lang: его слушает студия (studio.js).
+const langChanged = () => document.dispatchEvent(new Event("heron:lang"));
+document.querySelectorAll(".langswitch button").forEach((b) => b.addEventListener("click", () => { L = b.dataset.lang; render(); langChanged(); }));
+$("#save").addEventListener("click", () => save());
+$("#bot").addEventListener("click", () => {
+  if (BOT_URL) { window.open(BOT_URL, "_blank", "noopener"); return; }
+  const pop = $("#bot-pop"); pop.hidden = !pop.hidden;
+  if (!pop.hidden) setTimeout(() => (pop.hidden = true), 4000);
+});
+// Ctrl+S - сохранить вкладку «Сайт»; на вкладке «Страницы» его ловит студия (studio.js).
+document.addEventListener("keydown", (e) => { if ((e.metaKey || e.ctrlKey) && e.key === "s" && (document.body.dataset.tab || "site") === "site") { e.preventDefault(); save(); } });
+$("#form").addEventListener("submit", (e) => e.preventDefault());
+fetch("/api/state", { headers: { "X-Heron-Token": TOKEN } }).then((r) => {
+  if (r.status === 403) throw new Error("token");
+  return r.json();
+}).then((s) => { load(s); L = s.notes === "en" ? "en" : "ru"; render(); langChanged(); }).catch(() => {
+  document.querySelector("main").innerHTML =
+    '<p class="lead">Откройте адрес конфигуратора целиком так, как он напечатан в терминале, вместе с частью после «#».</p>' +
+    '<p class="lead">Open the configurator address exactly as printed in the terminal, including the part after “#”.</p>';
+});

@@ -40,7 +40,8 @@ heron/
 ├── messages.py           command-line texts in two languages
 ├── build_info.py         version, branch, commit
 ├── texts/                core messages by group
-├── setup/                the heron setup configurator
+├── setup/                the heron setup configurator and the studio server
+├── studio/               the studio in a browser: the Pages tab over edit/
 ├── themes/               theme installation and packing
 ├── edit/                 lossless page editing: fields, places in markdown, checks; a page and a category in all languages, moves, the console questionnaire
 ├── contracts/
@@ -704,15 +705,16 @@ heron check [path] [--strict] [--drafts] [--json] [--env NAME] [--allow-schema K
                                              --old-urls - check old URLs (one per line or a Search Console export); --theme - the theme demo too (§7)
 heron serve [path] [--port 8000] [--host X] [--workers N] [--no-drafts]  local preview with rebuilds
 heron build [path] [--out folder] [--env prod] [--strict] [--drafts] [--allow-schema KEY] [--workers N]   build
-heron page add <key> [path] [--type T] [--category path] [--lang L] [--answers file|-] [--dump] [--web] [-y]
+heron page add <key> [path] [--type T] [--category path] [--lang L] [--answers file|-] [--dump] [--web [--port 8000]] [-y]
                                              a page: exists - edit, missing - create in all languages
 heron page list [path] [--json]              the tree of categories and pages, languages, translations
-heron category add <path> [site path] [--type T] [--children-type T] [--view V] [--answers file|-] [--dump] [--web] [-y]
+heron category add <path> [site path] [--type T] [--children-type T] [--view V] [--answers file|-] [--dump] [--web [--port 8000]] [-y]
                                              a category of any depth: the same rule
 heron describe [name] [path] [--json] [--lang ru]  theme contract, service fields, hints
 heron docs [topic | template <file> | theme-ref [path]] [--lang ru|en] [--all-langs] [--search text] [--export folder]
                                              documentation of this version in the chosen language
 heron setup [path] [--answers file|-] [--dump] [--port 8000] [--host X]  configurator
+heron studio [path] [--port 8000] [--host X]  the studio: Site, Pages, Theme reference
 heron theme get <starter|name|https-link|archive> [path]   install a theme with its demo pages
 heron theme list | heron theme pack [path] [--out file]   catalog; your own theme with content into an archive
 heron schema [--site | --theme | --frontmatter | --setup | --errors | --describe] [--lang ru|en] [--export folder]
@@ -784,7 +786,7 @@ Packaging into an image is not among the engine commands: the nginx image with t
 
 ### heron page add, heron page list, heron category add <a id="page-add"></a>
 
-Pages and categories are created and edited by one command per object, with one rule: **exists - open it for editing, missing - create it**. The core is `heron/edit/entity.py` (find, create, edit, move in all languages) and `heron/edit/console.py` (the console questionnaire); the studio in a browser will call the same functions.
+Pages and categories are created and edited by one command per object, with one rule: **exists - open it for editing, missing - create it**. The core is `heron/edit/entity.py` (find, create, edit, move in all languages) and `heron/edit/console.py` (the console questionnaire); the studio in a browser (`heron studio`, below) calls the same functions.
 
 - `heron page add <key> [--type T] [--category path] [--lang L] [--answers file|-] [--dump] [--web] [-y] [path]`. The key is the path from the language folder without `.md`: `about`, `services/roofing`; every part is lowercase Latin letters, digits and hyphens, otherwise `E005` before writing. `--category services` puts the page into a category: the key `services/<name>`. Without a category and without a slash an existing page with this name is looked for in any category: if exactly one is found, it is opened.
 - **Creating goes to all languages of `site.yaml` at once.** The default type (without `--type`) is the `children_type` of the category, otherwise `page` (or the first type of the theme); an unknown type is `E008`. The stub is a full SEO block with comments (`20` §4.1) and every section of the type from `uses`. Missing categories on the way are created too, also in all languages. If the key already holds something else (a page instead of a category or the other way round) - `E004` with a ready command for what is there.
@@ -795,7 +797,7 @@ Pages and categories are created and edited by one command per object, with one 
 - `site.yaml` (the menu, the keys after a move) is written keeping the author's comments, the same way as `heron setup` does; all write paths are inside the site folder, otherwise `E024` before writing.
 - `heron category add <path> [--type T] [--children-type T] [--view V] …` - the same for a category: the folder and its `_index.md` in all languages with an SEO block, the type of the pages inside (`--children-type`, the key `children_type`, by default the `children_type` of the category type in the theme) and the view of the list of pages (`--view`) - the key and the options from the `views` of the type (`heron describe`); a view the theme does not know is `E008` with a list. The markup of the section (schema.org `CollectionPage`, `ItemList`) is set by the theme by its contract (`types.<type>.jsonld`).
 - `heron page list [path] [--json]` - the tree of categories and pages: which languages have a file (`en`), where the translation is pending (`de!`), where there is no file (`--`); `--json` - `{languages, default_lang, items: [{key, category, type, title, langs}]}`, the state of a language is `ok`, `pending` or `missing`.
-- `--web` - the studio in a browser right on this object (ST8); until it exists, the command says so and prints the questionnaire command, changing nothing.
+- `--web` - the studio in a browser right on this object (`heron studio`, below): a new one as a draft that becomes files only after Save; `--type`, `--children-type`, `--view` are its initial values, `--category` on an existing one is a move that waits for the save. `--port` and `--host` - as for `heron setup`. The command itself writes nothing.
 - The old form `heron page <type> <key>` was removed in 0.3.0: such a call is `E038` with the same page as the new command (`page page about` - `heron page add about`, `--folder` - `--category`), in a container - as a full Docker command.
 
 ### heron describe <a id="heron-describe"></a>
@@ -881,6 +883,28 @@ Publication values go into shell commands and into YAML, so they are checked whe
 
 **Markup in the configurator.** Before writing `site.yaml` the configurator checks the site nodes (`site_findings`: the site-wide node and the `schema.<Type>` blocks for each language, without pages and the theme). The page shows three lists: active findings, excepted ones (reason and deadline) and expired exceptions. In the page state this is `schema.findings` with the keys `active`, `excepted`, `expired`; excepted and expired ones are `{key, code, path, field, reason, until}`, active ones and the refusal of the `check` mode (answer 409) are `{key, code, title, detail, hint, field, path, value, drop_label}`; `field` is the configurator field the finding is tied to, or `null`. An unknown `schema.mode` is a refusal "mode X: check, drop or except"; `except` without `reason` is a refusal before the check; if there are no findings, the mode affects nothing. The `schema.mode` mode in the answers: `check` (the default) - findings are not written, the answer is rejected with a list; `drop` - remove the keys listed in `schema.drop` (all of them if the list is not set) from `site.yaml`, the list of what was removed goes into the result; `except` - append to `schema_exceptions` an entry `key` + `reason` for each finding, `reason` is required; if an exception with this key already exists (an expired one too), its reason is replaced and its deadline `until` is removed - the exception becomes permanent. After `drop` the check is repeated, the remainder is a refusal.
 
+### heron studio <a id="heron-studio"></a>
+
+The studio is the configurator page with three tabs: Site (the `site.yaml` configurator, as in `heron setup`), Pages and Theme reference. The server, the key and the access rules are those of `heron setup` (below): the address with the key after `#` is printed in the terminal, in the image - with the hint about `-p 127.0.0.1:8000:8000`. Commands: `heron setup` opens the Site tab, `heron studio` - Pages, `heron page add … --web` and `heron category add … --web` - Pages right on the object.
+
+The studio has no saving or checking logic of its own (`heron/studio/`): every request opens the object again from disk (`edit.entity.open_entity`), applies the section actions and the answers in the same form as `--answers` (§10, `page add`), and calls the same functions as the CLI: `problems` and `issues` to check, `save` to write, `tree` for the tree, the build for the preview. Untouched files stay byte for byte, `site.yaml` is written with the author's comments.
+
+The Pages tab:
+
+- **the tree** of categories of any depth and pages of all languages, each with its languages: the file exists, the translation is pending (`de!`), there is no file. Dragging a page or a category onto a category (or onto "To the root") is a move: the files in all languages, `redirect_from` from the old addresses (301), the menu items follow the key;
+- **the form** - the fields of `edit.fields` by the groups of `groups`, the same as in the questionnaire: service fields, the schema.org markup, sections and blocks in their forms (list items as cards with the fields of the block). Every field has `hint` as a tooltip and `?` with the `help` text and an example, the default value and where it comes from; a read-only field shows the reason;
+- **languages** - as tabs: the main language - all fields; the others - only the fields with text. A new language file: an empty field is not translated, the language gets `translation: pending`; "Skip the language" - the mark at once. An existing language has the checkbox "Translation not ready";
+- **checking on the fly** - `edit.validate` after every edit: errors (the save will not pass, `E039`) and remarks at the fields and as a list;
+- **creating** - "+ Page" and "+ Category": the name, the category, the type, for a category - the type of the pages inside and the view of the list. The rule is that of the commands: exists - it opens for editing, missing - a draft that becomes files in all languages after Save; missing categories above are created on save;
+- **blocks** - "+ Block" adds a section `## Heading {#anchor}` of the chosen form in all languages; a form the engine recognises by content is set by its first item (without it - `E039`). Languages with a ready translation get the block with the main language text and the mark `translation: pending`. "Remove block" removes the section in all languages;
+- **pictures** - "Upload" puts the file into the `media/` of the site: only `.jpg`, `.png`, `.webp`, `.gif`, `.svg`, the type is checked by the content too, an SVG with a script or an event handler is refused, up to 25 MB; the name is Latin (`Team Photo 1.PNG` → `media/team-photo-1.png`), a taken name gets `-2`, the same file - the same path. The width and proportions from the contract (a cover - from 1200 px) are checked by `edit.validate`;
+- **menu** - the field "in the menu" edits `nav.main` in `site.yaml`; renaming is a button, the key and the address change with a 301;
+- "**Check**" - `heron check` with drafts; "**Preview**" - a draft build into a temporary folder (as `heron serve` does) and a link to this page.
+
+The Theme reference tab is the service page `/_heron/theme/` (§7, "Theme reference") from the same draft build, inside the studio.
+
+Requests are `POST /api/studio/<name>` with the key in `X-Heron-Token`: `start` (where to open), `tree`, `open` and `check` (the form after the edits, writes nothing), `save`, `upload?name=…` (the body is the file), `site-check`, `preview`. An error answer is `400` with `code`, `error`, `hint` in the language of the page. The build preview and pictures from `media/` open as plain links: the page with the key gets from `POST /api/session` a cookie `HttpOnly; SameSite=Strict`, without it - `403`. The scripts of the page are separate files `/_studio/*.js`, the policy is `script-src 'self'`, there are no inline scripts or handlers in the markup.
+
 ### heron theme <a id="heron-theme"></a>
 
 A theme archive: `heron-theme.yaml` (name, compatible HERON versions), `theme/`, `demo/` - the theme's demo pages: `content/<lang>/`, `media/`, `data/`. Sources: `starter` - the built-in starter theme (no network), a name - the catalog `HERON_THEMES_URL` (by default `catalog.json` of the repository `FMSTM/heron-themes`: name → https address and sha256), an https link (`#sha256=<hash>` at the end is verified), a `.zip` or `.tar.gz` file.
@@ -935,7 +959,7 @@ The detail and hint of an error and the text of a warning are in the language of
 | `E036` | an image master exists on disk but cannot be read as an image: a Git LFS pointer, an empty, truncated or oversized file. It is an error in both strict and dev builds (unlike `E007`, where the file is simply absent). The engine names the `src`, the owner page and the kind of failure |
 | `E037` | the theme demo does not show everything its contract declares: a type has no demo page, a module never drew anything, a section view is not shown (`heron theme pack`, `heron check --theme`; for a theme without `fields` - a warning); `theme pack` in a folder without `site.yaml` (§7, "The theme demo and reference") |
 | `E038` | this form of the command was removed: `heron page <type> <key>` (0.3.0); the hint is the same page with the command `heron page add` (§10) |
-| `E039` | a field value or a questionnaire answer does not fit: an unknown key, language or field in `--answers`, YAML does not read, a value cannot be written in its place, a field check error (`page add`, `category add`, §10); the files are untouched |
+| `E039` | a field value or a questionnaire answer does not fit: an unknown key, language or field in `--answers`, YAML does not read, a value cannot be written in its place, a field check error (`page add`, `category add`, the studio, §10); in the studio also - a wrong request, a block without its first item, a file that is not a picture; the files are untouched |
 
 **schema.org markup** (a separate code series; on `prod` - an error, otherwise a warning; exception - `schema_exceptions` in `site.yaml` or `--allow-schema`):
 

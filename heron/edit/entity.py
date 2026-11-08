@@ -482,6 +482,90 @@ def issues(entity: Entity, lang: str) -> list[Issue]:
     return validate(page_of(entity, lang), entity.ctx.root)
 
 
+def problems(entity: Entity, lang: str, with_issues: bool = False) -> Any:
+    """Ошибки и предупреждения всех языков строками `язык: поле - текст` (на языке `lang`).
+
+    Ошибки держат запись; предупреждения - нет. У непереведённой копии те же
+    замечания, что у основного языка: её предупреждения не повторяются.
+    `with_issues` - третьим ещё сами замечания по языкам (студия показывает их у полей).
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+    found: dict[str, list[Issue]] = {}
+    for code in entity.ctx.langs:
+        found[code] = issues(entity, code)
+        for issue in found[code]:
+            line = f"{code}: {issue.path} - {issue.message.text(lang)}"
+            if issue.level == "error":
+                errors.append(line)
+            elif code == entity.ctx.default or not is_pending(entity, code):
+                warnings.append(line)
+    return (errors, warnings, found) if with_issues else (errors, warnings)
+
+
+# --- секции на всех языках -------------------------------------------------------------
+
+
+def _section_failed(error: EditError, anchor: str, lang: str) -> HeronError:
+    return HeronError(
+        code="E039",
+        message=Msg(
+            "edit_field_failed", path=f"sections.{anchor}", lang=lang, reason=error.args[0]
+        ),
+    )
+
+
+def _with_pages(entity: Entity) -> list[str]:
+    """Основной язык и языки, у которых страница уже есть (файл или копия в памяти)."""
+    default = entity.ctx.default
+    page_of(entity, default)
+    return [default, *[code for code in entity.ctx.langs[1:] if code in entity.pages]]
+
+
+def add_section(
+    entity: Entity,
+    anchor: str,
+    heading: str | None = None,
+    kind: str | None = None,
+    values: dict[str, Any] | None = None,
+) -> list[str]:
+    """Добавить секцию на всех языках, где у страницы уже есть файл или копия.
+
+    Основной язык получает секцию как есть. Остальные языки с файлом получают
+    ту же секцию (заголовок и поля - текст основного языка) и пометку
+    «перевод не готов»: новый блок на них ещё не переведён. Языки без файла
+    скопируют основной язык при записи. Возвращает языки, получившие пометку.
+    """
+    from heron.edit import model
+
+    marked: list[str] = []
+    for lang in _with_pages(entity):
+        try:
+            entity.pages[lang] = model.add_section(
+                entity.pages[lang], anchor, heading=heading, kind=kind, values=values
+            )
+        except EditError as error:
+            raise _section_failed(error, anchor, lang) from error
+        if lang != entity.ctx.default and not entity.created(lang):
+            mark(entity, lang, True)
+            marked.append(lang)
+    return marked
+
+
+def remove_section(entity: Entity, anchor: str) -> None:
+    """Убрать секцию со всех языков, где она есть; на основном её отсутствие - ошибка."""
+    from heron.edit import model
+
+    for lang in _with_pages(entity):
+        page = entity.pages[lang]
+        if lang != entity.ctx.default and page.body.get(anchor) is None:
+            continue
+        try:
+            entity.pages[lang] = model.remove_section(page, anchor)
+        except EditError as error:
+            raise _section_failed(error, anchor, lang) from error
+
+
 # --- запись --------------------------------------------------------------------------
 
 
@@ -536,7 +620,7 @@ def save(entity: Entity) -> Saved:
     for lang in ctx.langs:
         page_of(entity, lang)
     ensure_category(ctx, parent_of(entity.target), saved)
-    before = _urls(ctx) if entity.moved else {}
+    before = urls(ctx) if entity.moved else {}
     if entity.moved:
         _move_files(entity, saved)
     _write_files(entity, saved)
@@ -590,7 +674,7 @@ def _move_files(entity: Entity, saved: Saved) -> None:
         entity.pages[lang] = replace(page, rel=entity.rel(lang))
 
 
-def _urls(ctx: Ctx) -> dict[tuple[str, str], str]:
+def urls(ctx: Ctx) -> dict[tuple[str, str], str]:
     """Адрес каждой страницы сайта по (язык, ключ) - так же, как его строит сборка."""
     from heron.core import tree
 
@@ -601,7 +685,7 @@ def _urls(ctx: Ctx) -> dict[tuple[str, str], str]:
 def _redirects(entity: Entity, before: dict[tuple[str, str], str], saved: Saved) -> None:
     """301 со старых адресов: у перенесённой страницы и у всего, что было в категории."""
     ctx = entity.ctx
-    after = _urls(ctx)
+    after = urls(ctx)
     taken = set(after.values())
     old, new = entity.key, entity.target
     for (lang, key), url in sorted(before.items()):

@@ -645,8 +645,11 @@ def test_port_error_is_in_the_site_language(site: Path, monkeypatch):
 
 
 def test_page_sends_its_language_with_save():
-    """Переключатель языка страницы (L) уходит с сохранением: причины — на нём."""
-    page = (Path(reasons.__file__).parent / "page.html").read_text(encoding="utf-8")
+    """Переключатель языка страницы (L) уходит с сохранением: причины — на нём.
+
+    Скрипт страницы - отдельный файл page.js (CSP `script-src 'self'`, ST8).
+    """
+    page = (Path(reasons.__file__).parent / "page.js").read_text(encoding="utf-8")
     call = next(line for line in page.splitlines() if 'fetch("/api/save"' in line)
     assert re.search(r"JSON\.stringify\(\{[^}]*\blang: L\b", call), call
 
@@ -731,9 +734,11 @@ def _docs_link(page: str, lang: str = "ru") -> tuple[str, str, str]:
 
 
 def test_page_source_does_not_hardcode_beta():
-    source = (Path(reasons.__file__).parent / "page.html").read_text(encoding="utf-8")
-    assert "/beta/" not in source
-    assert _docs_link(source)[1] == "prod"
+    for name in ("page.html", "page.js"):
+        source = (Path(reasons.__file__).parent / name).read_text(encoding="utf-8")
+        assert "/beta/" not in source, name
+    script = (Path(reasons.__file__).parent / "page.js").read_text(encoding="utf-8")
+    assert _docs_link(script)[1] == "prod"
 
 
 @pytest.mark.parametrize("channel", [None, "", "prod", "beta"])
@@ -745,7 +750,7 @@ def test_served_page_links_to_the_branch_of_the_channel(monkeypatch, channel):
     else:
         monkeypatch.setenv("HERON_CHANNEL", channel)
     want = channel or "prod"
-    url, branch, path = _docs_link(setup_module.page().decode("utf-8"))
+    url, branch, path = _docs_link(setup_module.script().decode("utf-8"))
     assert branch == want
     assert url == f"https://github.com/FMSTM/HERON/blob/{want}/docs/ru/guide/06-deploy.md"
     repo = Path(reasons.__file__).resolve().parents[2]
@@ -758,15 +763,17 @@ def test_prod_page_is_the_source_byte_for_byte(monkeypatch):
     monkeypatch.setenv("HERON_CHANNEL", "prod")
     source = Path(reasons.__file__).parent / "page.html"
     assert setup_module.page() == source.read_bytes()
+    script = Path(reasons.__file__).parent / "page.js"
+    assert setup_module.script() == script.read_bytes()
 
 
 def test_beta_page_changes_nothing_but_the_branch(monkeypatch):
     from heron import setup as setup_module
 
-    source = (Path(reasons.__file__).parent / "page.html").read_text(encoding="utf-8")
     monkeypatch.setenv("HERON_CHANNEL", "beta")
-    served = setup_module.page().decode("utf-8")
-    assert served == source.replace("/blob/prod/", "/blob/beta/")
+    for name, served in (("page.html", setup_module.page), ("page.js", setup_module.script)):
+        source = (Path(reasons.__file__).parent / name).read_text(encoding="utf-8")
+        assert served().decode("utf-8") == source.replace("/blob/prod/", "/blob/beta/")
 
 
 @pytest.mark.parametrize("channel", ["prod", "beta"])
@@ -777,8 +784,10 @@ def test_server_gives_out_the_page_of_its_channel(site: Path, monkeypatch, chann
     port, token, thread = _start(site, "127.0.0.1")
     try:
         status, page = _call(f"http://127.0.0.1:{port}/")
+        assert status == 200 and '<script src="/_studio/setup.js">' in page
+        status, script = _call(f"http://127.0.0.1:{port}/_studio/setup.js")
         assert status == 200
-        assert _docs_link(page)[1] == channel
+        assert _docs_link(script)[1] == channel
     finally:
         _stop(port, token, thread)
 
@@ -788,7 +797,7 @@ def test_help_link_follows_interface_language(monkeypatch, lang):
     from heron import setup as setup_module
 
     monkeypatch.delenv("HERON_CHANNEL", raising=False)
-    page = setup_module.page().decode("utf-8")
+    page = setup_module.script().decode("utf-8")
     url, _branch, path = _docs_link(page, lang)
     assert path == f"docs/{lang}/guide/06-deploy.md"
     repo = Path(reasons.__file__).resolve().parents[2]

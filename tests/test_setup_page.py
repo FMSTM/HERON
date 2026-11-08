@@ -1,4 +1,4 @@
-"""Страница анкеты heron/setup/page.html.
+"""Страница анкеты heron/setup/page.html и её скрипт page.js (вынесен ради CSP, ST8).
 
 Виджеты enum, subtype, bool, hours (разбор файла как текста).
 """
@@ -12,7 +12,10 @@ import pytest
 
 from heron.setup import answers
 
-PAGE = (Path(answers.__file__).parent / "page.html").read_text(encoding="utf-8")
+PAGE = "\n".join(
+    (Path(answers.__file__).parent / name).read_text(encoding="utf-8")
+    for name in ("page.html", "page.js")
+)
 NEW_KEYS = [
     "not_set",
     "filter",

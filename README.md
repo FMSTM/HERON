@@ -115,7 +115,7 @@ In detail: [concepts](docs/en/guide/01-concepts.md) · [first site](docs/en/guid
 
 ## Commands
 
-Thirteen commands. The path to the site defaults to the current folder. Here the commands are written short, with `heron` - this is how you run them if the engine is installed without Docker. With Docker the command is preceded by `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod`, plus `-it` for `new`, `setup`, `serve`, `page add`, `category add` and `init` in a folder without `site.yaml` (`new`, `init`, `page add` and `category add` ask questions, `setup` and `serve` stop with Ctrl+C), and `-p 127.0.0.1:8000:8000` for `setup` and `serve`, as in the quick start above.
+Fourteen commands. The path to the site defaults to the current folder. Here the commands are written short, with `heron` - this is how you run them if the engine is installed without Docker. With Docker the command is preceded by `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod`, plus `-it` for `new`, `setup`, `studio`, `serve`, `page add`, `category add` and `init` in a folder without `site.yaml` (`new`, `init`, `page add` and `category add` ask questions, `setup`, `studio` and `serve` stop with Ctrl+C), and `-p 127.0.0.1:8000:8000` for `setup`, `studio`, `serve` and `--web`, as in the quick start above.
 
 | Command | What it does |
 |---|---|
@@ -130,6 +130,7 @@ Thirteen commands. The path to the site defaults to the current folder. Here the
 | `heron serve <folder>` | local preview with rebuild, the port is set by `--port`, the address by `--host` |
 | `heron docs [topic]` | documentation of the same version as the engine; `--lang ru`/`--lang en`, `template <file>`, `--search <text>`, `--export <folder>`, `--all-langs` |
 | `heron setup <folder>` | configurator in the browser: domains, languages, schema.org, publishing, theme; `--answers file` without a browser, `--dump` - current answers |
+| `heron studio <folder>` | the studio in the browser: tabs Site (the configurator), Pages (the tree, field forms with hints, creating, moving with a 301, blocks, pictures) and Theme reference; `page add … --web` and `category add … --web` open it right on the object |
 | `heron theme get\|list\|pack` | install a theme (starter, from the catalog, by link, from an archive), list, pack your own |
 | `heron schema` | JSON Schema of the contracts of this version: `--site`, `--theme`, `--frontmatter`, `--setup`, `--errors`; `--lang ru`/`--lang en`, `--export <folder>` |
 | `heron recipe` | Dockerfile of the nginx image for the built `dist/` |

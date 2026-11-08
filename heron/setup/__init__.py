@@ -47,10 +47,20 @@ from heron.setup.answers import (
 )
 from heron.setup.reasons import Reason
 
-__all__ = ["Answers", "SchemaFindings", "apply", "current_answers", "load_answers", "page", "state"]
+__all__ = [
+    "Answers",
+    "SchemaFindings",
+    "apply",
+    "current_answers",
+    "load_answers",
+    "page",
+    "script",
+    "state",
+]
 
 SITE_YAML = "site.yaml"
 PAGE = Path(__file__).parent / "page.html"
+SCRIPT = Path(__file__).parent / "page.js"
 BACKUPS = ".heron-cache/setup"
 
 HEADER = {
@@ -542,3 +552,14 @@ def page() -> bytes:
     from heron.scaffold.agents import channel_links
 
     return channel_links(PAGE.read_bytes().decode("utf-8")).encode("utf-8")
+
+
+def script() -> bytes:
+    """Скрипт страницы конфигуратора (`/_studio/setup.js`) - с той же подстановкой ветки.
+
+    Скрипт - отдельным файлом: политика CSP страницы `script-src 'self'` не
+    пускает встроенные скрипты. Ссылки на документацию в нём - как у `page()`.
+    """
+    from heron.scaffold.agents import channel_links
+
+    return channel_links(SCRIPT.read_bytes().decode("utf-8")).encode("utf-8")

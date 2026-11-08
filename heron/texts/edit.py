@@ -136,11 +136,6 @@ TEXT: dict[str, dict[str, str]] = {
         "edit_con_menu": "меню (nav)",
         "edit_con_save": "Записать?",
         "edit_answers_yaml": "файл ответов не читается как YAML: {problem}",
-        "edit_web_soon": (
-            "Студия в браузере появится в следующем шаге выпуска 0.3.0. Пока - опросник в "
-            "терминале, он спрашивает те же поля."
-        ),
-        "edit_web_now": "Опросник: `heron {command}`",
         "edit_dump_head": (
             "# Ответы для heron page add и category add ({key}): поправьте и передайте "
             "через --answers. Пути полей - heron describe"
@@ -312,11 +307,6 @@ TEXT: dict[str, dict[str, str]] = {
         "edit_con_menu": "menu (nav)",
         "edit_con_save": "Write?",
         "edit_answers_yaml": "the answers file does not read as YAML: {problem}",
-        "edit_web_soon": (
-            "The studio in a browser arrives in the next step of release 0.3.0. For now - the "
-            "questionnaire in the terminal, it asks the same fields."
-        ),
-        "edit_web_now": "The questionnaire: `heron {command}`",
         "edit_dump_head": (
             "# Answers for heron page add and category add ({key}): edit them and pass them "
             "with --answers. Field paths - heron describe"

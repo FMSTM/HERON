@@ -115,7 +115,7 @@ site:
 
 ## Команды
 
-Тринадцать команд. Путь к сайту по умолчанию - текущая папка. Здесь команды записаны коротко, через `heron` - так их запускают, если движок поставлен без Docker. В Docker перед командой стоит `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod`, а для `new`, `setup`, `serve`, `page add`, `category add` и `init` в папке без `site.yaml` ещё `-it` (`new`, `init`, `page add` и `category add` задают вопросы, `setup` и `serve` останавливают Ctrl+C), для `setup` и `serve` - `-p 127.0.0.1:8000:8000`, как в быстром старте выше.
+Четырнадцать команд. Путь к сайту по умолчанию - текущая папка. Здесь команды записаны коротко, через `heron` - так их запускают, если движок поставлен без Docker. В Docker перед командой стоит `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod`, а для `new`, `setup`, `studio`, `serve`, `page add`, `category add` и `init` в папке без `site.yaml` ещё `-it` (`new`, `init`, `page add` и `category add` задают вопросы, `setup`, `studio` и `serve` останавливают Ctrl+C), для `setup`, `studio`, `serve` и `--web` - `-p 127.0.0.1:8000:8000`, как в быстром старте выше.
 
 | Команда | Что делает |
 |---|---|
@@ -130,6 +130,7 @@ site:
 | `heron serve <папка>` | локальный просмотр с пересборкой, порт задаёт `--port`, адрес - `--host` |
 | `heron docs [тема]` | документация той же версии, что и движок; `--lang ru`/`--lang en`, `template <файл>`, `--search <текст>`, `--export <папка>`, `--all-langs` |
 | `heron setup <папка>` | конфигуратор в браузере: домены, языки, schema.org, публикация, тема; `--answers файл` без браузера, `--dump` - текущие ответы |
+| `heron studio <папка>` | студия в браузере: вкладки «Сайт» (конфигуратор), «Страницы» (дерево, формы полей с подсказками, создание, перенос с 301, блоки, картинки) и «Справка темы»; `page add … --web` и `category add … --web` открывают её сразу на объекте |
 | `heron theme get\|list\|pack` | поставить тему (starter, из каталога, по ссылке, архивом), список, упаковать свою |
 | `heron schema` | JSON Schema контрактов этой версии: `--site`, `--theme`, `--frontmatter`, `--setup`, `--errors`; `--lang ru`/`--lang en`, `--export <папка>` |
 | `heron recipe` | Dockerfile образа nginx для собранного `dist/` |

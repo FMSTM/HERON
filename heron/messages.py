@@ -544,9 +544,10 @@ class MsgError(ValueError):
 
 IMAGE = "ghcr.io/fmstm/heron"
 # Команды, которым в Docker нужен терминал: спрашивают (new, init) или
-# останавливаются по Ctrl+C (setup, serve). Последним двум ещё нужен порт.
-_ASKS = {"new", "init", "setup", "serve"}
-_PORT = {"setup", "serve"}
+# останавливаются по Ctrl+C (setup, serve, studio). Последним трём ещё нужен порт,
+# как и `page add … --web` и `category add … --web` (студия на объекте).
+_ASKS = {"new", "init", "setup", "serve", "studio"}
+_PORT = {"setup", "serve", "studio"}
 # Команды правки: опросник в терминале, если ответы не пришли файлом.
 _EDITS = {"page", "category"}
 _COMMAND = re.compile(r"`heron ([^`]+)`")
@@ -569,15 +570,24 @@ def _asks(args: str) -> bool:
     if words[0] in _ASKS:
         return True
     if words[0] in _EDITS and words[1:2] == ["add"]:
-        return not any(w.startswith(("--answers", "--dump", "--web")) for w in words)
+        if "--web" in words:
+            return True  # студия: держит сервер до Ctrl+C
+        return not any(w.startswith(("--answers", "--dump")) for w in words)
     return False
+
+
+def _port(args: str) -> bool:
+    """Нужен ли порт: страница в браузере (setup, serve, studio, `… add --web`)."""
+    words = args.split()
+    if not words:
+        return False
+    return words[0] in _PORT or (words[0] in _EDITS and "--web" in words)
 
 
 def docker_command(args: str) -> str:
     """`heron <args>` целиком для Docker: та же команда, готовая к копированию."""
-    name = args.split(maxsplit=1)[0] if args.strip() else ""
     flags = " -it" if _asks(args) else ""
-    if name in _PORT:
+    if _port(args):
         flags += " -p 127.0.0.1:8000:8000"
     return (
         f'docker run --rm{flags} -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" '
@@ -1132,6 +1142,18 @@ TEXT["ru"].update(
             "Без флагов открывает конфигуратор в браузере (адрес - на экране). С --answers "
             "применяет ответы из файла - те же поля и та же проверка."
         ),
+        "help_studio": (
+            "Студия в браузере: вкладки «Сайт» (конфигуратор site.yaml), «Страницы» (дерево "
+            "категорий и страниц, формы полей с подсказками, создание, перенос с 301, блоки, "
+            "картинки) и «Справка темы».\n\n"
+            "Тот же сервер и ключ, что у heron setup: только этот компьютер, адрес с ключом "
+            "после «#» - на экране. Пишет те же файлы, что heron page add и category add: "
+            "нетронутое остаётся байт в байт.\n\n"
+            "\b\n"
+            "`heron studio`                     студия, вкладка «Страницы»\n"
+            "`heron page add about --web`       сразу на этой странице\n"
+            "`heron category add services --web` сразу на категории"
+        ),
         "help_schema": (
             "JSON Schema контрактов этой версии: для редактора, агента и CI (21 §10).\n\n"
             "\b\n"
@@ -1295,7 +1317,11 @@ TEXT["ru"].update(
             "Ответы из файла YAML (- значит stdin): поля по языкам, как у --dump."
         ),
         "help_opt_edit_dump": "Напечатать текущие значения полей в YAML (образец ответов) и выйти.",
-        "help_opt_web": "Открыть в студии в браузере (появится в следующем шаге выпуска).",
+        "help_opt_web": (
+            "Открыть студию в браузере сразу на этой странице или категории (новая - "
+            "заготовкой до первой записи). Адрес с ключом - на экране; --port, --host - как "
+            "у setup."
+        ),
         "help_opt_edit_yes": "Без вопросов: значения по умолчанию и флаги.",
         "help_opt_list_json": "Вывод в JSON - для агента и программ.",
         "help_opt_docs_lang": (
@@ -1373,6 +1399,18 @@ TEXT["en"].update(
             "Without flags it opens the configurator in a browser (the address is on "
             "screen). With --answers it applies answers from a file - the same fields "
             "and the same check."
+        ),
+        "help_studio": (
+            "The studio in a browser: tabs Site (the site.yaml configurator), Pages (the "
+            "tree of categories and pages, field forms with hints, creating, moving with 301, "
+            "blocks, pictures) and Theme reference.\n\n"
+            "The same server and key as heron setup: this computer only, the address with the "
+            "key after “#” is on screen. It writes the same files as heron page add and "
+            "category add: whatever is untouched stays byte for byte.\n\n"
+            "\b\n"
+            "`heron studio`                     the studio, tab Pages\n"
+            "`heron page add about --web`       right on this page\n"
+            "`heron category add services --web` right on the category"
         ),
         "help_schema": (
             "JSON Schema of this version's contracts (21 §10): for an editor, an agent "
@@ -1540,7 +1578,11 @@ TEXT["en"].update(
             "Answers from a YAML file (- means stdin): fields per language, as in --dump."
         ),
         "help_opt_edit_dump": "Print the current values of the fields as YAML (an answers sample).",
-        "help_opt_web": "Open in the studio in a browser (arrives in the next step of 0.3.0).",
+        "help_opt_web": (
+            "Open the studio in a browser right on this page or category (a new one is a "
+            "draft until the first save). The address with the key is on screen; --port, --host "
+            "- as for setup."
+        ),
         "help_opt_edit_yes": "No questions: the defaults and the flags.",
         "help_opt_list_json": "Output as JSON - for agents and programs.",
         "help_opt_docs_lang": (

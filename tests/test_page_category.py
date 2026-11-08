@@ -209,10 +209,22 @@ def test_lang_flag_limits_editing_to_one_language(site, tmp_path):
     assert bad.exit_code == 1 and "E005" in bad.output
 
 
-def test_web_flag_is_a_clean_hook_until_the_studio(site):
-    result = run("page", "add", "about", site, "--web")
-    assert result.exit_code == 0
-    assert "Студия в браузере" in result.output
+def test_web_flag_opens_the_studio_on_the_page_and_writes_nothing(site, monkeypatch):
+    from heron.setup import server
+
+    seen = {}
+
+    def fake(root, host, port, on_ready=None, start=None):
+        seen.update(start=start, port=port)
+        on_ready("KEY")
+
+    monkeypatch.setattr(server, "run", fake)
+    result = run("page", "add", "about", site, "--web", "--port", "8123")
+    assert result.exit_code == 0, result.output
+    assert "#KEY" in result.output and "about" in result.output
+    assert seen["port"] == 8123
+    assert seen["start"]["tab"] == "pages"
+    assert seen["start"]["target"]["kind"] == "page" and seen["start"]["target"]["key"] == "about"
     assert not (site / "content" / "ru" / "about.md").exists()
 
 

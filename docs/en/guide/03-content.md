@@ -65,6 +65,26 @@ Then:
 
 To delete a page, delete its file. If the old address was already in search, do not abandon it: add this address to `redirect_from` of the page that replaces it (the visitor is redirected, code 301), or to `gone` in `site.yaml` (the address answers "gone for good", code 410).
 
+## The studio in a browser
+
+The same - creating a page or a section, editing fields, translating, moving - can be done with the mouse, in the studio. The `studio` command opens it:
+
+```bash
+docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod studio my-site
+```
+
+The engine prints an address like `http://localhost:8000/#key` - open it whole, together with the part after `#`: this is the access key, without it the studio shows nothing. The studio is open on your computer only and closes with Ctrl+C in the terminal. The `--web` flag of `page add` and `category add` opens it right on the page you need: `page add about my-site --web` (in Docker - with the same `-it -p 127.0.0.1:8000:8000`).
+
+What you will see:
+
+- three tabs: Site - the `site.yaml` configurator, Pages - the work with content, Theme reference - what the theme can do, every block with a live example;
+- on the left - the tree of sections and pages. Each shows the languages of the site: `RU` - the file exists, `DE!` - the translation is not ready, struck through - there is no file. A page or a section can be dragged into another section: the files move in all languages, the old addresses get a 301;
+- on the right - the fields of the page by groups, as in the questionnaire: titles and description for search, the address, the menu, the cover, social networks, publishing, then the blocks of the page. Hover over the name of a field - a short hint; the `?` button opens help with an example. Errors and remarks show right at the field, by the same rules as `check`;
+- language tabs above the fields. The main language has all fields, the others - only the texts. In a new language file an empty field means "not translated yet": the language gets the mark `translation: pending`, and the production build does not publish it until the translation is there;
+- "+ Page" and "+ Category" (that is, a section) create a draft in all languages at once, "+ Block" adds a section of the form you need, "Upload" at a picture puts the file into `media/` and checks its width and proportions, "Check" and "Preview" do what `check` and `serve` do.
+
+The studio writes the same files as the commands, and only what you changed: your comments, the order of the fields and the hand-written markup stay as they were. The files appear on disk with the Save button.
+
 ## Sections
 
 A section is a folder of pages plus a separate page of the section itself, the file `_index.md`. For example, the "Services" section:

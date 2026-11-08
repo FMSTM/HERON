@@ -19,7 +19,7 @@ files:
     ru_sha256: "d4d853d952bed71c9b79fdfa15f4d4d8f0967c0321ce539d5e210492318be920"
     en_status: current
   - path: guide/03-content.md
-    ru_sha256: "20fa1712354730904817afd9e1a2bc3a60b44392104fb1cf5872a90f09408db3"
+    ru_sha256: "5ff66db38a52da5ccfc304657fcd5301d659c98ca84d5686a7e13e0d4c7304f1"
     en_status: current
   - path: guide/04-theme.md
     ru_sha256: "76b6c786fc45fc78cea6b4dfe8ec777052a72b18ec87af6e2a4aadbfbd7aba29"
@@ -49,7 +49,7 @@ files:
     ru_sha256: "cc4b363775f307039e7abf23e7e9d49f3c395cb402b221f5b0fc24408a111c67"
     en_status: current
   - path: spec/21-engine.md
-    ru_sha256: "3a3551f68ca3089c1974d3c8d0c45bf65cc922cf3f49598e6d437ab23e6db354"
+    ru_sha256: "02f6eb48935424d624a49c98b4e4bddef3082fbecc19189a9dc8b3284821b607"
     en_status: current
   - path: spec/22-deploy.md
     ru_sha256: "52e43ba657d1008bbc8dcca5584d3cfd84e8e271382bb38e5fd48e9282fd060e"
@@ -78,5 +78,5 @@ files:
 root_files:
   - ru: README.ru.md
     en: README.md
-    ru_sha256: "cc7c1dd506e7f5a3432a45b54b1bf30cd233b92f31b84d5bc7a74092483c9cde"
+    ru_sha256: "1e84268994387a08dcba37ebf797e43570eb65337d1c4620a94742cbf30174f8"
     en_status: current

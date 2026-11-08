@@ -429,7 +429,7 @@ def test_engine_code_names_no_agent_except_the_llms_hint():
             if not VENDORS.search(rest):
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel == "heron/setup/page.html" and "g_ai_about:" in line:
+            if rel == "heron/setup/page.js" and "g_ai_about:" in line:
                 continue  # подпись группы llms.txt в анкете
             bad.append(f"{rel}:{number}: {line.strip()[:120]}")
     assert not bad, "\n".join(bad)

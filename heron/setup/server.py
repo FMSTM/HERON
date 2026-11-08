@@ -1,16 +1,25 @@
-"""Локальная страница анкеты `heron setup`.
+"""Локальная страница конфигуратора `heron setup` и студии `heron studio`.
 
-Сервер живёт ровно столько, сколько открыта анкета. Граница доступа — токен,
-который видит только тот, кто запустил анкету: движок печатает его в терминале
+Сервер живёт ровно столько, сколько открыта страница. Граница доступа — токен,
+который видит только тот, кто запустил команду: движок печатает его в терминале
 в адресе страницы (`http://localhost:8000/#ключ`). В саму страницу токен не
 вшивается: её может получить любой, кто дотянулся до порта, а читать
 настройки, загружать тему и записывать site.yaml без токена нельзя — каждый
 запрос `/api/*` несёт его в заголовке X-Heron-Token. Часть после `#` браузер
 на сервер не отправляет, поэтому ключ не попадает ни в журналы, ни в Referer.
 
+Просмотр черновой сборки и справка темы открываются обычными ссылками, без
+заголовка: страница, у которой есть ключ, получает от `/api/session` cookie
+`HttpOnly; SameSite=Strict` с тем же ключом, и только с ним сервер отдаёт
+файлы просмотра и картинки из `media/`.
+
 Заголовок Host дополнительно обязан быть локальным: это закрывает подмену DNS
 (чужой сайт, имя которого вдруг указывает на 127.0.0.1), но границей доступа
 не является — его подделывает любой клиент.
+
+Скрипты страницы — отдельными файлами (`/_studio/*.js`): политика CSP
+`script-src 'self'`, как у собранного сайта, встроенных скриптов и
+обработчиков в разметке нет.
 
 В образе HERON сервер слушает все интерфейсы контейнера, а порт публикуется
 только на петлю машины: `-p 127.0.0.1:8000:8000`. На машине человека сервер
@@ -22,10 +31,12 @@ from __future__ import annotations
 import hmac
 import http.server
 import json
+import mimetypes
 import secrets
 import socketserver
 import tempfile
 import threading
+import urllib.parse
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +46,18 @@ from heron.setup.reasons import plain, run_lang, say
 
 MAX_BODY = 210 * 1024 * 1024
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "[::1]", "::1"}
+COOKIE = "heron-studio"
+ASSETS = {
+    "/_studio/setup.js": ("setup", "application/javascript; charset=utf-8"),
+    "/_studio/studio.js": ("studio.js", "application/javascript; charset=utf-8"),
+    "/_studio/studio.css": ("studio.css", "text/css; charset=utf-8"),
+}
+CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: blob:; frame-src 'self'; object-src 'none'; base-uri 'none'; "
+    "form-action 'self'; frame-ancestors {frames}"
+)
+STUDIO = ("tree", "open", "check", "save", "site-check", "preview", "start")
 
 
 class _Server(socketserver.ThreadingTCPServer):
@@ -42,9 +65,19 @@ class _Server(socketserver.ThreadingTCPServer):
     daemon_threads = True
 
 
-def run(root: Path, host: str, port: int, on_ready=None) -> None:
-    """Поднять анкету. `on_ready(token)` вызывается, когда порт открыт."""
-    from heron import setup
+def run(
+    root: Path,
+    host: str,
+    port: int,
+    on_ready=None,
+    start: dict[str, Any] | None = None,
+) -> None:
+    """Поднять страницу. `on_ready(token)` вызывается, когда порт открыт.
+
+    `start` - с чего открыться: `{"tab": "site"|"pages"|"ref", "target": {...},
+    "answers": {...}}` (`heron studio`, `page add --web`, `category add --web`).
+    """
+    from heron import setup, studio
 
     token = secrets.token_urlsafe(24)
     # Язык ответов сервера — язык запуска (--notes, HERON_NOTES, build.notes);
@@ -52,7 +85,11 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
     lang = run_lang(root)
     uploads: dict[str, Path] = {}
     workdir = tempfile.TemporaryDirectory(prefix="heron-setup-")
+    dist = Path(workdir.name) / "preview"
+    built = threading.Event()
+    lock = threading.Lock()
     done = threading.Event()
+    opening = dict(start or {"tab": "site"})
 
     class Handler(http.server.BaseHTTPRequestHandler):
         server_version = "heron-setup"
@@ -68,35 +105,90 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
             given = self.headers.get("X-Heron-Token") or ""
             return self._local() and hmac.compare_digest(given.encode(), token.encode())
 
-        def _send(self, code: int, body: bytes, kind: str) -> None:
+        def _cookie(self) -> bool:
+            """Ключ в cookie студии: просмотр и картинки открываются обычной ссылкой."""
+            given = ""
+            for part in (self.headers.get("Cookie") or "").split(";"):
+                name, _, value = part.strip().partition("=")
+                if name == COOKIE:
+                    given = value
+            return self._local() and hmac.compare_digest(given.encode(), token.encode())
+
+        def _send(
+            self, code: int, body: bytes, kind: str, frames: str = "'none'", extra=()
+        ) -> None:
             self.send_response(code)
             self.send_header("Content-Type", kind)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "no-referrer")
-            self.send_header(
-                "Content-Security-Policy",
-                "default-src 'self'; style-src 'self' 'unsafe-inline'; "
-                "script-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'",
-            )
+            self.send_header("Content-Security-Policy", CSP.format(frames=frames))
+            for name, value in extra:
+                self.send_header(name, value)
             self.end_headers()
             self.wfile.write(body)
 
-        def _json(self, code: int, data: Any) -> None:
+        def _json(self, code: int, data: Any, extra=()) -> None:
             body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-            self._send(code, body, "application/json; charset=utf-8")
+            self._send(code, body, "application/json; charset=utf-8", extra=extra)
+
+        def _route(self) -> tuple[str, dict[str, list[str]]]:
+            parsed = urllib.parse.urlsplit(self.path)
+            return urllib.parse.unquote(parsed.path), urllib.parse.parse_qs(parsed.query)
 
         def do_GET(self) -> None:  # noqa: N802
             if not self._local():
                 self._json(403, {"error": say(lang, "srv_local_only")})
                 return
-            if self.path in ("/", "/index.html"):
+            route, _query = self._route()
+            if route == "/":
                 self._send(200, setup.page(), "text/html; charset=utf-8")
-            elif not self._allowed():
+            elif route in ASSETS:
+                name, kind = ASSETS[route]
+                body = setup.script() if name == "setup" else studio.asset(name)
+                self._send(200, body, kind)
+            elif route.startswith("/api/"):
+                if not self._allowed():
+                    self._json(403, {"error": say(lang, "srv_token")})
+                elif route == "/api/state":
+                    self._json(200, setup.state(root, lang=lang))
+                else:
+                    self._json(404, {"error": say(lang, "srv_not_found")})
+            elif not self._cookie():
                 self._json(403, {"error": say(lang, "srv_token")})
-            elif self.path == "/api/state":
-                self._json(200, setup.state(root, lang=lang))
+            elif route.startswith("/_studio/media/"):
+                found = studio.media_file(root, route[len("/_studio/") :])
+                if found is None:
+                    self._json(404, {"error": say(lang, "srv_not_found")})
+                else:
+                    self._file(found)
+            else:
+                self._preview(route)
+
+        def _file(self, path: Path, code: int = 200) -> None:
+            kind = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+            if kind.startswith("text/") or kind in ("application/javascript", "image/svg+xml"):
+                kind += "; charset=utf-8"
+            self._send(code, path.read_bytes(), kind, frames="'self'")
+
+        def _preview(self, route: str) -> None:
+            """Файл черновой сборки студии: страницы, справка темы, стили и картинки."""
+            from heron.core import paths
+            from heron.core.watch import not_found
+
+            if not built.is_set():
+                self._json(404, {"error": say(lang, "srv_not_found")})
+                return
+            target = dist / route.lstrip("/")
+            if route.endswith("/") or target.is_dir():
+                target = target / "index.html"
+            if paths.inside(dist, target) and target.is_file():
+                self._file(target)
+                return
+            page = not_found(dist, route)
+            if page is not None:
+                self._file(page, 404)
             else:
                 self._json(404, {"error": say(lang, "srv_not_found")})
 
@@ -109,20 +201,76 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
                 self._json(413, {"error": say(lang, "srv_too_large")})
                 return
             body = self.rfile.read(length)
-            if self.path == "/api/upload":
+            route, query = self._route()
+            if route == "/api/upload":
                 ident = secrets.token_hex(8)
                 path = Path(workdir.name) / f"{ident}.archive"
                 path.write_bytes(body)
                 uploads[ident] = path
                 self._json(200, {"ok": True, "upload": ident})
                 return
-            if self.path == "/api/stop":
+            if route == "/api/stop":
                 self._json(200, {"ok": True})
                 done.set()
                 return
-            if self.path != "/api/save":
+            if route == "/api/session":
+                cookie = f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict"
+                self._json(200, {"ok": True}, extra=[("Set-Cookie", cookie)])
+                return
+            if route.startswith("/api/studio/"):
+                with lock:
+                    self._studio(route[len("/api/studio/") :], body, query)
+                return
+            if route != "/api/save":
                 self._json(404, {"error": say(lang, "srv_not_found")})
                 return
+            with lock:
+                self._setup_save(body)
+
+        def _studio(self, name: str, body: bytes, query: dict[str, list[str]]) -> None:
+            """Вкладка «Страницы» и справка темы: те же функции ядра, что у CLI."""
+            shown = lang
+            try:
+                if name == "upload":
+                    shown = _ui_lang((query.get("lang") or [lang])[0], lang)
+                    names = query.get("name") or [""]
+                    self._json(200, {"ok": True, **studio.upload(root, names[0], body)})
+                    return
+                if name not in STUDIO:
+                    self._json(404, {"error": say(lang, "srv_not_found")})
+                    return
+                data = json.loads(body.decode("utf-8") or "{}")
+                if not isinstance(data, dict):
+                    data = {}
+                shown = _ui_lang(data.get("lang"), lang)
+                if name == "start":
+                    out: dict[str, Any] = {"ok": True, **opening}
+                elif name == "tree":
+                    out = {"ok": True, **studio.tree(root, shown)}
+                elif name in ("open", "check"):
+                    out = {"ok": True, "state": studio.check(root, data, shown)}
+                elif name == "save":
+                    out = {"ok": True, **studio.save(root, data, shown)}
+                elif name == "site-check":
+                    out = studio.site_check(root, shown)
+                else:
+                    out = studio.preview(root, dist, shown, data.get("target"))
+                    built.set()
+                self._json(200, out)
+            except HeronError as error:
+                self._json(
+                    400,
+                    {
+                        "ok": False,
+                        "code": error.code,
+                        "error": rendered(error.message, shown),
+                        "hint": rendered(error.hint, shown) or "",
+                    },
+                )
+            except (ValueError, UnicodeDecodeError) as error:
+                self._json(400, {"ok": False, "error": str(error)})
+
+        def _setup_save(self, body: bytes) -> None:
             shown = lang
             try:
                 data = json.loads(body.decode("utf-8") or "{}")
@@ -196,6 +344,11 @@ def run(root: Path, host: str, port: int, on_ready=None) -> None:
     finally:
         server.shutdown()
         workdir.cleanup()
+
+
+def _ui_lang(value: Any, fallback: str) -> str:
+    """Язык ответа студии: язык страницы (ru, en), иначе язык запуска."""
+    return value if value in ("ru", "en") else fallback
 
 
 def _plain(error: ValueError, lang: str | None = None) -> str:

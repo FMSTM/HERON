@@ -14,7 +14,7 @@ from heron import setup, themes
 from heron.cli import main
 from heron.setup import server
 
-PAGE = Path(setup.__file__).parent / "page.html"
+PAGE = Path(setup.__file__).parent / "page.js"  # скрипт конфигуратора (ST8)
 CYR = re.compile("[А-Яа-яЁё]")
 
 

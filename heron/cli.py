@@ -1510,7 +1510,6 @@ def setup(
     if dump:
         click.echo(configurator.current_answers(path), nl=False)
         return
-    inside = in_container()
     if answers_file is not None:
         text = sys.stdin.read() if answers_file == "-" else Path(answers_file).read_text("utf-8")
         try:
@@ -1526,22 +1525,50 @@ def setup(
         _setup_report(result, lang, path)
         return
 
+    _open_page(path, lang, port, host, {"tab": "site"}, "setup_open")
+
+
+def _open_page(
+    path: Path,
+    lang: str,
+    port: int,
+    host: str | None,
+    start: dict,
+    opened: str,
+    shown: str | None = None,
+) -> None:
+    """Страница конфигуратора и студии: один сервер, один ключ, вкладка из `start`."""
     from heron.core.watch import default_host, shown_url
     from heron.setup.server import run
 
+    inside = in_container()
     where = host or default_host(inside)
 
     def ready(token: str) -> None:
         url = f"{shown_url(where, port)}#{token}"
-        click.secho(say(lang, "setup_open", url=url), fg="green", bold=True)
+        click.secho(say(lang, opened, url=url), fg="green", bold=True)
+        if shown:
+            click.echo(shown)
         if inside:
             click.echo(say(lang, "serve_container", port=port))
 
     try:
-        run(path, where, port, on_ready=ready)
+        run(path, where, port, on_ready=ready, start=start)
     except HeronError as error:
         _fail(error, lang)
     click.echo(say(lang, "serve_stopped"))
+
+
+@main.command(help="help_studio")
+@PORT_OPTION
+@_option("--host", default=None, metavar="help_mv_host", help="help_opt_setup_host")
+@NOTES_OPTION
+@_path_argument
+def studio(path: Path, port: int, host: str | None, notes: str | None) -> None:
+    """Студия в браузере: вкладки «Сайт», «Страницы», «Справка темы» (21 §10)."""
+    lang = _lang(notes or ctx_notes(), path)
+    _need_site(path, lang)
+    _open_page(path, lang, port, host, {"tab": "pages"}, "studio_open")
 
 
 def _setup_report(result, lang: str, path: Path) -> None:
@@ -1877,6 +1904,8 @@ def _edit_options(func):
             ),
             _option("--dump", is_flag=True, help="help_opt_edit_dump"),
             _option("--web", is_flag=True, help="help_opt_web"),
+            PORT_OPTION,
+            _option("--host", default=None, metavar="help_mv_host", help="help_opt_setup_host"),
             _option("-y", "--yes", is_flag=True, help="help_opt_edit_yes"),
         )
     ):
@@ -1905,7 +1934,7 @@ def _edit_session(
     edit_lang: str | None,
     answers_file: str | None,
     dump: bool,
-    web: bool,
+    web,
     yes: bool,
     asked: tuple[str, ...],
     preset,
@@ -1924,9 +1953,7 @@ def _edit_session(
             hint=", ".join(ctx.langs),
         )
     if web:
-        # Студия в браузере (ST8) открывает тот же объект; пока её нет - честно говорим.
-        click.secho(say(lang, "edit_web_soon"), fg="yellow")
-        click.echo(say(lang, "edit_web_now", command=_again(path, entity)))
+        _open_studio(path, lang, entity, web)
         return
     if dump:
         data = ops.dump_answers(entity)
@@ -1959,6 +1986,18 @@ def _edit_session(
     _saved_report(entity, saved, lang, path)
 
 
+def _open_studio(path: Path, lang: str, entity, web) -> None:
+    """`--web`: студия сразу на этой странице или категории (новая - заготовкой до записи)."""
+    port, host, target, answers = web
+    kind = "category" if entity.category else "page"
+    start = {"tab": "pages", "target": {"kind": kind, "key": entity.key, **target}}
+    if answers:
+        start["answers"] = answers
+    word = say(lang, "edit_con_category_word" if entity.category else "edit_con_page_word")
+    shown = say(lang, "studio_open_on", kind=word, key=entity.target or "/")
+    _open_page(path, lang, port, host, start, "studio_open", shown)
+
+
 def _changed(entity) -> bool:
     return any(page.text != entity.disk.get(lang) for lang, page in entity.pages.items())
 
@@ -1973,15 +2012,9 @@ def _validate(entity, lang: str) -> None:
     """Ошибки полей - E039 до записи; предупреждения печатаются и запись не держат."""
     from heron.edit import entity as ops
 
-    errors: list[str] = []
-    for code in entity.ctx.langs:
-        for issue in ops.issues(entity, code):
-            line = f"{code}: {issue.path} - {issue.message.text(lang)}"
-            if issue.level == "error":
-                errors.append(line)
-            elif code == entity.ctx.default or not ops.is_pending(entity, code):
-                # у непереведённой копии те же замечания, что у основного языка
-                click.secho("  " + say(lang, "edit_warning", text=line), fg="yellow", err=True)
+    errors, warnings = ops.problems(entity, lang)
+    for line in warnings:
+        click.secho("  " + say(lang, "edit_warning", text=line), fg="yellow", err=True)
     if errors:
         raise HeronError(
             code="E039",
@@ -2089,6 +2122,8 @@ def page_add(
     answers_file: str | None,
     dump: bool,
     web: bool,
+    port: int,
+    host: str | None,
     yes: bool,
     path: Path,
     notes: str | None,
@@ -2113,6 +2148,14 @@ def page_add(
     asked = tuple(
         name for name, given in (("type", page_type), ("category", category)) if given is not None
     )
+    web_start = None
+    if web:
+        early: dict = {}
+        if move_to is not None:
+            early["key"] = move_to
+        if page_type is not None and not entity.new:
+            early[ctx.default] = {"type": page_type}
+        web_start = (port, host, {"type": page_type} if entity.new else {}, early)
     _edit_session(
         path,
         lang,
@@ -2120,7 +2163,7 @@ def page_add(
         edit_lang=edit_lang,
         answers_file=answers_file,
         dump=dump,
-        web=web,
+        web=web_start,
         yes=yes,
         asked=asked,
         preset=preset,
@@ -2215,6 +2258,8 @@ def category_add(
     answers_file: str | None,
     dump: bool,
     web: bool,
+    port: int,
+    host: str | None,
     yes: bool,
     path: Path,
     notes: str | None,
@@ -2253,6 +2298,19 @@ def category_add(
         for name, given in (("type", page_type), ("children_type", children_type), ("view", view))
         if given is not None
     )
+    web_start = None
+    if web:
+        early: dict = {}
+        if not entity.new:
+            values = {"type": page_type, "children_type": children_type}
+            spec = ctx.theme.types.get(entity.main.type)
+            if view is not None and spec is not None and spec.views is not None:
+                values[spec.views.key] = view
+            values = {k: v for k, v in values.items() if v is not None}
+            if values:
+                early[ctx.default] = values
+        made = {"type": page_type, "children_type": children_type, "view": view}
+        web_start = (port, host, made if entity.new else {}, early)
     _edit_session(
         path,
         lang,
@@ -2260,7 +2318,7 @@ def category_add(
         edit_lang=edit_lang,
         answers_file=answers_file,
         dump=dump,
-        web=web,
+        web=web_start,
         yes=yes,
         asked=asked,
         preset=preset,

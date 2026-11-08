@@ -272,6 +272,7 @@ def fields(page: Page) -> list[Field]:
     """Все поля страницы по порядку показа: служебные, schema.org, секции и блоки."""
     out: list[Field] = []
     out.extend(_service_fields(page))
+    out.extend(_type_fields(page))
     out.extend(_schema_fields(page))
     for section_id, info, section in _section_order(page):
         out.extend(_section_fields(page, section_id, info, section))
@@ -285,11 +286,56 @@ def groups(page: Page) -> list[dict[str, str]]:
     names = [group["name"] for group in out]
     at = names.index("section") if "section" in names else len(out)
     out.insert(at, {"name": "schema", "title": say(lang, "edit_group_schema")})
+    out.insert(at, {"name": THEME_GROUP, "title": say(lang, "edit_group_theme")})
     return out
 
 
-def _front_readonly(page: Page) -> str | None:
-    return say(_lang(page, None), "edit_ro_front") if page.front.error else None
+THEME_GROUP = "theme"
+# Свои поля типа, у которых на каждом языке свой текст; остальные (enum, число,
+# флаг, дата, ссылка на страницу, картинка) - одни на все языки.
+TEXT_TYPES = ("text", "markdown", "list", "link")
+
+
+def type_specs(page: Page) -> dict[str, dict[str, Any]]:
+    """Свои поля фронтматтера типа страницы (`types.<тип>.fields`) по имени."""
+    return {spec["name"]: spec for spec in (_type_info(page) or {}).get("fields") or []}
+
+
+def _type_fields(page: Page) -> list[Field]:
+    """Свои поля типа: значение - в SEO-блоке под именем поля, подсказки - из темы."""
+    out = []
+    for name, spec in type_specs(page).items():
+        present, value = fronts.lookup(page.front, [name])
+        readonly = _front_readonly(page, [name])
+        if not present:
+            value = [] if spec["type"] == "list" else None
+        out.append(
+            Field(
+                path=name,
+                name=name,
+                type=spec["type"],
+                group=THEME_GROUP,
+                value=value,
+                present=present,
+                editable=readonly is None,
+                readonly=readonly,
+                required=bool(spec.get("required")),
+                where="frontmatter",
+                limits={k: spec.get(k) for k in LIMITS if spec.get(k) not in (None, [])},
+                fields=spec.get("fields"),
+                **_hints(spec),
+            )
+        )
+    return out
+
+
+def _front_readonly(page: Page, path: list[str] | None = None) -> str | None:
+    """Почему поле SEO-блока только для чтения: YAML не читается, якорь или ссылка YAML."""
+    if page.front.error:
+        return say(_lang(page, None), "edit_ro_front")
+    if path and fronts.shared(page.front, path):
+        return say(_lang(page, None), "edit_front_alias")
+    return None
 
 
 def _service_fields(page: Page) -> list[Field]:
@@ -658,6 +704,7 @@ def set_field(page: Page, path: str, value: Any) -> Page:
     if parts[0] == "category" and len(parts) == 1:
         raise EditError("edit_readonly", reason=Msg("edit_ro_path"))
     service = {item["name"]: item for item in page.contract.get("service", {}).get("page", [])}
+    own = type_specs(page)
     if parts[0] in service and len(parts) == 1:
         value = _coerce(service[parts[0]]["type"], value)
         parts = [service[parts[0]]["key"]]

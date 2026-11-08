@@ -31,7 +31,17 @@ from heron.core import paths
 from heron.core.errors import Collector, HeronError
 from heron.core.parser.frontmatter import FRONTMATTER
 from heron.edit.langs import folder_type, key_of, rel_for
-from heron.edit.model import INDEX, Field, Page, fields, load, set_field
+from heron.edit.model import (
+    INDEX,
+    TEXT_TYPES,
+    THEME_GROUP,
+    Field,
+    Page,
+    fields,
+    load,
+    set_field,
+    type_specs,
+)
 from heron.edit.slots import EditError
 from heron.edit.validate import Issue, validate
 from heron.messages import Msg
@@ -52,6 +62,8 @@ def translatable(item: Field) -> bool:
     """Поле со своим текстом на каждом языке: его спрашивают при переводе."""
     if not item.editable:
         return False
+    if item.group == THEME_GROUP:
+        return item.type in TEXT_TYPES
     if item.where == "frontmatter":
         return item.name in TRANSLATABLE
     if item.where == "heading":
@@ -450,6 +462,60 @@ def set_value(entity: Entity, lang: str, path: str, value: Any) -> None:
     if path == MENU:
         entity.site.update(page.site)
     entity.pages[lang] = page
+    own = type_specs(page).get(path)
+    if own is not None and own["type"] not in TEXT_TYPES and lang == entity.ctx.default:
+        # своё поле типа без текста (enum, число, флаг, дата, ссылка, картинка) -
+        # одно на все языки: те же значения у всех файлов страницы, без пометки
+        for code in entity.ctx.langs[1:]:
+            if code in entity.pages:
+                try:
+                    entity.pages[code] = set_field(entity.pages[code], path, value)
+                except EditError as error:
+                    raise HeronError(
+                        code="E039",
+                        message=Msg(
+                            "edit_field_failed", path=path, lang=code, reason=error.args[0]
+                        ),
+                    ) from error
+
+
+def _set_anchor(entity: Entity, old: str, value: Any) -> None:
+    """Новый якорь секции `old` на всех языках, где она есть; на основном её нет - ошибка."""
+    for lang in _with_pages(entity):
+        page = entity.pages[lang]
+        if lang != entity.ctx.default and page.body.get(old) is None:
+            continue
+        try:
+            entity.pages[lang] = set_field(page, f"sections.{old}.anchor", value)
+        except EditError as error:
+            raise HeronError(
+                code="E039",
+                message=Msg(
+                    "edit_field_failed",
+                    path=f"sections.{old}.anchor",
+                    lang=lang,
+                    reason=error.args[0],
+                ),
+            ) from error
+
+
+def unpublishes(entity: Entity, path: str, lang: str | None = None) -> list[str]:
+    """Языки, которые правка `path` снимет с публикации: секции на основном языке ещё нет.
+
+    Новую секцию получат все языки с файлом, и переведённые из них - пометку
+    «перевод не готов»: опросник и студия спрашивают подтверждение заранее.
+    """
+    parts = path.split(".")
+    lang = lang or entity.ctx.default
+    if len(parts) < 3 or parts[0] != "sections" or parts[1] == "intro":
+        return []
+    if lang != entity.ctx.default or page_of(entity, lang).body.get(parts[1]) is not None:
+        return []
+    return [
+        code
+        for code in entity.ctx.langs[1:]
+        if code in entity.pages and not entity.created(code) and not is_pending(entity, code)
+    ]
 
 
 def _category_value(value: Any) -> str:

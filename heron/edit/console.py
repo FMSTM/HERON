@@ -156,6 +156,10 @@ class Console:
             for number, option in enumerate(item.fields, 1):
                 tail = f" - {option['hint']}" if option.get("hint") else ""
                 self.io.echo(f"    {number}  {option['name']}{tail}", None, True)
+        elif item.type == "enum":
+            # своё поле темы: допустимые значения - номером или словом
+            for number, value in enumerate(item.limits.get("values") or [], 1):
+                self.io.echo(f"    {number}  {value}", None, True)
 
     def _help(self, item: Field) -> None:
         text = item.help or item.hint or self._say("edit_con_no_help")

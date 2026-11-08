@@ -330,7 +330,13 @@ class ViewsSpec(Hinted):
 
 
 class TypeSpec(Hinted):
-    """Тип страницы: какие секции использует и чем размечается."""
+    """Тип страницы: какие секции использует и чем размечается.
+
+    `fields` - свои поля фронтматтера страниц этого типа: то, что шаблоны читают
+    через `page.meta` (`eyebrow`, `status`, `metrics`). Описание - как у поля блока,
+    только без `md`: значение лежит в SEO-блоке под именем поля. Имя не совпадает
+    с полями движка (`title`, `slug`, `order`, …) - иначе ошибка контракта.
+    """
 
     uses: list[str] = Field(default_factory=list)
     jsonld: list[str] = Field(default_factory=list)
@@ -338,6 +344,25 @@ class TypeSpec(Hinted):
     sections: dict[str, SectionSpec] = Field(default_factory=dict)
     children_type: str | None = None
     views: ViewsSpec | None = None
+    fields: list[FieldSpec] | None = None
+
+    @field_validator("fields")
+    @classmethod
+    def _own_fields(cls, v: list[FieldSpec] | None) -> list[FieldSpec] | None:
+        if not v:
+            return v
+        _unique([f.name for f in v], "site_th_field_dup")
+        taken = reserved_fields()
+        for spec in v:
+            if spec.md is not None:
+                raise MsgError("site_th_type_field_md", name=repr(spec.name))
+            if spec.name in taken:
+                raise MsgError(
+                    "site_th_type_field_reserved",
+                    name=repr(spec.name),
+                    names=", ".join(sorted(taken)),
+                )
+        return v
 
     @field_validator("children_type", mode="before")
     @classmethod
@@ -557,10 +582,11 @@ class ThemeConfig(BaseModel):
 
     @property
     def described(self) -> bool:
-        """Тема описала поля: хотя бы у одного модуля есть `fields`."""
-        return isinstance(self.modules, dict) and any(
+        """Тема описала поля: хотя бы у одного модуля или типа есть `fields`."""
+        modules = isinstance(self.modules, dict) and any(
             spec.fields is not None for spec in self.modules.values()
         )
+        return modules or any(spec.fields for spec in self.types.values())
 
     def hint_langs(self) -> list[str]:
         """Языки подсказок: `languages`, иначе суффиксы, встречающиеся в подсказках."""
@@ -608,6 +634,20 @@ class ThemeConfig(BaseModel):
         return out
 
 
+def reserved_fields() -> set[str]:
+    """Ключи фронтматтера, которые знает движок: своё поле типа их не повторяет."""
+    from heron.contracts import fields as service
+    from heron.contracts.frontmatter import PageMeta
+
+    names = set(PageMeta.model_fields)
+    names |= {spec.key for spec in service.SERVICE if spec.where == "frontmatter" and spec.key}
+    names |= {spec.name for spec in service.SERVICE}
+    names |= {"view", "schema", "translation", "redirect_from", "gone", "extra", "lang", "key"}
+    names |= {"og_image_alt", "twitter_title", "twitter_description", "twitter_image"}
+    names |= {"canonical", "robots", "main", "additional", "total"}
+    return names
+
+
 def kinds_of(name: str, spec: ModuleSpec) -> list[str]:
     """Формы секций, которые рисует модуль: `kinds`, иначе форма с его именем."""
     if spec.kinds is not None:
@@ -628,6 +668,7 @@ def _all_fields(theme: ThemeConfig):
     for name, module in theme.module_specs.items():
         yield from _walk_fields(f"modules.{name}", module.fields)
     for type_name, spec in theme.types.items():
+        yield from _walk_fields(f"types.{type_name}", spec.fields)
         for section, info in spec.sections.items():
             yield from _walk_fields(f"types.{type_name}.sections.{section}", info.fields)
 

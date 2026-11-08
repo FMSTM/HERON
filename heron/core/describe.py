@@ -183,6 +183,7 @@ def _type(theme: ThemeConfig, name: str, lang: str) -> dict[str, Any]:
         "jsonld": list(spec.jsonld),
         "children_type": spec.children_type,
         "views": _views(theme, name, lang),
+        "fields": _fields(spec.fields, lang) or [],
         "sections": sections,
     }
 
@@ -399,6 +400,9 @@ def text(data: dict[str, Any], lang: str) -> str:
         hint = f" - {item['hint']}" if item["hint"] else ""
         lines.append(f"  {item['name']}{hint}")
         lines.extend(_hint_lines(item, "    ", full))
+        if item.get("fields"):
+            lines.append("    " + say(lang, "describe_type_fields"))
+            lines.extend(_field_lines(item["fields"], lang, "      ", full, places))
         for section in item["sections"]:
             name = say(lang, "describe_any") if section["any"] else section["id"]
             mark = "*" if section["required"] else ""

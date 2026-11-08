@@ -628,7 +628,43 @@ def _demo_links(text: str) -> str:
     return channel_links(text)
 
 
-def _demo(root: Path, lang: str, name: str, plan: Plan, force: bool, notes: str) -> None:
+# Надзаголовок демо-страницы - своё поле типа page стартовой темы.
+DEMO_EYEBROW = {
+    "uk": {"blocks": "Довідка теми"},
+    "ru": {"blocks": "Справка темы"},
+    "en": {"blocks": "Theme reference"},
+}
+
+
+def _with_line(head: str, line: str) -> str:
+    """Строка в SEO-блок перед закрывающей `---`."""
+    body, sep, tail = head.rstrip("\n").rpartition("\n---")
+    if not sep:
+        return head
+    return f"{body}\n{line}{sep}{tail}\n" + ("\n" if head.endswith("\n\n") else "")
+
+
+def _pending(text: str) -> str:
+    """Пометка «перевод не готов» на месте заготовки `# translation:` SEO-блока."""
+    line = re.compile(r"^# translation:[ \t]*(?P<hint>#[^\n]*)?$", re.M)
+    if not line.search(text):
+        return text
+    return line.sub(
+        lambda m: "translation: pending" + (f"  {m.group('hint')}" if m.group("hint") else ""),
+        text,
+        count=1,
+    )
+
+
+def _demo(
+    root: Path,
+    lang: str,
+    name: str,
+    plan: Plan,
+    force: bool,
+    notes: str,
+    main: bool = True,
+) -> None:
     """Демонстрационные страницы белой темы в язык `lang` и картинки к ним.
 
     Ссылки на репозиторий движка и образ в команде — на канал образа (`_demo_links`).
@@ -646,9 +682,15 @@ def _demo(root: Path, lang: str, name: str, plan: Plan, force: bool, notes: str)
             marker = "\n# children_type:"
             line = f"\nview: {view}\n# ↑ {_TYPE_HINTS[notes][2]}"
             head = head.replace(marker, line + marker, 1)
+        eyebrow = DEMO_EYEBROW.get(source, {}).get(page)
+        if eyebrow:
+            # своё поле типа page (types.page.fields в theme.yaml): демо его показывает
+            head = _with_line(head, f"eyebrow: {json.dumps(eyebrow, ensure_ascii=False)}")
         body = _demo_links((DEMO / source / f"{page}.md").read_text(encoding="utf-8"))
+        if copy:
+            head = _pending(head)
         _put(root, f"content/{lang}/{page}.md", head + "\n" + body, plan, force)
-    _starter(root, lang, name, plan, force, notes, pages=("404",))
+    _starter(root, lang, name, plan, force, notes, pages=("404",), pending=copy)
     for image in sorted(DEMO_MEDIA.glob("*")):
         if image.name == COVER_NAME:
             continue  # обложка по умолчанию лежит в media/ сайта, а не в media/demo/

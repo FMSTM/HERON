@@ -465,6 +465,9 @@ TITLES: dict[str, dict[str, str]] = {
         "E037": "the theme demo does not show every type, block or section view",
         "E038": "this form of the command was removed",
         "E039": "a field value or a questionnaire answer does not fit",
+        "E040": "a page with placeholder text in the production build",
+        "E041": "the theme contract in theme.yaml does not pass the check",
+        "E042": "an own page field from the theme contract is empty or does not fit",
     },
 }
 
@@ -2354,6 +2357,7 @@ TEXT["ru"].update(
         "describe_types_head": "Типы страниц и их секции по порядку (* - обязательно)",
         "describe_modules_head": "Блоки (модули темы) и их поля",
         "describe_any": "любые блоки",
+        "describe_type_fields": "свои поля страницы (в SEO-блоке):",
         "describe_children": "страницы внутри категории этого типа: {type}",
         "describe_views": "виды категории (ключ {key}): {views}",
         "describe_by_default": " (по умолчанию)",
@@ -2433,6 +2437,7 @@ TEXT["en"].update(
         "describe_types_head": "Page types and their sections in order (* - required)",
         "describe_modules_head": "Blocks (theme modules) and their fields",
         "describe_any": "any blocks",
+        "describe_type_fields": "own page fields (in the SEO block):",
         "describe_children": "pages inside a category of this type: {type}",
         "describe_views": "category views (key {key}): {views}",
         "describe_by_default": " (default)",

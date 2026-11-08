@@ -166,6 +166,11 @@ EN: dict[str, tuple[str, str]] = {
         "2af138b608",
         "Defaults from site.yaml in the language `lang`.",
     ),
+    "describe.schema.json#/$defs/Type/description": (
+        "2ede031c25",
+        "A page type: the sections in the order of `uses` and own front matter fields "
+        "(`fields`, without `md`).",
+    ),
     "describe.schema.json#/$defs/Views/description": (
         "2446208419",
         "Category views: the front matter key, the default view, the list of the theme views.",
@@ -185,8 +190,13 @@ EN: dict[str, tuple[str, str]] = {
         "in the theme, the mechanics in the core.",
     ),
     "theme.schema.json#/$defs/TypeSpec/description": (
-        "3d71382c00",
-        "A page type: which sections it uses and what markup it gets.",
+        "3688368fd1",
+        "A page type: which sections it uses and what markup it gets.\n\n"
+        "`fields` - own front matter fields of pages of this type: what templates read\n"
+        "via `page.meta` (`eyebrow`, `status`, `metrics`). The description is as for a block\n"
+        "field, only without `md`: the value lives in the SEO block under the field name. The\n"
+        "name does not coincide with engine fields (`title`, `slug`, `order`, …) - otherwise\n"
+        "a contract error.",
     ),
     "theme.schema.json#/description": (
         "95cc13f8ff",
@@ -457,9 +467,11 @@ def describe_schema(lang: str = "ru") -> dict[str, Any]:
             "jsonld": _STRINGS,
             "children_type": _STR_NULL,
             "views": {"anyOf": [_ref("Views"), {"type": "null"}]},
+            "fields": _array("Field"),
             "sections": _array("Section"),
             **hints,
-        }
+        },
+        "Тип страницы: секции по порядку `uses` и свои поля фронтматтера (`fields`, без `md`).",
     )
     kind = _object({"kind": {"type": "string"}, "class": _STR_NULL, "auto": {"type": "boolean"}})
     module = _object(

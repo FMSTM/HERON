@@ -38,6 +38,24 @@ TEXT = {
         "site_th_ratio": "пропорция {ratio} задаётся как 16:9",
         "site_th_widths": "ширины - положительные числа",
         "site_th_name": "имя темы - латиница, цифры, дефис и подчёркивание",
+        "site_th_type_field_md": (
+            "своё поле типа {name}: у него нет md - значение лежит в SEO-блоке страницы "
+            "под именем поля; место в markdown бывает только у полей блока"
+        ),
+        "site_th_type_field_reserved": (
+            "своё поле типа {name} совпадает с полем движка: такие поля описывает движок "
+            "(heron describe, «служебные поля»). Возьмите другое имя. Занятые: {names}"
+        ),
+        "site_th_fields_shape": (
+            "fields верхнего уровня theme.yaml - список имён полей движка, которые читают "
+            "шаблоны (fields: [date, updated]), а здесь записано другое: похоже на описание "
+            "полей блока или страницы"
+        ),
+        "site_th_fields_shape_hint": (
+            "поля блока - в modules.<блок>.fields или types.<тип>.sections.<секция>.fields, "
+            "свои поля фронтматтера страницы - в types.<тип>.fields; верхний fields оставьте "
+            "списком имён или уберите. Пример - `heron docs theme`, «Поля»"
+        ),
         "site_th_module_name": "имя модуля {module} - латиница, цифры, дефис и подчёркивание",
         "site_th_hint_text": "{key}: подсказка - строка текста",
         "site_th_field_name": "имя поля {name} - строчная латиница, цифры и подчёркивание, с буквы",
@@ -96,6 +114,24 @@ TEXT = {
         "site_th_ratio": "the ratio {ratio} is written as 16:9",
         "site_th_widths": "widths are positive numbers",
         "site_th_name": "the theme name is Latin letters, digits, hyphen and underscore",
+        "site_th_type_field_md": (
+            "own field {name} of a type has no md: its value lives in the SEO block of the "
+            "page under the field name; a place in markdown exists only for block fields"
+        ),
+        "site_th_type_field_reserved": (
+            "own field {name} of a type is the name of an engine field: those are described by "
+            'the engine (heron describe, "service fields"). Take another name. Taken: {names}'
+        ),
+        "site_th_fields_shape": (
+            "the top-level fields of theme.yaml is a list of names of engine fields the "
+            "templates read (fields: [date, updated]), and something else is written here: it "
+            "looks like a description of block or page fields"
+        ),
+        "site_th_fields_shape_hint": (
+            "block fields go into modules.<block>.fields or types.<type>.sections.<section>.fields, "
+            "the own front matter fields of a page - into types.<type>.fields; keep the top-level "
+            'fields a list of names or remove it. An example - `heron docs theme`, "Fields"'
+        ),
         "site_th_module_name": "the module name {module} must be Latin letters, digits, hyphen and underscore",
         "site_th_hint_text": "{key}: a hint is a line of text",
         "site_th_field_name": "the field name {name} is lowercase Latin letters, digits and underscore, starting with a letter",

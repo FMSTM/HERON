@@ -88,6 +88,20 @@ types:
   page:
     uses: [intro, "*"]
     children_type: page
+    fields:
+      - name: eyebrow
+        type: text
+        max_length: 40
+        hint_ru: Надзаголовок - короткая строка над h1, например раздел или тема
+        hint_en: An eyebrow - a short line above the h1, such as the section or the topic
+        help_ru: |-
+          Своё поле типа page: пишется в SEO-блоке строкой eyebrow: "Руководство". Тема показывает его мелким шрифтом над заголовком h1.
+          Хорошо: одно-три слова, которые говорят, к чему относится страница.
+          Частые ошибки: повторять h1, писать предложение целиком.
+        help_en: |-
+          An own field of the page type: written in the SEO block as the line eyebrow: "Guide". The theme shows it in small type above the h1.
+          Good: one to three words that tell what the page belongs to.
+          Common mistakes: repeating the h1, writing a whole sentence.
     hint_ru: Обычная страница - текст и блоки любой формы
     hint_en: An ordinary page - text and blocks of any form
     help_ru: |-

@@ -100,7 +100,9 @@ def _field(page: Page, item: Field, site_root: Path | None) -> list[Issue]:
             out.append(
                 Issue(
                     item.path,
-                    "warning" if item.name not in ("type", "children_type") else "error",
+                    "error"
+                    if item.name in ("type", "children_type") or item.group == "theme"
+                    else "warning",
                     Msg(
                         "edit_not_in_values",
                         field=item.path,

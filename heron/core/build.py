@@ -9,10 +9,12 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import os
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from heron.contracts import wiring
 from heron.contracts.site import SiteConfig, load_site
@@ -540,6 +542,9 @@ def content(
         hold_pending=prod,
     )
     pending_warnings(site, collector)
+    placeholders(site, collector, prod)
+    anchors_mismatch(site, collector)
+    type_fields(site, theme, collector)
     for page in site.pages:
         hooks.call("on_page_parsed", page)
     site.data = data_module.load(site_root / "data", collector)
@@ -564,6 +569,168 @@ def pending_warnings(site: Site, collector: Collector) -> None:
             collector.warn(
                 Msg("build_pending_shown", lang=page.lang), path=page.source, kind="переводы"
             )
+
+
+# Поля SEO-блока, в которых заготовка оставляет метку TODO.
+STUB_FIELDS = ("title", "h1", "description", "nav_title", "og_title", "og_description")
+
+
+def placeholders(site: Site, collector: Collector, prod: bool) -> None:
+    """Текст заготовки `page add` / `category add`, который так и не заменили (E040).
+
+    Метка `TODO` в начале поля SEO-блока или заголовка секции, строки-заготовки
+    тела на любом языке пояснений (на странице другого языка - тоже заготовка).
+    Боевая сборка с ними не публикуется - ошибка с файлом и полем; черновая
+    и `check` без `--env prod` - предупреждение.
+    """
+    from heron.scaffold.page import BODY
+
+    lines = {words[name] for words in BODY.values() for name in ("intro", "content")}
+    for page in site.pages:
+        found: list[tuple[str, str]] = []
+        for name in STUB_FIELDS:
+            value = getattr(page.meta, name, None)
+            if value is None:
+                value = page.meta.extra.get(name)
+            if isinstance(value, str) and value.strip().startswith("TODO"):
+                found.append((name, value.strip()))
+        blocks = [("intro", page.intro)] if page.intro is not None else []
+        blocks += list(page.sections.items())
+        for section_id, section in blocks:
+            if section_id != "intro" and section.title.strip().startswith("TODO"):
+                found.append((f"sections.{section_id}.heading", section.title.strip()))
+            for line in section.raw.splitlines():
+                if line.strip() in lines:
+                    found.append((f"sections.{section_id}", line.strip()))
+                    break
+        for where, text in found:
+            message = Msg("build_placeholder", field=where, text=text[:60])
+            if prod:
+                collector.error(
+                    "E040", message, path=page.source, hint=Msg("build_placeholder_hint")
+                )
+            else:
+                collector.warn(message, path=page.source, kind="прочее")
+
+
+def _blank(value: Any) -> bool:
+    return value is None or (isinstance(value, str | list | dict) and not value)
+
+
+TYPE_CHECKS = {
+    "number": lambda v: isinstance(v, int | float) and not isinstance(v, bool),
+    "flag": lambda v: isinstance(v, bool),
+    "list": lambda v: isinstance(v, list),
+    "date": lambda v: isinstance(v, dt.date | str),
+}
+
+
+def type_fields(site: Site, theme: ThemeConfig, collector: Collector) -> None:
+    """Свои поля фронтматтера типа (`types.<тип>.fields`): те же правила, что у редактора.
+
+    Обязательное пустое, значение не из `values`, значение не того типа - E042;
+    длина и число пунктов вне пределов - предупреждение.
+    """
+    for page in site.pages:
+        spec = theme.types.get(page.type)
+        if spec is None or not spec.fields:
+            continue
+        for item in spec.fields:
+            value = page.meta.get(item.name)
+            where = f"{item.name} ({page.type})"
+            if _blank(value):
+                if item.required:
+                    collector.error(
+                        "E042",
+                        Msg("build_type_field_required", field=item.name, type=page.type),
+                        path=page.source,
+                        hint=Msg("build_type_field_hint", field=item.name),
+                    )
+                continue
+            check = TYPE_CHECKS.get(item.type)
+            if check is not None and not check(value):
+                collector.error(
+                    "E042",
+                    Msg("build_type_field_type", field=where, kind=item.type, value=str(value)),
+                    path=page.source,
+                    hint=Msg("build_type_field_hint", field=item.name),
+                )
+                continue
+            if item.type == "enum" and str(value) not in item.values:
+                collector.error(
+                    "E042",
+                    Msg(
+                        "build_type_field_value",
+                        field=where,
+                        value=str(value),
+                        values=", ".join(item.values),
+                    ),
+                    path=page.source,
+                    hint=Msg("build_type_field_hint", field=item.name),
+                )
+                continue
+            if isinstance(value, str):
+                size = len(value.strip())
+                if (item.max_length and size > item.max_length) or (
+                    item.min_length and size < item.min_length
+                ):
+                    collector.warn(
+                        Msg(
+                            "build_type_field_length",
+                            field=where,
+                            length=size,
+                            min=item.min_length or 0,
+                            max=item.max_length or "-",
+                        ),
+                        path=page.source,
+                        kind="прочее",
+                    )
+            if isinstance(value, list):
+                count = len(value)
+                if (item.max_items and count > item.max_items) or (
+                    item.min_items and count < item.min_items
+                ):
+                    collector.warn(
+                        Msg(
+                            "build_type_field_items",
+                            field=where,
+                            count=count,
+                            min=item.min_items or 0,
+                            max=item.max_items or "-",
+                        ),
+                        path=page.source,
+                        kind="прочее",
+                    )
+
+
+def anchors_mismatch(site: Site, collector: Collector) -> None:
+    """Якоря секций - структура страницы: на всех языках одни и те же (предупреждение).
+
+    Студия и `page add` меняют якорь сразу на всех языках; расхождение - след
+    ручной правки одного файла: ссылки `#якорь` с других языков ведут в никуда.
+    """
+    by_key: dict[str, list] = {}
+    for page in site.pages:
+        by_key.setdefault(page.key, []).append(page)
+    for _key, pages in sorted(by_key.items()):
+        if len(pages) < 2:
+            continue
+        base = pages[0]
+        anchors = list(base.sections)
+        for page in pages[1:]:
+            mine = list(page.sections)
+            if set(mine) != set(anchors):
+                collector.warn(
+                    Msg(
+                        "build_anchors_differ",
+                        lang=page.lang,
+                        other=base.lang,
+                        missing=", ".join(a for a in anchors if a not in mine) or "-",
+                        extra=", ".join(a for a in mine if a not in anchors) or "-",
+                    ),
+                    path=page.source,
+                    kind="переводы",
+                )
 
 
 def _roots(site: Site, config: SiteConfig, collector: Collector, prod: bool) -> None:

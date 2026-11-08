@@ -2,6 +2,7 @@
 {% block content %}
 {{ mod.breadcrumbs() }}
 <header class="page-head">
+  {% if page.meta.get('eyebrow') %}<p class="eyebrow">{{ page.meta.get('eyebrow') }}</p>{% endif %}
   <h1>{{ page.h1 }}</h1>
   {% if page.intro %}<div class="intro">{{ page.intro.html|safe }}</div>{% endif %}
 </header>

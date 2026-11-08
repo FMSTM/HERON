@@ -8,6 +8,31 @@ TEXT: dict[str, dict[str, str]] = {
             "перевод на {lang} не готов (translation: pending): боевая сборка эту версию "
             "не публикует - ни страницы, ни ссылок на неё в меню, sitemap и hreflang"
         ),
+        "build_type_field_required": (
+            "поле {field} обязательно для страниц типа {type} (types.{type}.fields в theme.yaml)"
+        ),
+        "build_type_field_type": "{field}: ждём {kind}, а записано {value!r}",
+        "build_type_field_value": "{field}: {value!r} - нет среди допустимых: {values}",
+        "build_type_field_hint": (
+            "впишите {field} в SEO-блок страницы или откройте её командой `heron page add` "
+            "с её ключом: поле и подсказка - в группе «Поля темы»"
+        ),
+        "build_type_field_length": "{field}: {length} знаков, тема ждёт от {min} до {max}",
+        "build_type_field_items": "{field}: пунктов {count}, тема ждёт от {min} до {max}",
+        "build_placeholder": ("{field}: текст заготовки «{text}» - страница ещё не дописана"),
+        "build_placeholder_hint": (
+            "замените текст заготовки своим (или уберите секцию): `heron page add` с ключом "
+            "страницы откроет её на правку. Черновая сборка покажет страницу, боевая - нет"
+        ),
+        "build_anchors_differ": (
+            "якоря секций на {lang} не те, что на {other}: нет {missing}, лишние {extra}. "
+            "Якорь - часть структуры страницы, он один на всех языках"
+        ),
+        "build_pending_category": (
+            "категория {category} на {lang} не переведена (translation: pending в её _index.md): "
+            "боевая сборка не публикует её вместе со страницами внутри, и эту тоже. "
+            "Переведите категорию: `heron category add {category}`"
+        ),
         "build_pending_shown": (
             "перевод на {lang} не готов (translation: pending): здесь страница с плашкой, "
             "боевая сборка её не опубликует. Перевели - удалите строку translation"
@@ -79,6 +104,33 @@ TEXT: dict[str, dict[str, str]] = {
             "the {lang} translation is not ready (translation: pending): the production build "
             "does not publish this version - no page, no links to it in the menu, sitemap and "
             "hreflang"
+        ),
+        "build_type_field_required": (
+            "the field {field} is required for pages of type {type} (types.{type}.fields in "
+            "theme.yaml)"
+        ),
+        "build_type_field_type": "{field}: expected {kind}, written {value!r}",
+        "build_type_field_value": "{field}: {value!r} is not among the allowed: {values}",
+        "build_type_field_hint": (
+            "write {field} into the SEO block of the page or open it with `heron page add` and "
+            'its key: the field and its hint are in the group "Theme fields"'
+        ),
+        "build_type_field_length": "{field}: {length} characters, the theme expects {min} to {max}",
+        "build_type_field_items": "{field}: {count} items, the theme expects {min} to {max}",
+        "build_placeholder": '{field}: placeholder text "{text}" - the page is not finished',
+        "build_placeholder_hint": (
+            "replace the placeholder with your own text (or remove the section): `heron page "
+            "add` with the key of the page opens it for editing. A draft build shows the page, "
+            "the production build does not"
+        ),
+        "build_anchors_differ": (
+            "the section anchors in {lang} differ from {other}: missing {missing}, extra {extra}. "
+            "An anchor is part of the page structure, one for all languages"
+        ),
+        "build_pending_category": (
+            "the category {category} is not translated into {lang} (translation: pending in its "
+            "_index.md): the production build does not publish it together with the pages "
+            "inside, this one too. Translate the category: `heron category add {category}`"
         ),
         "build_pending_shown": (
             "the {lang} translation is not ready (translation: pending): shown here with a "

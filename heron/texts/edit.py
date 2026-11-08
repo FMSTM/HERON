@@ -39,6 +39,7 @@ TEXT: dict[str, dict[str, str]] = {
         "edit_section_exists": "секция с якорем {section!r} на странице уже есть",
         "edit_heading_empty": "у блока должен быть заголовок",
         "edit_group_schema": "Разметка для поисковиков",
+        "edit_group_theme": "Поля темы",
         "edit_schema_hint": "Уточнения разметки {kind} для этой страницы поверх site.yaml",
         "edit_schema_help": (
             "Поля разметки schema.org типа {kind}: их читают поисковики, на странице их не видно. "
@@ -230,6 +231,7 @@ TEXT: dict[str, dict[str, str]] = {
         "edit_section_exists": "the page already has a section with the anchor {section!r}",
         "edit_heading_empty": "a block needs a heading",
         "edit_group_schema": "Markup for search engines",
+        "edit_group_theme": "Theme fields",
         "edit_schema_hint": "Refinements of the {kind} markup for this page on top of site.yaml",
         "edit_schema_help": (
             "The fields of the schema.org {kind} markup: search engines read them, the page "

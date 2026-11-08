@@ -37,6 +37,70 @@ BODY = {
 MARKER = "\n# children_type:"
 
 
+HEADING = re.compile(
+    r"^##[ \t]+.*?\{#[^\s}]+(?P<classes>(?:[ \t]+\.[A-Za-z0-9_-]+)*)[ \t]*\}[ \t]*$"
+)
+
+
+def _section(theme: ThemeConfig, page_type: str, section: str, notes: str, words) -> str:
+    """Заготовка секции в той форме, которую ждёт тема: содержимое - образец модуля.
+
+    Форма - из `uses` (`"how:steps"`), образец - `example` модуля этой формы на языке
+    пояснений. Заголовок - метка TODO (её ловит боевая сборка), класс якоря - из
+    образца (`{#tabs .tabs}`): без него вкладки и галерею не узнать. Образца нет -
+    абзац TODO, как раньше.
+    """
+    kind = theme.formats_of(page_type).get(section)
+    module = theme.module_for(kind) if kind else None
+    spec = theme.module_specs.get(module) if module else None
+    example = (spec.text("example", notes) if spec is not None else None) or ""
+    lines = example.strip("\n").splitlines()
+    match = HEADING.match(lines[0]) if lines else None
+    if match is None:
+        return f"## {words['heading']} {{#{section}}}\n\n{words['content']}\n"
+    rest = lines[1:]
+    stop = next((i for i, line in enumerate(rest) if line.startswith("## ")), len(rest))
+    content = "\n".join(rest[:stop]).strip("\n")
+    classes = match.group("classes").strip()
+    anchor = f"#{section}" + (f" {classes}" if classes else "")
+    return f"## {words['heading']} {{{anchor}}}\n\n{content}\n"
+
+
+def _own_value(field, notes: str, words) -> object:
+    """Значение обязательного своего поля в заготовке: образец темы или метка TODO."""
+    example = field.text("example", notes)
+    if field.type == "enum":
+        return field.values[0]
+    if field.type == "flag":
+        return False
+    if field.type == "number":
+        return 0
+    if field.type == "list":
+        return [example or words["heading"]]
+    return example or words["heading"]
+
+
+def _own_fields(head: str, fields, notes: str, words) -> str:
+    """Свои поля типа в SEO-блок заготовки перед закрывающей `---`.
+
+    Обязательное - со значением (первое из `values`, образец темы или TODO: его
+    поймает боевая сборка, E040), необязательное - заготовкой `# имя:` с подсказкой:
+    опросник и студия раскомментируют её на месте.
+    """
+    lines = []
+    for field in fields:
+        hint = field.text("hint", notes) or ""
+        if field.required:
+            value = json.dumps(_own_value(field, notes, words), ensure_ascii=False)
+            lines.append(f"{field.name}: {value}" + (f"   # {hint}" if hint else ""))
+        else:
+            lines.append(f"# {field.name + ':':<26} # {hint}".rstrip(" #"))
+    body, sep, tail = head.rstrip("\n").rpartition("\n---")
+    if not sep:
+        return head
+    return body + "\n" + "\n".join(lines) + sep + tail + "\n"
+
+
 def title_of(key: str) -> str:
     """Заголовок по умолчанию: последняя часть ключа словами, `about-agency` - `About agency`."""
     name = key.strip("/").rsplit("/", 1)[-1]
@@ -78,6 +142,8 @@ def stub(
     elif lines:
         head = head.replace(MARKER, lines + MARKER, 1)
 
+    if spec is not None and spec.fields:
+        head = _own_fields(head, spec.fields, notes, words)
     sections = theme.sections_of(page_type) or ["intro"]
     body: list[str] = []
     for section in sections:

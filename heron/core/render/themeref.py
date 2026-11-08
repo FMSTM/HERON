@@ -118,6 +118,7 @@ def _schema(theme: ThemeConfig) -> list[dict[str, str]]:
             out.append({"where": f"modules.{name}", "schemaorg": spec.schemaorg})
         _schema_fields(f"modules.{name}", spec.fields, out)
     for name, spec in theme.types.items():
+        _schema_fields(f"types.{name}", spec.fields, out)
         for section, info in spec.sections.items():
             _schema_fields(f"types.{name}.sections.{section}", info.fields, out)
     return out
@@ -257,6 +258,12 @@ def text(data: dict[str, Any], lang: str) -> str:
         lines.append(f"  {item['name']}{hint}")
         lines.extend(_indent(item["help"], "    "))
         lines.append("    " + say(lang, "ref_template", template=item["template"]))
+        if item.get("fields"):
+            lines.append("    " + say(lang, "describe_type_fields"))
+            for spec in item["fields"]:
+                mark = "*" if spec["required"] else ""
+                tail = f" - {spec['hint']}" if spec.get("hint") else ""
+                lines.append(f"      {spec['name']}{mark} ({spec['type']}){tail}")
         for section in item["sections"]:
             name = say(lang, "describe_any") if section["any"] else section["id"]
             mark = "*" if section["required"] else ""
@@ -543,6 +550,9 @@ def html(data: dict[str, Any], live: Live, found: Shown, config: SiteConfig) -> 
                 for key in ("ref_col_section", "ref_col_kind", "ref_col_hint")
             )
             add(f"<table><thead><tr>{head}</tr></thead><tbody>{''.join(rows)}</tbody></table>")
+        if item.get("fields"):
+            add(f"<p>{_esc(say(lang, 'describe_type_fields'))}</p>")
+            add(_fields_table(item["fields"], lang, places))
         for section in item["sections"]:
             if section["fields"]:
                 add(f"<p><code>{_esc(section['id'])}</code></p>")

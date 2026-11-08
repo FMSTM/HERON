@@ -46,6 +46,7 @@ class Front:
     data: dict[str, Any]
     root: MappingNode | None
     error: str | None = None
+    raw: str = ""
 
 
 def read(text: str) -> Front:
@@ -63,8 +64,8 @@ def read(text: str) -> Front:
     if data is None:
         data, root = {}, None
     if not isinstance(data, dict) or (root is not None and not isinstance(root, MappingNode)):
-        return Front(True, start, end, match.end(), {}, None, error="not a mapping")
-    return Front(True, start, end, match.end(), data, root)
+        return Front(True, start, end, match.end(), {}, None, error="not a mapping", raw=raw)
+    return Front(True, start, end, match.end(), data, root, raw=raw)
 
 
 # --- значения ---------------------------------------------------------------------
@@ -98,7 +99,44 @@ def span(front: Front, path: list[str]) -> tuple[int, int] | None:
         node = found[1]
     if node is None:
         return None
-    return front.start + node.start_mark.index, front.start + _leaf_end(node)
+    return front.start + node.start_mark.index, front.start + _leaf_end(node, front.raw)
+
+
+def shared(front: Front, path: list[str]) -> bool:
+    """Значение по пути - якорь `&имя` или ссылка `*имя` (или лежит внутри такого узла).
+
+    Правка такого значения меняет и другое поле, которое на него ссылается, или
+    рвёт ссылку: поле только для чтения.
+    """
+    node: Node | None = front.root
+    for key in path:
+        if isinstance(node, SequenceNode) and key.isdigit() and int(key) < len(node.value):
+            child = node.value[int(key)]
+            if _anchored(front.raw, child) or _aliased(front.raw, child, None):
+                return True
+            node = child
+            continue
+        if not isinstance(node, MappingNode):
+            return False
+        found = _find(node, key)
+        if found is None:
+            return False
+        key_node, child = found
+        if _anchored(front.raw, child) or _aliased(front.raw, child, key_node):
+            return True
+        node = child
+    return False
+
+
+def _anchored(raw: str, node: Node) -> bool:
+    return raw[node.start_mark.index : node.start_mark.index + 1] == "&"
+
+
+def _aliased(raw: str, node: Node, key: ScalarNode | None) -> bool:
+    """Ссылка `*имя`: `compose` отдаёт узел якоря, а он записан раньше ключа."""
+    if raw[node.start_mark.index : node.start_mark.index + 1] == "*":
+        return True
+    return key is not None and node.start_mark.index < key.end_mark.index
 
 
 def _pairs(node: MappingNode) -> list[tuple[ScalarNode, Node]]:
@@ -112,12 +150,21 @@ def _find(node: MappingNode, key: str) -> tuple[ScalarNode, Node] | None:
     return None
 
 
-def _leaf_end(node: Node) -> int:
-    """Конец последнего значения узла (у блочных узлов `end_mark` захватывает хвост)."""
+def _leaf_end(node: Node, raw: str) -> int:
+    """Конец последнего значения узла (у блочных узлов `end_mark` захватывает хвост).
+
+    Блочный скаляр (`|`, `|-`, `>+2`) кончается на последней строке своего текста:
+    `end_mark` у него - начало следующей строки, после перевода строки и пустых
+    строк, а там уже комментарий или следующий ключ.
+    """
     if isinstance(node, MappingNode) and not node.flow_style and node.value:
-        return _leaf_end(node.value[-1][1]) if node.value[-1][1] else node.end_mark.index
+        last = node.value[-1][1]
+        return _leaf_end(last, raw) if last else node.end_mark.index
     if isinstance(node, SequenceNode) and not node.flow_style and node.value:
-        return _leaf_end(node.value[-1])
+        return _leaf_end(node.value[-1], raw)
+    if isinstance(node, ScalarNode) and node.style in ("|", ">"):
+        start, end = node.start_mark.index, node.end_mark.index
+        return start + len(raw[start:end].rstrip(" \t\r\n"))
     return node.end_mark.index
 
 
@@ -232,6 +279,8 @@ def set_value(text: str, front: Front, path: list[str], value: Any, nl: str) -> 
     """Отрезок и замена, которые записывают `value` по пути ключей."""
     if front.error is not None:
         raise FrontError("edit_front_broken")
+    if shared(front, path):
+        raise FrontError("edit_front_alias")
     if not front.present:
         head = 1 if text.startswith(BOM) else 0
         entry = block(path[0], _nest(path[1:], value), 0, nl)
@@ -252,7 +301,7 @@ def set_value(text: str, front: Front, path: list[str], value: Any, nl: str) -> 
             if depth == 0:
                 return _insert_top(text, front, path, value, nl)
             indent = _indent_of(text, node)
-            where = base + _leaf_end(node)
+            where = base + _leaf_end(node, front.raw)
             _, line_end = _line_bounds(text, where)
             entry = block(key, _nest(rest, value), indent, nl)
             return line_end, line_end, nl + entry
@@ -272,15 +321,15 @@ def set_value(text: str, front: Front, path: list[str], value: Any, nl: str) -> 
                     rest,
                     value,
                 )
-                return _replace(text, base, key_node, value_node, merged, nl)
+                return _replace(text, front, key_node, value_node, merged, nl)
             if (
                 isinstance(value_node, ScalarNode)
                 and value_node.value in ("", None)
                 and value_node.tag.endswith(":null")
             ):
-                return _replace(text, base, key_node, value_node, target, nl)
+                return _replace(text, front, key_node, value_node, target, nl)
             raise FrontError("edit_front_not_mapping")
-        return _replace(text, base, key_node, value_node, value, nl)
+        return _replace(text, front, key_node, value_node, value, nl)
     raise FrontError("edit_front_not_mapping")  # pragma: no cover - путь не пуст
 
 
@@ -296,10 +345,11 @@ def _merge(data: dict, path: list[str], value: Any) -> dict:
 
 
 def _replace(
-    text: str, base: int, key_node: ScalarNode, value_node: Node, value: Any, nl: str
+    text: str, front: Front, key_node: ScalarNode, value_node: Node, value: Any, nl: str
 ) -> Edit:
+    base = front.start
     start = base + value_node.start_mark.index
-    end = base + _leaf_end(value_node)
+    end = base + _leaf_end(value_node, front.raw)
     block_node = isinstance(value_node, MappingNode | SequenceNode) and not value_node.flow_style
     empty = isinstance(value_node, ScalarNode) and start == end
     indent = key_node.start_mark.column
@@ -308,15 +358,153 @@ def _replace(
         colon = _colon(text, base + key_node.end_mark.index)
         return colon, end, nl + nl.join(lines)
     if isinstance(value, list) and value and block_node and isinstance(value_node, SequenceNode):
+        kept = _seq_edit(text, front, value_node, value, nl)
+        if kept is not None:
+            return kept
         pad = " " * value_node.start_mark.column
         rows = [_item_text(text, base, value_node, index, item) for index, item in enumerate(value)]
         return start, end, (nl + pad).join(rows)
+    if (
+        isinstance(value, list)
+        and value
+        and isinstance(value_node, SequenceNode)
+        and value_node.flow_style
+        and not any(isinstance(item, dict | list) for item in value)
+    ):
+        # список в скобках: прежние пункты - как написаны (кавычки), новые - как обычно
+        olds = [
+            (yaml.safe_load(front.raw[i.start_mark.index : i.end_mark.index]), i)
+            for i in value_node.value
+            if isinstance(i, ScalarNode)
+        ]
+        parts = []
+        for item in value:
+            same = next((node for loaded, node in olds if loaded == item), None)
+            if same is not None:
+                parts.append(front.raw[same.start_mark.index : same.end_mark.index])
+            else:
+                parts.append(scalar(item, flow=True))
+        return start, end, "[" + ", ".join(parts) + "]"
     style = value_node.style if isinstance(value_node, ScalarNode) else None
+    if style in ("|", ">") and isinstance(value, str) and value:
+        written = _block_scalar(text, front, value_node, value, nl)
+        if written is not None:
+            return start, end, written
     inline = scalar(value, style if style in ('"', "'") else None)
     if block_node or empty:
         colon = _colon(text, base + key_node.end_mark.index)
         return colon, end, (" " + inline) if inline else ""
     return start, end, inline
+
+
+def _block_scalar(text: str, front: Front, node: ScalarNode, value: str, nl: str) -> str | None:
+    """Новое значение блочного скаляра в том же стиле: `|-`, `|`, `>-` и строки с отступом.
+
+    Отступ - как у прежнего текста. Значение, которое так не записать без потерь
+    (ведущий пробел, хвост из нескольких переводов строки, `\r`), - None: тогда
+    одной строкой в кавычках.
+    """
+    if "\r" in value or value.startswith((" ", "\t")) or value.endswith("\n\n"):
+        return None
+    raw = front.raw[node.start_mark.index : node.end_mark.index]
+    lines = raw.splitlines()
+    content = next((line for line in lines[1:] if line.strip()), None)
+    column = len(content) - len(content.lstrip(" ")) if content else 0
+    if column <= 0:
+        return None
+    body = value[:-1] if value.endswith("\n") else value
+    chomp = "" if value.endswith("\n") else "-"
+    folded = node.style == ">" and "\n" not in body
+    header = (">" if folded else "|") + chomp
+    pad = " " * column
+    rows = [pad + row if row else "" for row in body.split("\n")]
+    try:
+        same = yaml.safe_load("k: " + header + "\n" + "\n".join(rows) + "\n") == {"k": value}
+    except yaml.YAMLError:
+        return None
+    return nl.join([header, *rows]) if same else None
+
+
+def _row(text: str, base: int, item: Node) -> tuple[int, int] | None:
+    """Строка пункта блочного списка: (начало строки с `-`, начало значения); иначе None."""
+    at = base + item.start_mark.index
+    line_start = max(text.rfind("\n", 0, at), text.rfind("\r", 0, at)) + 1
+    head = text[line_start:at]
+    if head.strip() != "-":
+        return None
+    return line_start, at
+
+
+def _seq_edit(text: str, front: Front, node: SequenceNode, value: list, nl: str) -> Edit | None:
+    """Блочный список пунктами-строками: правка по пунктам, комментарии между ними на месте.
+
+    Прежние пункты остаются как написаны (кавычки, комментарии в строке), новые
+    дописываются после соседнего прежнего, убранные - уходят своей строкой.
+    Список не из строк-скаляров - None: его пишут целиком.
+    """
+    from difflib import SequenceMatcher
+
+    base = front.start
+    items = node.value
+    rows = []
+    for item in items:
+        if not isinstance(item, ScalarNode) or item.style in ("|", ">"):
+            return None
+        row = _row(text, base, item)
+        if row is None:
+            return None
+        leaf = base + _leaf_end(item, front.raw)
+        rows.append((row[0], row[1], leaf, _line_bounds(text, leaf)[1]))
+    if any(isinstance(entry, dict | list) for entry in value):
+        return None
+    old = [yaml.safe_load(front.raw[i.start_mark.index : i.end_mark.index]) for i in items]
+    pad = text[rows[0][0] : rows[0][1]].split("-")[0]
+    region_start, region_end = rows[0][0], rows[-1][3]
+    edits: list[tuple[int, int, str]] = []
+
+    def line_after(pos: int) -> int:
+        match = re.compile(r"\r\n|\r|\n").search(text, pos)
+        return match.end() if match else len(text)
+
+    def new_row(entry: Any) -> str:
+        return f"{pad}- {scalar(entry)}"
+
+    def drop(index: int) -> None:
+        if index == len(rows) - 1 and index > 0:
+            # последний пункт: вместе с переводом строки перед ним, хвост файла не трогаем
+            begin = rows[index][0]
+            begin -= 2 if text[begin - 2 : begin] == "\r\n" else 1
+            edits.append((begin, rows[index][3], ""))
+        else:
+            stop = min(line_after(rows[index][3]), region_end)
+            edits.append((rows[index][0], stop, ""))
+
+    keys = [json.dumps(v, sort_keys=True, default=str) for v in old]
+    wanted = [json.dumps(v, sort_keys=True, default=str) for v in value]
+    for op, i1, i2, j1, j2 in SequenceMatcher(None, keys, wanted, autojunk=False).get_opcodes():
+        if op == "equal":
+            continue
+        pairs = min(i2 - i1, j2 - j1) if op == "replace" else 0
+        for k in range(pairs):
+            item = items[i1 + k]
+            style = item.style if item.style in ('"', "'") else None
+            edits.append((rows[i1 + k][1], rows[i1 + k][2], scalar(value[j1 + k], style)))
+        for k in range(i1 + pairs, i2):
+            drop(k)
+        extra = value[j1 + pairs : j2]
+        if extra:
+            if i1 + pairs > 0:
+                at = rows[i1 + pairs - 1][3]
+                edits.append((at, at, "".join(nl + new_row(e) for e in extra)))
+            else:
+                at = rows[0][0]
+                edits.append((at, at, "".join(new_row(e) + nl for e in extra)))
+    if not edits:
+        return None
+    out = text[region_start:region_end]
+    for s, e, new in sorted(edits, key=lambda x: (x[0], x[1]), reverse=True):
+        out = out[: s - region_start] + new + out[e - region_start :]
+    return region_start, region_end, out
 
 
 def _item_text(text: str, base: int, node: SequenceNode, index: int, item: Any) -> str:
@@ -353,6 +541,8 @@ def unset(text: str, front: Front, path: list[str], nl: str) -> Edit | None:
     """
     if front.error is not None:
         raise FrontError("edit_front_broken")
+    if shared(front, path):
+        raise FrontError("edit_front_alias")
     node: Node | None = front.root
     chain: list[tuple[MappingNode, ScalarNode, Node]] = []
     for key in path:
@@ -371,7 +561,7 @@ def unset(text: str, front: Front, path: list[str], nl: str) -> Edit | None:
     parent, key_node, value_node = chain[-1]
     base = front.start
     start, _ = _line_bounds(text, base + key_node.start_mark.index)
-    stop = base + _leaf_end(value_node)
+    stop = base + _leaf_end(value_node, front.raw)
     _, line_end = _line_bounds(text, stop)
     tail = text[stop:line_end]
     hint = tail[tail.index("#") :] if "#" in tail else ""

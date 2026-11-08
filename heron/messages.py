@@ -596,14 +596,29 @@ def _port(args: str) -> bool:
     return words[0] in _PORT or (words[0] in _EDITS and "--web" in words)
 
 
+def _ports(args: str) -> tuple[int, int]:
+    """`--port` и `--preview-port` из самой команды: по умолчанию 8000 и `--port` + 1."""
+    words = args.split()
+    found: dict[str, int] = {}
+    for i, word in enumerate(words):
+        name, eq, value = word.partition("=")
+        if name in ("--port", "--preview-port"):
+            value = value if eq else (words[i + 1] if i + 1 < len(words) else "")
+            if value.isdigit():
+                found[name] = int(value)
+    port = found.get("--port", 8000)
+    return port, found.get("--preview-port", port + 1)
+
+
 def docker_command(args: str) -> str:
     """`heron <args>` целиком для Docker: та же команда, готовая к копированию."""
     flags = " -it" if _asks(args) else ""
     if _port(args):
-        flags += " -p 127.0.0.1:8000:8000"
+        port, preview = _ports(args)
+        flags += f" -p 127.0.0.1:{port}:{port}"
         if args.split()[0] != "serve":
-            # конфигуратор и студия: просмотр и справка темы - на соседнем порту
-            flags += " -p 127.0.0.1:8001:8001"
+            # конфигуратор и студия: просмотр и справка темы - на своём порту
+            flags += f" -p 127.0.0.1:{preview}:{preview}"
     return (
         f'docker run --rm{flags} -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" '
         f"{image()} {args}"
@@ -1296,6 +1311,10 @@ TEXT["ru"].update(
             "Сильнее HERON_WORKERS и build.workers."
         ),
         "help_opt_port": "Порт.",
+        "help_opt_preview_port": (
+            "Порт просмотра и справки темы (по умолчанию --port + 1). Нужен редко: "
+            "если следующий порт занят."
+        ),
         "help_opt_host": (
             "Где слушать. По умолчанию 127.0.0.1, а в образе HERON - 0.0.0.0, "
             "чтобы проброшенный порт открывался снаружи контейнера."
@@ -1556,6 +1575,10 @@ TEXT["en"].update(
             "Overrides HERON_WORKERS and build.workers."
         ),
         "help_opt_port": "Port.",
+        "help_opt_preview_port": (
+            "Port of the preview and the theme reference (default --port + 1). Rarely "
+            "needed: when the next port is taken."
+        ),
         "help_opt_host": (
             "Where to listen. 127.0.0.1 by default, and 0.0.0.0 in the HERON image, "
             "so that the published port opens from outside the container."

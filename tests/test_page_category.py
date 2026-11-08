@@ -271,7 +271,7 @@ def test_web_flag_opens_the_studio_on_the_page_and_writes_nothing(site, monkeypa
 
     seen = {}
 
-    def fake(root, host, port, on_ready=None, start=None):
+    def fake(root, host, port, on_ready=None, start=None, preview_port=None):
         seen.update(start=start, port=port)
         on_ready("KEY")
 

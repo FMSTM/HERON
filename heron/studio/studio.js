@@ -134,10 +134,19 @@
   };
   // Просмотр, справка темы и картинки - на своём порту (другой источник, origin): скрипты темы
   // там не дотягиваются ни до ключа, ни до /api. Ключ просмотра - только смотреть.
+  // Порт - от адреса этой страницы, не от внутренних портов сервера: docker мог пробросить
+  // их со сдвигом (-p 9000:8000 -p 9001:8001). Та же формула - у CSP (server.py, _shift).
+  const pvOrigin = (loc, P) => {
+    const seen = loc.port ? Number(loc.port) : (loc.protocol === "https:" ? 443 : 80);
+    const studio = Number(P.studio || P.port - 1);
+    let port = seen - studio + Number(P.port);
+    if (!(port >= 1 && port <= 65535)) port = Number(P.port);
+    return loc.protocol + "//" + loc.hostname + ":" + port;
+  };
   const pv = (path) => {
     if (!S.preview) return "about:blank";
     const sep = path.includes("?") ? "&" : "?";
-    return location.protocol + "//" + location.hostname + ":" + S.preview.port + path + sep + "k=" + encodeURIComponent(S.preview.key);
+    return pvOrigin(location, S.preview) + path + sep + "k=" + encodeURIComponent(S.preview.key);
   };
   const SANDBOX = "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox";
   const dirty = () => Object.values(S.ans).some((v) => Object.keys(v).length) || S.ops.length > 0 || S.key !== null || Object.values(S.skip).some(Boolean);
@@ -826,5 +835,6 @@
     } catch (err) { /* без ключа страница конфигуратора сама объясняет, что делать */ }
   }
   window.HERON_STUDIO = S;
+  window.HERON_PREVIEW_ORIGIN = pvOrigin;
   start();
 })();

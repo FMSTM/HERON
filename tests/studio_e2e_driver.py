@@ -65,6 +65,55 @@ def attack(url: str) -> int:
     return 0
 
 
+def remap(url: str) -> int:
+    """Студия по адресу с другими портами (как `docker run -p 9000:8000 -p 9001:8001`).
+
+    Открывает справку темы. Печатает адреса рамок, заголовок справки, источник
+    просмотра, который посчитала страница, и сообщения консоли (отказы CSP там же).
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return SKIP
+    console: list[str] = []
+    with sync_playwright() as play:
+        try:
+            browser = play.chromium.launch()
+        except Exception:  # noqa: BLE001 - браузера нет или он не запускается
+            return SKIP
+        page = browser.new_context().new_page()
+        page.on("console", lambda m: console.append(f"{m.type}: {m.text}"))
+        page.on("pageerror", lambda e: console.append(f"pageerror: {e}"))
+        page.goto(url)
+        page.wait_for_selector("#tab-btn-ref", timeout=30000)
+        page.click("#tab-btn-ref")
+        page.wait_for_selector('#st-ref-frame[src*="_heron/theme"]', timeout=60000)
+        heading = ""
+        try:
+            heading = page.frame_locator("#st-ref-frame").locator("h1").inner_text(timeout=30000)
+        except Exception:  # noqa: BLE001 - рамка не загрузилась: тест скажет, что видел
+            heading = ""
+        page.wait_for_timeout(500)
+        result = {
+            "heading": heading,
+            "frame_src": page.evaluate(
+                "() => [...document.querySelectorAll('iframe')].map((f) => f.src)"
+            ),
+            "origin": page.evaluate(
+                "() => window.HERON_PREVIEW_ORIGIN(location, window.HERON_STUDIO.preview)"
+            ),
+            "fallback": page.evaluate(
+                "() => window.HERON_PREVIEW_ORIGIN("
+                "{protocol: 'http:', hostname: 'localhost', port: ''}, "
+                "window.HERON_STUDIO.preview)"
+            ),
+            "console": console,
+        }
+        browser.close()
+    print(json.dumps(result))
+    return 0
+
+
 def main(url: str, picture: str, shots: str) -> int:
     try:
         from playwright.sync_api import sync_playwright
@@ -151,4 +200,6 @@ def main(url: str, picture: str, shots: str) -> int:
 if __name__ == "__main__":
     if sys.argv[1] == "attack":
         sys.exit(attack(sys.argv[2]))
+    if sys.argv[1] == "remap":
+        sys.exit(remap(sys.argv[2]))
     sys.exit(main(*sys.argv[1:4]))

@@ -1174,6 +1174,15 @@ PORT_OPTION = _option(
     metavar="help_mv_port",
     help="help_opt_port",
 )
+# Порт просмотра студии (конфигуратор, студия, `--web`): по умолчанию --port + 1.
+PREVIEW_PORT_OPTION = _option(
+    "--preview-port",
+    "preview_port",
+    default=None,
+    type=click.IntRange(1, 65535),
+    metavar="help_mv_port",
+    help="help_opt_preview_port",
+)
 
 
 # Код выхода, когда сайт записан, а завершающее действие плагина
@@ -1491,6 +1500,7 @@ def serve(
 )
 @_option("--dump", is_flag=True, help="help_opt_dump")
 @PORT_OPTION
+@PREVIEW_PORT_OPTION
 @_option("--host", default=None, metavar="help_mv_host", help="help_opt_setup_host")
 @NOTES_OPTION
 @_path_argument
@@ -1499,6 +1509,7 @@ def setup(
     answers_file: str | None,
     dump: bool,
     port: int,
+    preview_port: int | None,
     host: str | None,
     notes: str | None,
 ) -> None:
@@ -1532,35 +1543,45 @@ def setup(
         _setup_report(result, lang, path)
         return
 
-    _open_page(path, lang, port, host, {"tab": "site"}, "setup_open")
+    _open_page(path, lang, (port, preview_port), host, {"tab": "site"}, "setup_open")
 
 
 def _open_page(
     path: Path,
     lang: str,
-    port: int,
+    ports: tuple[int, int | None],
     host: str | None,
     start: dict,
     opened: str,
     shown: str | None = None,
 ) -> None:
-    """Страница конфигуратора и студии: один сервер, один ключ, вкладка из `start`."""
+    """Страница конфигуратора и студии: один сервер, один ключ, вкладка из `start`.
+
+    `ports` - `--port` и `--preview-port` (None - `--port` + 1). Человеку печатается
+    одна ссылка - на студию с ключом; просмотр страница находит сама.
+    """
     from heron.core.watch import default_host, shown_url
-    from heron.setup.server import run
+    from heron.setup.server import preview_port_for, run
 
     inside = in_container()
     where = host or default_host(inside)
+    port = ports[0]
+    try:
+        preview = preview_port_for(port, ports[1], lang)
+    except HeronError as error:
+        _fail(error, lang)
 
     def ready(token: str) -> None:
         url = f"{shown_url(where, port)}#{token}"
         click.secho(say(lang, opened, url=url), fg="green", bold=True)
         if shown:
             click.echo(shown)
+        click.echo(say(lang, "studio_preview_self", preview=preview))
         if inside:
-            click.echo(say(lang, "serve_container", port=port))
+            click.echo(say(lang, "studio_container", port=port, preview=preview))
 
     try:
-        run(path, where, port, on_ready=ready, start=start)
+        run(path, where, port, on_ready=ready, start=start, preview_port=preview)
     except HeronError as error:
         _fail(error, lang)
     click.echo(say(lang, "serve_stopped"))
@@ -1568,14 +1589,17 @@ def _open_page(
 
 @main.command(help="help_studio")
 @PORT_OPTION
+@PREVIEW_PORT_OPTION
 @_option("--host", default=None, metavar="help_mv_host", help="help_opt_setup_host")
 @NOTES_OPTION
 @_path_argument
-def studio(path: Path, port: int, host: str | None, notes: str | None) -> None:
+def studio(
+    path: Path, port: int, preview_port: int | None, host: str | None, notes: str | None
+) -> None:
     """Студия в браузере: вкладки «Сайт», «Страницы», «Справка темы» (21 §10)."""
     lang = _lang(notes or ctx_notes(), path)
     _need_site(path, lang)
-    _open_page(path, lang, port, host, {"tab": "pages"}, "studio_open")
+    _open_page(path, lang, (port, preview_port), host, {"tab": "pages"}, "studio_open")
 
 
 def _setup_report(result, lang: str, path: Path) -> None:
@@ -1912,6 +1936,7 @@ def _edit_options(func):
             _option("--dump", is_flag=True, help="help_opt_edit_dump"),
             _option("--web", is_flag=True, help="help_opt_web"),
             PORT_OPTION,
+            PREVIEW_PORT_OPTION,
             _option("--host", default=None, metavar="help_mv_host", help="help_opt_setup_host"),
             _option("-y", "--yes", is_flag=True, help="help_opt_edit_yes"),
         )
@@ -1995,14 +2020,14 @@ def _edit_session(
 
 def _open_studio(path: Path, lang: str, entity, web) -> None:
     """`--web`: студия сразу на этой странице или категории (новая - заготовкой до записи)."""
-    port, host, target, answers = web
+    ports, host, target, answers = web
     kind = "category" if entity.category else "page"
     start = {"tab": "pages", "target": {"kind": kind, "key": entity.key, **target}}
     if answers:
         start["answers"] = answers
     word = say(lang, "edit_con_category_word" if entity.category else "edit_con_page_word")
     shown = say(lang, "studio_open_on", kind=word, key=entity.target or "/")
-    _open_page(path, lang, port, host, start, "studio_open", shown)
+    _open_page(path, lang, ports, host, start, "studio_open", shown)
 
 
 def _changed(entity) -> bool:
@@ -2130,6 +2155,7 @@ def page_add(
     dump: bool,
     web: bool,
     port: int,
+    preview_port: int | None,
     host: str | None,
     yes: bool,
     path: Path,
@@ -2162,7 +2188,8 @@ def page_add(
             early["key"] = move_to
         if page_type is not None and not entity.new:
             early[ctx.default] = {"type": page_type}
-        web_start = (port, host, {"type": page_type} if entity.new else {}, early)
+        ports = (port, preview_port)
+        web_start = (ports, host, {"type": page_type} if entity.new else {}, early)
     _edit_session(
         path,
         lang,
@@ -2266,6 +2293,7 @@ def category_add(
     dump: bool,
     web: bool,
     port: int,
+    preview_port: int | None,
     host: str | None,
     yes: bool,
     path: Path,
@@ -2317,7 +2345,7 @@ def category_add(
             if values:
                 early[ctx.default] = values
         made = {"type": page_type, "children_type": children_type, "view": view}
-        web_start = (port, host, made if entity.new else {}, early)
+        web_start = ((port, preview_port), host, made if entity.new else {}, early)
     _edit_session(
         path,
         lang,

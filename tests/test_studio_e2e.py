@@ -13,9 +13,11 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import threading
@@ -192,3 +194,120 @@ def test_theme_script_in_the_preview_cannot_reach_the_studio(tmp_path, monkeypat
     # рамка - другой источник и в песочнице без выхода наверх
     assert all(url.startswith(f"http://localhost:{port + 1}/") for url in result["frame_urls"])
     assert result["sandbox"] and "allow-top-navigation" not in result["sandbox"][0]
+
+
+def _forward(listen: int, target: int) -> socket.socket:
+    """Проброс порта, как у docker -p: listen на петле -> target на петле."""
+    server_sock = socket.socket()
+    server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_sock.bind(("127.0.0.1", listen))
+    server_sock.listen(64)
+
+    def pipe(src: socket.socket, dst: socket.socket) -> None:
+        try:
+            while chunk := src.recv(65536):
+                dst.sendall(chunk)
+        except OSError:
+            pass
+        finally:
+            for one in (src, dst):
+                with contextlib.suppress(OSError):
+                    one.shutdown(socket.SHUT_RDWR)
+
+    def accept() -> None:
+        while True:
+            try:
+                client, _ = server_sock.accept()
+            except OSError:
+                return
+            upstream = socket.create_connection(("127.0.0.1", target))
+            threading.Thread(target=pipe, args=(client, upstream), daemon=True).start()
+            threading.Thread(target=pipe, args=(upstream, client), daemon=True).start()
+
+    threading.Thread(target=accept, daemon=True).start()
+    return server_sock
+
+
+def _free_ports(count: int, avoid: set[int]) -> list[int]:
+    found: list[int] = []
+    while len(found) < count:
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            number = sock.getsockname()[1]
+        if number not in avoid and number not in found:
+            found.append(number)
+    return found
+
+
+def test_studio_behind_remapped_ports_finds_its_preview(tmp_path, monkeypatch):
+    """`docker run -p 9000:8000 -p 9001:8001`: снаружи другие номера, внутри - свои.
+
+    Студия слушает P и R (`--preview-port`), браузер видит их как Q и Q + (R - P).
+    Рамка справки обязана открыться с внешнего порта просмотра (адрес строит страница
+    от своего адреса), и CSP обеих сторон должна его пустить (`frame-src` студии,
+    `frame-ancestors` просмотра). Старый код брал внутренний порт и в адрес, и в CSP.
+    """
+    python = _python()
+    if python is None:
+        pytest.skip("нет Playwright для Python: e2e студии пропущен")
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    root = tmp_path / "site"
+    create(root, name="Demo", languages=["en"], notes="en", demo=True)
+    inner, preview = _free_ports(2, set())
+    # внешняя пара с тем же расстоянием, что внутренняя (одинаковый сдвиг у обоих -p)
+    for _ in range(50):
+        (outer,) = _free_ports(1, {inner, preview})
+        outer_preview = outer - inner + preview
+        if not 1024 < outer_preview < 65535 or outer_preview in (inner, preview):
+            continue
+        try:
+            with socket.socket() as probe:
+                probe.bind(("127.0.0.1", outer_preview))
+        except OSError:
+            continue
+        break
+    else:
+        pytest.skip("не нашлось свободной внешней пары портов")
+    box: dict[str, str] = {}
+    ready = threading.Event()
+
+    def on_ready(token: str) -> None:
+        box["token"] = token
+        ready.set()
+
+    thread = threading.Thread(
+        target=server.run,
+        args=(root, "127.0.0.1", inner),
+        kwargs={"on_ready": on_ready, "start": {"tab": "pages"}, "preview_port": preview},
+        daemon=True,
+    )
+    thread.start()
+    assert ready.wait(10)
+    proxies = [_forward(outer, inner), _forward(outer_preview, preview)]
+    try:
+        done = subprocess.run(
+            [python, str(DRIVER), "remap", f"http://localhost:{outer}/#{box['token']}"],
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
+        )
+    finally:
+        for proxy in proxies:
+            proxy.close()
+        _stop(inner, box["token"], thread)
+    if done.returncode == 77:
+        pytest.skip("Chromium для Playwright не запускается: e2e студии пропущен")
+    assert done.returncode == 0, done.stdout + done.stderr
+    result = json.loads(done.stdout.strip().splitlines()[-1])
+    assert result["origin"] == f"http://localhost:{outer_preview}", result
+    assert result["frame_src"] and all(
+        url.startswith(f"http://localhost:{outer_preview}/") for url in result["frame_src"]
+    ), result
+    assert result["heading"], result  # рамка загрузилась: CSP пустила внешний источник
+    # порт 80 (в адресе нет порта): тот же сдвиг от 80, как у CSP сервера
+    assert result["fallback"] == f"http://localhost:{80 - inner + preview}" or (
+        not 1 <= 80 - inner + preview <= 65535 and result["fallback"].endswith(f":{preview}")
+    ), result
+    console = [m for m in result["console"] if "can escape its sandboxing" not in m]
+    assert not [m for m in console if "Content Security Policy" in m or "error" in m], console

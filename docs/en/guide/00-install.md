@@ -143,7 +143,7 @@ heron() {
 }
 ```
 
-Save the file, open a new terminal and check: `heron --version`. The function adds the right flags by itself: `-it` when a person runs the command in a terminal (then `new` can ask questions, and the configurator and the preview can be stopped with Ctrl+C), `-p` for the configurator and the preview. The "current folder only" limit stays: it is how Docker works.
+Save the file, open a new terminal and check: `heron --version`. The function adds the right flags by itself: `-it` when a person runs the command in a terminal (then `new` can ask questions, and the configurator and the preview can be stopped with Ctrl+C), `-p` for the configurator and the preview (the configurator and the studio get two ports, 8000 and 8001; the studio finds the second one by itself). The "current folder only" limit stays: it is how Docker works.
 
 ## For scripts, CI and AI agents
 

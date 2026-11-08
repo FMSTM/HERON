@@ -101,8 +101,22 @@ TEXT: dict[str, dict[str, str]] = {
         "srv_too_large": "слишком большой запрос",
         "srv_port": "не открыть конфигуратор на {host}:{port}: {reason}",
         "srv_port_hint": (
-            "возьмите другой порт: --port {next} (просмотр займёт следующий, {preview}; в докере - "
-            "-p 127.0.0.1:{next}:{next} -p 127.0.0.1:{preview}:{preview})"
+            "порт занят другой программой: возьмите другой, --port {next} "
+            "(порт просмотра по умолчанию - следующий за ним; в докере опубликуйте те же "
+            "номера, команду с ними движок напечатает при запуске)"
+        ),
+        "srv_preview_port": "не открыть просмотр студии на {host}:{port}: {reason}",
+        "srv_preview_hint": (
+            "этот порт - для просмотра и справки темы, он занят другой программой: "
+            "возьмите другой флагом --preview-port {next}"
+        ),
+        "srv_preview_range": "порт просмотра {port} вне диапазона 1-65535",
+        "srv_preview_range_hint": (
+            "у --port 65535 нет следующего порта: задайте --port меньше или --preview-port"
+        ),
+        "srv_preview_same": (
+            "--preview-port {port} совпадает с --port: просмотру нужен свой порт, "
+            "другой источник браузера"
         ),
     },
     "en": {
@@ -177,8 +191,22 @@ TEXT: dict[str, dict[str, str]] = {
         "srv_too_large": "too large",
         "srv_port": "cannot open the configurator on {host}:{port}: {reason}",
         "srv_port_hint": (
-            "take another port: --port {next} (the preview takes the next one, {preview}; "
-            "in docker - -p 127.0.0.1:{next}:{next} -p 127.0.0.1:{preview}:{preview})"
+            "the port is used by another program: take another one, --port {next} "
+            "(the preview port defaults to the next one; in docker publish the same "
+            "numbers, the engine prints the command with them on start)"
+        ),
+        "srv_preview_port": "cannot open the studio preview on {host}:{port}: {reason}",
+        "srv_preview_hint": (
+            "this port is for the preview and the theme reference, another program uses it: "
+            "take another one with --preview-port {next}"
+        ),
+        "srv_preview_range": "preview port {port} is out of the range 1-65535",
+        "srv_preview_range_hint": (
+            "--port 65535 has no next port: give a smaller --port or a --preview-port"
+        ),
+        "srv_preview_same": (
+            "--preview-port {port} is the same as --port: the preview needs a port of its own, "
+            "a separate browser origin"
         ),
     },
 }

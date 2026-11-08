@@ -10,16 +10,16 @@ files:
     ru_sha256: "07c18aeff2a629a59bf27f0de2e90a890aa59fbe15a5b1e8e2a6897c82d8bbfe"
     en_status: current
   - path: guide/00-install.md
-    ru_sha256: "2c8d5944f37b78f8085cb01c9776d6bad2ae37e5750b5a7c81e018c5b0162316"
+    ru_sha256: "55e1a8bf9b0d8a021be72176b48bba0183b69846f8bd1aa803fd8174f60b191c"
     en_status: current
   - path: guide/01-concepts.md
     ru_sha256: "4d6b545ac62a61231aa8f9a9812bb6391f20474e0baa9bcd8ee77c758ec16632"
     en_status: current
   - path: guide/02-first-site.md
-    ru_sha256: "9785e730038bc5ae1fa2310b2fe0bd54085608f0e9fc5f457c658bdf36ac1e99"
+    ru_sha256: "9ecf89afc69b8c62ac40ca09f73468bc24e4165394c463eb95aa190c8f12e84b"
     en_status: current
   - path: guide/03-content.md
-    ru_sha256: "a00e045fd387757d891d10f152144fdcca7883327e96d25a16b29b3974f4226e"
+    ru_sha256: "50bf605a007bec5775eb6a6f87715ea9d0b0ac89cdff80a2ca12182a229c0f46"
     en_status: current
   - path: guide/04-theme.md
     ru_sha256: "ed1bea176153ef36612832bc12e0b38fe1a5d5c73979f9af4fe681b51585d37c"
@@ -52,7 +52,7 @@ files:
     ru_sha256: "76a4b3897089d3e82eaf802a35d80aa40ffaed2612a6e3473992099d3ff190c3"
     en_status: current
   - path: spec/21-engine.md
-    ru_sha256: "d2e5cccc15a411ede122a5305596117e43fd59fd17f60cbdaa313f5201328088"
+    ru_sha256: "e4a011030ad7e6fbaca802792c516a57c644e25ad0c89633071ca2bfbdbf0a2d"
     en_status: current
   - path: spec/22-deploy.md
     ru_sha256: "52e43ba657d1008bbc8dcca5584d3cfd84e8e271382bb38e5fd48e9282fd060e"
@@ -81,5 +81,5 @@ files:
 root_files:
   - ru: README.ru.md
     en: README.md
-    ru_sha256: "4a466f3662946b8137ce47abf811011624997ee20f8c6c184b49702dc5a5c6be"
+    ru_sha256: "dda409289474e1c4cdc8f126832bfd56399c74e6dcb322258cee818abb7ecc4b"
     en_status: current

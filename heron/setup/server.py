@@ -9,14 +9,21 @@
 на сервер не отправляет, поэтому ключ не попадает ни в журналы, ни в Referer.
 
 Просмотр черновой сборки, справка темы и картинки из `media/` - на втором
-порту (`порт + 1`, по умолчанию 8001), то есть на другом источнике (origin)
-браузера. Там работают скрипты темы, и они не должны дотянуться до ключа и до
+порту (`--preview-port`, по умолчанию `--port` + 1, то есть 8001), на другом
+источнике (origin) браузера. Там работают скрипты темы, и они не должны дотянуться до ключа и до
 `/api/*`: со своего источника скрипт не читает адрес страницы студии (ключ в нём
 после `#`, и страница сразу убирает его из адресной строки) и не шлёт запросы
 с заголовком ключа - браузер не пускает их без CORS, которого у сервера нет.
 Второй порт пускает по своему ключу просмотра (`?k=` в адресе, затем cookie
 `heron-preview`): с ним можно только смотреть, писать на этом порту нечем.
 Рамка студии с просмотром и справкой - `<iframe sandbox>` без выхода наверх.
+
+Адрес порта просмотра страница строит из своего же адреса: схема и имя - как в
+адресной строке, порт - `location.port - порт студии + порт просмотра` (оба
+внутренних порта сервер отдаёт в `/api/studio/start`). Так `docker run -p
+9000:8000 -p 9001:8001` работает без настроек. CSP (`frame-src`, `img-src`,
+`frame-ancestors`) считается так же - из порта в заголовке Host запроса, а не из
+внутренних портов: иначе политика назвала бы источник, которого браузер не видит.
 
 Заголовок Host дополнительно обязан быть локальным: это закрывает подмену DNS
 (чужой сайт, имя которого вдруг указывает на 127.0.0.1), но границей доступа
@@ -27,7 +34,8 @@
 обработчиков в разметке нет.
 
 В образе HERON сервер слушает все интерфейсы контейнера, а порты публикуются
-только на петлю машины: `-p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001`. На
+только на петлю машины: `-p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001`
+(другие `--port` и `--preview-port` - те же номера в `-p`). На
 машине человека сервер слушает только 127.0.0.1 — те же правила, что у `heron serve`.
 """
 
@@ -82,8 +90,11 @@ def run(
     port: int,
     on_ready=None,
     start: dict[str, Any] | None = None,
+    preview_port: int | None = None,
 ) -> None:
     """Поднять страницу. `on_ready(token)` вызывается, когда порт открыт.
+
+    `preview_port` - порт просмотра, по умолчанию `port + 1` (`preview_port_for`).
 
     `start` - с чего открыться: `{"tab": "site"|"pages"|"ref", "target": {...},
     "answers": {...}}` (`heron studio`, `page add --web`, `category add --web`).
@@ -93,10 +104,10 @@ def run(
     token = secrets.token_urlsafe(24)
     # Ключ второго порта: только смотреть просмотр, справку и картинки (не ключ API).
     preview_key = secrets.token_urlsafe(24)
-    preview_port = port + 1
+    lang = run_lang(root)
+    preview_port = preview_port_for(port, preview_port, lang)
     # Язык ответов сервера — язык запуска (--notes, HERON_NOTES, build.notes);
     # причины отказа при сохранении — на языке, который выбран на странице.
-    lang = run_lang(root)
     uploads: dict[str, Path] = {}
     workdir = tempfile.TemporaryDirectory(prefix="heron-setup-")
     dist = Path(workdir.name) / "preview"
@@ -104,7 +115,8 @@ def run(
     lock = threading.Lock()
     done = threading.Event()
     opening = dict(start or {"tab": "site"})
-    opening["preview"] = {"port": preview_port, "key": preview_key}
+    # Внутренние порты: страница пересчитает порт просмотра от своего адреса (remap в docker).
+    opening["preview"] = {"port": preview_port, "studio": port, "key": preview_key}
 
     class Handler(http.server.BaseHTTPRequestHandler):
         server_version = "heron-setup"
@@ -121,8 +133,8 @@ def run(
             return self._local() and hmac.compare_digest(given.encode(), token.encode())
 
         def _send(self, code: int, body: bytes, kind: str, extra=()) -> None:
-            name = _hostname(self.headers.get("Host"))
-            policy = CSP.format(preview=_origin(name, preview_port))
+            seen = _peer(self.headers.get("Host"), port, preview_port)
+            policy = CSP.format(preview=seen)
             _write(self, code, body, kind, policy, extra)
 
         def _json(self, code: int, data: Any, extra=()) -> None:
@@ -305,8 +317,8 @@ def run(
             return False, False
 
         def _send(self, code: int, body: bytes, kind: str, extra=()) -> None:
-            name = _hostname(self.headers.get("Host"))
-            policy = PREVIEW_CSP.format(studio=_origin(name, port))
+            seen = _peer(self.headers.get("Host"), preview_port, port)
+            policy = PREVIEW_CSP.format(studio=seen)
             _write(self, code, body, kind, policy, extra)
 
         def _json(self, code: int, data: Any) -> None:
@@ -373,12 +385,20 @@ def run(
         except OSError as error:
             for server in servers:
                 server.server_close()
+            if number == port:
+                hint = say(lang, "srv_port_hint", next=_spare(port, preview_port))
+            else:
+                hint = say(lang, "srv_preview_hint", next=_spare(preview_port, port))
             raise HeronError(
                 code="E031",
                 message=say(
-                    lang, "srv_port", host=host, port=number, reason=error.strerror or error
+                    lang,
+                    "srv_port" if number == port else "srv_preview_port",
+                    host=host,
+                    port=number,
+                    reason=error.strerror or error,
                 ),
-                hint=say(lang, "srv_port_hint", next=port + 2, preview=port + 3),
+                hint=hint,
             ) from error
     for server in servers:
         threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -396,16 +416,74 @@ def run(
         workdir.cleanup()
 
 
+def preview_port_for(port: int, preview: int | None, lang: str = "en") -> int:
+    """Порт просмотра: заданный `--preview-port` или `port + 1`; проверка до открытия портов."""
+    if preview is None:
+        if port < 65535:
+            return port + 1
+        raise HeronError(
+            code="E031",
+            message=say(lang, "srv_preview_range", port=port),
+            hint=say(lang, "srv_preview_range_hint"),
+        )
+    if not 1 <= preview <= 65535:
+        raise HeronError(code="E031", message=say(lang, "srv_preview_range", port=preview))
+    if preview == port:
+        raise HeronError(code="E031", message=say(lang, "srv_preview_same", port=port))
+    return preview
+
+
+def _spare(busy: int, other: int) -> int:
+    """Свободный на вид номер для подсказки: следующий за занятым, мимо второго порта."""
+    for value in (*range(busy + 1, busy + 10), *range(busy - 1, busy - 10, -1)):
+        if 1024 <= value <= 65535 and value != other:
+            return value
+    return busy
+
+
+def _split_host(host: str | None) -> tuple[str, int | None]:
+    """Заголовок Host: имя (`localhost`, `127.0.0.1`, `[::1]`) и порт, если он есть."""
+    host = (host or "").strip().lower()
+    if host.startswith("["):
+        name, _, rest = host.partition("]")
+        name += "]"
+        port = rest[1:] if rest.startswith(":") else ""
+    elif host.count(":") == 1:
+        name, _, port = host.partition(":")
+    else:
+        name, port = host, ""
+    return name, int(port) if port.isdigit() and 0 < int(port) <= 65535 else None
+
+
 def _hostname(host: str | None) -> str:
     """Имя из заголовка Host без порта: `localhost`, `127.0.0.1`, `[::1]`."""
-    return (host or "").rsplit(":", 1)[0].lower() if not (host or "").endswith("]") else host
+    return _split_host(host)[0]
 
 
-def _origin(name: str, port: int) -> str:
-    """Источник страницы на порту `port` того же имени, что открыл человек."""
+def _shift(seen: int, own: int, other: int) -> int:
+    """Порт второго сервера так, как его видит браузер: тот же сдвиг, что у этого порта.
+
+    Та же формула - в studio.js (`pvOrigin`): `location.port - studio + preview`.
+    Вышло за пределы портов - внутренний номер.
+    """
+    value = seen - own + other
+    return value if 1 <= value <= 65535 else other
+
+
+def _peer(host: str | None, own: int, other: int) -> str:
+    """Источник второго порта для CSP - из заголовка Host, а не из внутренних портов.
+
+    Браузер открыл этот порт по адресу из Host. Если docker пробросил порты со
+    сдвигом (`-p 9000:8000 -p 9001:8001`), второй порт для браузера - тот же сдвиг
+    (`_shift`). Порта в Host нет - адрес на 80 (http) или 443 (https): оба варианта,
+    как их считает страница. Имя не локальное (такой запрос получит 403) - localhost.
+    """
+    name, seen = _split_host(host)
     if name not in LOCAL_HOSTS or name == "0.0.0.0":
         name = "localhost"
-    return f"http://{name}:{port}"
+    if seen is not None:
+        return f"http://{name}:{_shift(seen, own, other)}"
+    return f"http://{name}:{_shift(80, own, other)} https://{name}:{_shift(443, own, other)}"
 
 
 def _write(handler, code: int, body: bytes, kind: str, policy: str, extra=()) -> None:

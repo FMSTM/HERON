@@ -103,7 +103,8 @@ docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmst
 port 8000 from the container to your computer, otherwise the page does not
 open in the browser. `setup` and `studio` also have `-p 127.0.0.1:8001:8001`: on this
 port the studio shows the page preview and the theme reference - apart from the page
-with the key, so that theme scripts cannot reach the key. The other commands need no port. `-it` is for the
+with the key, so that theme scripts cannot reach the key. The studio finds this port by itself; taken -
+`--preview-port` with another number and the same number in the second `-p`. The other commands need no port. `-it` is for the
 commands that ask questions or run until Ctrl+C.
 
 ### Shorter: the name `heron` while you work

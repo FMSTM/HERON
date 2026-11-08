@@ -62,7 +62,7 @@ docker run --rm -it -p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001 -v "$PWD:/site
 docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod serve my-site
 ```
 
-**4. Add a page.** The engine asks for the fields of the page - the headings, the description, the texts of the blocks - with a hint at each (`?` - detailed help) and creates it in every site language at once. The same command a second time opens the page for editing. The same with a mouse - in the studio: the command `studio` instead of `page add about`, with `-p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001` (the second port is the preview and the theme reference in the studio). What the theme can do, every block with an example - on the page <http://localhost:8000/_heron/theme/> while the preview runs:
+**4. Add a page.** The engine asks for the fields of the page - the headings, the description, the texts of the blocks - with a hint at each (`?` - detailed help) and creates it in every site language at once. The same command a second time opens the page for editing. The same with a mouse - in the studio: the command `studio` instead of `page add about`, with `-p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001` (the second port is the preview and the theme reference in the studio, it works by itself). What the theme can do, every block with an example - on the page <http://localhost:8000/_heron/theme/> while the preview runs:
 
 ```bash
 docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add about my-site
@@ -121,7 +121,7 @@ In detail: [concepts](docs/en/guide/01-concepts.md) · [first site](docs/en/guid
 
 ## Commands
 
-Fourteen commands. The path to the site defaults to the current folder. Here the commands are written short, with `heron` - this is how you run them if the engine is installed without Docker. With Docker the command is preceded by `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod`, plus `-it` for `new`, `setup`, `studio`, `serve`, `page add`, `category add` and `init` in a folder without `site.yaml` (`new`, `init`, `page add` and `category add` ask questions, `setup`, `studio` and `serve` stop with Ctrl+C), and `-p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001` for `setup`, `studio`, `serve` and `--web`, as in the quick start above.
+Fourteen commands. The path to the site defaults to the current folder. Here the commands are written short, with `heron` - this is how you run them if the engine is installed without Docker. With Docker the command is preceded by `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod`, plus `-it` for `new`, `setup`, `studio`, `serve`, `page add`, `category add` and `init` in a folder without `site.yaml` (`new`, `init`, `page add` and `category add` ask questions, `setup`, `studio` and `serve` stop with Ctrl+C), and `-p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001` for `setup`, `studio`, `serve` and `--web`, as in the quick start above. Port 8001 is taken - `--preview-port` with another number and the same number in the second `-p`.
 
 | Command | What it does |
 |---|---|

@@ -113,7 +113,7 @@ The same - creating a page or a section, editing fields, translating, moving - c
 docker run --rm -it -p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod studio my-site
 ```
 
-The engine prints an address like `http://localhost:8000/#key` - open it whole, together with the part after `#`: this is the access key, without it the studio shows nothing. The studio is open on your computer only and closes with Ctrl+C in the terminal. The `--web` flag of `page add` and `category add` opens it right on the page or section you need - with the same `-it -p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001`. Port 8001 is for the page preview and the theme reference: the studio shows them from a port of their own, apart from the page with the key, so that theme scripts cannot reach the key:
+The engine prints an address like `http://localhost:8000/#key` - open it whole, together with the part after `#`: this is the access key, without it the studio shows nothing. The studio is open on your computer only and closes with Ctrl+C in the terminal. The `--web` flag of `page add` and `category add` opens it right on the page or section you need - with the same `-it -p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001`. Port 8001 is for the page preview and the theme reference: the studio shows them from a port of their own, apart from the page with the key, so that theme scripts cannot reach the key. You need not open it yourself - the studio does it; `--preview-port` is needed only when 8001 is taken:
 
 ```bash
 docker run --rm -it -p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add about my-site --web

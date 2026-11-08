@@ -8,6 +8,17 @@ TEXT: dict[str, dict[str, str]] = {
             "Студия открыта: {url}  - откройте адрес целиком, с ключом после «#». Ctrl+C - выход."
         ),
         "studio_open_on": "Сразу на объекте: {kind} {key}.",
+        "studio_preview_self": (
+            "Просмотр страниц и справку темы студия откроет сама (порт {preview}) - "
+            "больше ничего делать не нужно."
+        ),
+        "studio_container": (
+            "HERON работает в контейнере: откройте адрес на своём компьютере. "
+            "В docker run оба порта публикуются только на эту машину: "
+            "-p 127.0.0.1:{port}:{port} -p 127.0.0.1:{preview}:{preview}. "
+            "Опубликовали на компьютере другие номера, со сдвигом на одно и то же число - "
+            "замените в адресе {port} на свой номер, просмотр найдёт свой порт сам."
+        ),
         "studio_confirm_pending": (
             "{langs} уйдут из публикации до перевода: новый блок там ещё не переведён "
             "(translation: pending) - продолжить?"
@@ -32,6 +43,17 @@ TEXT: dict[str, dict[str, str]] = {
             "Ctrl+C to stop."
         ),
         "studio_open_on": "Opened right on: {kind} {key}.",
+        "studio_preview_self": (
+            "The studio opens the page preview and the theme reference by itself "
+            "(port {preview}) - nothing else to do."
+        ),
+        "studio_container": (
+            "HERON runs in a container: open the address on your computer. "
+            "Both ports are published in docker run to this machine only: "
+            "-p 127.0.0.1:{port}:{port} -p 127.0.0.1:{preview}:{preview}. "
+            "Published other numbers on the computer, shifted by the same amount - "
+            "put your number instead of {port} in the address, the preview finds its port itself."
+        ),
         "studio_confirm_pending": (
             "{langs} will leave publication until translated: the new block is not translated "
             "there yet (translation: pending) - continue?"

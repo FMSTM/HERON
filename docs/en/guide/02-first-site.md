@@ -146,7 +146,7 @@ All site settings live in one file - `my-site/site.yaml`. There are two ways to 
 
 ### Way 1: the configurator in the browser
 
-If the preview is running (in any tab), stop it first with Ctrl+C: the configurator needs the same port 8000. The configurator and the studio take one more port, 8001, for the page preview and the theme reference - so the command has two `-p`. Then:
+If the preview is running (in any tab), stop it first with Ctrl+C: the configurator needs the same port 8000. The configurator and the studio take one more port, 8001, for the page preview and the theme reference - so the command has two `-p`. The second port works by itself: the studio finds it without your help. If 8001 is taken by another program, the engine says so - then add `--preview-port` with another number and the same number in the second `-p`. Then:
 
 ```bash
 docker run --rm -it -p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod setup my-site

@@ -339,8 +339,9 @@ def test_media_file_only_serves_pictures_from_media(site):
 # --- сервер: ключ, cookie, CSP -------------------------------------------------------------
 
 
-def _req(base, path, data=None, token="", raw=None, cookie=""):
-    headers = {"Host": "localhost"}
+def _req(base, path, data=None, token="", raw=None, cookie="", host=""):
+    # Host - как у браузера: имя и порт из адреса (порт студии считается от него)
+    headers = {"Host": host or "localhost:" + base.rsplit(":", 1)[1]}
     if token:
         headers["X-Heron-Token"] = token
     if cookie:
@@ -507,8 +508,8 @@ def _capture(monkeypatch):
 
     seen = {}
 
-    def fake(root, host, port, on_ready=None, start=None):
-        seen.update(root=root, host=host, port=port, start=start)
+    def fake(root, host, port, on_ready=None, start=None, preview_port=None):
+        seen.update(root=root, host=host, port=port, start=start, preview_port=preview_port)
         on_ready("KEY")
 
     monkeypatch.setattr(server, "run", fake)
@@ -557,6 +558,138 @@ def test_docker_hint_for_the_studio_publishes_the_port(monkeypatch):
     assert "-p 127.0.0.1:8001:8001" in messages.docker_command("setup")
     serve = messages.docker_command("serve")
     assert "-p 127.0.0.1:8000:8000" in serve and "8001" not in serve
+
+
+# --- порт просмотра: --preview-port, адреса и CSP при пробросе портов со сдвигом --------------
+
+
+@pytest.mark.parametrize(
+    ("args", "port", "preview"),
+    [
+        (["studio"], 8000, 8001),
+        (["studio", "--port", "8124"], 8124, 8125),
+        (["studio", "--port", "8124", "--preview-port", "9300"], 8124, 9300),
+        (["studio", "--preview-port=8500"], 8000, 8500),
+        (["setup", "--preview-port", "9301"], 8000, 9301),
+        (["page", "add", "about", "--web", "--preview-port", "9302"], 8000, 9302),
+        (["category", "add", "services", "--web", "--port", "7000"], 7000, 7001),
+        (["category", "add", "services", "--web", "--preview-port", "9303"], 8000, 9303),
+    ],
+)
+def test_preview_port_flag_reaches_the_server(site, monkeypatch, args, port, preview):
+    seen = _capture(monkeypatch)
+    result = CliRunner().invoke(main, [*args[:1], *args[1:], str(site)])
+    assert result.exit_code == 0, result.output
+    assert seen["port"] == port and seen["preview_port"] == preview
+    # одна ссылка - на студию с ключом; про просмотр - что он откроется сам
+    assert f":{port}/#KEY" in result.output
+    assert f"(порт {preview})" in result.output and "ничего делать не нужно" in result.output
+
+
+@pytest.mark.parametrize(
+    ("args", "needle"),
+    [
+        (["--port", "8124", "--preview-port", "8124"], "--preview-port 8124"),
+        (["--port", "65535"], "--preview-port"),
+        (["--preview-port", "0"], "--preview-port"),
+        (["--preview-port", "70000"], "--preview-port"),
+    ],
+)
+def test_preview_port_is_validated_before_the_server_starts(site, monkeypatch, args, needle):
+    seen = _capture(monkeypatch)
+    result = CliRunner().invoke(main, ["studio", *args, str(site)])
+    assert result.exit_code != 0, result.output
+    assert needle in result.output, result.output
+    assert seen == {}  # сервер не поднимался
+
+
+def test_preview_port_for():
+    from heron.setup import server
+
+    assert server.preview_port_for(8000, None) == 8001
+    assert server.preview_port_for(8000, 9100) == 9100
+    for port, preview in ((8000, 8000), (65535, None)):
+        with pytest.raises(HeronError) as caught:
+            server.preview_port_for(port, preview)
+        assert "--preview-port" in str(caught.value.message) + str(caught.value.hint)
+
+
+def test_busy_preview_port_names_the_flag(tmp_path):
+    import socket
+
+    from heron.setup import server
+    from tests.test_setup_access import _free_port, _site
+
+    root = _site(tmp_path)
+    port = _free_port()
+    with socket.socket() as busy:
+        busy.bind(("127.0.0.1", port + 1))
+        busy.listen(1)
+        with pytest.raises(HeronError) as caught:
+            server.run(root, "127.0.0.1", port, on_ready=lambda token: None)
+    error = caught.value
+    assert error.code == "E031" and str(port + 1) in str(error.message)
+    assert "--preview-port" in str(error.hint)
+    # студийный порт свободен снова: сервер закрыл то, что успел открыть
+    with socket.socket() as again:
+        again.bind(("127.0.0.1", port))
+
+
+def test_container_hint_publishes_the_chosen_ports(site, monkeypatch):
+    monkeypatch.setenv("HERON_IN_CONTAINER", "1")
+    seen = _capture(monkeypatch)
+    args = ["studio", "--port", "9000", "--preview-port", "9005", str(site)]
+    result = CliRunner().invoke(main, args)
+    assert result.exit_code == 0, result.output
+    assert seen["port"] == 9000 and seen["preview_port"] == 9005
+    assert "-p 127.0.0.1:9000:9000 -p 127.0.0.1:9005:9005" in result.output
+
+
+def test_docker_hint_follows_port_flags(monkeypatch):
+    from heron import messages
+
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    command = messages.docker_command("studio --port 9000")
+    assert "-p 127.0.0.1:9000:9000 -p 127.0.0.1:9001:9001" in command, command
+    command = messages.docker_command("setup --port 9000 --preview-port 9100")
+    assert "-p 127.0.0.1:9000:9000 -p 127.0.0.1:9100:9100" in command, command
+    command = messages.docker_command("page add about --web --preview-port=9200")
+    assert "-p 127.0.0.1:8000:8000 -p 127.0.0.1:9200:9200" in command, command
+    assert "8001" not in command
+    serve = messages.docker_command("serve --port 9000")
+    assert "-p 127.0.0.1:9000:9000" in serve and "9001" not in serve
+
+
+def test_start_gives_both_inner_ports(served):
+    base, token, _site = served
+    info = _preview_info(base, token)
+    port = int(base.rsplit(":", 1)[1])
+    assert info["studio"] == port and info["port"] == port + 1
+
+
+def test_csp_follows_the_port_the_browser_used(served):
+    """`-p 9000:8000 -p 9001:8001`: браузер пришёл на 9000 - CSP называет 9001, не 8001."""
+    base, token, _site = served
+    port = int(base.rsplit(":", 1)[1])
+    info = _preview_info(base, token)
+    outer = 9000 if port not in (9000, 9001) else 7000
+    shift = info["port"] - port
+    studio_csp = _req(base, "/", host=f"localhost:{outer}")[2]["Content-Security-Policy"]
+    assert f"frame-src http://localhost:{outer + shift};" in studio_csp, studio_csp
+    assert f"img-src 'self' data: blob: http://localhost:{outer + shift};" in studio_csp
+    assert f":{info['port']}" not in studio_csp
+    other = f"http://127.0.0.1:{info['port']}"
+    headers = _req(other, "/x", host=f"localhost:{outer + shift}")[2]
+    assert f"frame-ancestors http://localhost:{outer}" in headers["Content-Security-Policy"]
+    # адрес без порта (80/443): те же сдвиги, что считает страница
+    bare = _req(base, "/", host="127.0.0.1")[2]["Content-Security-Policy"]
+    assert f"http://127.0.0.1:{80 + shift} https://127.0.0.1:{443 + shift}" in bare, bare
+    # IPv6 с портом
+    v6 = _req(base, "/", host=f"[::1]:{outer}")[2]["Content-Security-Policy"]
+    assert f"frame-src http://[::1]:{outer + shift};" in v6, v6
+    # чужое имя - не в политику (такой запрос и так получит 403)
+    foreign = _req(base, "/", host=f"evil.test:{outer}")[2]["Content-Security-Policy"]
+    assert "evil.test" not in foreign
 
 
 # --- SVG: разбор XML, а не поиск по тексту (приёмка 0.3.0, баг 10) ---------------------------

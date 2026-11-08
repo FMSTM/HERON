@@ -47,7 +47,8 @@ heron/
 │   ├── schemas.py        JSON Schema and the error registry
 │   ├── wiring.py         joining the theme and the site
 │   ├── site.py           pydantic schema of site.yaml, including the version requirement
-│   ├── theme.py          schema of theme.yaml
+│   ├── theme.py          schema of theme.yaml and the field contract of a theme
+│   ├── fields.py         service fields of a page
 │   ├── frontmatter.py    schema of the frontmatter
 │   └── version.py        check of the engine version against site.yaml
 ├── core/
@@ -360,6 +361,98 @@ An empty string instead of a block is a matter of principle: a heading without c
 ### Interface strings
 
 Texts that belong to the theme rather than the content ("Book now" / "Записаться", "Read more" / "Читать далее") live in `theme/i18n/<lang>.yaml` and are available as `t.book_now`. Otherwise they end up hardcoded in the templates and the theme stops being portable between languages.
+
+### Theme contract: block fields and hints <a id="theme-contract"></a>
+
+In `theme.yaml` a theme describes not only which pages it draws but also what they are made of: the sections of every type, the fields of every block, the category views and the hints to them. This description is one for everybody: `heron check`, the questionnaire, the studio, the theme reference page and an agent read it. There is no separate "editor API".
+
+An example - a piece of the starter theme:
+
+```yaml
+languages: [ru, en]                # the hint languages of the theme
+
+types:
+  page:
+    uses: [intro, "*"]             # sections in order; "*" - any blocks
+    hint_ru: Обычная страница - текст и блоки любой формы
+    hint_en: An ordinary page - text and blocks of any form
+    children_type: page            # the type of the pages inside a category of this type
+    views:                         # how a category shows its pages
+      key: view                    # the front matter key of _index.md that picks the view
+      default: cards
+      options:
+        cards: {hint_ru: Карточки сеткой, hint_en: Cards in a grid}
+        list: {hint_ru: Список строками, hint_en: A list of rows}
+    sections:
+      intro:
+        required: true
+        hint_ru: Вводный абзац - о чём страница
+        hint_en: The intro paragraph - what the page is about
+
+modules:
+  faq:
+    kinds: [faq]                   # the section forms the module draws
+    schemaorg: FAQPage
+    hint_ru: Вопросы и ответы - вопрос заголовком, ответ под ним
+    hint_en: Questions and answers - the question as a heading, the answer under it
+    fields:
+      - name: items
+        type: list
+        required: true
+        md: groups                 # where the value lies in markdown
+        hint_ru: Пары вопрос - ответ
+        hint_en: Question - answer pairs
+        fields:
+          - {name: q, type: text, required: true, md: heading, max_length: 120, schemaorg: Question.name, hint_ru: Вопрос, hint_en: The question}
+          - {name: a, type: markdown, required: true, md: content, schemaorg: Answer.text, hint_ru: Ответ, hint_en: The answer}
+```
+
+**Keys.**
+
+- `languages` - the hint languages of the theme. Not set - the languages of the suffixes that occur in the hints.
+- `modules` - a list of names, as before, or a description of every module: `scope` (`section` - it draws a section, `page` - it takes data from the page and the site, like `mod.breadcrumbs()`), `kinds` (section forms from `20` §4.4; not set - the form with the name of the module), `schemaorg` (the markup type of the block), `fields` (the fields of the block), hints.
+- `types.<type>.sections.<anchor>` - a section from `uses`: `required` (whether it is required), `fields` (own fields of a section that has no form - this is how `intro` is described), hints. The anchor `"*"` is the hint to "any blocks". The order of sections is the order of `uses`; a section that is not in `uses` is `E008`.
+- `types.<type>.children_type` - the type of the pages inside a category of this type, from `types` of the same theme.
+- `types.<type>.views` - category views: `key` (the front matter key of the category page, `view` by default), `default` (the view without the key), `options` (the views of the theme with hints). The theme invents the list of views - the engine only checks that `default` is in `options`.
+
+**A block field.**
+
+| Key | What it is |
+|---|---|
+| `name` | the field name: lowercase Latin letters, digits, `_`, starting with a letter |
+| `type` | `text`, `markdown`, `list`, `image`, `link`, `number`, `date`, `enum`, `ref`, `flag` (yes or no) |
+| `required` | whether it is required |
+| `md` | where the value lies in markdown: a place from the vocabulary below |
+| `min_length`, `max_length` | the length of the text |
+| `min_items`, `max_items` | the number of list items |
+| `ratio`, `min_width` | the proportion (`16:9`) and width of a picture, only for `image` |
+| `values` | the allowed values, only for `enum` (and required for it) |
+| `ref` | for `ref` - the type of the pages the field points to |
+| `schemaorg` | the markup property the value goes into: `Question.name` |
+| `item` or `fields` | for a list - the type of every item or the fields of every item, one of the two |
+
+**Places in markdown (`md`).** The vocabulary is common to all themes: every place is a form the section parser already understands (§5, `20` §4.4). By it the questionnaire finds the value in the file and writes it back to the same place.
+
+| Place | What is in the file |
+|---|---|
+| `body` | the whole content of the section |
+| `first-paragraph`, `second-paragraph` | the first and the second paragraphs of the intro |
+| `lead` | paragraphs before the main node: a list, a table, `###` groups, "key \| value" lines |
+| `quote` | a quote `> …` |
+| `items`, `numbered` | items of a `- …` list and of a numbered `1. …` one |
+| `bold`, `tag`, `text`, `more` | the bold start `**Term.**`, the tag `[TAG]`, the text after the start, the indented rest of an item |
+| `groups`, `heading`, `heading-id`, `content` | `### Heading` groups, the text of the heading, its anchor `{#id}`, everything under it |
+| `pairs`, `key`, `value` | `key \| value` lines and their parts |
+| `table-head`, `table-rows`, `cells` | the table header, the rows, the cells of a row |
+| `image`, `alt` | the path of a picture `![caption](path)` and the caption |
+
+**Hints.** `hint` is one line for hovering, `help` - what it is, what it affects on the site and in search, a good example, common mistakes; a module also has `example` - a markdown sample. Per language - with a suffix, as in `site.yaml`: `hint_ru`, `help_en`, `example_uk`; the key without a suffix is for languages that have no own text. Hints exist on a type, a section, a module, a field, a view and the `views` block.
+
+**Service fields** are described by the engine (`heron/contracts/fields.py`, the texts are in the message dictionary, ru and en), the theme does not repeat them. These are the SEO block (`title`, `h1`, `description`), the address (`slug`, the category - the folder of the page, `type`, `children_type`), the menu (`nav.main` in `site.yaml`, `nav_title`, `order`), the cover (`image`, `image_alt`), social networks (`og_image`, `og_title`, `og_description`), publishing (`noindex`, `published`, `date`, `updated`, `redirect_from`) and for every block - the heading `## …` and the anchor `{#…}`. The order and the groups are the same for the questionnaire and the studio.
+
+**Check.** A theme without `fields` builds as before - sections stay free markdown. `heron check` warns once: "no field description: the questionnaire and the studio will show only the SEO block". A theme that has `fields` must give a `hint` to every type, section in `sections`, module in the description, field and view - in every one of its languages; if something is missing, `heron check` gives `E008` with the list of paths (`modules.faq.fields.items.fields.q (en)`). A missing hint does not stop the build. An invalid description - an unknown `md` place or type, a list without `item` and `fields`, an `enum` without `values`, a `default` outside `options`, `children_type` or `ref` to a type that does not exist, a repeated field name - is `E008` when `theme.yaml` is read, like any error of the passport.
+
+The starter theme is fully described in ru and en (`heron/scaffold/text/theme-contract.yaml` - the part of its `theme.yaml` common to both notes languages); a test matches the markdown samples of each of its modules against the section parser.
 
 ### The cover and `robots_meta` in the template <a id="cover-robots"></a>
 
@@ -749,7 +842,7 @@ The detail and hint of an error and the text of a warning are in the language of
 | `E005` | an invalid file or folder name in `content/`; for `heron page` - an invalid slug or a language outside `site.languages`. An invalid `slug` in the frontmatter is `E002` |
 | `E006` | a relation field refers to a page that does not exist |
 | `E007` | the image is not on disk |
-| `E008` | a page type has no template in the theme, or the strings file `theme/i18n/<language>.yaml` is unusable |
+| `E008` | a page type has no template in the theme, the strings file `theme/i18n/<language>.yaml` is unusable, a theme with `fields` lacks a hint in one of its languages (`heron check`) |
 | `E009` | `redirect_from` coincides with an existing URL |
 | `E010` | access to a variable that does not exist in a template, or an exception while a template runs |
 | `E011` | `site.yaml` does not pass validation; also an invalid value of `HERON_WORKERS` (outside 0-64 or not a number) |

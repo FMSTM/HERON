@@ -108,6 +108,42 @@ EN: dict[str, tuple[str, str]] = {
         "variants of every scan are wasted work and minutes of build time.\n"
         "Written the same way, as the beginning of a path: `media/docs/`.",
     ),
+    "theme.schema.json#/$defs/FieldSpec/description": (
+        "a5bec6a392",
+        "A field of a block: name, value type, place in markdown, limits, schema.org property.\n\n"
+        "`md` - where the value lies in markdown (the engine vocabulary of places, `MD_PLACES`).\n"
+        "A list has `item` (the type of every item) or `fields` (the fields of every item).\n"
+        "Limits - length (`min_length`, `max_length`), number of items (`min_items`,\n"
+        "`max_items`), picture (`ratio`, `min_width`), allowed values (`values`),\n"
+        "the page type of a link (`ref`). `schemaorg` - the markup property the value\n"
+        "goes into: `Question.name`.",
+    ),
+    "theme.schema.json#/$defs/ModuleSpec/description": (
+        "8863f03c91",
+        "A module is the form of a block: which section forms it draws and which fields it has.\n\n"
+        "`scope: section` - the module draws a section (`mod.list('why')`), `page` - it takes\n"
+        "data from the page and the site (`mod.breadcrumbs()`), it has no fields.\n"
+        "`kinds` - the section forms (`20` §4.4) the module draws; not set - the form\n"
+        "with the name of the module, if there is one. `fields` not set - the theme has not\n"
+        "described the fields.",
+    ),
+    "theme.schema.json#/$defs/SectionSpec/description": (
+        "6262d12581",
+        "A section of a page type: whether it is required and, if it has no form,\n"
+        "its own fields.\n\n"
+        'The key is an anchor from `uses` (`intro`, `faq`) or `"*"` for "any sections".\n'
+        "The order of sections is the order of `uses`.",
+    ),
+    "theme.schema.json#/$defs/ViewSpec/description": (
+        "1d6835f0f0",
+        "A view of a category: how its page shows the pages inside.",
+    ),
+    "theme.schema.json#/$defs/ViewsSpec/description": (
+        "61d7622500",
+        "Views of a category: the front matter key that picks them and the default view.\n\n"
+        "The theme invents the list of views: a grid, a list, a table - what its templates\n"
+        "draw. The engine only checks that the default view is in the list.",
+    ),
     "theme.schema.json#/$defs/LinkSpec/description": (
         "3bc9f9dcab",
         "A relation between pages declared by the theme.\n\n"
@@ -248,8 +284,18 @@ def site_schema(lang: str = "ru") -> dict[str, Any]:
     return _finish(data, "site.schema.json", lang)
 
 
+# Подсказки по языкам (`hint_ru`, `help_en`, `example_uk`) - как значения site.yaml:
+# модель собирает их в `i18n`, схема описывает их так, как их пишет автор темы.
+HINT_PATTERN = "^(hint|help|example)_[a-z]{2}(-[a-z]{2})?$"
+
+
 def theme_schema(lang: str = "ru") -> dict[str, Any]:
     data = ThemeConfig.model_json_schema()
+    for owner in data["$defs"].values():
+        props = owner.get("properties", {})
+        if "i18n" in props:
+            props.pop("i18n")
+            owner["patternProperties"] = {HINT_PATTERN: {"type": "string"}}
     data["properties"]["version"] = _number_or(data["properties"]["version"])
     data["description"] = THEME_NOTE
     return _finish(data, "theme.schema.json", lang)

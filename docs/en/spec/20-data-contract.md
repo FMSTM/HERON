@@ -1190,6 +1190,8 @@ images:
 
 The `images` values in the example are the defaults: the block may be omitted. `ratios` look like `16:9`, both parts positive integers; `widths` is a non-empty list of positive numbers, order and repeats do not matter; `fallback_width` and `cover_width` must be greater than zero. A violation is `E008`.
 
+**The contract for the questionnaire and the studio.** `languages`, a description of modules with `fields` (`modules` is then a mapping, not a list), `types.<type>.sections`, `children_type`, `views` and the `hint`/`help` hints in the languages of the theme - [`21` "Theme contract"](21-engine.md#theme-contract). A theme without them builds as before.
+
 `uses` are the sections of the type. An element is a section anchor (`intro`), optionally with a form after a colon (`how:steps`, forms are table 4.4): a form mismatch is a line in the `check` report, not an error. `"*"` - the type accepts any sections. An unknown form, an invalid anchor or a repeated anchor is `E008`.
 
 A page type is implemented by the file `templates/<type>.html` - an ordinary Jinja2 template. Another file is set by the key `types.<type>.template` (a path from `templates/`): `template: page.html` - the type is rendered by the common page template. The order of blocks is visible from top to bottom:

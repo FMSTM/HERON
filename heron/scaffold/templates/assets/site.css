@@ -135,6 +135,7 @@ th { background: var(--wash); font-weight: 600; }
 /* heron:note css.tabs */
 
 .children .cards { list-style: none; padding: 0; display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
+.children .rows { list-style: none; padding: 0; display: grid; gap: .5rem; }
 .children a { display: block; height: 100%; padding: 1rem 1.25rem; border: 1px solid var(--line); border-radius: var(--radius); text-decoration: none; color: inherit; }
 .children a:hover { border-color: var(--accent); }
 .children span { display: block; color: var(--muted); font-size: .92rem; margin-top: .25rem; }

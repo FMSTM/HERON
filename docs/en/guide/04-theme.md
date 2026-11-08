@@ -87,6 +87,68 @@ What the keys mean:
 
 Every key in detail - [`20` §6](../spec/20-data-contract.md#theme-yaml).
 
+## Block fields and hints <a id="block-fields"></a>
+
+Templates tell the engine what a page looks like. But a person who will fill the page in needs more: which blocks the page has, what to write in every field and how it affects the site and search. This is written in `theme.yaml` too - as a description of fields and hints. The questionnaire and the studio work by it, an agent fills pages by it without reading templates, and `heron check` makes sure the description is complete.
+
+The description is optional. A theme without it builds as before, only `heron check` warns once that the questionnaire and the studio will show just the SEO block. The starter theme is fully described - look into its `theme.yaml`, it is the best sample.
+
+How to describe a block, with questions and answers as an example:
+
+```yaml
+languages: [ru, en]              # the languages you write hints in
+
+modules:
+  faq:
+    kinds: [faq]                 # which section form the module draws (table 20 §4.4)
+    hint_ru: Вопросы и ответы - вопрос заголовком, ответ под ним
+    hint_en: Questions and answers - the question as a heading, the answer under it
+    help_ru: Вопрос - заголовок третьего уровня, ответ - текст под ним; в поиске блок размечается как FAQPage
+    help_en: |-
+      Every question is a third-level heading, the answer is the text under it.
+      In search the block is marked up as FAQPage.
+    fields:
+      - name: items
+        type: list
+        required: true
+        md: groups               # ### groups in markdown
+        hint_ru: Пары вопрос - ответ
+        hint_en: Question - answer pairs
+        fields:
+          - {name: q, type: text, required: true, md: heading, max_length: 120, hint_ru: Вопрос, hint_en: The question}
+          - {name: a, type: markdown, required: true, md: content, hint_ru: Ответ, hint_en: The answer}
+```
+
+What matters here:
+
+- **Fields describe real markdown.** `md` says where the value lies in the file: `heading` - the text of a `###` heading, `content` - everything under it, `items` - list items, `bold` - the bold start of an item. The vocabulary of places is one for all themes, it is in [`21` "Theme contract"](../spec/21-engine.md#theme-contract). Do not invent your own data model: describe what a person writes in the file anyway, otherwise the questionnaire cannot write the value back.
+- **`hint` is required in every language of the theme**: on every type, section, module, field and category view. It is one line a person sees on hover. If even one is missing, `heron check` stops with `E008` and lists where exactly.
+- **`help` is for a newcomer.** Write what the block is, what it affects on the site and in search, a good example and common mistakes. A module can also have `example_ru` and `example_en` - a markdown sample for the questionnaire and the reference.
+- **You do not write the service fields.** `title`, `h1`, `description`, the address, the cover, the menu, `noindex` are described by the engine itself, with hints in ru and en.
+
+The sections of a type are described next to `uses`: whether a section is required and what its hint is. If pages of the type can be a category (a folder with `_index.md`), name the type of the pages inside and the views the category shows them with:
+
+```yaml
+types:
+  page:
+    uses: [intro, "*"]
+    hint_ru: Обычная страница
+    hint_en: An ordinary page
+    children_type: page          # the type of the pages inside a category
+    views:
+      key: view                  # the line view: list in the front matter of _index.md
+      default: cards
+      options:
+        cards: {hint_ru: Карточки сеткой, hint_en: Cards in a grid}
+        list: {hint_ru: Список строками, hint_en: A list of rows}
+    sections:
+      intro: {required: true, hint_ru: Вводный абзац, hint_en: The intro paragraph}
+```
+
+The theme invents the views - exactly those its templates draw. In the starter theme the module `children` reads `page.meta.get('view')` and shows the pages as cards or as a list.
+
+All keys of the description - [`21` "Theme contract"](../spec/21-engine.md#theme-contract).
+
 ## A page type template
 
 Every page type is drawn by its own template: the type `service` by the file `templates/service.html`. A template reads top to bottom, and the blocks end up on the page in the same order:

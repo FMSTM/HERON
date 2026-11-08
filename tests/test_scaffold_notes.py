@@ -21,10 +21,19 @@ CYRILLIC = re.compile(r"[а-яА-ЯёЁіїєІЇЄ]")
 COMMENTED = ["site.yaml", "theme/theme.yaml", "content/en/index.md", "content/en/404.md"]
 
 
+def _without_contract(text: str) -> str:
+    """theme.yaml без контракта стартовой темы: его подсказки - данные на ru и en
+    сразу (тема описана на обоих языках), а не комментарии на языке пояснений."""
+    contract = scaffold.CONTRACT.read_text(encoding="utf-8").rstrip("\n")
+    return text.replace(contract, "")
+
+
 def _comments(path):
     """Комментарии файла; у страницы — только из SEO-блока: якоря секций
     `{#about}` в тексте — не комментарии."""
     text = path.read_text(encoding="utf-8")
+    if path.name == "theme.yaml":
+        text = _without_contract(text)
     if path.suffix == ".md" and text.startswith("---"):
         text = text.split("---", 2)[1]
     return "\n".join(line.split("#", 1)[1] for line in text.splitlines() if "#" in line)
@@ -320,7 +329,11 @@ def test_theme_comments_speak_the_notes_language(tmp_path, lang):
     if lang == "en":
         for path in (root / "theme").rglob("*"):
             if path.is_file() and "i18n" not in path.parts:
-                assert not CYRILLIC.search(path.read_text(encoding="utf-8")), path
+                text = path.read_text(encoding="utf-8")
+                if path.name == "theme.yaml":
+                    assert scaffold.CONTRACT.read_text(encoding="utf-8").rstrip("\n") in text
+                    text = _without_contract(text)
+                assert not CYRILLIC.search(text), path
 
 
 @pytest.mark.parametrize("lang", ["ru", "en"])

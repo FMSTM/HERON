@@ -60,7 +60,13 @@ def test_type_with_theme_template_is_green(tmp_path: Path) -> None:
     root = site(tmp_path)
     theme = root / "theme/theme.yaml"
     data = yaml.safe_load(theme.read_text(encoding="utf-8"))
-    data["types"]["no-such-type"] = {"template": "page.html", "uses": ["*"]}
+    # подсказки на обоих языках стартовой темы: без них check ловит hint, а не шаблон
+    data["types"]["no-such-type"] = {
+        "template": "page.html",
+        "uses": ["*"],
+        "hint_ru": "Тип со своим шаблоном",
+        "hint_en": "A type with its own template",
+    }
     theme.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
     result = run(root, "--json", "--notes", "en")
     assert not [f for f in json.loads(result.output)["errors"] if f["code"] == "E008"]

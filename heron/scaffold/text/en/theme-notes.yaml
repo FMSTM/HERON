@@ -10,7 +10,8 @@ checklist: |-
 timeline: |-
   {# timeline comes as "period | event" pairs or as numbered steps #}
 children: |-
-  {# Pages of a section: an _index.md page lists its children as cards. #}
+  {# Pages of a section: an _index.md page lists its children as cards,
+     and with `view: list` in its front matter as rows (the views are in theme.yaml). #}
 tabs: |-
   {# Tabs without scripts: a radio button per tab, CSS shows the chosen one.
      Without CSS every tab is a plain heading with its content, readable as is. #}

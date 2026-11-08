@@ -16,7 +16,7 @@ from pathlib import Path
 
 from heron.contracts import wiring
 from heron.contracts.site import SiteConfig, load_site
-from heron.contracts.theme import ThemeConfig, load_theme
+from heron.contracts.theme import ThemeConfig, load_theme, missing_hints
 from heron.core import check as templates_check
 from heron.core import data as data_module
 from heron.core import (
@@ -33,7 +33,7 @@ from heron.core import (
     urls,
 )
 from heron.core.environment import BuildEnv
-from heron.core.errors import Collector, HeronError
+from heron.core.errors import Collector, HeronError, Warning_
 from heron.core.hooks import Hooks
 from heron.core.models import Page, Site
 from heron.core.parser import markdown
@@ -608,6 +608,37 @@ def _schema(site, config, theme, collector, built, env, allow=(), exists=None) -
     built.schema = check_.finish(collector, built.notes_lang)
 
 
+def theme_contract(theme: ThemeConfig, theme_dir: Path, collector: Collector) -> None:
+    """Контракт темы для опросника и студии: описан ли и с подсказками ли.
+
+    Тема без `fields` собирается как раньше - одно предупреждение на проверку,
+    что опросник покажет только служебные поля. Тема с `fields`, у которой нет
+    `hint` на каком-то из её языков, - ошибка: подсказка - половина контракта,
+    без неё новичок в студии видит голое имя поля.
+    """
+    where = str(theme_dir / "theme.yaml")
+    if not theme.described:
+        collector.warnings.append(
+            Warning_(Msg("build_theme_no_fields", theme=theme.name), path=where)
+        )
+        return
+    missing = missing_hints(theme)
+    if missing:
+        collector.errors.append(
+            HeronError(
+                code="E008",
+                message=Msg(
+                    "build_theme_hints",
+                    theme=theme.name,
+                    langs=", ".join(theme.hint_langs()) or "-",
+                    missing=missing,
+                ),
+                path=where,
+                hint=Msg("build_theme_hints_hint"),
+            )
+        )
+
+
 def check(
     site_root: Path,
     drafts: bool = False,
@@ -629,6 +660,7 @@ def check(
         raise
 
     rooted(site_root, theme_dir)
+    theme_contract(theme, theme_dir, collector)
     for lang in config.site.languages:
         try:
             render_env.load_strings(theme_dir, lang, Collector())

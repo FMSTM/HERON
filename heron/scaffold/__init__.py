@@ -353,6 +353,19 @@ def _text(lang: str, name: str) -> str:
     return (TEXT / lang / name).read_text(encoding="utf-8")
 
 
+# Контракт стартовой темы - типы, секции, поля модулей и подсказки сразу на ru и
+# en - один на оба языка пояснений: theme.yaml каждого языка вставляет его
+# на место `{contract}`. Подставляется значением формата, поэтому фигурные
+# скобки в подсказках (`{#faq}`) остаются как есть.
+CONTRACT = TEXT / "theme-contract.yaml"
+
+
+def theme_yaml(notes: str, fields: dict[str, str]) -> str:
+    """theme.yaml стартовой темы на языке пояснений `notes` вместе с контрактом."""
+    contract = CONTRACT.read_text(encoding="utf-8").rstrip("\n")
+    return _text(notes, "theme.yaml").format(**fields, contract=contract)
+
+
 # Комментарии стартовой темы — на языке пояснений, как theme.yaml и записки.
 # В шаблонах на их месте метка, текст — в text/<язык>/theme-notes.yaml.
 # Ключа нет в таблице — KeyError: тема с меткой вместо комментария уехать
@@ -561,7 +574,7 @@ def starter_theme(stage: Path, languages: list[str], notes: str = "en") -> None:
     """
     plan = Plan(notes=notes)
     fields = {"theme": "starter", "theme_title": '"HERON starter"'}
-    _put(stage, "theme/theme.yaml", _text(notes, "theme.yaml").format(**fields), plan, True)
+    _put(stage, "theme/theme.yaml", theme_yaml(notes, fields), plan, True)
     for source in sorted(TEMPLATES.rglob("*")):
         if source.is_file():
             _theme_file(stage, source, plan, True, notes)
@@ -736,7 +749,7 @@ def create(
     for folder in NOTED:
         _note(root, folder, folder, notes, plan, force)
 
-    _put(root, "theme/theme.yaml", _text(notes, "theme.yaml").format(**fields), plan, force)
+    _put(root, "theme/theme.yaml", theme_yaml(notes, fields), plan, force)
     for source in sorted(TEMPLATES.rglob("*")):
         if source.is_file():
             _theme_file(root, source, plan, force, notes)

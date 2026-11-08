@@ -1,21 +1,15 @@
 name: {theme}
-version: "0.2"
+version: "0.3"
 title: {theme_title}
+heron: ">=0.3"
 
 # Что тема ждёт от site.yaml. Движок проверит, что эти пути заполнены
 requires: []
 
-modules: [prose, list, checklist, steps, table, facts, faq, timeline, callout, gallery, tabs, breadcrumbs, children]
-
-# Тип страницы → секции, которые он использует. Шаблон - templates/<тип>.html.
-# После двоеточия можно назвать ожидаемую форму: "how:steps"
-types:
-  home:
-    uses: [intro, "*"]
-  page:
-    uses: [intro, "*"]
-  "404":
-    uses: [intro]
+# Контракт для людей и программ, которые заполняют страницы: типы страниц и их
+# секции, поля каждого блока, виды категорий и подсказки на ru и en. Шаблон типа -
+# templates/<тип>.html, после двоеточия в uses можно назвать форму: "how:steps".
+{contract}
 
 # Пропорции и ширины, в которые движок впишет мастера из media/
 images:

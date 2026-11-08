@@ -1671,6 +1671,394 @@ TEXT["en"].update(
 )
 
 
+# --- служебные поля страницы: подсказки словаря движка (heron/contracts/fields.py) ---
+# hint - одна строка для наведения, help - что это, на что влияет на сайте и в поиске,
+# хороший пример, частые ошибки. Тексты идут через say(): фигурные скобки удвоены.
+TEXT["ru"].update(
+    {
+        "field_group_seo": "Поиск: заголовок и описание",
+        "field_group_address": "Адрес и тип",
+        "field_group_menu": "Меню и порядок",
+        "field_group_cover": "Обложка",
+        "field_group_social": "Соцсети и мессенджеры",
+        "field_group_publishing": "Публикация",
+        "field_group_section": "Блок страницы",
+        "field_title_hint": "Заголовок в выдаче поисковика и на вкладке браузера, до 60 знаков",
+        "field_title_help": (
+            "Строка, которую человек видит в результатах поиска и на вкладке браузера. "
+            "Тема дописывает к ней хвост сайта (seo.title_suffix в site.yaml), поэтому "
+            "название сайта сюда не пишут.\n"
+            "В поиске это главный текст ссылки: по нему решают, открывать ли страницу.\n"
+            "Хорошо: «Как начать сайт за десять минут» - о чём страница, словами того, кто ищет.\n"
+            "Частые ошибки: длиннее 60 знаков (поисковик обрежет), одинаковый title у разных "
+            "страниц, title слово в слово как h1."
+        ),
+        "field_h1_hint": "Заголовок на самой странице - для того, кто её уже открыл",
+        "field_h1_help": (
+            "Крупный заголовок вверху страницы. Его читает человек, который уже пришёл, "
+            "поэтому он может быть короче и живее title.\n"
+            "Поисковики тоже его читают: h1 подтверждает, что страница о том же, что "
+            "обещал title.\n"
+            "Хорошо: title «Как начать сайт за десять минут», h1 «Десять минут до своего сайта».\n"
+            "Частые ошибки: h1 копирует title, h1 «Главная» или «Страница», два h1 на странице."
+        ),
+        "field_description_hint": "Описание в выдаче под заголовком, до 155 знаков",
+        "field_description_help": (
+            "Пара предложений под заголовком в результатах поиска и в карточке страницы "
+            "в разделе сайта. Поисковик может заменить его куском текста, но хорошее "
+            "описание берёт чаще.\n"
+            "Хорошо: «Одна команда создаёт сайт, дальше вы пишете текст в редакторе. "
+            "Без баз данных и панелей.» - что человек получит.\n"
+            "Частые ошибки: длиннее 155 знаков, повтор title, список ключевых слов через запятую."
+        ),
+        "field_slug_hint": "Часть адреса страницы латиницей; без него - имя файла",
+        "field_slug_help": (
+            "Последняя часть адреса: /guides/start/ у страницы со slug start. Пустое поле - "
+            "адрес по имени файла. У каждого языка свой файл, поэтому и адрес на языке "
+            "свой: /ru/nachalo/ и /en/start/.\n"
+            "В поиске короткий понятный адрес выглядит надёжнее и попадает в выдачу.\n"
+            "Хорошо: start, prices, how-to-order - латиница, цифры, дефис.\n"
+            "Частые ошибки: смена адреса без redirect_from со старого (ссылки и позиции "
+            "в поиске теряются), заглавные буквы и пробелы."
+        ),
+        "field_category_hint": "Категория - папка в content/, в которой лежит страница",
+        "field_category_help": (
+            "Раздел сайта, к которому относится страница: папка внутри content/<язык>/. "
+            "Страница папки - её _index.md, она показывает страницы внутри. Пусто - "
+            "страница в корне сайта.\n"
+            "Категория входит в адрес (/guides/start/) и в хлебные крошки, а поисковик "
+            "по ним понимает структуру сайта.\n"
+            "Хорошо: guides для инструкций, а не одна общая папка pages.\n"
+            "Частые ошибки: перенос страницы в другую папку без redirect_from со старого адреса."
+        ),
+        "field_type_hint": "Тип страницы - каким шаблоном темы она рисуется",
+        "field_type_help": (
+            "Тип выбирает шаблон темы и набор блоков. Без поля страница получает тип "
+            "страниц своей категории (children_type), иначе основной тип темы.\n"
+            "От типа зависит и разметка schema.org, которую тема ставит странице.\n"
+            "Частая ошибка: тип, которого нет в теме, - сборка остановится с E008 и "
+            "назовёт типы, которые есть."
+        ),
+        "field_children_type_hint": "Только у страницы категории: тип страниц внутри неё",
+        "field_children_type_help": (
+            "Пишется в _index.md папки. Все страницы этой папки без своего поля type "
+            "получают этот тип: не нужно повторять его в каждом файле.\n"
+            "Хорошо: children_type: page у раздела инструкций.\n"
+            "Частая ошибка: поле в обычной странице, а не в _index.md - там оно ничего не делает."
+        ),
+        "field_menu_hint": "Показывать страницу в главном меню сайта",
+        "field_menu_help": (
+            "Главное меню - список nav.main в site.yaml, одно меню на все языки: адрес "
+            "страницы или её ключ. Порядок в меню - порядок этого списка.\n"
+            "Меню видно на каждой странице, поэтому в нём пять-семь самых нужных пунктов.\n"
+            "Частые ошибки: двадцать пунктов, страница в меню, но с noindex или published: false."
+        ),
+        "field_nav_title_hint": "Короткое имя в меню и хлебных крошках; без него - h1",
+        "field_nav_title_help": (
+            "Короткое слово вместо длинного h1 там, где мало места: в меню, хлебных "
+            "крошках, переключателе языков.\n"
+            "Хорошо: h1 «Десять минут до своего сайта», nav_title «Начало».\n"
+            "Частая ошибка: nav_title длиннее трёх слов - меню переносится на вторую строку."
+        ),
+        "field_order_hint": "Место в разделе и в связях: меньше - выше, по умолчанию 999",
+        "field_order_help": (
+            "Порядок страниц в карточках категории и в списках связей, по возрастанию. "
+            "Порядок меню задаёт nav.main в site.yaml, не это поле.\n"
+            "Хорошо: 10, 20, 30 - с шагом, чтобы потом вставить страницу между."
+        ),
+        "field_image_hint": "Обложка страницы - картинка из media/, от 1200 px в ширину",
+        "field_image_help": (
+            "Главная картинка страницы: превью в карточке раздела, обложка для поисковиков "
+            "и соцсетей. Без неё движок берёт og_image, затем первую картинку текста, "
+            "затем seo.og_default_image из site.yaml.\n"
+            "В поиске: от 1200 px в ширину Google показывает крупное превью.\n"
+            "Хорошо: непрозрачная фотография или иллюстрация по теме страницы.\n"
+            "Частые ошибки: логотип вместо обложки, картинка уже 1200 px, прозрачный PNG."
+        ),
+        "field_image_alt_hint": (
+            "Подпись обложки: что на картинке, для поиска и тех, кто её не видит"
+        ),
+        "field_image_alt_help": (
+            "Текст alt. Его читают программы экранного доступа и поиск по картинкам. "
+            "Нужен, если задана обложка.\n"
+            "Хорошо: «Папка сайта в текстовом редакторе».\n"
+            "Частые ошибки: «картинка», «фото1», повтор title."
+        ),
+        "field_og_image_hint": "Картинка для соцсетей и мессенджеров; без неё - обложка",
+        "field_og_image_help": (
+            "Что показывают соцсети и мессенджеры, когда ссылкой на страницу делятся. "
+            "Пусто - обложка страницы, затем seo.og_default_image из site.yaml.\n"
+            "Хорошо: 1200 x 630 px, крупный текст или понятный кадр.\n"
+            "Частые ошибки: мелкий текст на картинке, картинка с важным по краям (её обрежут)."
+        ),
+        "field_og_title_hint": "Заголовок превью в соцсетях; без него - title",
+        "field_og_title_help": (
+            "Заголовок карточки ссылки в соцсетях и мессенджерах. Обычно не нужен: "
+            "берётся title. Задайте, если для соцсетей нужен другой тон."
+        ),
+        "field_og_description_hint": "Описание превью в соцсетях; без него - description",
+        "field_og_description_help": (
+            "Текст под заголовком карточки ссылки. Обычно не нужен: берётся description."
+        ),
+        "field_noindex_hint": "Закрыть страницу от поисковиков и убрать из карты сайта",
+        "field_noindex_help": (
+            "Страница собирается и открывается по ссылке, но поисковикам велено её не "
+            "показывать, и в sitemap её нет.\n"
+            "Хорошо: страница «спасибо за заявку», служебные страницы.\n"
+            "Частая ошибка: noindex на странице, которая стоит в меню, - её ищут и не находят."
+        ),
+        "field_published_hint": "Собирать ли страницу: false - черновик, на сайт не попадает",
+        "field_published_help": (
+            "published: false - страница не собирается; увидеть её можно в heron serve "
+            "или с флагом --drafts.\n"
+            "Частая ошибка: ссылка на черновик с других страниц - проверка сообщит о "
+            "битой ссылке."
+        ),
+        "field_date_hint": "Дата публикации, ГГГГ-ММ-ДД",
+        "field_date_help": (
+            "Когда страница вышла. Её показывают тема и разметка статей, по ней "
+            "сортируется лента.\n"
+            "Хорошо: 2026-11-08.\n"
+            "Частая ошибка: дата в будущем - сборка предупредит."
+        ),
+        "field_updated_hint": "Дата последней правки, ГГГГ-ММ-ДД; без неё - по build.updated_from",
+        "field_updated_help": (
+            "Когда страницу меняли по существу. Уходит в карту сайта (lastmod) и в "
+            "разметку: поисковик чаще перечитывает свежие страницы. Без поля дату "
+            "берёт движок, если в site.yaml build.updated_from: git или file.\n"
+            "Частая ошибка: дата правки раньше даты публикации."
+        ),
+        "field_redirect_from_hint": "Старые адреса страницы - с них будет 301 сюда",
+        "field_redirect_from_help": (
+            "Список путей от корня: /old-address/. Движок ставит с них постоянное "
+            "перенаправление 301, и поисковик переносит позиции на новый адрес.\n"
+            "Хорошо: каждый раз, когда меняется slug или категория.\n"
+            "Частая ошибка: адрес, который занят другой страницей, - ошибка E009."
+        ),
+        "field_heading_hint": "Заголовок блока на странице - текст после ##",
+        "field_heading_help": (
+            "Заголовок второго уровня: «## Как начать {{#start}}». Тема показывает его над "
+            "блоком, поисковик по заголовкам понимает, о чём части страницы.\n"
+            "Хорошо: вопрос или действие словами посетителя.\n"
+            "Частые ошибки: заголовок «Блок 1», заголовок без якоря - тогда блока нет."
+        ),
+        "field_anchor_hint": "Якорь блока латиницей в фигурных скобках: {{#start}}",
+        "field_anchor_help": (
+            "Имя блока: по нему тема ставит блок на место, а ссылка /page/#start ведёт "
+            "прямо к нему. После решётки можно назвать класс формы: {{#photos .gallery}}.\n"
+            "Хорошо: start, faq, prices - строчная латиница, цифры, дефис.\n"
+            "Частые ошибки: два одинаковых якоря в файле (ошибка E003), кириллица в якоре "
+            "(ошибка E016)."
+        ),
+    }
+)
+TEXT["en"].update(
+    {
+        "field_group_seo": "Search: title and description",
+        "field_group_address": "Address and type",
+        "field_group_menu": "Menu and order",
+        "field_group_cover": "Cover",
+        "field_group_social": "Social networks and messengers",
+        "field_group_publishing": "Publishing",
+        "field_group_section": "Block of a page",
+        "field_title_hint": (
+            "The title in search results and on the browser tab, up to 60 characters"
+        ),
+        "field_title_help": (
+            "The line a person sees in search results and on the browser tab. The theme "
+            "appends the site suffix to it (seo.title_suffix in site.yaml), so the name of "
+            "the site does not go here.\n"
+            "In search it is the main text of the link: people decide by it whether to open "
+            "the page.\n"
+            'Good: "How to start a site in ten minutes" - what the page is about, in the '
+            "words of the person searching.\n"
+            "Common mistakes: longer than 60 characters (search engines cut it), the same "
+            "title on different pages, title word for word equal to h1."
+        ),
+        "field_h1_hint": "The heading on the page itself - for someone who has already opened it",
+        "field_h1_help": (
+            "The large heading at the top of the page. It is read by a person who has "
+            "already arrived, so it can be shorter and livelier than title.\n"
+            "Search engines read it too: h1 confirms the page is about what title promised.\n"
+            'Good: title "How to start a site in ten minutes", h1 "Ten minutes to your own site".\n'
+            'Common mistakes: h1 copies title, h1 "Home" or "Page", two h1 on a page.'
+        ),
+        "field_description_hint": "The description under the title in search, up to 155 characters",
+        "field_description_help": (
+            "A couple of sentences under the title in search results and on the card of the "
+            "page in a section of the site. Search engines may replace it with a piece of "
+            "text, but they take a good description more often.\n"
+            'Good: "One command creates a site, then you write text in an editor. No '
+            'databases and no panels." - what a person gets.\n'
+            "Common mistakes: longer than 155 characters, a repeat of title, a list of "
+            "keywords separated by commas."
+        ),
+        "field_slug_hint": (
+            "The part of the page address in Latin letters; without it - the file name"
+        ),
+        "field_slug_help": (
+            "The last part of the address: /guides/start/ for a page with the slug start. "
+            "An empty field means the address follows the file name. Every language has "
+            "its own file, so its own address too: /ru/nachalo/ and /en/start/.\n"
+            "In search a short clear address looks more trustworthy and shows in results.\n"
+            "Good: start, prices, how-to-order - Latin letters, digits, hyphen.\n"
+            "Common mistakes: changing the address without redirect_from from the old one "
+            "(links and search positions are lost), capital letters and spaces."
+        ),
+        "field_category_hint": "The category - the folder in content/ that holds the page",
+        "field_category_help": (
+            "The section of the site the page belongs to: a folder inside content/<lang>/. "
+            "The page of the folder is its _index.md, it shows the pages inside. Empty - "
+            "the page is at the root of the site.\n"
+            "The category is part of the address (/guides/start/) and of the breadcrumbs, "
+            "and search engines learn the structure of the site from them.\n"
+            "Good: guides for instructions, not one common folder pages.\n"
+            "A common mistake: moving a page to another folder without redirect_from from "
+            "the old address."
+        ),
+        "field_type_hint": "The page type - which theme template draws it",
+        "field_type_help": (
+            "The type picks the theme template and the set of blocks. Without the field a "
+            "page gets the page type of its category (children_type), otherwise the main "
+            "type of the theme.\n"
+            "The schema.org markup the theme gives a page depends on the type too.\n"
+            "A common mistake: a type the theme does not have - the build stops with E008 "
+            "and names the types there are."
+        ),
+        "field_children_type_hint": "Only on a category page: the type of the pages inside it",
+        "field_children_type_help": (
+            "Written in the _index.md of a folder. All pages of that folder without their "
+            "own type field get this type: there is no need to repeat it in every file.\n"
+            "Good: children_type: page for a section of instructions.\n"
+            "A common mistake: the field in an ordinary page, not in _index.md - there it "
+            "does nothing."
+        ),
+        "field_menu_hint": "Show the page in the main menu of the site",
+        "field_menu_help": (
+            "The main menu is the list nav.main in site.yaml, one menu for all languages: "
+            "the address of a page or its key. The order of the menu is the order of the list.\n"
+            "The menu is visible on every page, so it holds the five to seven most needed items.\n"
+            "Common mistakes: twenty items, a page in the menu but with noindex or "
+            "published: false."
+        ),
+        "field_nav_title_hint": "A short name in the menu and breadcrumbs; without it - h1",
+        "field_nav_title_help": (
+            "A short word instead of a long h1 where there is little room: in the menu, the "
+            "breadcrumbs, the language switcher.\n"
+            'Good: h1 "Ten minutes to your own site", nav_title "Start".\n'
+            "A common mistake: a nav_title longer than three words - the menu wraps to a "
+            "second line."
+        ),
+        "field_order_hint": (
+            "The place in a section and in relations: lower is higher, 999 by default"
+        ),
+        "field_order_help": (
+            "The order of pages in the cards of a category and in relation lists, ascending. "
+            "The order of the menu is set by nav.main in site.yaml, not by this field.\n"
+            "Good: 10, 20, 30 - with gaps, to insert a page in between later."
+        ),
+        "field_image_hint": "The cover of the page - a picture from media/, 1200 px wide or more",
+        "field_image_help": (
+            "The main picture of the page: the preview on the card of a section, the cover "
+            "for search engines and social networks. Without it the engine takes og_image, "
+            "then the first picture of the text, then seo.og_default_image from site.yaml.\n"
+            "In search: from 1200 px wide Google shows a large preview.\n"
+            "Good: an opaque photo or illustration on the subject of the page.\n"
+            "Common mistakes: a logo instead of a cover, a picture narrower than 1200 px, "
+            "a transparent PNG."
+        ),
+        "field_image_alt_hint": (
+            "The caption of the cover: what is in the picture, "
+            "for search and people who cannot see it"
+        ),
+        "field_image_alt_help": (
+            "The alt text. Screen readers and image search read it. It is needed when a "
+            "cover is set.\n"
+            'Good: "The folder of a site in a text editor".\n'
+            'Common mistakes: "picture", "photo1", a repeat of title.'
+        ),
+        "field_og_image_hint": (
+            "The picture for social networks and messengers; without it - the cover"
+        ),
+        "field_og_image_help": (
+            "What social networks and messengers show when someone shares a link to the "
+            "page. Empty - the cover of the page, then seo.og_default_image from site.yaml.\n"
+            "Good: 1200 x 630 px, large text or a clear shot.\n"
+            "Common mistakes: small text on the picture, important parts at the edges "
+            "(they get cut off)."
+        ),
+        "field_og_title_hint": "The title of the preview in social networks; without it - title",
+        "field_og_title_help": (
+            "The title of the link card in social networks and messengers. Usually not "
+            "needed: title is taken. Set it if social networks need a different tone."
+        ),
+        "field_og_description_hint": (
+            "The description of the preview in social networks; without it - description"
+        ),
+        "field_og_description_help": (
+            "The text under the title of the link card. Usually not needed: description is taken."
+        ),
+        "field_noindex_hint": "Hide the page from search engines and drop it from the sitemap",
+        "field_noindex_help": (
+            "The page is built and opens by a link, but search engines are told not to show "
+            "it, and it is not in the sitemap.\n"
+            'Good: a "thank you for your request" page, service pages.\n'
+            "A common mistake: noindex on a page that is in the menu - people search for it "
+            "and do not find it."
+        ),
+        "field_published_hint": (
+            "Whether to build the page: false - a draft, it does not reach the site"
+        ),
+        "field_published_help": (
+            "published: false - the page is not built; you can see it in heron serve or with "
+            "the --drafts flag.\n"
+            "A common mistake: links to a draft from other pages - the check reports a "
+            "broken link."
+        ),
+        "field_date_hint": "The publication date, YYYY-MM-DD",
+        "field_date_help": (
+            "When the page came out. The theme and the markup of articles show it, the feed "
+            "is sorted by it.\n"
+            "Good: 2026-11-08.\n"
+            "A common mistake: a date in the future - the build warns."
+        ),
+        "field_updated_hint": (
+            "The date of the last edit, YYYY-MM-DD; without it - by build.updated_from"
+        ),
+        "field_updated_help": (
+            "When the page was changed in substance. It goes into the sitemap (lastmod) and "
+            "into the markup: search engines reread fresh pages more often. Without the "
+            "field the engine takes the date if site.yaml has build.updated_from: git or file.\n"
+            "A common mistake: an edit date earlier than the publication date."
+        ),
+        "field_redirect_from_hint": "Old addresses of the page - they get a 301 to here",
+        "field_redirect_from_help": (
+            "A list of paths from the root: /old-address/. The engine sets a permanent 301 "
+            "redirect from them, and search engines move the positions to the new address.\n"
+            "Good: every time the slug or the category changes.\n"
+            "A common mistake: an address taken by another page - error E009."
+        ),
+        "field_heading_hint": "The heading of the block on the page - the text after ##",
+        "field_heading_help": (
+            'A second-level heading: "## How to start {{#start}}". The theme shows it above the '
+            "block, search engines learn from headings what the parts of the page are about.\n"
+            "Good: a question or an action in the words of a visitor.\n"
+            'Common mistakes: the heading "Block 1", a heading without an anchor - then '
+            "there is no block."
+        ),
+        "field_anchor_hint": "The anchor of the block in Latin letters in curly braces: {{#start}}",
+        "field_anchor_help": (
+            "The name of the block: the theme puts the block in place by it, and the link "
+            "/page/#start leads straight to it. After the hash you can name the class of a "
+            "form: {{#photos .gallery}}.\n"
+            "Good: start, faq, prices - lowercase Latin letters, digits, hyphen.\n"
+            "Common mistakes: two equal anchors in a file (error E003), Cyrillic in an "
+            "anchor (error E016)."
+        ),
+    }
+)
+
+
 # --- словарь по группам: heron/texts/<группа>.py (E15.S2) ---------------------------
 def _load_groups() -> None:
     from heron.texts import load

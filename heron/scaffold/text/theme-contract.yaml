@@ -1,0 +1,714 @@
+languages: [ru, en]
+
+types:
+  home:
+    uses: [intro, "*"]
+    hint_ru: Главная страница языка - первое, что видит посетитель
+    hint_en: The home page of a language - the first thing a visitor sees
+    help_ru: |-
+      Главная - файл index.md в корне папки языка (content/ru/index.md). Она отвечает на три вопроса: кто вы, что человек здесь получит и куда идти дальше.
+      На сайте: крупный заголовок h1, вводный блок под ним, затем блоки страницы и карточки страниц корня.
+      В поиске: чаще всего именно главная показывается по запросу с названием сайта, поэтому title и description пишите для этого запроса.
+      Хорошо: h1 «Сайты, которые ведутся из папки с текстом», первый абзац - одно предложение о пользе.
+      Частые ошибки: h1 «Главная» или «Добро пожаловать», вводный блок на пять абзацев, title совпадает с h1.
+    help_en: |-
+      The home page is the file index.md at the root of a language folder (content/en/index.md). It answers three questions: who you are, what a visitor gets here and where to go next.
+      On the site: a large h1, the intro block under it, then the blocks of the page and the cards of the root pages.
+      In search: the home page is usually what shows up for the name of the site, so write title and description for that query.
+      Good: h1 "Sites you run from a folder of text", the first paragraph is one sentence about the benefit.
+      Common mistakes: h1 "Home" or "Welcome", an intro of five paragraphs, title equal to h1.
+    views: &views
+      key: view
+      default: cards
+      hint_ru: Как категория показывает свои страницы
+      hint_en: How a category shows its pages
+      help_ru: |-
+        Действует на странице категории (файл _index.md папки) и на главной. Ключ view во фронтматтере этой страницы выбирает вид; без ключа - карточки.
+        На каждой карточке - h1 и description страницы, поэтому description пишите так, чтобы по нему было понятно, зачем открывать страницу.
+      help_en: |-
+        It works on the page of a category (the _index.md file of a folder) and on the home page. The key view in the front matter of that page picks the look; without the key - cards.
+        Every card shows the h1 and the description of a page, so write the description so that it tells why to open the page.
+      options:
+        cards:
+          hint_ru: Карточки сеткой - для коротких разделов на 3-12 страниц
+          hint_en: Cards in a grid - for short sections of 3-12 pages
+          help_ru: |-
+            Карточки в несколько колонок, на телефоне - одна под другой. Хорошо смотрятся, когда описания страниц примерно одной длины.
+            Частая ошибка: двадцать карточек с описаниями в три строки - такой раздел удобнее списком.
+          help_en: |-
+            Cards in several columns, on a phone one under another. They look good when the descriptions of the pages are about the same length.
+            A common mistake: twenty cards with three-line descriptions - such a section reads better as a list.
+        list:
+          hint_ru: Список строками - для длинных разделов и справочников
+          hint_en: A list of rows - for long sections and reference pages
+          help_ru: |-
+            Каждая страница - строка во всю ширину: заголовок и описание под ним. Включается строкой view: list во фронтматтере этой страницы.
+            Подходит, когда страниц много или описания длинные.
+          help_en: |-
+            Every page is a full-width row: the heading and the description under it. It is turned on by the line view: list in the front matter of that page.
+            It fits when there are many pages or the descriptions are long.
+    sections:
+      intro:
+        required: true
+        hint_ru: "Вводный блок - текст до первого заголовка ## с якорем"
+        hint_en: "The intro block - the text before the first ## heading with an anchor"
+        help_ru: |-
+          Всё, что написано между SEO-блоком и первым заголовком «## … {#якорь}». На главной тема показывает два первых абзаца: первый крупно, второй под ним.
+          Первый абзац часто попадает в сниппет поисковика, если description не подошёл, поэтому в нём - главная польза.
+          Хорошо: «Заведите сайт одной командой и ведите его в текстовом редакторе.» и второй абзац с обещанием.
+          Частые ошибки: третий и следующие абзацы (тема их не покажет, сборка предупредит), заголовки внутри вводного блока.
+        help_en: |-
+          Everything written between the SEO block and the first "## … {#anchor}" heading. On the home page the theme shows the first two paragraphs: the first one large, the second under it.
+          Search engines often take the first paragraph for the snippet when the description does not fit, so put the main benefit there.
+          Good: "Create a site with one command and run it in a text editor." and a second paragraph with a promise.
+          Common mistakes: a third paragraph and more (the theme does not show them, the build warns), headings inside the intro.
+        fields:
+          - name: lead
+            type: markdown
+            required: true
+            md: first-paragraph
+            max_length: 200
+            hint_ru: Первый абзац - главная польза одним-двумя предложениями
+            hint_en: The first paragraph - the main benefit in one or two sentences
+          - name: promise
+            type: markdown
+            md: second-paragraph
+            max_length: 300
+            hint_ru: Второй абзац - что человек получит или сделает дальше
+            hint_en: The second paragraph - what a visitor gets or does next
+      "*":
+        hint_ru: "Любые блоки - каждый со своим заголовком ## и якорем"
+        hint_en: "Any blocks - each with its own ## heading and anchor"
+        help_ru: |-
+          После вводного блока можно поставить сколько угодно блоков любой формы: список, шаги, таблицу, вопросы. Тема показывает их в том порядке, в каком они написаны в файле.
+          Каждый блок начинается заголовком «## Заголовок {#якорь}». Форму блока движок узнаёт по содержимому, а вкладки, галерею, шкалу времени и предупреждение - по классу в якоре: {#tabs .tabs}.
+        help_en: |-
+          After the intro you can put any number of blocks of any form: a list, steps, a table, questions. The theme shows them in the order they are written in the file.
+          Every block starts with a "## Heading {#anchor}" heading. The engine recognizes the form of a block by its content, and tabs, a gallery, a timeline and a warning by the class in the anchor: {#tabs .tabs}.
+  page:
+    uses: [intro, "*"]
+    children_type: page
+    hint_ru: Обычная страница - текст и блоки любой формы
+    hint_en: An ordinary page - text and blocks of any form
+    help_ru: |-
+      Основной тип стартовой темы: «О нас», «Контакты», «Как начать» - всё это page. Файл content/<язык>/<ключ>.md, адрес /<ключ>/.
+      Папка со своей страницей _index.md - категория: её страница показывает карточки страниц внутри (вид - ключ view).
+      В поиске: каждая страница отвечает на один вопрос человека. Одна страница - одно намерение: «Цены» и «Как заказать» - две страницы, а не одна.
+      Хорошо: h1 «Как начать за десять минут», вводный абзац, затем шаги и вопросы.
+      Частые ошибки: одна длинная страница обо всём сразу, h1 повторяет title, нет вводного абзаца.
+    help_en: |-
+      The main type of the starter theme: "About", "Contacts", "Getting started" - all of these are page. The file is content/<lang>/<key>.md, the address is /<key>/.
+      A folder with its own page _index.md is a category: its page shows cards of the pages inside (the look is set by the key view).
+      In search: every page answers one question of a person. One page - one intent: "Prices" and "How to order" are two pages, not one.
+      Good: h1 "Get started in ten minutes", an intro paragraph, then steps and questions.
+      Common mistakes: one long page about everything at once, h1 repeats title, no intro paragraph.
+    views: *views
+    sections:
+      intro:
+        required: true
+        hint_ru: Вводный абзац - о чём страница и что человек на ней получит
+        hint_en: The intro paragraph - what the page is about and what a visitor gets
+        help_ru: |-
+          Текст до первого заголовка «## … {#якорь}». Тема показывает его под h1 целиком.
+          Поисковики часто берут его в сниппет, если description не подошёл.
+          Хорошо: два-три предложения: о чём страница, для кого, что дальше.
+          Частые ошибки: начинать с «На этой странице вы узнаете…», повторять h1 другими словами.
+        help_en: |-
+          The text before the first "## … {#anchor}" heading. The theme shows it under the h1 as a whole.
+          Search engines often take it for the snippet when the description does not fit.
+          Good: two or three sentences: what the page is about, for whom, what next.
+          Common mistakes: starting with "On this page you will learn…", repeating the h1 in other words.
+        fields:
+          - name: text
+            type: markdown
+            required: true
+            md: body
+            hint_ru: Вводный текст страницы, один-два абзаца
+            hint_en: The intro text of the page, one or two paragraphs
+      "*":
+        hint_ru: "Любые блоки - каждый со своим заголовком ## и якорем"
+        hint_en: "Any blocks - each with its own ## heading and anchor"
+        help_ru: |-
+          После вводного абзаца - блоки любой формы в том порядке, в каком они написаны в файле. Каждый начинается заголовком «## Заголовок {#якорь}».
+          Форму движок узнаёт по содержимому: маркированный список, нумерованные шаги, таблица, группы ### с вопросами. Вкладки, галерею, шкалу времени и предупреждение - по классу в якоре.
+        help_en: |-
+          After the intro - blocks of any form in the order they are written in the file. Each one starts with a "## Heading {#anchor}" heading.
+          The engine recognizes the form by the content: a bulleted list, numbered steps, a table, ### groups with questions. Tabs, a gallery, a timeline and a warning - by the class in the anchor.
+  "404":
+    uses: [intro]
+    hint_ru: Страница «не найдено» - её показывают по неверному адресу
+    hint_en: The "not found" page - it is shown for a wrong address
+    help_ru: |-
+      Файл 404.md в корне папки языка. Сервер отдаёт её с кодом 404 на любой адрес, которого на сайте нет. В карту сайта она не попадает и поисковиками не индексируется.
+      Хорошо: h1 «Такой страницы нет», абзац с советом и ссылкой на главную или поиск.
+      Частые ошибки: шутка без ссылки дальше, перенаправление на главную вместо понятной страницы.
+    help_en: |-
+      The file 404.md at the root of a language folder. The server returns it with the code 404 for any address the site does not have. It is not in the sitemap and is not indexed.
+      Good: h1 "There is no such page", a paragraph with advice and a link to the home page.
+      Common mistakes: a joke without a way on, a redirect to the home page instead of a clear page.
+    sections:
+      intro:
+        required: true
+        hint_ru: Что случилось и куда идти дальше - одним-двумя абзацами
+        hint_en: What happened and where to go next - in one or two paragraphs
+        fields:
+          - name: text
+            type: markdown
+            required: true
+            md: body
+            hint_ru: Текст страницы со ссылкой на главную
+            hint_en: The text of the page with a link to the home page
+
+modules:
+  prose:
+    kinds: [prose]
+    hint_ru: Обычный текст - абзацы, ссылки, выделения, код
+    hint_en: Plain text - paragraphs, links, emphasis, code
+    help_ru: |-
+      Блок без списка, таблицы и цитаты - это текст. Работают жирный и курсив, ссылки, `код`, подзаголовки ### без якоря.
+      На сайте: заголовок блока и текст под ним. В поиске текст читается как основное содержимое страницы.
+      Хорошо: короткие абзацы по три-четыре предложения, ссылки с понятным текстом.
+      Частые ошибки: ссылка с текстом «здесь», абзац на полэкрана, заголовок блока без якоря {#…} (тогда блока нет, текст приклеится к предыдущему).
+    help_en: |-
+      A block without a list, a table or a quote is text. Bold and italic, links, `code` and ### subheadings without an anchor work.
+      On the site: the heading of the block and the text under it. Search engines read the text as the main content of the page.
+      Good: short paragraphs of three or four sentences, links with clear text.
+      Common mistakes: a link with the text "here", a paragraph half a screen long, a block heading without an anchor {#…} (then there is no block, the text sticks to the previous one).
+    example_ru: |-
+      ## Что это {#about}
+
+      Обычный текст. **Жирный**, *курсив*, [ссылка](/) и `код` работают как обычно.
+    example_en: |-
+      ## What it is {#about}
+
+      Plain text. **Bold**, *italic*, [links](/) and `code` work as usual.
+    fields:
+      - name: text
+        type: markdown
+        required: true
+        md: body
+        hint_ru: Текст блока
+        hint_en: The text of the block
+  list:
+    kinds: [list, alert-list]
+    hint_ru: Маркированный список - пункты «- …», с жирным зачином или без
+    hint_en: A bulleted list - "- …" items, with or without a bold start
+    help_ru: |-
+      Пункты начинаются с «- ». Пункт с жирным зачином «**Термин.** Пояснение» тема показывает парой: термин и текст. Класс .alert в якоре ({#warning .alert}) делает из списка предупреждение.
+      Абзац перед списком - подводка, цитата «> …» после списка - совет в рамке.
+      Хорошо: пять-семь пунктов одной длины, зачин - одно-два слова и точка.
+      Частые ошибки: зачин без точки или двоеточия в конце (тогда это просто выделение), пустые строки между пунктами вперемешку с текстом.
+    help_en: |-
+      Items start with "- ". An item with a bold start "**Term.** Explanation" is shown by the theme as a pair: the term and the text. The class .alert in the anchor ({#warning .alert}) turns the list into a warning.
+      A paragraph before the list is the lead-in, a quote "> …" after the list is a tip in a frame.
+      Good: five to seven items of the same length, the start is one or two words and a full stop.
+      Common mistakes: a bold start without a full stop or colon at the end (then it is just emphasis), text mixed in between the items.
+    example_ru: |-
+      ## Что входит {#includes}
+
+      - **Тема.** Шаблоны и стили сайта.
+      - **Демо.** Страницы, на которых видно все блоки.
+    example_en: |-
+      ## What is included {#includes}
+
+      - **Theme.** The templates and styles of the site.
+      - **Demo.** Pages that show all blocks.
+    fields:
+      - name: lead
+        type: markdown
+        md: lead
+        hint_ru: Подводка - абзац перед списком
+        hint_en: The lead-in - a paragraph before the list
+      - name: items
+        type: list
+        required: true
+        min_items: 1
+        md: items
+        hint_ru: Пункты списка
+        hint_en: The items of the list
+        fields:
+          - name: term
+            type: text
+            md: bold
+            max_length: 60
+            hint_ru: Жирный зачин пункта - одно-два слова, в конце точка
+            hint_en: The bold start of an item - one or two words, a full stop at the end
+            help_ru: |-
+              Пишется в самом начале пункта: «**Срок.** Две недели». Если зачин есть хотя бы у одного пункта, тема показывает парами весь список.
+            help_en: |-
+              Written at the very start of an item: "**Time.** Two weeks". If at least one item has a start, the theme shows the whole list as pairs.
+          - name: text
+            type: markdown
+            required: true
+            md: text
+            hint_ru: Текст пункта
+            hint_en: The text of the item
+      - name: callout
+        type: markdown
+        md: quote
+        hint_ru: Совет к списку - цитата «> …» после пунктов
+        hint_en: A tip for the list - a quote "> …" after the items
+  checklist:
+    kinds: [checklist, two-lists]
+    hint_ru: "Группы ### со списками - две рядом или три и больше карточками"
+    hint_en: "### groups with lists - two side by side or three and more as cards"
+    help_ru: |-
+      Каждая группа - заголовок «### Название» и маркированный список под ним. Две группы тема ставит рядом (подходит / не подходит), три и больше - карточками.
+      Хорошо: «### Перед началом», «### Для публикации», «### Потом» - по три-пять пунктов в каждой.
+      Частые ошибки: группа без списка (тогда блок станет вопросами и ответами), якорь у заголовка ### (вкладки так пишутся, а группы - нет).
+    help_en: |-
+      Every group is a "### Title" heading and a bulleted list under it. The theme puts two groups side by side (fits / does not fit), three and more as cards.
+      Good: "### Before you start", "### To publish", "### Later" - three to five items in each.
+      Common mistakes: a group without a list (then the block becomes questions and answers), an anchor on the ### heading (that is how tabs are written, not groups).
+    example_ru: |-
+      ## Подходит ли {#fit}
+
+      ### Подходит
+
+      - Сайт из текстов и картинок
+
+      ### Не подходит
+
+      - Магазин с корзиной
+    example_en: |-
+      ## Does it fit {#fit}
+
+      ### Fits
+
+      - A site of texts and pictures
+
+      ### Does not fit
+
+      - A shop with a cart
+    fields:
+      - name: groups
+        type: list
+        required: true
+        min_items: 2
+        md: groups
+        hint_ru: "Группы - заголовок ### и список под ним"
+        hint_en: "Groups - a ### heading and a list under it"
+        fields:
+          - name: title
+            type: text
+            required: true
+            md: heading
+            max_length: 60
+            hint_ru: Заголовок группы
+            hint_en: The heading of the group
+          - name: items
+            type: list
+            required: true
+            min_items: 1
+            md: items
+            item: markdown
+            hint_ru: Пункты группы
+            hint_en: The items of the group
+  steps:
+    kinds: [steps]
+    hint_ru: Шаги - нумерованный список «1. …» с жирным заголовком шага
+    hint_en: Steps - a numbered "1. …" list with a bold step title
+    help_ru: |-
+      Нумерованный список. Пункт «1. **Создайте сайт.** Одна команда…» тема показывает номером, заголовком и текстом. Метка в квадратных скобках заглавными - «**[ЧАЩЕ ВСЕГО] Заполните конфигуратор.**» - выделяет шаг.
+      Под пунктом можно оставить блок кода или второй абзац с отступом в три пробела: тема покажет их внутри шага.
+      Хорошо: глагол в начале заголовка, один шаг - одно действие, три-семь шагов.
+      Частые ошибки: шаги маркированным списком «- » (это будет просто список), заголовок без точки в конце.
+    help_en: |-
+      A numbered list. The item "1. **Create the site.** One command…" is shown by the theme as a number, a title and a text. A tag in square brackets in capitals - "**[MOST OFTEN] Fill in the configurator.**" - marks a step.
+      Under an item you can leave a code block or a second paragraph indented by three spaces: the theme shows them inside the step.
+      Good: a verb at the start of a title, one step - one action, three to seven steps.
+      Common mistakes: steps as a bulleted "- " list (that is just a list), a title without a full stop at the end.
+    example_ru: |-
+      ## Как начать {#start}
+
+      1. **Создайте сайт.** Одна команда - и папка готова.
+      2. **[ЧАЩЕ ВСЕГО] Заполните конфигуратор.** Название, языки, домен.
+    example_en: |-
+      ## How to start {#start}
+
+      1. **Create the site.** One command, and the folder is ready.
+      2. **[MOST OFTEN] Fill in the configurator.** The name, the languages, the domain.
+    fields:
+      - name: items
+        type: list
+        required: true
+        min_items: 2
+        md: numbered
+        hint_ru: Шаги по порядку
+        hint_en: The steps in order
+        fields:
+          - name: tag
+            type: text
+            md: tag
+            max_length: 20
+            hint_ru: Метка шага в скобках заглавными - [ЧАЩЕ ВСЕГО]
+            hint_en: A step tag in brackets in capitals - [MOST OFTEN]
+          - name: title
+            type: text
+            md: bold
+            max_length: 80
+            hint_ru: Заголовок шага - жирным, с глаголом, в конце точка
+            hint_en: The title of the step - bold, with a verb, a full stop at the end
+          - name: text
+            type: markdown
+            md: text
+            hint_ru: Пояснение шага после заголовка
+            hint_en: The explanation of the step after the title
+          - name: more
+            type: markdown
+            md: more
+            hint_ru: Продолжение шага - код или абзац с отступом в три пробела
+            hint_en: More of the step - code or a paragraph indented by three spaces
+  table:
+    kinds: [table]
+    hint_ru: Таблица markdown - шапка, строка-разделитель, строки
+    hint_en: A markdown table - a header, a separator row, rows
+    help_ru: |-
+      Обычная таблица markdown: первая строка - шапка, вторая - разделитель «|---|---|», дальше строки. В ячейках работают `код`, ссылки и выделения.
+      На телефоне широкая таблица прокручивается вбок.
+      Хорошо: три-пять колонок, короткие ячейки, шапка из существительных.
+      Частые ошибки: нет строки-разделителя (тогда это факты, а не таблица), разное число ячеек в строках.
+    help_en: |-
+      An ordinary markdown table: the first row is the header, the second is the separator "|---|---|", then the rows. `Code`, links and emphasis work in cells.
+      On a phone a wide table scrolls sideways.
+      Good: three to five columns, short cells, a header of nouns.
+      Common mistakes: no separator row (then it is facts, not a table), a different number of cells in rows.
+    example_ru: |-
+      ## Что где лежит {#where}
+
+      | Что | Где |
+      |---|---|
+      | Тексты | `content/` |
+    example_en: |-
+      ## What goes where {#where}
+
+      | What | Where |
+      |---|---|
+      | Texts | `content/` |
+    fields:
+      - name: head
+        type: list
+        required: true
+        min_items: 1
+        md: table-head
+        item: text
+        hint_ru: Шапка - названия колонок
+        hint_en: The header - the names of the columns
+      - name: rows
+        type: list
+        required: true
+        min_items: 1
+        md: table-rows
+        hint_ru: Строки таблицы
+        hint_en: The rows of the table
+        fields:
+          - name: cells
+            type: list
+            required: true
+            md: cells
+            item: markdown
+            hint_ru: Ячейки строки - столько же, сколько колонок в шапке
+            hint_en: The cells of a row - as many as there are columns in the header
+  facts:
+    kinds: [facts]
+    hint_ru: Факты - строки «ключ | значение» без шапки
+    hint_en: Facts - "key | value" lines without a header
+    help_ru: |-
+      Короткие факты, по одному на строку: «Срок | две недели». Без шапки и без строки-разделителя - этим факты и отличаются от таблицы. Абзац перед ними - подводка.
+      Хорошо: три-шесть фактов, ключ - одно-два слова, значение - коротко.
+      Частые ошибки: строка без «|» среди фактов (сборка предупредит), длинные абзацы в значении.
+    help_en: |-
+      Short facts, one per line: "Time | two weeks". No header and no separator row - that is how facts differ from a table. A paragraph before them is the lead-in.
+      Good: three to six facts, the key is one or two words, the value is short.
+      Common mistakes: a line without "|" among the facts (the build warns), long paragraphs in a value.
+    example_ru: |-
+      ## Коротко {#facts}
+
+      Формат | текстовые файлы
+      Результат | статический сайт
+    example_en: |-
+      ## In short {#facts}
+
+      Format | text files
+      Output | a static site
+    fields:
+      - name: lead
+        type: markdown
+        md: lead
+        hint_ru: Подводка - абзац перед фактами
+        hint_en: The lead-in - a paragraph before the facts
+      - name: rows
+        type: list
+        required: true
+        min_items: 1
+        md: pairs
+        hint_ru: Строки фактов
+        hint_en: The fact lines
+        fields:
+          - name: key
+            type: text
+            required: true
+            md: key
+            max_length: 40
+            hint_ru: Что за факт - слева от «|»
+            hint_en: What the fact is - left of "|"
+          - name: value
+            type: markdown
+            required: true
+            md: value
+            hint_ru: Значение - справа от «|»
+            hint_en: The value - right of "|"
+  faq:
+    kinds: [faq]
+    schemaorg: FAQPage
+    hint_ru: "Вопросы и ответы - группы ### с вопросом и ответом под ним"
+    hint_en: "Questions and answers - ### groups with a question and the answer under it"
+    help_ru: |-
+      Каждый вопрос - заголовок «### Вопрос?», ответ - текст под ним. На сайте вопросы раскрываются по нажатию.
+      В поиске: движок размечает блок как FAQPage (schema.org), и поисковик видит пары вопрос-ответ. Разметка строится по первому такому блоку страницы.
+      Хорошо: вопросы словами посетителя («Сколько это стоит?»), ответ - два-четыре предложения.
+      Частые ошибки: список под вопросом (тогда это группы со списками), ответ «см. выше», вопросы, которых никто не задаёт.
+    help_en: |-
+      Every question is a "### Question?" heading, the answer is the text under it. On the site the questions open on a click.
+      In search: the engine marks the block up as FAQPage (schema.org), and search engines see the question-answer pairs. The markup is built from the first such block of the page.
+      Good: questions in the words of a visitor ("How much does it cost?"), an answer of two to four sentences.
+      Common mistakes: a list under a question (then it is groups with lists), the answer "see above", questions nobody asks.
+    example_ru: |-
+      ## Вопросы {#faq}
+
+      ### Это настоящая страница?
+
+      Да. Каждый блок на ней нарисован темой из этого файла.
+    example_en: |-
+      ## Questions {#faq}
+
+      ### Is this a real page?
+
+      Yes. Every block on it is drawn by the theme from this file.
+    fields:
+      - name: items
+        type: list
+        required: true
+        min_items: 1
+        md: groups
+        hint_ru: Пары вопрос - ответ
+        hint_en: Question - answer pairs
+        fields:
+          - name: q
+            type: text
+            required: true
+            md: heading
+            max_length: 120
+            schemaorg: Question.name
+            hint_ru: "Вопрос - заголовок ###, словами посетителя"
+            hint_en: "The question - a ### heading, in the words of a visitor"
+          - name: a
+            type: markdown
+            required: true
+            md: content
+            schemaorg: Answer.text
+            hint_ru: Ответ - текст под вопросом
+            hint_en: The answer - the text under the question
+  timeline:
+    kinds: [timeline]
+    hint_ru: Шкала времени - строки «когда | что» с классом .timeline
+    hint_en: A timeline - "when | what" lines with the class .timeline
+    help_ru: |-
+      Пишется как факты, строками «День 1 | Создайте сайт», но с классом в якоре: {#plan .timeline}. Тема рисует вертикальную шкалу. Вместо строк можно взять нумерованный список - тогда слева номер или жирный заголовок шага.
+      Хорошо: этапы по порядку, период слева коротко - «Неделя 1».
+      Частые ошибки: забытый класс .timeline (тогда это факты), даты в разных форматах.
+    help_en: |-
+      Written like facts, as lines "Day 1 | Create the site", but with the class in the anchor: {#plan .timeline}. The theme draws a vertical timeline. A numbered list works instead of lines - then the number or the bold step title is on the left.
+      Good: stages in order, a short period on the left - "Week 1".
+      Common mistakes: a forgotten .timeline class (then it is facts), dates in different formats.
+    example_ru: |-
+      ## План {#plan .timeline}
+
+      День 1 | Создайте сайт
+      Неделя 1 | Напишите страницы
+    example_en: |-
+      ## Plan {#plan .timeline}
+
+      Day 1 | Create the site
+      Week 1 | Write the pages
+    fields:
+      - name: rows
+        type: list
+        required: true
+        min_items: 2
+        md: pairs
+        hint_ru: Этапы по порядку
+        hint_en: The stages in order
+        fields:
+          - name: key
+            type: text
+            required: true
+            md: key
+            max_length: 30
+            hint_ru: Когда - период или дата слева от «|»
+            hint_en: When - a period or a date left of "|"
+          - name: value
+            type: markdown
+            required: true
+            md: value
+            hint_ru: Что происходит - справа от «|»
+            hint_en: What happens - right of "|"
+  callout:
+    kinds: [callout]
+    hint_ru: Врезка - короткая мысль цитатой «> …»
+    hint_en: A callout - a short thought as a quote "> …"
+    help_ru: |-
+      Блок, в котором только цитата «> …». Тема выделяет его рамкой. Подходит для главного совета или предупреждения страницы.
+      Хорошо: одно-два предложения, которые человек должен запомнить.
+      Частые ошибки: врезка на полстраницы, цитата рядом со списком (тогда это совет к списку, а не отдельный блок).
+    help_en: |-
+      A block that holds only a quote "> …". The theme sets it apart with a frame. It fits the main advice or warning of a page.
+      Good: one or two sentences a visitor should remember.
+      Common mistakes: a callout half a page long, a quote next to a list (then it is a tip for the list, not a block of its own).
+    example_ru: |-
+      ## Главное {#key}
+
+      > Цитата становится врезкой: короткой мыслью, которую тема выделяет.
+    example_en: |-
+      ## The main thing {#key}
+
+      > A quote becomes a callout: a short note the theme sets apart.
+    fields:
+      - name: text
+        type: markdown
+        required: true
+        md: quote
+        max_length: 300
+        hint_ru: Текст врезки
+        hint_en: The text of the callout
+  gallery:
+    kinds: [gallery]
+    hint_ru: Галерея - список картинок с классом .gallery
+    hint_en: A gallery - a list of pictures with the class .gallery
+    help_ru: |-
+      Маркированный список, где каждый пункт - картинка «- ![Подпись](media/путь.jpg)», и класс в якоре: {#photos .gallery}. Файлы лежат в media/, движок сам нарежет их под экраны.
+      В поиске: подпись в квадратных скобках - текст alt, по нему картинку находят в поиске по картинкам и понимают те, кто её не видит.
+      Хорошо: шесть-двенадцать снимков одной пропорции, подпись - что на снимке.
+      Частые ошибки: пустая подпись, подпись «фото1», картинки шириной меньше 800 пикселей.
+    help_en: |-
+      A bulleted list where every item is a picture "- ![Caption](media/path.jpg)", and the class in the anchor: {#photos .gallery}. The files live in media/, the engine cuts them for screens itself.
+      In search: the caption in square brackets is the alt text, image search finds the picture by it and people who cannot see it understand it.
+      Good: six to twelve photos of the same proportion, the caption says what is in the photo.
+      Common mistakes: an empty caption, the caption "photo1", pictures narrower than 800 pixels.
+    example_ru: |-
+      ## Галерея {#gallery .gallery}
+
+      - ![Светлый квадрат](media/demo/light.svg)
+      - ![Тёмный квадрат](media/demo/dark.svg)
+    example_en: |-
+      ## Gallery {#gallery .gallery}
+
+      - ![A light square](media/demo/light.svg)
+      - ![A dark square](media/demo/dark.svg)
+    fields:
+      - name: items
+        type: list
+        required: true
+        min_items: 1
+        md: items
+        hint_ru: Картинки галереи
+        hint_en: The pictures of the gallery
+        fields:
+          - name: image
+            type: image
+            required: true
+            md: image
+            min_width: 800
+            schemaorg: ImageObject.contentUrl
+            hint_ru: Файл картинки в media/
+            hint_en: The picture file in media/
+          - name: alt
+            type: text
+            required: true
+            md: alt
+            max_length: 125
+            schemaorg: ImageObject.caption
+            hint_ru: Подпись - что на картинке, для поиска и тех, кто её не видит
+            hint_en: The caption - what is in the picture, for search and people who cannot see it
+  tabs:
+    kinds: [tabs]
+    hint_ru: Вкладки - группы «### Название {#id}» с классом .tabs
+    hint_en: Tabs - "### Title {#id}" groups with the class .tabs
+    help_ru: |-
+      Каждая вкладка - заголовок «### Название {#id}» и всё содержимое под ним, у блока класс .tabs: {#publish .tabs}. Работают без скриптов; без стилей читаются как обычные заголовки с текстом.
+      Хорошо: две-пять вкладок с вариантами одного действия («Git», «Файлы», «Образ»), названия по одному-два слова.
+      Частые ошибки: забытый класс .tabs (тогда это вопросы или группы), важное содержимое только во второй вкладке - её открывают реже.
+    help_en: |-
+      Every tab is a "### Title {#id}" heading and all the content under it, the block has the class .tabs: {#publish .tabs}. They work without scripts; without styles they read as ordinary headings with text.
+      Good: two to five tabs with variants of one action ("Git", "Files", "Image"), titles of one or two words.
+      Common mistakes: a forgotten .tabs class (then it is questions or groups), important content only in the second tab - it is opened less often.
+    example_ru: |-
+      ## Как выложить {#publish .tabs}
+
+      ### Git {#git}
+
+      Отправьте изменения в git.
+
+      ### Файлы {#files}
+
+      Скопируйте папку `dist/` на хостинг.
+    example_en: |-
+      ## How to publish {#publish .tabs}
+
+      ### Git {#git}
+
+      Send the changes to git.
+
+      ### Files {#files}
+
+      Copy the `dist/` folder to any hosting.
+    fields:
+      - name: tabs
+        type: list
+        required: true
+        min_items: 2
+        md: groups
+        hint_ru: Вкладки по порядку
+        hint_en: The tabs in order
+        fields:
+          - name: title
+            type: text
+            required: true
+            md: heading
+            max_length: 30
+            hint_ru: Название вкладки - одно-два слова
+            hint_en: The title of the tab - one or two words
+          - name: id
+            type: text
+            md: heading-id
+            hint_ru: Якорь вкладки латиницей - {#git}; без него - номер
+            hint_en: The anchor of the tab in Latin letters - {#git}; without it - a number
+          - name: content
+            type: markdown
+            required: true
+            md: content
+            hint_ru: Содержимое вкладки
+            hint_en: The content of the tab
+  breadcrumbs:
+    scope: page
+    schemaorg: BreadcrumbList
+    fields: []
+    hint_ru: Хлебные крошки - путь от главной до страницы
+    hint_en: Breadcrumbs - the path from the home page to the page
+    help_ru: |-
+      Строка над заголовком: «Главная / Раздел / Страница». Строится сама по папкам в content/: заполнять ничего не нужно. В крошках - nav_title страниц, а если его нет - h1.
+      В поиске: движок размечает путь как BreadcrumbList, и поисковик может показать его вместо адреса.
+    help_en: |-
+      A line above the heading: "Home / Section / Page". It is built from the folders in content/: there is nothing to fill in. The crumbs show the nav_title of the pages, or the h1 when there is none.
+      In search: the engine marks the path up as BreadcrumbList, and search engines may show it instead of the address.
+  children:
+    scope: page
+    fields: []
+    hint_ru: Страницы раздела - карточки или список страниц внутри категории
+    hint_en: Pages of a section - cards or a list of the pages inside a category
+    help_ru: |-
+      Под содержимым страницы категории (_index.md папки) и главной тема показывает страницы, которые лежат внутри: h1 и description каждой. Как показывать - карточками или списком - выбирает ключ view.
+      Заполнять ничего не нужно: появилась страница в папке - появилась и в разделе. Порядок - по полю order страниц.
+    help_en: |-
+      Under the content of a category page (the _index.md of a folder) and of the home page the theme shows the pages inside: the h1 and the description of each. How to show them - as cards or as a list - is picked by the key view.
+      There is nothing to fill in: a page appears in the folder, and it appears in the section. The order follows the order field of the pages.

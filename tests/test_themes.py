@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+from heron import scaffold
 from heron.cli import main
 from heron.core.errors import HeronError
 from heron.scaffold import create
@@ -204,6 +205,17 @@ CYRILLIC = re.compile(r"[А-Яа-яЁё]")
 DEMO = ("index.md", "blocks.md", "themes.md", "docs.md")
 
 
+def _plain(rel: str, data: bytes) -> str:
+    """Текст файла темы; у theme.yaml - без контракта стартовой темы: его подсказки -
+    данные сразу на ru и en (тема описана на обоих языках), а не пояснения."""
+    text = data.decode("utf-8")
+    if rel == "theme.yaml":
+        contract = scaffold.CONTRACT.read_text(encoding="utf-8").rstrip("\n")
+        assert contract in text
+        text = text.replace(contract, "")
+    return text
+
+
 def _files(folder: Path) -> dict[str, bytes]:
     return {
         p.relative_to(folder).as_posix(): p.read_bytes()
@@ -286,7 +298,7 @@ def test_theme_get_starter_in_an_english_site_has_no_cyrillic(here: Path):
         (root / "content" / "en" / name).unlink(missing_ok=True)
     assert CliRunner().invoke(main, ["theme", "get", "starter", str(root)]).exit_code == 0
     for rel, data in _files(root / "theme").items():
-        assert not CYRILLIC.search(data.decode("utf-8")), rel
+        assert not CYRILLIC.search(_plain(rel, data)), rel
     for name, data in _demo_pages(root).items():
         assert not CYRILLIC.search(data.decode("utf-8")), name
 
@@ -316,7 +328,7 @@ def test_flag_beats_a_russian_site(here: Path):
     done = CliRunner().invoke(main, ["theme", "get", "starter", str(root), "--notes", "en"])
     assert done.exit_code == 0, done.output
     for rel, data in _files(root / "theme").items():
-        assert not CYRILLIC.search(data.decode("utf-8")), rel
+        assert not CYRILLIC.search(_plain(rel, data)), rel
 
 
 def test_install_takes_notes_or_reads_the_site(site: Path, monkeypatch):

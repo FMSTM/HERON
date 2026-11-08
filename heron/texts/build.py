@@ -4,6 +4,19 @@ from __future__ import annotations
 
 TEXT: dict[str, dict[str, str]] = {
     "ru": {
+        "build_theme_no_fields": (
+            "тема {theme} не описала поля блоков (fields в theme.yaml): опросник и студия "
+            "покажут только SEO-блок и служебные поля. Как описать - `heron docs theme`, "
+            "«Поля блоков и подсказки»"
+        ),
+        "build_theme_hints": (
+            "тема {theme}: нет подсказки hint на языках темы ({langs}):\n    {missing}"
+        ),
+        "build_theme_hints_hint": (
+            "у каждого типа, секции из sections, модуля, поля и вида нужен hint_<язык> "
+            "на каждом языке из languages темы (или hint без суффикса); проверить - "
+            "`heron check`"
+        ),
         "build_bad_workers": "{env}={raw!r}: нужно целое число от 0 до 64",
         "build_bad_workers_hint": (
             "0 - по числу ядер, 1 - без пула процессов; пустое значение - как в site.yaml"
@@ -45,6 +58,19 @@ TEXT: dict[str, dict[str, str]] = {
         "build_no_home_page_hint": "создайте index.md в корне языка",
     },
     "en": {
+        "build_theme_no_fields": (
+            "theme {theme} has not described the fields of its blocks (fields in theme.yaml): "
+            "the questionnaire and the studio will show only the SEO block and the service "
+            'fields. How to describe them - `heron docs theme`, "Block fields and hints"'
+        ),
+        "build_theme_hints": (
+            "theme {theme}: no hint in the languages of the theme ({langs}):\n    {missing}"
+        ),
+        "build_theme_hints_hint": (
+            "every type, section in sections, module, field and view needs hint_<lang> in "
+            "every language of languages of the theme (or hint without a suffix); to "
+            "check - `heron check`"
+        ),
         "build_bad_workers": "{env}={raw!r}: an integer from 0 to 64 is required",
         "build_bad_workers_hint": (
             "0 means one per core, 1 means no process pool; an empty value falls back to site.yaml"

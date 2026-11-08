@@ -53,6 +53,7 @@ KIT_FILES = {
             "04-theme.md",
             "05-seo.md",
             "06-deploy.md",
+            "07-theme-author.md",
         )
     ),
     *(f"roles/{n}.md" for n in ("architect", "content", "designer", "builder", "capabilities")),

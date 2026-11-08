@@ -62,7 +62,13 @@ docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id
 docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod serve my-site
 ```
 
-**4. Build it.** The finished site appears in `my-site/dist/`. This is a draft build (dev): it is closed to search engines and does not insert counters. The production build (prod) is the same command with `--env prod --strict` at the end:
+**4. Add a page.** The engine asks for the fields of the page - the headings, the description, the texts of the blocks - with a hint at each (`?` - detailed help) and creates it in every site language at once. The same command a second time opens the page for editing. The same with a mouse - in the studio: the command `studio` instead of `page add about`, with `-p 127.0.0.1:8000:8000`, as for `serve`. What the theme can do, every block with an example - on the page <http://localhost:8000/_heron/theme/> while the preview runs:
+
+```bash
+docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add about my-site
+```
+
+**5. Build it.** The finished site appears in `my-site/dist/`. This is a draft build (dev): it is closed to search engines and does not insert counters. The production build (prod) is the same command with `--env prod --strict` at the end:
 
 ```bash
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod build my-site
@@ -124,14 +130,14 @@ Fourteen commands. The path to the site defaults to the current folder. Here the
 | `heron page add <key>` | a page in all languages at once: missing - creates it with a ready SEO block, exists - opens it for editing; asks the fields with hints, `--answers`/`--dump` - without questions, `--category` - a section or a move with a 301 |
 | `heron page list` | the tree of sections and pages: languages and what is not translated (`translation: pending`) |
 | `heron category add <path>` | a section of any depth (`services/roofing`) in all languages: the page `_index.md`, the view of the list, the type of pages inside |
-| `heron describe` | the description of the theme: types, blocks, fields and hints; `--json` - for an agent |
-| `heron check <folder>` | checks the site against the contract without building; `--strict` turns warnings into errors, `--json` - machine-readable output, `--old-urls` - a check of the old addresses |
+| `heron describe` | the description of the theme: types, blocks, fields and hints - what `page add` asks about; `--json` - for an agent |
+| `heron check <folder>` | checks the site against the contract without building; `--strict` turns warnings into errors, `--json` - machine-readable output, `--old-urls` - a check of the old addresses, `--theme` - the theme demo too |
 | `heron build <folder>` | builds `dist/`: HTML, sitemap, markup, redirects, nginx config; `--env prod` for a production build |
 | `heron serve <folder>` | local preview with rebuild, the port is set by `--port`, the address by `--host` |
-| `heron docs [topic]` | documentation of the same version as the engine; `--lang ru`/`--lang en`, `template <file>`, `--search <text>`, `--export <folder>`, `--all-langs` |
+| `heron docs [topic]` | documentation of the same version as the engine; `--lang ru`/`--lang en`, `template <file>`, `theme-ref` - the reference of the site theme, `--search <text>`, `--export <folder>`, `--all-langs` |
 | `heron setup <folder>` | configurator in the browser: domains, languages, schema.org, publishing, theme; `--answers file` without a browser, `--dump` - current answers |
 | `heron studio <folder>` | the studio in the browser: tabs Site (the configurator), Pages (the tree, field forms with hints, creating, moving with a 301, blocks, pictures) and Theme reference; `page add … --web` and `category add … --web` open it right on the object |
-| `heron theme get\|list\|pack` | install a theme (starter, from the catalog, by link, from an archive), list, pack your own |
+| `heron theme get\|list\|pack` | install a theme with its demo pages (starter, from the catalog, by link, from an archive), list, pack your own - only with a complete demo |
 | `heron schema` | JSON Schema of the contracts of this version: `--site`, `--theme`, `--frontmatter`, `--setup`, `--errors`; `--lang ru`/`--lang en`, `--export <folder>` |
 | `heron recipe` | Dockerfile of the nginx image for the built `dist/` |
 
@@ -256,9 +262,10 @@ The documentation in a branch corresponds to the image with the same name: `prod
 | [01 · Concepts](docs/en/guide/01-concepts.md) | site = folder, key and address, type, section, theme, the engine separate |
 | [02 · First site](docs/en/guide/02-first-site.md) | from an empty folder to an image |
 | [03 · Pages and content](docs/en/guide/03-content.md) | SEO block, sections, links, images, catalogs, languages |
-| [04 · Theme and design](docs/en/guide/04-theme.md) | `theme.yaml`, templates, modules, what the template sees |
+| [04 · Theme and design](docs/en/guide/04-theme.md) | a ready theme: demo, reference, section views; `theme.yaml`, templates, modules, what the template sees |
 | [05 · SEO](docs/en/guide/05-seo.md) | what is generated by itself, what to fill in, moving from an old site |
 | [06 · Build and deploy](docs/en/guide/06-deploy.md) | folder or image, several sites, engine versions |
+| [07 · Your own theme](docs/en/guide/07-theme-author.md) | for a theme author: block fields and hints, demo, reference, packing, moving a theme from 0.2 to 0.3 |
 
 **Reference: the contract and the design:**
 
@@ -289,7 +296,7 @@ Branches: `dev` is development, each feature in its own branch; `beta` is trying
 
 ## Status and license
 
-Version 0.1. Until 1.0 the contract of `site.yaml` and `theme.yaml` may change in minor versions; a site pins a version range in `site.yaml` and moves deliberately.
+Version 0.3. Until 1.0 the contract of `site.yaml` and `theme.yaml` may change in minor versions; a site pins a version range in `site.yaml` and moves deliberately.
 
 The project is licensed under Apache-2.0; the full text is in the [LICENSE](LICENSE) file.
 

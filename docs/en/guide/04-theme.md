@@ -1,30 +1,81 @@
 # 04 · Theme and design
 
-This section covers how a theme is built, how to make your own and what data a template gets. It is for whoever is responsible for how the site looks: a designer, a front-end developer or an AI agent in the designer role.
+This section covers the theme of a site from two sides. First - for whoever runs a site on a ready theme: how to choose and install a theme, what to do with its demo pages, where to see what it can do and how to choose the look of a section. Then - for whoever is responsible for how the site looks: a designer, a front-end developer or an AI agent in the designer role: how a theme is built and what data a template gets. How to describe a theme for people (block fields and hints), make its demo, pack the theme and move it from version 0.2 - in [07 · Your own theme](07-theme-author.md).
 
 A HERON site is split into two independent parts. **The theme** decides how the site looks: templates, styles, fonts. **The content** decides what is written on it: the page texts in `content/`. The theme does not know a single page text, and the content does not know a single CSS class. They meet by names: a page type finds its template, and a section anchor finds its module. That is why you can replace the theme without touching the texts, and the other way round.
 
 > **The commands in this section are written for Docker** and run from the site folder (`cd ~/sites/my-site`), so the path to the site in them is a dot. Installed the engine without Docker - replace everything up to and including the image name (`ghcr.io/fmstm/heron:…`) with the word `heron` ([more](00-install.md#without-docker)).
 
-## Where to get a theme
+## Working with a ready theme <a id="ready-theme"></a>
+
+### Where to get a theme
 
 There are three ways:
 
-- **The starter theme** is already in every new site after `new`. It is white, with a light and a dark mode, and can show all thirteen section forms. It comes with demo pages in Ukrainian, Russian and English: the home page, "Blocks" (every kind of block on one page), "Themes", "Documentation", the section "Structure" with two pages inside and the 404 page. If you changed the theme and want the starter one back, run `theme get starter .`.
-- **A theme from the catalog** is installed by name: `theme get <name> .`. To see the catalog - `theme list`. For now it has only `starter`.
-- **A theme by link or from an archive**: `theme get https://…/theme.tar.gz .` or `theme get ./theme.zip .`.
+- **The starter theme** is already in every new site after `new`. It is white, with a light and a dark mode, and can show all thirteen section forms. It comes with demo pages in Ukrainian, Russian and English: the home page, "Blocks" (every kind of block on one page), "Themes", "Documentation", the section "Structure" with two pages inside and the 404 page. You changed the theme and want the starter one back - the second command below.
+- **A theme from the catalog** is installed by name: `theme get <name> .`. To see the catalog - the first command below. For now it has only `starter`.
+- **A theme by link or from an archive** - an `https://…` address or a `.tar.gz` or `.zip` file the author of the theme sent you.
 
-To move your own theme to another site, pack it into an archive: `theme pack . --out theme.tar.gz`. The archive holds the theme and the site content - the content becomes the demo pages of the theme. That is why a theme is packed only if the content shows everything it can do (["The theme demo and reference"](#theme-demo)). Without `--out` the archive goes to `dist/theme.tar.gz`.
-
-The same commands in full:
+The commands in full (`theme list` needs no site folder):
 
 ```bash
 docker run --rm ghcr.io/fmstm/heron:prod theme list
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod theme get starter .
-docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod theme pack . --out theme.tar.gz
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod theme get ./theme.tar.gz .
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod theme get https://example.com/theme.tar.gz .
 ```
 
-When you install a new theme, the old one is not lost: it moves to `.heron-cache/setup/`, and the engine tells you exactly where. Site pages are not overwritten: the demo pages of the new theme are put only where there is no file yet. The engine lists every file it placed and says how many files it kept as they are because the site already had them. What an archive may and may not contain - [`21` §10](../spec/21-engine.md#heron-theme).
+When you install a new theme, the old one is not lost: it moves to `.heron-cache/setup/`, and the engine tells you exactly where. Site pages are not overwritten: the demo pages of the new theme are put only where there is no file yet. The engine lists every file it placed and says how many files it kept as they are:
+
+```
+Theme starter is in place.
+  previous version: .heron-cache/setup/theme.20261108-051919
+  the theme demo placed: 1 page, 1 file in all (your files untouched):
+    content/ru/blocks.md
+  kept as they are (the site already has such a file): 9 files
+```
+
+What an archive may and may not contain - [`21` §10](../spec/21-engine.md#heron-theme).
+
+### The demo pages of a theme <a id="demo-pages"></a>
+
+Every theme comes with its demo - pages that show everything it can do: every page type, every block, every section view. It is not just an example but a sample of presentation the author of the theme thought through: which pages a site of this kind needs, which blocks they have and in what order.
+
+- **To understand it** - open a demo page in the editor on the left and the same page in the browser on the right: you see which markdown gives which block.
+- **To use it** - replace the texts of the demo with your own. A page that fits by meaning can stay and be rewritten.
+- **To remove it** - delete the page file in all language folders (`content/en/blocks.md`, `content/ru/blocks.md`…) and remove its key from the menu - `nav.main` in `site.yaml`. Your site has to show only yours: the ordinary `check` does not require the demo.
+- **To bring it back** - install the same theme again: `theme get` puts the demo pages where there are no files and leaves the rest alone. If you changed `theme/`, mind that the theme is replaced, and your version moves to `.heron-cache/setup/`.
+
+The theme reference (below) takes live examples from the demo pages: delete them - and the reference keeps the hints and the markdown samples from `theme.yaml`.
+
+### What the theme can do: the reference <a id="theme-reference"></a>
+
+Every theme has a reference - a page that gathers everything it can do: page types and their sections, every block with its hint, a live example and its markdown next to it, section views and the line that turns them on. Nobody writes the reference by hand - the engine builds it from the description of the theme and its demo. It opens in three ways:
+
+- start the preview and open <http://localhost:8000/_heron/theme/> (in the other site languages - `/_heron/theme/<lang>/`);
+- in the studio - the "Theme reference" tab ([03 · Pages and content](03-content.md#studio));
+- as text in the terminal - the first command below. The second briefly lists the page types, the blocks and their fields with hints - what `page add` will ask about:
+
+```bash
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod docs theme-ref .
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod describe
+```
+
+The reference is not in the production build (`--env prod`), in the sitemap or in search: only you see it, in the preview and a draft build.
+
+### The look of a section <a id="category-views"></a>
+
+A section page (the `_index.md` of its folder) shows the pages that lie inside. How exactly is decided by the **view**, and every theme has its own views: the starter one can do cards in a grid (`cards`, the default) and a list of rows (`list`). Which views your theme has is shown by the reference and `describe`. You choose the view like this:
+
+- when creating the section - with a question of `category add` or the `--view` flag (the command below);
+- in the studio - with the "View" field of the section;
+- by hand - with the line `view: list` in the SEO block of `_index.md`; without the line - the default view.
+
+```bash
+docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod category add services . --view list
+```
+
+If the section already exists, the same command opens it for editing: the view changes in all languages.
 
 ## What a theme consists of
 
@@ -50,6 +101,7 @@ The starter theme that `new` puts in has the page types `home`, `page` and `404`
 ```yaml
 name: main
 version: "1.0"
+heron: ">=0.3"                                 # which engine version the theme is made for
 
 requires: [contact.phone, organization.name]   # what the theme takes from site.yaml
 
@@ -77,106 +129,26 @@ images:
 
 What the keys mean:
 
-- **`types.<type>.uses`** - which sections a page of this type shows. This is an agreement with the content. The command `page service roof my-site` (in a theme that has the `service` type, as in the example above) puts drafts of exactly these sections into a new page, and the "Not filled" summary after the build names the empty ones. If a page file has a section that is not in `uses`, a line appears in the report - this is how a typo in an anchor is caught. The entry `"how:steps"` means the theme expects the form `steps` (numbered steps) in the section `how`.
+- **`types.<type>.uses`** - which sections a page of this type shows. This is an agreement with the content. The command `page add roof --type service` (in a theme that has the `service` type, as in the example above) puts drafts of exactly these sections into a new page, and the "Not filled" summary after the build names the empty ones. If a page file has a section that is not in `uses`, a line appears in the report - this is how a typo in an anchor is caught. The entry `"how:steps"` means the theme expects the form `steps` (numbered steps) in the section `how`.
 - **`requires`** - paths in `site.yaml` without which the theme does not work, for example the phone in the header. If they are not filled in, the build stops with the error `E011` before any page is drawn.
 - **`links`** - fields by which pages refer to each other. The engine finds the pages by these fields, checks that they exist and builds a reverse list (`back`): a service gets a list of the articles where it is mentioned. `type` limits **to pages of which type** the field leads: `related` with `type: service` will not link articles to each other. A relation without a limit is written without `type`: `- {field: related, back: related_from}`.
 - **`images`** - how to cut images: widths, proportions, formats. Also there: `fallback_width` - the width of the fallback PNG/JPEG for old browsers, `cover_width` - the cover width for search engines and social networks, `crop` and `as_is` - paths of images that must be cropped or copied without cutting. Only what the templates really asked for is cut.
 - **`types.<type>.template`** - if a type is drawn not by `templates/<type>.html` but by another file: a path from `templates/`.
 - **`forms`** - the forms the theme draws; their description must be in `site.yaml`, otherwise `E011`.
-- **`heron`** - which engine version the theme is made for. A different version - the error `E012`.
+- **`heron`** - which engine version the theme is made for. A wrong version is error `E012`.
+- **`modules`** - the blocks of the theme. The example has a short list of names, as in version 0.2; the description of every block with fields and hints - [below](#block-fields).
 
 Every key in detail - [`20` §6](../spec/20-data-contract.md#theme-yaml).
 
 ## Block fields and hints <a id="block-fields"></a>
 
-Templates tell the engine what a page looks like. But a person who will fill the page in needs more: which blocks the page has, what to write in every field and how it affects the site and search. This is written in `theme.yaml` too - as a description of fields and hints. The questionnaire and the studio work by it, an agent fills pages by it without reading templates, and `heron check` makes sure the description is complete.
+Templates tell the engine what a page looks like. But a person who will fill the page in needs something else: which blocks the page has, what to write in every field and how it affects the site and search. This is written in `theme.yaml` too - as the contract: the sections of every type, the fields of every block with their place in markdown, section views and the `hint` and `help` hints in every language of the theme. The questions of `page add` and `category add`, the studio, the theme reference and an agent (`describe --json`) work by it, and `check` makes sure the description is complete (`E008`).
 
-The description is optional. A theme without it builds as before, only `heron check` warns once that the questionnaire and the studio will show just the SEO block. The starter theme is fully described - look into its `theme.yaml`, it is the best sample.
-
-How to describe a block, with questions and answers as an example:
-
-```yaml
-languages: [ru, en]              # the languages you write hints in
-
-modules:
-  faq:
-    kinds: [faq]                 # which section form the module draws (table 20 §4.4)
-    hint_ru: Вопросы и ответы - вопрос заголовком, ответ под ним
-    hint_en: Questions and answers - the question as a heading, the answer under it
-    help_ru: Вопрос - заголовок третьего уровня, ответ - текст под ним; в поиске блок размечается как FAQPage
-    help_en: |-
-      Every question is a third-level heading, the answer is the text under it.
-      In search the block is marked up as FAQPage.
-    fields:
-      - name: items
-        type: list
-        required: true
-        md: groups               # ### groups in markdown
-        hint_ru: Пары вопрос - ответ
-        hint_en: Question - answer pairs
-        fields:
-          - {name: q, type: text, required: true, md: heading, max_length: 120, hint_ru: Вопрос, hint_en: The question}
-          - {name: a, type: markdown, required: true, md: content, hint_ru: Ответ, hint_en: The answer}
-```
-
-What matters here:
-
-- **Fields describe real markdown.** `md` says where the value lies in the file: `heading` - the text of a `###` heading, `content` - everything under it, `items` - list items, `bold` - the bold start of an item. The vocabulary of places is one for all themes, it is in [`21` "Theme contract"](../spec/21-engine.md#theme-contract). Do not invent your own data model: describe what a person writes in the file anyway, otherwise the questionnaire cannot write the value back.
-- **`hint` is required in every language of the theme**: on every type, section, module, field and category view. It is one line a person sees on hover. If even one is missing, `heron check` stops with `E008` and lists where exactly.
-- **`help` is for a newcomer.** Write what the block is, what it affects on the site and in search, a good example and common mistakes. A module can also have `example_ru` and `example_en` - a markdown sample, `heron describe <name>` shows it.
-- **You do not write the service fields.** `title`, `h1`, `description`, the address, the cover, the menu, `noindex` are described by the engine itself, with hints in ru and en.
-
-The sections of a type are described next to `uses`: whether a section is required and what its hint is. If pages of the type can be a category (a folder with `_index.md`), name the type of the pages inside and the views the category shows them with:
-
-```yaml
-types:
-  page:
-    uses: [intro, "*"]
-    hint_ru: Обычная страница
-    hint_en: An ordinary page
-    children_type: page          # the type of the pages inside a category
-    views:
-      key: view                  # the line view: list in the front matter of _index.md
-      default: cards
-      options:
-        cards: {hint_ru: Карточки сеткой, hint_en: Cards in a grid}
-        list: {hint_ru: Список строками, hint_en: A list of rows}
-    sections:
-      intro: {required: true, hint_ru: Вводный абзац, hint_en: The intro paragraph}
-```
-
-The theme invents the views - exactly those its templates draw. In the starter theme the module `children` reads `page.meta.get('view')` and shows the pages as cards or as a list.
-
-This description is exactly what a person who runs a site on your theme sees. `heron page add <key>` asks the fields of a page by groups: first the service fields of the engine, then the sections of the type in the order of `uses` with the fields of their blocks, each with your `hint`, and on `?` - your `help`. `heron category add <path>` offers the type of the pages inside (`children_type`) and the views from `views` with their hints, the `--view` flag is checked against the same options. The more precise the hints, the less a person needs to open the files.
-
-To see the result, use the `describe` command. Without a name it briefly shows the whole description together with the service fields and the values from `site.yaml`, with the name of a block or a type - only it with full help, with `--json` - the same for an agent:
-
-```bash
-docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod describe
-docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod describe faq
-docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod describe --json --lang en
-```
-
-All keys of the description - [`21` "Theme contract"](../spec/21-engine.md#theme-contract), the form of the `describe --json` output - [`21` §10](../spec/21-engine.md#heron-describe).
+The description is optional: a theme without it builds as before, only `check` warns once that the questions and the studio show just the SEO block. The starter theme is fully described - its `theme.yaml` is the best sample. How to describe a type, a block, a field and a view, how to write hints for a newcomer and a worked example - [07 · Your own theme](07-theme-author.md#types).
 
 ## The theme demo and reference <a id="theme-demo"></a>
 
-The demo is not a decoration of a theme but its sample of presentation: which pages a site of this kind needs, which blocks they carry and in what order. The author of a theme thinks this structure through once, and whoever installs the theme gets it ready and replaces the texts with their own. That is why the demo is required and shows everything `theme.yaml` declares:
-
-- **every page type** - at least one page of that type: the home page, an ordinary page, 404 and any type of your own;
-- **every block** - the module drew something on at least one page, page modules (`breadcrumbs`, `children`) included;
-- **every section view** - a section page (a folder with `_index.md` and pages inside) with `view: <view>`, and for the default view - without this line.
-
-The demo of a theme is the content of the site it is packed from. To check it without packing, run `check . --theme`: the engine draws the pages with the templates of the theme and lists what is missing. The same list stops `theme pack` with error `E037`, and no archive is made. For an old theme without a field description an incomplete demo is only a warning. A plain `check .` does not require a demo: on your own site you may delete the demo pages you do not need.
-
-**The theme reference** is built from `theme.yaml` and the demo by itself, nobody writes it by hand: page types with their sections, every block with its hint and fields, next to it a live example from the demo and its source markdown, section views with the line that turns them on, schema.org markup, style variables and interface strings. Change the contract or the demo - the reference changes too. There are two ways to see it:
-
-```bash
-docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod docs theme-ref .
-docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod serve .
-```
-
-The first command prints the reference as text in the terminal: the examples there are the source markdown and the file it is in. The second starts the preview of the site: open `localhost:8000/_heron/theme/` in the browser - the same reference with live examples in the styles of the theme, in the other languages of the site - `/_heron/theme/<lang>/`. This service page exists only in a draft build and in the preview: it is not in the production build (`--env prod`), in the sitemap or in search.
+Every theme has a demo - pages that show each of its types, blocks and section views. Without a complete demo the theme is not packed (`E037`), and it can be checked without packing - with the command `check . --theme`. From the description and the demo the engine builds the theme reference itself. What the demo must have, where it lives and how to write it - [07 · Your own theme](07-theme-author.md#demo); how to open the reference - [above](#theme-reference).
 
 ## A page type template
 
@@ -396,12 +368,21 @@ This line outputs a ready `<picture>` tag. The engine cuts the image for the wid
 
 **Only what the template asked for is cut.** `ratios` in `theme.yaml` are the proportions the theme *may* ask for, and only those that the templates really called through `picture()` or `media_url()` get into the build. A card asks for 16:9 - so its image in the build will have only 16:9. The fallback file in the source format (for browsers without AVIF and WebP) is one per proportion, with the width `images.fallback_width` (800 by default). If you need a bigger width, ask for it explicitly: `media_url(src, '16:9', 1200)` for og:image. → [`20` §7](../spec/20-data-contract.md#images)
 
-## Updating the theme to the strict CSP <a id="strict-csp"></a>
+## Strict CSP: the rules for a theme <a id="strict-csp"></a>
 
-The engine serves pages with the security rule `script-src 'self'`: the browser runs only scripts from the site's files and will not run a script written right into the HTML (inline). If your theme is of an older version and has such a script:
+The engine serves pages with the browser security rule (CSP) `script-src 'self'`, and the rule is strict: the browser runs and loads only what lies on the site itself. For a theme this means:
+
+- **scripts only as files.** `<script src="/assets/site.js">` works, and a `<script>` with code right in the HTML (an inline script) the browser will not run. The exception is the markup `<script type="application/ld+json">`: it is data, not code;
+- **no handlers in the markup.** `onclick=`, `onload=`, `onsubmit=` and `javascript:` links do not work: attach handlers from the script file (`addEventListener`);
+- **data for a script goes in `data-*` attributes** on the `<script src=…>` tag or on an element, as in `base.html` of the starter theme;
+- **everything is your own.** Fonts, pictures, styles and scripts come from `assets/` of the theme and `media/` of the site. A font from another server, a script or a picture from a CDN the browser will not load: download the file and put it into `assets/`;
+- **styles are fine** both as a file and as a `style=` attribute;
+- **analytics counters** are the only exception: the engine allows their addresses itself, for the counters turned on in `site.yaml`. Include them as `partials/analytics.html` of the starter theme does.
+
+If your theme is of an older version and has an inline script:
 
 1. move the code into a theme file (`assets/site.js`);
-2. pass data (counter numbers and the like) as `data-*` attributes on the `<script src="/assets/site.js">` tag, as in `base.html` of the starter theme;
+2. pass data (counter numbers and the like) as `data-*` attributes on the `<script src="/assets/site.js">` tag;
 3. run `check`: it shows an inline script in the theme as a warning.
 
 ## How to check a theme
@@ -413,7 +394,7 @@ docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmst
 ```
 
 - `check` - a report without a build: it quickly shows errors and warnings, including those in templates;
-- `check --theme` - the theme demo too: every type has a page, every block and section view is shown (["The theme demo and reference"](#theme-demo));
+- `check --theme` - the theme description and demo too: every type has a page, every block and section view is shown ([07 · Your own theme](07-theme-author.md#demo));
 - `build` - the theme draws every page; a template error names the page and the template;
 - the report after the build shows sections that are not in `uses`, forms of the wrong kind and missing `i18n` strings.
 

@@ -1,39 +1,140 @@
-# Образец theme.yaml. Описание - ../spec/20-data-contract.md (в репозитории движка docs/<язык>/spec/), раздел 6.
+# Образец theme.yaml. Описание - ../spec/20-data-contract.md (в репозитории движка docs/<язык>/spec/), раздел 6;
+# контракт (поля блоков, подсказки, виды) - ../spec/21-engine.md, «Контракт темы»; по-человечески - ../guide/07-theme-author.md.
 # Формы секций после двоеточия - из таблицы 20 §4.4:
 # prose list alert-list checklist two-lists steps table facts faq timeline callout gallery tabs
 
 name: main
 version: "1.0"
 title: Тема сайта
-heron: ">=0.1"                 # версия движка, на которую рассчитана тема
+heron: ">=0.3"                 # версия движка, на которую рассчитана тема
+languages: [ru, en]            # языки подсказок: hint_<язык> обязателен на каждом
 # forms: [callback]            # формы, которые тема рисует; описание - в site.yaml
 
 requires:                      # пути site.yaml, без которых тема не работает
   - site.name
-fields: [nav_title]            # поля фронтматтера, к которым обращаются шаблоны
+fields: [nav_title]            # поля движка во фронтматтере, к которым обращаются шаблоны (не поля блоков)
 
-# Список modules движок с файлами не сверяет: перечисляйте только модули, файлы которых есть в теме.
-modules: [breadcrumbs, prose, list, steps, faq, facts, checklist, children]
+# Модули - блоки темы: какие формы рисуют, их поля с местом в markdown (md) и подсказки.
+# Описание одного модуля с полями (fields) включает проверку подсказок у всех: E008, если чего-то нет.
+modules:
+  prose:
+    kinds: [prose]
+    hint_ru: Обычный текст - абзацы, ссылки, выделения
+    hint_en: Plain text - paragraphs, links, emphasis
+    fields:
+      - {name: text, type: markdown, required: true, md: body, hint_ru: Текст блока, hint_en: The text of the block}
+  list:
+    kinds: [list, alert-list]  # alert-list - класс .alert в якоре
+    hint_ru: Маркированный список - пункты «- …», с жирным зачином или без
+    hint_en: A bulleted list - "- …" items, with or without a bold start
+    fields:
+      - name: items
+        type: list
+        required: true
+        min_items: 1
+        md: items
+        hint_ru: Пункты списка
+        hint_en: The list items
+        fields:
+          - {name: term, type: text, md: bold, max_length: 60, hint_ru: Жирный зачин пункта, hint_en: The bold start of an item}
+          - {name: text, type: markdown, required: true, md: text, hint_ru: Текст пункта, hint_en: The text of an item}
+  steps:
+    hint_ru: Шаги - нумерованный список «1. …»
+    hint_en: Steps - a numbered list "1. …"
+    fields:
+      - {name: items, type: list, required: true, min_items: 2, md: numbered, item: markdown, hint_ru: Шаги по порядку, hint_en: The steps in order}
+  faq:
+    schemaorg: FAQPage
+    hint_ru: Вопросы и ответы - вопрос заголовком третьего уровня, ответ под ним
+    hint_en: Questions and answers - the question as a third-level heading, the answer under it
+    help_ru: Вопрос - заголовок третьего уровня, ответ - текст под ним; в поиске блок размечается как FAQPage
+    help_en: A question is a third-level heading, the answer is the text under it; in search the block is marked up as FAQPage
+    fields:
+      - name: items
+        type: list
+        required: true
+        md: groups
+        hint_ru: Пары вопрос - ответ
+        hint_en: Question - answer pairs
+        fields:
+          - {name: q, type: text, required: true, md: heading, max_length: 120, schemaorg: Question.name, hint_ru: Вопрос, hint_en: The question}
+          - {name: a, type: markdown, required: true, md: content, schemaorg: Answer.text, hint_ru: Ответ, hint_en: The answer}
+  facts:
+    hint_ru: Коротко - строки «ключ | значение»
+    hint_en: In short - "key | value" lines
+    fields:
+      - {name: items, type: list, required: true, md: pairs, item: text, hint_ru: Строки «ключ | значение», hint_en: The "key | value" lines}
+  checklist:
+    kinds: [checklist, two-lists]
+    hint_ru: Перечень - группы с подзаголовками и списками
+    hint_en: A checklist - groups with subheadings and lists
+    fields:
+      - {name: groups, type: list, required: true, md: groups, item: markdown, hint_ru: Группы со списками, hint_en: The groups with lists}
+  callout:
+    hint_ru: Совет в рамке - цитата «> …»
+    hint_en: A tip in a frame - a "> …" quote
+    fields:
+      - {name: text, type: markdown, required: true, md: quote, hint_ru: Текст совета, hint_en: The text of the tip}
+  breadcrumbs:
+    scope: page                # берёт данные из страницы: mod.breadcrumbs()
+    schemaorg: BreadcrumbList
+    fields: []
+    hint_ru: Хлебные крошки - путь от главной до страницы
+    hint_en: Breadcrumbs - the path from the home page to the page
+  children:
+    scope: page
+    fields: []
+    hint_ru: Страницы раздела - карточки или список
+    hint_en: The pages of a section - cards or a list
 
 types:                         # тип страницы → секции и разметка; шаблон templates/<тип>.html.
                                # Тип, которого здесь нет, даёт E008 (в стартовой теме только home, page, 404)
   home:
     uses: [intro, "why:list", "how:steps", "faq:faq"]
     jsonld: [WebSite]
+    hint_ru: Главная страница языка
+    hint_en: The home page of a language
   category:
     uses: [intro]
     jsonld: [CollectionPage]
+    hint_ru: Раздел - страница папки (_index.md) со списком страниц внутри
+    hint_en: A section - the page of a folder (_index.md) with the list of pages inside
+    children_type: service     # тип страниц внутри такой категории
+    views:                     # виды списка страниц; ключ view во фронтматтере _index.md
+      key: view
+      default: cards
+      hint_ru: Как раздел показывает свои страницы
+      hint_en: How a section shows its pages
+      options:
+        cards: {hint_ru: Карточки сеткой, hint_en: Cards in a grid}
+        list: {hint_ru: Список строками, hint_en: A list of rows}
   service:
     uses: [intro, "includes:list", "when:alert-list", "how:steps", "documents:checklist", "faq:faq"]
     jsonld: [Service]
+    hint_ru: Услуга - что входит, когда нужна, как проходит, документы, вопросы
+    hint_en: A service - what is included, when it is needed, how it goes, documents, questions
+    sections:                  # описание секций из uses: обязательность и подсказки
+      intro:
+        required: true
+        hint_ru: Вводный абзац - кому нужна услуга и что человек получит
+        hint_en: The intro paragraph - who needs the service and what they get
+        fields:
+          - {name: text, type: markdown, required: true, md: body, hint_ru: Один-два абзаца, hint_en: One or two paragraphs}
+      includes: {required: true, hint_ru: Что входит в услугу, hint_en: What the service includes}
   article:
     uses: [intro, "short:callout", "*", "faq:faq"]   # "*" - любые секции
     jsonld: [Article]
+    hint_ru: Статья - текст и блоки любой формы
+    hint_en: An article - text and blocks of any form
     # template: page.html       # необязательно: другой файл вместо templates/article.html
   page:
     uses: [intro, "*"]
+    hint_ru: Обычная страница
+    hint_en: An ordinary page
   "404":
     uses: [intro]
+    hint_ru: Страница «не найдено»
+    hint_en: The "not found" page
 
 links:                         # поля связей во фронтматтере
   - field: related             # услуга → услуги

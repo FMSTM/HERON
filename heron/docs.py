@@ -177,6 +177,13 @@ TOPICS: tuple[Topic, ...] = (
         "guide",
     ),
     _t(
+        "theme-author",
+        "docs/{lang}/guide/07-theme-author.md",
+        "07 · своя тема: контракт, подсказки, демо, упаковка, перенос с 0.2",
+        "07 · your own theme: contract, hints, demo, packing, moving from 0.2",
+        "guide",
+    ),
+    _t(
         "contract",
         "docs/{lang}/spec/20-data-contract.md",
         "20 · контракт: папка, URL, поля, ключи",

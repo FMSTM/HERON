@@ -66,7 +66,7 @@ def test_create_ru_lays_out_the_whole_kit(tmp_path):
         folder: len([f for f in files if f.startswith(f"{folder}/")])
         for folder in ("roles", "templates", "guide", "spec", "schemas")
     }
-    assert count == {"roles": 5, "templates": 6, "guide": 7, "spec": 4, "schemas": 6}
+    assert count == {"roles": 5, "templates": 6, "guide": 8, "spec": 4, "schemas": 6}
     assert {f"schemas/{name}" for name in SCHEMA_FILES} <= files
     assert {"work/.gitkeep", "work/heron-readme.md", "heron-kit.yaml"} <= files
     for name in agents.ROOT_FILES:

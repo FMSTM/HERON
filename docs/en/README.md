@@ -66,7 +66,7 @@ The language of the report and questions is the one the human asked for; if not 
 
 | What you need | Where |
 |---|---|
-| Installation, concepts, the first site, content, theme, SEO, deploy | [`guide/`](guide/00-install.md) - guides 00-06 in order |
+| Installation, concepts, the first site, content, theme, SEO, deploy, your own theme | [`guide/`](guide/00-install.md) - guides 00-07 in order |
 | File path → address, key, `slug`; links; old addresses; 404 | [`20`](spec/20-data-contract.md) §2 · languages §3 · SEO block and fields §4.1-4.2 · sections and forms §4.3-4.4 · `site.yaml` keys §5 · `theme.yaml` §6 · images §7 · limits §10 |
 | What a template sees · commands and flags · error codes · the `check` report | [`21`](spec/21-engine.md) §6-7 · §10 · §11 · §12 |
 | Site image, nginx, smoke · security model and agent limits · instruction channels | [`23`](spec/23-distribution.md) §5 · §9 · §12 |

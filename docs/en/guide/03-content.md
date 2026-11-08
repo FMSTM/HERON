@@ -65,7 +65,7 @@ Then:
 
 To delete a page, delete its file. If the old address was already in search, do not abandon it: add this address to `redirect_from` of the page that replaces it (the visitor is redirected, code 301), or to `gone` in `site.yaml` (the address answers "gone for good", code 410).
 
-## The studio in a browser
+## The studio in a browser <a id="studio"></a>
 
 The same - creating a page or a section, editing fields, translating, moving - can be done with the mouse, in the studio. The `studio` command opens it:
 

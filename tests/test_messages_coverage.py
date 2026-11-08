@@ -34,6 +34,16 @@ GROUPS: dict[str, tuple[str, ...]] = {
     "redirects": ("modules/redirects.py", "modules/nginx.py"),
     "scaffold": ("scaffold/page.py", "scaffold/__init__.py"),
     "report": ("core/errors.py", "core/report.py"),
+    "edit": (
+        "edit/__init__.py",
+        "edit/body.py",
+        "edit/front.py",
+        "edit/langs.py",
+        "edit/model.py",
+        "edit/slots.py",
+        "edit/text.py",
+        "edit/validate.py",
+    ),
 }
 
 # группа -> имена присваиваний верхнего уровня, где кириллица допустима

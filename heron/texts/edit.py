@@ -1,0 +1,113 @@
+"""Сообщения heron/edit/: модель правки страницы и проверка полей."""
+
+from __future__ import annotations
+
+TEXT: dict[str, dict[str, str]] = {
+    "ru": {
+        "edit_not_utf8": "файл страницы не в кодировке UTF-8",
+        "edit_single_line": "значение этого поля - одна строка, без переводов строки",
+        "edit_one_paragraph": "значение этого поля - один абзац, без пустых строк внутри",
+        "edit_bad_path": "путь {value!r}: без пробелов и скобок, например media/team/photo.jpg",
+        "edit_readonly": "поле только для чтения: {reason}",
+        "edit_ro_setext": "заголовок подчёркнут строкой ниже, правьте его в файле",
+        "edit_ro_anchor": "у заголовка нет якоря {{#…}}",
+        "edit_ro_place": "место этого поля в markdown редактор не знает, правьте его в файле",
+        "edit_ro_first_paragraph": "сначала заполните первый абзац",
+        "edit_ro_lead_split": "подводка разделена цитатой, правьте её в файле",
+        "edit_ro_form": "блок записан в другой форме, чем ждёт тема, правьте его в файле",
+        "edit_ro_marker": "пункт списка записан необычно (табуляция после маркера), правьте его в файле",
+        "edit_ro_bold_lines": "жирный зачин занимает несколько строк, правьте его в файле",
+        "edit_ro_no_image": "в пункте нет картинки ![подпись](путь)",
+        "edit_ro_table_new": "таблицы в блоке ещё нет: начните её в файле со строки шапки",
+        "edit_ro_front": "SEO-блок не читается как YAML, сначала поправьте его в файле",
+        "edit_ro_path": "категория - это папка файла; перенос делают команды страниц и категорий",
+        "edit_ro_body": "текст страницы не разбирается: {reason}",
+        "edit_front_broken": "SEO-блок не читается как YAML, сначала поправьте его в файле",
+        "edit_front_flow": "значение записано в фигурных скобках {{…}}, правьте его в файле",
+        "edit_front_not_mapping": "по этому пути в SEO-блоке не набор ключей",
+        "edit_unknown_field": "нет такого поля: {path}",
+        "edit_bad_index": "нет пункта с номером {index}",
+        "edit_no_key": "у файла нет ключа страницы: он лежит не в content/<язык>/",
+        "edit_no_section": "на странице нет секции {section!r}",
+        "edit_bad_anchor": (
+            "якорь {anchor!r}: латиница в нижнем регистре, цифры и дефис, например how-to-start"
+        ),
+        "edit_section_exists": "секция с якорем {section!r} на странице уже есть",
+        "edit_heading_empty": "у блока должен быть заголовок",
+        "edit_group_schema": "Разметка для поисковиков",
+        "edit_schema_hint": "Уточнения разметки {kind} для этой страницы поверх site.yaml",
+        "edit_schema_help": (
+            "Поля разметки schema.org типа {kind}: их читают поисковики, на странице их не видно. "
+            "То, что задано здесь, дополняет общий блок schema из site.yaml для этой страницы. "
+            "Пишите только то, что правда и есть на странице; лишнее поисковик считает спамом."
+        ),
+        "edit_required": "поле {field} обязательно",
+        "edit_too_long": "{field}: {length} знаков, больше {max}",
+        "edit_too_short": "{field}: {length} знаков, меньше {min}",
+        "edit_few_items": "{field}: пунктов {count}, нужно не меньше {min}",
+        "edit_many_items": "{field}: пунктов {count}, можно не больше {max}",
+        "edit_not_in_values": "{field}: {value!r} - нет среди допустимых: {values}",
+        "edit_image_missing": "{field}: файла {src} нет в папке сайта",
+        "edit_image_narrow": "{field}: {src} шириной {width} px, нужно от {min} px",
+        "edit_image_ratio": "{field}: пропорции {src} - {actual}, тема ждёт {ratio}",
+        "edit_image_unreadable": "{field}: {src} не читается как картинка",
+        "edit_schema_type": "schema.{kind}: в словаре schema.org нет такого типа",
+        "edit_schema_prop": "schema.{kind}.{prop}: у типа {kind} нет такого свойства",
+        "edit_section_missing": "нет обязательной секции {section!r}",
+        "edit_unknown_type": "тип {value!r} - в теме есть только: {known}",
+    },
+    "en": {
+        "edit_not_utf8": "the page file is not in UTF-8",
+        "edit_single_line": "the value of this field is one line, without line breaks",
+        "edit_one_paragraph": "the value of this field is one paragraph, without empty lines inside",
+        "edit_bad_path": "the path {value!r}: no spaces or brackets, like media/team/photo.jpg",
+        "edit_readonly": "the field is read-only: {reason}",
+        "edit_ro_setext": "the heading is underlined by the next line, edit it in the file",
+        "edit_ro_anchor": "the heading has no {{#…}} anchor",
+        "edit_ro_place": "the editor does not know where this field lives in markdown, edit it in the file",
+        "edit_ro_first_paragraph": "fill in the first paragraph first",
+        "edit_ro_lead_split": "the lead is split by a quote, edit it in the file",
+        "edit_ro_form": "the block is written in another form than the theme expects, edit it in the file",
+        "edit_ro_marker": "the list item is written unusually (a tab after the marker), edit it in the file",
+        "edit_ro_bold_lines": "the bold start takes several lines, edit it in the file",
+        "edit_ro_no_image": "the item has no ![caption](path) picture",
+        "edit_ro_table_new": "the block has no table yet: start it in the file with the header row",
+        "edit_ro_front": "the SEO block does not read as YAML, fix it in the file first",
+        "edit_ro_path": "the category is the folder of the file; page and category commands move it",
+        "edit_ro_body": "the text of the page does not parse: {reason}",
+        "edit_front_broken": "the SEO block does not read as YAML, fix it in the file first",
+        "edit_front_flow": "the value is written in curly braces {{…}}, edit it in the file",
+        "edit_front_not_mapping": "this path in the SEO block is not a set of keys",
+        "edit_unknown_field": "there is no such field: {path}",
+        "edit_bad_index": "there is no item number {index}",
+        "edit_no_key": "the file has no page key: it is not in content/<lang>/",
+        "edit_no_section": "the page has no section {section!r}",
+        "edit_bad_anchor": (
+            "the anchor {anchor!r}: lowercase latin letters, digits and hyphens, like how-to-start"
+        ),
+        "edit_section_exists": "the page already has a section with the anchor {section!r}",
+        "edit_heading_empty": "a block needs a heading",
+        "edit_group_schema": "Markup for search engines",
+        "edit_schema_hint": "Refinements of the {kind} markup for this page on top of site.yaml",
+        "edit_schema_help": (
+            "The fields of the schema.org {kind} markup: search engines read them, the page "
+            "does not show them. What you set here adds to the common schema block of "
+            "site.yaml for this page. Write only what is true and is on the page; search "
+            "engines treat anything extra as spam."
+        ),
+        "edit_required": "the field {field} is required",
+        "edit_too_long": "{field}: {length} characters, more than {max}",
+        "edit_too_short": "{field}: {length} characters, fewer than {min}",
+        "edit_few_items": "{field}: {count} items, needs at least {min}",
+        "edit_many_items": "{field}: {count} items, at most {max} allowed",
+        "edit_not_in_values": "{field}: {value!r} is not among the allowed values: {values}",
+        "edit_image_missing": "{field}: there is no file {src} in the site folder",
+        "edit_image_narrow": "{field}: {src} is {width} px wide, needs {min} px or more",
+        "edit_image_ratio": "{field}: the proportions of {src} are {actual}, the theme expects {ratio}",
+        "edit_image_unreadable": "{field}: {src} does not read as a picture",
+        "edit_schema_type": "schema.{kind}: the schema.org vocabulary has no such type",
+        "edit_schema_prop": "schema.{kind}.{prop}: the type {kind} has no such property",
+        "edit_section_missing": "the required section {section!r} is missing",
+        "edit_unknown_type": "the type {value!r} - the theme has only: {known}",
+    },
+}

@@ -24,7 +24,7 @@ from pathlib import Path
 
 import click
 
-from heron import __version__, build_info, messages
+from heron import __version__, build_info, messages, term
 from heron.contracts import site as site_contract
 from heron.contracts.site import LANG_RE
 from heron.core import build as pipeline
@@ -41,6 +41,7 @@ from heron.scaffold import (
     adopt,
     create,
     ctx_notes,
+    domain_note,
     foreign_files,
     language_folders,
     placeholder_domain,
@@ -259,7 +260,9 @@ class _LocalizedCommand:
         raw = list(sys.argv[1:] if args is None else args)
         token = _LANG.set(_help_lang(raw))
         try:
-            return super().main(args, *rest, **extra)  # type: ignore[misc]
+            # весь вывод команды - без управляющих символов из текста темы и сайта
+            with term.guarded():
+                return super().main(args, *rest, **extra)  # type: ignore[misc]
         finally:
             _LANG.reset(token)
 
@@ -330,7 +333,7 @@ class _Terminal:
         mark = f"{frame} " if frame else "  "
         head = self._title.ljust(self.WIDTH)
         tail = f"  {self._detail}" if self._detail else ""
-        click.echo(f"\r{mark}{head} {self._elapsed()}{tail}\x1b[K", nl=False, err=True)
+        click.echo(f"{term.CR}{mark}{head} {self._elapsed()}{tail}{term.EL}", nl=False, err=True)
 
     def _spin(self) -> None:
         index = 0
@@ -371,7 +374,7 @@ class _Terminal:
         if self._interactive:
             self._park()
             self._detail = ""
-            click.echo("\r\x1b[K", nl=False, err=True)
+            click.echo(term.CR + term.EL, nl=False, err=True)
             click.secho("✓ ", fg="green", nl=False, err=True)
             click.echo(f"{head} {self._elapsed()}  ", nl=False, err=True)
             click.secho(text, fg="green", err=True)
@@ -382,7 +385,7 @@ class _Terminal:
         """Замечание по ходу сборки: отдельной строкой, не мешая полоске."""
         text = self._text(key, **fields)
         if self._interactive:
-            click.echo("\r\x1b[K", nl=False, err=True)
+            click.echo(term.CR + term.EL, nl=False, err=True)
         click.secho(f"! {text}", fg="yellow", err=True)
 
     def tick(self, current: int, total: int, detail: str = "") -> None:
@@ -570,8 +573,9 @@ def _debug(ctx: click.Context) -> bool:
 # --- сборка и проверка: итог ----------------------------------------------------
 
 
-# Ошибки `check --theme`, с которыми сайт собирается: их ловят только проверка темы и `theme pack`.
-THEME_ONLY = frozenset({"E037"})
+# Ошибки `check --theme`, с которыми сайт собирается: демо темы (E037, его ловит и `theme pack`)
+# и управляющие символы в тексте темы (E044).
+THEME_ONLY = frozenset({"E037", "E044"})
 
 
 def _finish(
@@ -876,13 +880,16 @@ def _shown(path: Path) -> str:
     return text if text else "."
 
 
-def _next(path: Path, lang: str, languages: list[str], domain: str | None) -> None:
+def _next(path: Path, lang: str, languages: list[str], domain: str | None, name: str) -> None:
     """Что делать дальше — готовыми командами под эту папку."""
     where = _shown(path)
     homes = ", ".join(f"content/{code}/index.md" for code in languages)
     lines = [say(lang, "next_config", path=where)]
-    if domain and domain.endswith(".example"):
+    note = domain_note(domain, name)
+    if note is not None and note[0] == "placeholder":
         lines.append(say(lang, "next_domain", domain=domain))
+    elif note is not None:
+        lines.append(say(lang, "next_domain_reserved", domain=domain, zone=note[1]))
     lines += [
         say(lang, "next_home", files=homes),
         say(lang, "next_page", path=where),
@@ -995,7 +1002,13 @@ def _questionnaire(
     else:
         default = languages[0]
     click.echo("\n" + say(lang, "ask_summary"))
-    note = f"  ({say(lang, 'placeholder')})" if domain.endswith(".example") else ""
+    found = domain_note(domain, name)
+    if found is None:
+        note = ""
+    elif found[0] == "placeholder":
+        note = f"  ({say(lang, 'placeholder')})"
+    else:
+        note = f"  ({say(lang, 'reserved_domain', zone=found[1])})"
     click.echo(f"  name: {name}\n  domain: {domain}{note}")
     click.echo(f"  languages: {', '.join(languages)}\n  default_lang: {default}")
     click.echo(f"  notes: {lang}")
@@ -1115,7 +1128,7 @@ def _start_site(
     click.secho("\n" + say(lang, done_key, path=_shown(path)), fg="green", bold=True)
     _report_plan(plan, verbose, kit_off=agents == "false")
     ordered = [default] + [x for x in languages if x != default]
-    _next(path, lang, ordered, domain or placeholder_domain(guess))
+    _next(path, lang, ordered, domain or placeholder_domain(guess), guess)
 
 
 SITE_OPTIONS = [
@@ -1299,14 +1312,16 @@ def init(
     if with_agents:
         return
     domain = None
+    name = ""
     try:
         import yaml
 
         data = yaml.safe_load((path / "site.yaml").read_text(encoding="utf-8")) or {}
         domain = str((data.get("site") or {}).get("domain") or "") or None
+        name = str((data.get("site") or {}).get("name") or "")
     except Exception:  # noqa: BLE001 — конфиг проверит сборка
         pass
-    _next(path, plan.notes, declared.get("languages") or ["en"], domain)
+    _next(path, plan.notes, declared.get("languages") or ["en"], domain, name)
 
 
 @main.command(help="help_check")
@@ -2006,13 +2021,12 @@ def _edit_session(
         except click.exceptions.Abort:
             click.echo("\n" + say(lang, "edit_cancelled"))
             return
-    elif not entity.new and not entity.moved and not entity.site and not _changed(entity):
+    elif not entity.changed():
         _status(entity, lang, path)
         return
-    else:
+    elif entity.new:
         for code in ctx.langs[1:]:
-            if entity.created(code):
-                ops.mark(entity, code, True)
+            ops.mark(entity, code, True)
     _validate(entity, lang)
     saved = ops.save(entity)
     _saved_report(entity, saved, lang, path)
@@ -2028,10 +2042,6 @@ def _open_studio(path: Path, lang: str, entity, web) -> None:
     word = say(lang, "edit_con_category_word" if entity.category else "edit_con_page_word")
     shown = say(lang, "studio_open_on", kind=word, key=entity.target or "/")
     _open_page(path, lang, ports, host, start, "studio_open", shown)
-
-
-def _changed(entity) -> bool:
-    return any(page.text != entity.disk.get(lang) for lang, page in entity.pages.items())
 
 
 def _again(path: Path, entity) -> str:
@@ -2174,9 +2184,8 @@ def page_add(
         if move_to is not None:
             ops.move(entity, move_to)
         if page_type is not None and not entity.new:
-            for code in ctx.langs:
-                if code in entity.pages:
-                    ops.set_value(entity, code, "type", page_type)
+            # тип - общее поле: правка на основном языке пишет его во все файлы
+            ops.set_value(entity, ctx.default, "type", page_type)
 
     asked = tuple(
         name for name, given in (("type", page_type), ("category", category)) if given is not None
@@ -2229,6 +2238,7 @@ def page_list(as_json: bool, path: Path, notes: str | None) -> None:
                     "type": node.type,
                     "title": node.title,
                     "langs": node.langs,
+                    "implicit": node.implicit,
                 }
                 for node in nodes
             ],
@@ -2250,6 +2260,10 @@ def page_list(as_json: bool, path: Path, notes: str | None) -> None:
     for node in nodes:
         name = node.key.rsplit("/", 1)[-1] or "/"
         label = "  " * max(node.depth - 1, 0) + name + ("/" if node.category and node.key else "")
+        if node.implicit:
+            note = say(lang, "page_list_implicit", key=node.key)
+            click.echo(f"  {label:<{width}}  {note}")
+            continue
         cells = []
         for code in ctx.langs:
             state = node.langs[code]
@@ -2312,11 +2326,10 @@ def category_add(
     def preset() -> None:
         if entity.new:
             return
+        # тип, тип страниц внутри и вид - общие поля: правка основного языка пишет их всюду
         for name, value in (("type", page_type), ("children_type", children_type)):
             if value is not None:
-                for code in ctx.langs:
-                    if code in entity.pages:
-                        ops.set_value(entity, code, name, value)
+                ops.set_value(entity, ctx.default, name, value)
         if view is not None:
             spec = ctx.theme.types.get(entity.main.type)
             if spec is None or spec.views is None:
@@ -2324,9 +2337,7 @@ def category_add(
                     code="E041",
                     message=Msg("edit_unknown_view", view=view, type=entity.main.type, views="-"),
                 )
-            for code in ctx.langs:
-                if code in entity.pages:
-                    ops.set_value(entity, code, spec.views.key, view)
+            ops.set_value(entity, ctx.default, spec.views.key, view)
 
     asked = tuple(
         name

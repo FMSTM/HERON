@@ -1,0 +1,14 @@
+{# Вкладки без скриптов: на каждую вкладку переключатель, CSS показывает выбранную.
+   Без CSS каждая вкладка - обычный заголовок с содержимым, читается как есть. #}
+<section id="{{ section.id }}" class="block tabs">
+  {% if section.title %}<h2>{{ section.title }}</h2>{% endif %}
+  <div class="tabset" style="--tabs: {{ items|length }}">
+  {% for tab in items %}
+    <input type="radio" name="tabs-{{ section.id }}" id="{{ section.id }}-{{ tab.id }}"{% if loop.first %} checked{% endif %}>
+    <label for="{{ section.id }}-{{ tab.id }}">{{ tab.title }}</label>
+  {% endfor %}
+  {% for tab in items %}
+    <div class="panel" id="{{ tab.id }}">{{ tab.html|safe }}</div>
+  {% endfor %}
+  </div>
+</section>

@@ -87,6 +87,20 @@ TEXT: dict[str, dict[str, str]] = {
             "в ответах неизвестные ключи: {names}. Ждём key, kind, type и языки сайта: {langs}"
         ),
         "edit_answers_lang": "ответы языка {lang}: набор полей (title: …) или pending",
+        "edit_field_shared": (
+            "это поле одно на все языки - его правят на основном языке ({main}), "
+            "на других языках правятся только поля с текстом"
+        ),
+        "edit_section_main": (
+            "секции {section!r} нет на основном языке ({main}): новый блок добавляют там, "
+            "другие языки получат его сами"
+        ),
+        "edit_heading_in_value": (
+            "в тексте есть заголовок с якорем {{#…}} - он начал бы новый блок страницы; "
+            "блок добавляют отдельно («+ Блок», поле sections.<якорь>.heading), "
+            "в тексте пишут заголовок без якоря"
+        ),
+        "edit_con_not_created": "файла нет, не создаётся (перевод не вводили)",
         "edit_con_yes_words": "y, yes, д, да",
         "edit_con_no_words": "n, no, н, нет",
         "edit_con_empty": "пусто",
@@ -286,6 +300,20 @@ TEXT: dict[str, dict[str, str]] = {
             "of the site: {langs}"
         ),
         "edit_answers_lang": "the answers of {lang}: a set of fields (title: …) or pending",
+        "edit_field_shared": (
+            "this field is shared by every language - edit it in the main language ({main}); "
+            "other languages edit only the fields with text"
+        ),
+        "edit_section_main": (
+            "there is no section {section!r} in the main language ({main}): add a new block "
+            "there, the other languages get it themselves"
+        ),
+        "edit_heading_in_value": (
+            "the text has a heading with an anchor {{#…}} - it would start a new block of the "
+            "page; add a block separately (“+ Block”, the field sections.<anchor>.heading), "
+            "write headings in the text without an anchor"
+        ),
+        "edit_con_not_created": "no file, not created (no translation was entered)",
         "edit_con_yes_words": "y, yes",
         "edit_con_no_words": "n, no",
         "edit_con_empty": "empty",

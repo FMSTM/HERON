@@ -547,7 +547,8 @@ def test_console_edit_of_one_language_and_marking_ready(site):
     assert run("page", "add", "about", site).exit_code == 0
     ctx = ops.context(site, "ru")
     entity = ops.open_entity(ctx, "about")
-    fields = [f for f in ops.fields_of(entity, "de") if f.editable]
+    # на неосновном языке опросник спрашивает только поля со своим значением
+    fields = [f for f in ops.fields_of(entity, "de") if f.editable and ops.own_value(f)]
     folded = {"menu", "cover", "social", "publishing", "schema"}
     answers = []
     groups = []

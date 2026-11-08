@@ -28,6 +28,33 @@ TEXT: dict[str, dict[str, str]] = {
             "якоря секций на {lang} не те, что на {other}: нет {missing}, лишние {extra}. "
             "Якорь - часть структуры страницы, он один на всех языках"
         ),
+        "build_shared_differ": (
+            "на {lang} не те значения, что на {other}: {fields}. Эти поля одни на все языки "
+            "страницы - поправьте файл или задайте значение на основном языке через "
+            "`heron page add` (оно запишется во все файлы)"
+        ),
+        "build_theme_control": (
+            "{field}: управляющие символы терминала {chars} - при показе в терминале они "
+            "выполнились бы (буфер обмена, экран, заголовок окна)"
+        ),
+        "build_theme_control_hint": (
+            "уберите их из текста: в подсказках, строках и SEO-блоке демо - только печатные "
+            "символы, перевод строки и табуляция"
+        ),
+        "build_svg_unsafe": (
+            "SVG с исполняемым содержимым или внешней ссылкой ({reason}): сайт отдаёт файл "
+            "как есть, и открытый по прямой ссылке он выполнился бы в браузере"
+        ),
+        "build_svg_unsafe_hint": (
+            "уберите из файла инструкции <?…?> (кроме <?xml …?>), DOCTYPE, XSLT, скрипты, "
+            "обработчики on* и внешние ссылки - или сохраните картинку заново из редактора "
+            "как «простой SVG»"
+        ),
+        "build_implicit_folder": (
+            "папка {folder} без _index.md ни на одном языке (так было в 0.2): раздел "
+            "собирается, но у него нет своей страницы. Сделать категорией явно - "
+            "`heron category add {folder}`"
+        ),
         "build_pending_category": (
             "категория {category} на {lang} не переведена (translation: pending в её _index.md): "
             "боевая сборка не публикует её вместе со страницами внутри, и эту тоже. "
@@ -126,6 +153,33 @@ TEXT: dict[str, dict[str, str]] = {
         "build_anchors_differ": (
             "the section anchors in {lang} differ from {other}: missing {missing}, extra {extra}. "
             "An anchor is part of the page structure, one for all languages"
+        ),
+        "build_shared_differ": (
+            "{lang} has other values than {other}: {fields}. These fields are shared by every "
+            "language of the page - fix the file or set the value in the main language with "
+            "`heron page add` (it is written to every file)"
+        ),
+        "build_theme_control": (
+            "{field}: terminal control characters {chars} - shown in a terminal they would "
+            "run (clipboard, screen, window title)"
+        ),
+        "build_theme_control_hint": (
+            "remove them from the text: hints, strings and the SEO block of the demo hold "
+            "only printable characters, line breaks and tabs"
+        ),
+        "build_svg_unsafe": (
+            "an SVG with executable content or an external link ({reason}): the site serves "
+            "the file as it is, and opened by a direct link it would run in the browser"
+        ),
+        "build_svg_unsafe_hint": (
+            "remove processing instructions <?…?> (except <?xml …?>), DOCTYPE, XSLT, scripts, "
+            "on* handlers and external links from the file - or export the picture again "
+            "as a “plain SVG”"
+        ),
+        "build_implicit_folder": (
+            "the folder {folder} has no _index.md in any language (as in 0.2): the section "
+            "builds, but it has no page of its own. To make it a category explicitly - "
+            "`heron category add {folder}`"
         ),
         "build_pending_category": (
             "the category {category} is not translated into {lang} (translation: pending in its "

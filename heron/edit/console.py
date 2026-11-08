@@ -190,7 +190,9 @@ class Console:
         current = _current(item) if prompt_value is None else prompt_value
         while True:
             if item.type == "list":
-                value = self._list(item, current)
+                # у нового файла языка Enter - «пропустить»: так и показать, не «пусто»
+                label = prompt_value if isinstance(prompt_value, str) else None
+                value = self._list(item, item.value if label is not None else current, label)
             else:
                 raw = self.io.ask(f"  › [{_shown(current, self.lang)}]").strip()
                 if raw == SKIP:
@@ -230,7 +232,7 @@ class Console:
                 continue
             return True
 
-    def _list(self, item: Field, current: Any) -> Any:
+    def _list(self, item: Field, current: Any, label: str | None = None) -> Any:
         """Список: Enter - оставить; иначе пункты по одному на строке до пустой строки.
 
         Пункты с полями (`вопрос` и `ответ`) - по `+`: поля каждого пункта по очереди,
@@ -243,7 +245,8 @@ class Console:
         subs = item.fields or []
         key = "edit_con_list_fields_keep" if subs else "edit_con_list_keep"
         self.io.echo(f"    {self._say(key)}", None, True)
-        raw = self.io.ask(f"  › [{_shown(items, self.lang)}]").strip()
+        shown = label if label is not None else _shown(items, self.lang)
+        raw = self.io.ask(f"  › [{shown}]").strip()
         if raw == "":
             return KEEP
         if raw == SKIP:
@@ -359,12 +362,17 @@ class Console:
     def language(self, lang: str, skip: tuple[str, ...] = ()) -> None:
         """Все поля языка по группам; свёрнутые группы - по вопросу «изменить?»."""
         page = ops.page_of(self.entity, lang)
+        main = lang == self.entity.ctx.default
         for group in groups(page):
             name = group["name"]
+            # на другом языке - только поля со своим значением: общие правят на основном
             items = [
                 f
                 for f in ops.fields_of(self.entity, lang)
-                if f.group == name and f.name not in skip and f.path not in skip
+                if f.group == name
+                and f.name not in skip
+                and f.path not in skip
+                and (main or ops.own_value(f))
             ]
             if not items:
                 continue
@@ -465,8 +473,12 @@ class Console:
         ctx = entity.ctx
         self.io.echo("")
         self.io.echo(self._say("edit_con_summary"), None, False, True)
+        planned = entity.planned()
         for lang in ctx.langs:
             rel = entity.rel(lang)
+            if lang not in planned:
+                self.io.echo(f"  {rel} - {self._say('edit_con_not_created')}")
+                continue
             state = self._say("edit_con_new_file" if entity.created(lang) else "edit_con_changed")
             if not entity.created(lang) and ops.page_of(entity, lang).text == entity.disk.get(lang):
                 state = self._say("edit_con_same")
@@ -475,7 +487,7 @@ class Console:
         if entity.moved:
             self.io.echo("  " + self._say("edit_con_move", old=entity.key, new=entity.target))
         parent = ops.parent_of(entity.target)
-        if parent and ops.where(ctx, parent) is None:
+        if (entity.new or entity.moved) and parent and ops.where(ctx, parent) is None:
             self.io.echo("  " + self._say("edit_con_category_made", key=parent))
         if entity.site:
             self.io.echo("  site.yaml - " + self._say("edit_con_menu"))

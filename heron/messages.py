@@ -107,6 +107,10 @@ TEXT: dict[str, dict[str, str]] = {
         "bad_langs": "нужен хотя бы один код вида en, ru, en-gb; не подошло: {bad}",
         "bad_default": "основной язык должен быть в списке: {langs}",
         "placeholder": "заглушка - замените в site.yaml",
+        "reserved_domain": (
+            "зона {zone} зарезервирована для примеров - такой домен в интернете не откроется, "
+            "замените в site.yaml"
+        ),
         # --- что дальше ---
         "next_title": "Что дальше:",
         "next_config": (
@@ -115,6 +119,10 @@ TEXT: dict[str, dict[str, str]] = {
         ),
         "next_domain": (
             "Домен сейчас заглушка {domain} - впишите настоящий в конфигураторе или в site.yaml."
+        ),
+        "next_domain_reserved": (
+            "Домен {domain} - в зоне {zone}, она зарезервирована для примеров, и в интернете "
+            "такой домен не откроется: впишите настоящий в конфигураторе или в site.yaml."
         ),
         "next_home": "Главная - {files}: SEO-блок наверху (title, h1, description), ниже текст.",
         "next_page": "Новая страница: `heron page add about {path}`",
@@ -131,6 +139,9 @@ TEXT: dict[str, dict[str, str]] = {
         "page_list_legend": (
             "Обозначения: ru - файл есть, de! - перевод не готов (translation: pending), "
             "-- нет файла; имя с / - категория"
+        ),
+        "page_list_implicit": (
+            "папка без _index.md (как в 0.2) - сделать категорией: `heron category add {key}`"
         ),
         "page_list_pending": (
             "Не переведено: {count}. Боевая сборка их не публикует; перевели - удалите "
@@ -310,6 +321,10 @@ TEXT: dict[str, dict[str, str]] = {
         "bad_langs": "need at least one code like en, ru, en-gb; not valid: {bad}",
         "bad_default": "the main language must be one of: {langs}",
         "placeholder": "placeholder - replace it in site.yaml",
+        "reserved_domain": (
+            "{zone} is reserved for examples - such a domain never opens on the internet, "
+            "replace it in site.yaml"
+        ),
         "next_title": "What next:",
         "next_config": (
             "Set the site up in the configurator: `heron setup {path}` - name, domain, "
@@ -318,6 +333,10 @@ TEXT: dict[str, dict[str, str]] = {
         "next_domain": (
             "The domain is a placeholder {domain} - put the real one in the configurator "
             "or in site.yaml."
+        ),
+        "next_domain_reserved": (
+            "The domain {domain} is in {zone}, which is reserved for examples, so it never "
+            "opens on the internet: put the real one in the configurator or in site.yaml."
         ),
         "next_home": "Home page - {files}: SEO block on top (title, h1, description), text below.",
         "next_page": "New page: `heron page add about {path}`",
@@ -333,6 +352,10 @@ TEXT: dict[str, dict[str, str]] = {
         "page_list_legend": (
             "Legend: en - the file exists, de! - translation pending (translation: pending), "
             "-- no file; a name with / - a category"
+        ),
+        "page_list_implicit": (
+            "a folder without _index.md (as in 0.2) - make it a category: "
+            "`heron category add {key}`"
         ),
         "page_list_pending": (
             "Not translated: {count}. The production build does not publish them; once "
@@ -468,6 +491,8 @@ TITLES: dict[str, dict[str, str]] = {
         "E040": "a page with placeholder text in the production build",
         "E041": "the theme contract in theme.yaml does not pass the check",
         "E042": "an own page field from the theme contract is empty or does not fit",
+        "E043": "an SVG in media/ or in the theme has executable content or external links",
+        "E044": "the theme text has terminal control characters",
     },
 }
 

@@ -1,0 +1,27 @@
+name: main
+version: "0.2"
+title: "Тема сайта Старый сайт"
+
+# Что тема ждёт от site.yaml. Движок проверит, что эти пути заполнены
+requires: []
+
+modules: [prose, list, checklist, steps, table, facts, faq, timeline, callout, gallery, tabs, breadcrumbs, children]
+
+# Тип страницы → секции, которые он использует. Шаблон - templates/<тип>.html.
+# После двоеточия можно назвать ожидаемую форму: "how:steps"
+types:
+  home:
+    uses: [intro, "*"]
+  page:
+    uses: [intro, "*"]
+  "404":
+    uses: [intro]
+
+# Пропорции и ширины, в которые движок впишет мастера из media/
+images:
+  widths: [400, 800, 1200, 1600]
+  ratios: ["1:1", "16:9"]
+  formats: [avif, webp]
+  fallback_width: 800
+  # ↑ запасной PNG/JPEG для <img src> - одна ширина. В сборку режется только
+  #   то, что шаблоны попросили через picture() и media_url()

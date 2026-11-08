@@ -139,9 +139,11 @@ def default_host(in_container: bool) -> str:
 def shown_url(host: str, port: int) -> str:
     """Адрес, который человеку открыть в браузере.
 
-    `0.0.0.0` — не адрес, по нему браузер не ходит: показываем localhost.
+    `0.0.0.0` — не адрес, по нему браузер не ходит: показываем localhost. Петля
+    `127.0.0.1` — тоже localhost: так адрес написан в документации, и его же
+    пускают проверка Host и CSP студии.
     """
-    visible = "localhost" if host in (EVERYWHERE, "::", "") else host
+    visible = "localhost" if host in (EVERYWHERE, "::", "", LOOPBACK) else host
     if ":" in visible and not visible.startswith("["):
         visible = f"[{visible}]"
     return f"http://{visible}:{port}/"

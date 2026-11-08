@@ -494,6 +494,29 @@ def placeholder_domain(name: str) -> str:
     return f"{slug}.example" if slug else "example.com"
 
 
+# Зоны и имена, зарезервированные для примеров и тестов (RFC 2606, RFC 6761):
+# такой домен в интернете не откроется никогда.
+RESERVED_ZONES = ("example", "test", "invalid", "localhost")
+RESERVED_NAMES = ("example.com", "example.net", "example.org")
+
+
+def domain_note(domain: str | None, name: str) -> tuple[str, str] | None:
+    """Что сказать о домене: `("placeholder", …)` - заглушка заготовки для этого
+    названия, `("reserved", зона)` - домен в зарезервированной зоне, иначе None."""
+    clean = (domain or "").strip().lower().rstrip(".")
+    if not clean:
+        return None
+    if clean == placeholder_domain(name):
+        return "placeholder", clean
+    zone = clean.rsplit(".", 1)[-1]
+    if zone in RESERVED_ZONES:
+        return "reserved", f".{zone}"
+    for reserved in RESERVED_NAMES:
+        if clean == reserved or clean.endswith("." + reserved):
+            return "reserved", reserved
+    return None
+
+
 # Тексты стартовых страниц. Нет языка — английский: страница на чужом
 # языке полезнее её отсутствия, и сайт собирается сразу — и без единого
 # предупреждения: секция about есть, потому что её ждёт тип home стартовой

@@ -5,6 +5,7 @@
 // Ключ доступа - TOKEN из адреса (setup.js); язык интерфейса - L (setup.js).
 (() => {
   const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+  const SPECIAL = ["home", "404"];  // типы главной и 404: не тип страниц внутри категории
   const TT = {
     ru: {
       tab_site: "Сайт", tab_pages: "Страницы", tab_ref: "Справка темы",
@@ -26,6 +27,7 @@
       rename_h: "Новое имя файла и адреса. Файлы переедут на всех языках, со старого адреса будет 301.",
       rename_q: "Новое имя (латиница, цифры, дефисы):", move_q: "Перенести «{a}» в «{b}»? Файлы переедут на всех языках, со старых адресов будет 301.",
       main_lang: "основной язык", lang_new: "Файла этого языка ещё нет. Переведите поля ниже - или оставьте пустыми: тогда язык получит пометку «перевод не готов» (translation: pending) и в боевую сборку не попадёт, пока перевод не появится.",
+      lang_absent: "Файла этого языка у страницы нет. Переведите поля ниже - файл появится с переводом. Оставите пустыми - файл не создаётся. «Пропустить язык» заведёт копию основного языка с пометкой «перевод не готов».",
       lang_skip: "Пропустить язык целиком (перевод не готов)",
       lang_pending: "Перевод не готов (translation: pending)",
       lang_pending_h: "Пометка в SEO-блоке файла языка. Черновая сборка показывает страницу с плашкой, боевая её на этом языке не публикует: нет в карте сайта, hreflang и меню. Снимите, когда перевод готов.",
@@ -63,6 +65,8 @@
       schema_h: "Строки «свойство: значение» - уточнения разметки schema.org этой страницы поверх site.yaml.",
       lines_h: "Каждая строка - отдельный пункт.",
       no_key: "нет ключа",
+      not_created: "файла нет - появится, если перевести поля или отметить «Пропустить язык»",
+      implicit: "без _index.md", implicit_h: "Папка без своей страницы _index.md (так было в 0.2): сайт собирается, раздел работает. Откройте её и нажмите «Сохранить», чтобы завести категорию явно - то же, что heron category add.",
     },
     en: {
       tab_site: "Site", tab_pages: "Pages", tab_ref: "Theme reference",
@@ -84,6 +88,7 @@
       rename_h: "A new file name and address. The files move in every language, the old address gets a 301.",
       rename_q: "New name (latin letters, digits, hyphens):", move_q: "Move “{a}” to “{b}”? The files move in every language, the old addresses get a 301.",
       main_lang: "main language", lang_new: "There is no file in this language yet. Translate the fields below - or leave them empty: then the language gets the mark “translation not ready” (translation: pending) and stays out of the production build until the translation is there.",
+      lang_absent: "The page has no file in this language. Translate the fields below - the file appears with the translation. Leave them empty - no file is created. “Skip the language” makes a copy of the main language marked “translation not ready”.",
       lang_skip: "Skip the whole language (translation not ready)",
       lang_pending: "Translation not ready (translation: pending)",
       lang_pending_h: "A mark in the SEO block of the language file. The draft build shows the page with a banner, the production build does not publish it in this language: not in the sitemap, hreflang or menu. Clear it when the translation is ready.",
@@ -121,6 +126,8 @@
       schema_h: "Lines “property: value” - refinements of the schema.org markup of this page over site.yaml.",
       lines_h: "Every line is a separate item.",
       no_key: "no key",
+      not_created: "no file - it appears once you translate fields or tick “Skip the language”",
+      implicit: "no _index.md", implicit_h: "A folder without its own page _index.md (as in 0.2): the site builds, the section works. Open it and press “Save” to make it a category explicitly - the same as heron category add.",
     },
   };
   const tr = (k, vars) => {
@@ -130,7 +137,7 @@
   };
   const S = {
     tab: "site", tree: null, target: null, state: null, ans: {}, ops: [], key: null, skip: {},
-    edit: null, seq: 0, timer: null, busy: false, refBuilt: false, help: new Set(), preview: null,
+    edit: null, seq: 0, timer: null, busy: false, refBuilt: false, help: new Set(), preview: null, loading: false,
   };
   // Просмотр, справка темы и картинки - на своём порту (другой источник, origin): скрипты темы
   // там не дотягиваются ни до ключа, ни до /api. Ключ просмотра - только смотреть.
@@ -217,11 +224,11 @@
   }
   function treeNode(n, kids) {
     const on = S.target && S.target.key === n.key && (S.target.kind === "category") === n.category;
-    const langs = h("span", { class: "st-langs" }, ...S.tree.languages.map((code) => {
+    const langs = n.implicit ? h("span", { class: "st-langs" }, h("span", { class: "st-lang implicit" }, tr("implicit"))) : h("span", { class: "st-langs" }, ...S.tree.languages.map((code) => {
       const st = n.langs[code];
       return h("span", { class: "st-lang " + st, title: code + ": " + st }, st === "pending" ? code + "!" : code);
     }));
-    const row = h("div", { class: "st-node" + (on ? " on" : ""), role: "treeitem", "data-key": n.key, "data-kind": n.category ? "category" : "page", title: (n.title || "") + " · " + (n.key || "/"),
+    const row = h("div", { class: "st-node" + (on ? " on" : "") + (n.implicit ? " implicit" : ""), role: "treeitem", "data-key": n.key, "data-kind": n.category ? "category" : "page", "data-implicit": n.implicit ? "true" : null, title: n.implicit ? tr("implicit_h") : (n.title || "") + " · " + (n.key || "/"),
       draggable: n.key !== "" ? "true" : null,
       onclick: () => choose({ kind: n.category ? "category" : "page", key: n.key }) },
       h("span", { class: "st-icon" }, n.category ? "▸" : "·"), h("span", { class: "st-name" }, nodeName(n) + (n.title && n.title !== nodeName(n) ? " - " + n.title : "")), langs);
@@ -276,14 +283,28 @@
     return { target: S.target, ops: S.ops, answers };
   }
   function reset() { S.ans = {}; S.ops = []; S.key = null; S.skip = {}; }
+  // Пока форма грузится, её поля заперты: ввод не уходит ни в прежнюю страницу, ни в пустоту.
+  // Язык вкладки (S.edit) остаётся прежним до ответа: правки не теряются молча.
+  function lock(on) {
+    S.loading = on;
+    const box = $("#st-editor"); if (!box) return;
+    box.classList.toggle("st-loading", on);
+    box.setAttribute("aria-busy", String(on));
+    for (const el of box.querySelectorAll("input, textarea, select, button")) {
+      if (on) { el.dataset.locked = el.disabled ? "was" : "1"; el.disabled = true; }
+      else if (el.dataset.locked) { el.disabled = el.dataset.locked === "was"; delete el.dataset.locked; }
+    }
+  }
   async function choose(target, keep) {
     if (!keep && dirty() && !confirm(tr("leave"))) return;
+    const was = S.edit;
     S.target = target; if (!keep) reset();
-    S.edit = null;
-    const j = await api("open", request());
+    lock(true);
+    let j;
+    try { j = await api("open", request()); } finally { lock(false); }
     if (!j.ok) { note("bad", tr("error"), errLines(j)); S.target = S.state ? S.state.target : null; return; }
     S.state = j.state; S.target = target;
-    S.edit = S.edit || j.state.default_lang;
+    S.edit = keep && was && j.state.languages.includes(was) ? was : j.state.default_lang;
     renderPages();
   }
   function changed() {
@@ -350,6 +371,7 @@
     return f.value;
   }
   function put(path, value) {
+    if (!S.state || !S.state.languages.includes(S.edit)) return;  // формы нет - писать некуда
     const mine = (S.ans[S.edit] = S.ans[S.edit] || {});
     const blank = value === null || value === "" || (Array.isArray(value) && !value.length);
     // новый файл языка: пустое поле - «не переведено», а не «стереть значение»
@@ -373,6 +395,7 @@
         h("button", { type: "button", class: "st-btn", title: tr("revert_h"), onclick: () => choose(S.state.new ? S.target : S.state.target, false) }, tr("revert"))));
     const files = h("div", { class: "st-files" }, ...st.languages.map((code) => {
       const f = st.files[code];
+      if (!f.exists && !f.planned) return h("div", { class: "muted" }, "  " + f.rel + " - " + tr("not_created"));
       return h("div", { class: f.pending ? "pending" : "" }, (f.exists ? "  " : "+ ") + f.rel + (f.pending ? " - " + tr("pending_files") : ""));
     }));
     const langtabs = h("div", { class: "st-langtabs", role: "tablist" }, ...st.languages.map((code) => h("button", {
@@ -389,7 +412,7 @@
       const cb = h("input", { type: "checkbox", id: "st-skip" });
       cb.checked = !!S.skip[code];
       cb.addEventListener("change", () => { S.skip[code] = cb.checked; changed(); });
-      return h("div", { class: "st-note warn" }, h("p", {}, tr("lang_new")), h("label", { class: "check" }, cb, tr("lang_skip")), h("p", { class: "muted" }, tr("lang_only")));
+      return h("div", { class: "st-note warn" }, h("p", {}, tr(st.new ? "lang_new" : "lang_absent")), h("label", { class: "check" }, cb, tr("lang_skip")), h("p", { class: "muted" }, tr("lang_only")));
     }
     const mine = S.ans[code] || {};
     const cb = h("input", { type: "checkbox", id: "st-pending" });
@@ -511,7 +534,9 @@
   }
   function choice(id, f, value, off) {
     let values = (f.limits && f.limits.values) || [];
-    if (f.name === "type" || f.name === "children_type") values = S.tree.types.map((t) => t.name);
+    if (f.name === "type") values = S.tree.types.map((t) => t.name);
+    // тип страниц внутри: без главной и 404 - их даёт имя файла в корне языка, не категория
+    if (f.name === "children_type") values = S.tree.types.map((t) => t.name).filter((t) => !SPECIAL.includes(t));
     const labels = {};
     for (const t of S.tree.types) labels[t.name] = t.hint;
     for (const o of f.fields || []) labels[o.name] = o.hint;
@@ -654,8 +679,10 @@
   function catOptions() { return [["", tr("root")], ...S.tree.items.filter((n) => n.category).map((n) => [n.key, n.key + (n.title ? " - " + n.title : "")])]; }
   async function opened(target) {
     if (dirty() && !confirm(tr("leave"))) return;
-    reset(); S.target = target; S.edit = null;
-    const j = await api("open", request());
+    reset(); S.target = target;
+    lock(true);
+    let j;
+    try { j = await api("open", request()); } finally { lock(false); }
     if (!j.ok) return errLines(j).join(" ");
     S.state = j.state; S.target = { ...target, key: j.state.target.key }; S.edit = j.state.default_lang;
     note("ok", j.state.new ? tr("created_draft") : tr("exists"), []);
@@ -679,7 +706,7 @@
       row(tr("d_type"), tr("d_type_h"), type))];
     let children = null, view = null;
     if (kind === "category") {
-      children = select([["", tr("unset")], ...typeOptions()], "", { id: "st-d-children" });
+      children = select([["", tr("unset")], ...typeOptions().filter(([t]) => !SPECIAL.includes(t))], "", { id: "st-d-children" });
       const views = () => { const t = S.tree.types.find((x) => x.name === type.value); return (t && t.views && t.views.options) || []; };
       view = select([["", tr("unset")]], "", { id: "st-d-view" });
       const fill = () => { view.replaceChildren(h("option", { value: "" }, tr("unset")), ...views().map((o) => h("option", { value: o.name }, o.name + (o.hint ? " - " + o.hint : "")))); };

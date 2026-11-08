@@ -26,6 +26,8 @@ main.studio[hidden], .st-hidden, main.studio [hidden], dialog.st-dialog [hidden]
 .st-node .st-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-node .st-icon { width: 1rem; text-align: center; color: var(--muted); }
 .st-node.on .st-icon { color: #fff; }
+.st-node.implicit .st-name { font-style: italic; color: var(--muted); }
+.st-lang.implicit { border-style: dashed; }
 .st-langs { display: inline-flex; gap: .15rem; }
 .st-lang { font: .68rem var(--mono); text-transform: uppercase; border: 1px solid var(--line); border-radius: 4px; padding: 0 .2rem; color: var(--muted); }
 .st-lang.pending { border-color: var(--gold); color: var(--gold); font-weight: 700; }
@@ -99,3 +101,4 @@ dialog.st-dialog ul { padding-left: 1.1rem; max-height: 50vh; overflow: auto; }
 .st-ref { width: 100%; height: calc(100vh - 13rem); min-height: 30rem; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
 .st-empty { color: var(--muted); padding: 2rem 0; text-align: center; }
 .st-links a { margin-right: .7rem; }
+.st-editor.st-loading { opacity: .6; }

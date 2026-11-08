@@ -40,7 +40,6 @@ from heron.edit.model import (
     fields,
     load,
     set_field,
-    type_specs,
 )
 from heron.edit.slots import EditError
 from heron.edit.validate import Issue, validate
@@ -51,6 +50,9 @@ from heron.messages import Msg
 TRANSLATABLE = frozenset(
     {"title", "h1", "description", "nav_title", "slug", "image_alt", "og_title", "og_description"}
 )
+# Поля SEO-блока, у которых на каждом языке своё значение, хоть это и не перевод:
+# пометка перевода, прежние адреса этого языка (у языков свои адреса) и дата правки файла.
+PER_LANGUAGE = frozenset({"translation", "redirect_from", "updated"})
 CATEGORY = "category"
 TRANSLATION = "translation"
 MENU = "menu"
@@ -71,6 +73,24 @@ def translatable(item: Field) -> bool:
     if item.where == "body":
         return item.type in ("text", "markdown", "list")
     return False
+
+
+def own_value(item: Field) -> bool:
+    """Поле, которое язык может иметь своим: перевод, свои адреса и пометки, разметка.
+
+    Остальное (тип, порядок, обложка, флаги, даты, свои поля темы без текста,
+    меню, категория, якорь секции) - одно на все языки и правится на основном.
+    """
+    if translatable(item):
+        return True
+    if item.where == "frontmatter":
+        return item.name in PER_LANGUAGE or item.type == "schema"
+    return False
+
+
+def shared(item: Field) -> bool:
+    """Поле SEO-блока, одно на все языки: правка на основном языке пишет его во все файлы."""
+    return item.where == "frontmatter" and item.editable and not own_value(item)
 
 
 def _filled(value: Any) -> bool:
@@ -164,6 +184,9 @@ class Node:
     langs: dict[str, str]  # язык → ok | pending | missing
     title: str = ""
     type: str | None = None
+    # папка со страницами, но без `_index.md` ни на одном языке (так было в 0.2):
+    # сборка считает её разделом, `heron category add <ключ>` заводит её явно
+    implicit: bool = False
 
     @property
     def depth(self) -> int:
@@ -211,6 +234,15 @@ def tree(ctx: Ctx) -> list[Node]:
         head = _head(ctx.root / rel_for(first, key, category))
         title = str(head.get("nav_title") or head.get("h1") or head.get("title") or "")
         out.append(Node(key, category, langs, title, head.get("type")))
+    folders = {key for key, category in found if category}
+    for key, _category in list(found):
+        parts = key.split("/")[:-1] if key else []
+        for depth in range(1, len(parts) + 1):
+            folder = "/".join(parts[:depth])
+            if folder not in folders:
+                folders.add(folder)
+                missing = {lang: "missing" for lang in ctx.langs}
+                out.append(Node(folder, True, missing, implicit=True))
     out.sort(key=lambda node: (node.key.split("/") if node.key else [], not node.category))
     return out
 
@@ -240,6 +272,8 @@ class Entity:
     target: str
     site: dict[str, Any] = field(default_factory=dict)
     made: list[str] = field(default_factory=list)  # категории, созданные попутно
+    # языки без файла, которые правили явно: только они получат файл при правке
+    touched: set[str] = field(default_factory=set)
 
     @property
     def main(self) -> Page:
@@ -253,8 +287,33 @@ class Entity:
         return self.disk.get(lang) is None
 
     def missing(self) -> list[str]:
-        """Языки без файла: при сохранении получат копию основного языка и пометку."""
+        """Языки без файла: у новой страницы получат копию основного языка и пометку."""
         return [lang for lang in self.ctx.langs if self.disk.get(lang) is None]
+
+    def planned(self) -> list[str]:
+        """Языки, чьи файлы запись пишет.
+
+        Новая страница - все языки сайта. Правка существующей - файлы, которые
+        есть, и языки без файла, которые правили явно (поле, `pending`); остальных
+        языков запись не создаёт, как и недостающих категорий (это делают
+        создание и перенос).
+        """
+        if self.new:
+            return list(self.ctx.langs)
+        return [
+            lang
+            for lang in self.ctx.langs
+            if self.disk.get(lang) is not None or lang in self.touched
+        ]
+
+    def changed(self) -> bool:
+        """Запись что-нибудь поменяет: файлы языков, перенос, site.yaml."""
+        if self.new or self.moved or self.site:
+            return True
+        return any(
+            lang in self.pages and self.pages[lang].text != self.disk.get(lang)
+            for lang in self.planned()
+        )
 
     def rel(self, lang: str, key: str | None = None) -> str:
         return rel_for(lang, self.target if key is None else key, self.category)
@@ -428,55 +487,132 @@ def fields_of(entity: Entity, lang: str, only_translatable: bool = False) -> lis
 def set_value(entity: Entity, lang: str, path: str, value: Any) -> None:
     """Записать поле языка; `category` - перенос, `menu` - правка site.yaml (общая).
 
+    Проверки до записи (`E039`): поле должно быть у страницы; неосновной язык
+    правит только поля со своим значением (`own_value`), остальное общее и
+    правится на основном; в однострочном поле нет перевода строки; значение
+    поля секции не начинает новую секцию (заголовок с якорем `{#…}`).
+
     Якорь секции - структура страницы: он меняется сразу на всех языках, где
     секция есть. Поле секции, которой на основном языке ещё нет, добавляет её
     на всех языках с файлом (`add_section`): переведённые языки получают пометку.
+    Общее поле (`shared`) на основном языке пишется во все файлы страницы.
     """
+    main = lang == entity.ctx.default
+    parts = path.split(".")
+    item = _known(entity, lang, path)
+    if not main and (path in (CATEGORY, MENU) or (item is not None and not own_value(item))):
+        raise _failed(path, lang, Msg("edit_field_shared", main=entity.ctx.default))
     if path == CATEGORY:
         move(entity, join(_category_value(value), name_of(entity.target)))
         return
-    parts = path.split(".")
     if len(parts) == 3 and parts[0] == "sections" and parts[2] == "anchor":
         _set_anchor(entity, parts[1], value)
         return
-    if (
-        len(parts) >= 3
-        and parts[0] == "sections"
-        and parts[1] != "intro"
-        and lang == entity.ctx.default
-        and page_of(entity, lang).body.get(parts[1]) is None
-        and page_of(entity, lang).body.error is None
-    ):
-        heading = value if parts[2] == "heading" else None
-        add_section(entity, parts[1], heading=heading)
-        if parts[2] == "heading":
-            return
+    if item is None and parts[0] != "sections":
+        raise _failed(path, lang, Msg("edit_unknown_field", path=path))
+    if item is not None and _breaks(item, value):
+        raise _failed(path, lang, Msg("edit_single_line"))
+    section = parts[1] if len(parts) >= 3 and parts[0] == "sections" else None
+    if section is not None and section != "intro" and main_lacks(entity, section):
+        if not main:
+            raise _failed(
+                path, lang, Msg("edit_section_main", section=section, main=entity.ctx.default)
+            )
+        if entity.main.body.error is None:
+            heading = value if parts[2] == "heading" else None
+            add_section(entity, section, heading=heading)
+            entity.touched.add(lang)
+            if parts[2] == "heading":
+                return
     page = page_of(entity, lang)
+    before = page.text
+    ids = _section_ids(page)
     try:
         page = set_field(page, path, value)
     except EditError as error:
-        raise HeronError(
-            code="E039",
-            message=Msg("edit_field_failed", path=path, lang=lang, reason=error.args[0]),
-        ) from error
+        raise _failed(path, lang, error.args[0]) from error
+    if section is not None:
+        _keep_sections(path, lang, section, ids, _section_ids(page))
     if path == MENU:
         entity.site.update(page.site)
     entity.pages[lang] = page
-    own = type_specs(page).get(path)
-    if own is not None and own["type"] not in TEXT_TYPES and lang == entity.ctx.default:
-        # своё поле типа без текста (enum, число, флаг, дата, ссылка, картинка) -
-        # одно на все языки: те же значения у всех файлов страницы, без пометки
+    if page.text != before:
+        entity.touched.add(lang)
+    if main and item is not None and shared(item):
+        # общее поле (тип, порядок, обложка, флаги, свои поля темы без текста) - одно на
+        # все языки: то же значение у всех файлов страницы, без пометки перевода
         for code in entity.ctx.langs[1:]:
             if code in entity.pages:
                 try:
                     entity.pages[code] = set_field(entity.pages[code], path, value)
                 except EditError as error:
-                    raise HeronError(
-                        code="E039",
-                        message=Msg(
-                            "edit_field_failed", path=path, lang=code, reason=error.args[0]
-                        ),
-                    ) from error
+                    raise _failed(path, code, error.args[0]) from error
+
+
+def _failed(path: str, lang: str, reason: Any) -> HeronError:
+    return HeronError(
+        code="E039", message=Msg("edit_field_failed", path=path, lang=lang, reason=reason)
+    )
+
+
+def _known(entity: Entity, lang: str, path: str) -> Field | None:
+    """Поле страницы по пути; пункт списка (`….items.0.q`) - поле всего списка."""
+    known = {item.path: item for item in fields_of(entity, lang)}
+    if path in known:
+        return known[path]
+    parts = path.split(".")
+    for depth in range(len(parts) - 1, 0, -1):
+        if parts[depth].isdigit():
+            return known.get(".".join(parts[:depth]))
+    return None
+
+
+def main_lacks(entity: Entity, section: str) -> bool:
+    """Секции нет на основном языке (новый блок добавляют только там)."""
+    page = page_of(entity, entity.ctx.default)
+    return page.body.get(section) is None
+
+
+SINGLE_LINE = ("markdown", "schema")  # типы, которым перевод строки можно
+
+
+def _breaks(item: Field, value: Any) -> bool:
+    """Перевод строки в однострочном поле (заголовок, title, пункт-строка списка)."""
+    if item.type == "list":
+        if not isinstance(value, list):
+            return False
+        subs = {sub["name"]: sub for sub in item.fields or []}
+        inner = item.limits.get("item") or ("text" if item.where == "frontmatter" else "markdown")
+        for entry in value:
+            if isinstance(entry, dict):
+                for name, sub in entry.items():
+                    spec = subs.get(str(name)) or {}
+                    if spec.get("type", "text") not in SINGLE_LINE and _newline(sub):
+                        return True
+            elif inner not in SINGLE_LINE and _newline(entry):
+                return True
+        return False
+    return item.type not in SINGLE_LINE and _newline(value)
+
+
+def _newline(value: Any) -> bool:
+    return isinstance(value, str) and ("\n" in value or "\r" in value)
+
+
+def _section_ids(page: Page) -> list[str]:
+    return [section.id for section in page.body.sections]
+
+
+def _keep_sections(path: str, lang: str, section: str, before: list[str], after: list[str]) -> None:
+    """Значение поля не меняет набор секций: заголовок с якорем в тексте - E039.
+
+    Секцию добавляет только её собственное поле (секции не было - появилась она);
+    любая другая новая или пропавшая секция - заголовок `## … {#…}` в значении.
+    """
+    added = set(after) - set(before) - {section}
+    removed = set(before) - set(after)
+    if added or removed:
+        raise _failed(path, lang, Msg("edit_heading_in_value"))
 
 
 def _set_anchor(entity: Entity, old: str, value: Any) -> None:
@@ -703,22 +839,27 @@ def ensure_category(ctx: Ctx, key: str, saved: Saved) -> None:
 def save(entity: Entity) -> Saved:
     """Записать всё: попутные категории, перенос с 301, файлы языков, site.yaml.
 
+    Пишутся только языки `entity.planned()` и только файлы, текст которых
+    изменился. Недостающие категории на пути создаются при создании и переносе;
+    правка страницы в папке без `_index.md` (папка 0.2) категорию не заводит.
     Всё, что пишется, проверяется на выход из папки сайта до первой записи (E024).
     """
     ctx = entity.ctx
     saved = Saved()
+    langs = entity.planned()
     for lang in ctx.langs:
         paths.in_site(ctx.root, entity.rel(lang))
         if entity.moved:
             paths.in_site(ctx.root, rel_for(lang, entity.key, entity.category))
-    for lang in ctx.langs:
+    for lang in langs:
         page_of(entity, lang)
-    ensure_category(ctx, parent_of(entity.target), saved)
+    if entity.new or entity.moved:
+        ensure_category(ctx, parent_of(entity.target), saved)
     # адреса до записи: перенос и правка slug (страницы или категории) меняют адреса
     before = urls(ctx) if not entity.new else {}
     if entity.moved:
         _move_files(entity, saved)
-    _write_files(entity, saved)
+    _write_files(entity, saved, langs)
     if before:
         _redirects(entity, before, saved)
     changes = dict(entity.site)
@@ -728,9 +869,9 @@ def save(entity: Entity) -> Saved:
     return saved
 
 
-def _write_files(entity: Entity, saved: Saved) -> None:
+def _write_files(entity: Entity, saved: Saved, langs: list[str] | None = None) -> None:
     ctx = entity.ctx
-    for lang in ctx.langs:
+    for lang in ctx.langs if langs is None else langs:
         page = page_of(entity, lang)
         rel = entity.rel(lang)
         target = paths.in_site(ctx.root, rel)
@@ -764,9 +905,8 @@ def _move_files(entity: Entity, saved: Saved) -> None:
         os.replace(old, new)
         saved.moved.append(shown)
     for lang in ctx.langs:
-        entity.disk[lang] = entity.disk.get(lang)
-        page = entity.pages[lang]
-        entity.pages[lang] = replace(page, rel=entity.rel(lang))
+        if lang in entity.pages:
+            entity.pages[lang] = replace(entity.pages[lang], rel=entity.rel(lang))
 
 
 def urls(ctx: Ctx) -> dict[tuple[str, str], str]:
@@ -995,8 +1135,12 @@ def apply_answers(entity: Entity, data: dict[str, Any]) -> list[str]:
         created = entity.created(lang)
         if given == PENDING or (given in (None, {}) and created):
             if created:
+                if given == PENDING:
+                    # `pending` языку без файла - просьба завести копию с пометкой
+                    entity.touched.add(lang)
                 mark(entity, lang, True)
-                pending.append(lang)
+                if lang in entity.planned():
+                    pending.append(lang)
             continue
         if given is None:
             continue
@@ -1006,7 +1150,7 @@ def apply_answers(entity: Entity, data: dict[str, Any]) -> list[str]:
         if created and TRANSLATION not in given:
             left = untranslated(entity, lang, {str(k) for k in given})
             mark(entity, lang, bool(left))
-        if is_pending(entity, lang):
+        if is_pending(entity, lang) and lang in entity.planned():
             pending.append(lang)
     return pending
 
@@ -1015,16 +1159,23 @@ def _apply_lang(entity: Entity, lang: str, values: Any) -> None:
     if not isinstance(values, dict):
         raise HeronError(code="E039", message=Msg("edit_answers_lang", lang=lang))
     known = {item.path: item for item in fields_of(entity, lang, only_translatable=False)}
+    # неизвестное поле - E039 до записи, даже если остальные ответы годны
+    for path in map(str, values):
+        if path not in known and _known(entity, lang, path) is None and not _section_path(path):
+            raise _failed(path, lang, Msg("edit_unknown_field", path=path))
     for path, value in values.items():
         path = str(path)
         item = known.get(path)
         if item is not None and _same(item, value):
             continue
         if item is not None and not item.editable:
-            raise HeronError(
-                code="E039",
-                message=Msg("edit_field_failed", path=path, lang=lang, reason=item.readonly or "-"),
-            )
+            raise _failed(path, lang, item.readonly or "-")
         set_value(entity, lang, path, value)
         if path == CATEGORY:
             known = {i.path: i for i in fields_of(entity, lang)}
+
+
+def _section_path(path: str) -> bool:
+    """`sections.<якорь>.<поле>` - поле секции (новой секции в списке полей ещё нет)."""
+    parts = path.split(".")
+    return len(parts) >= 3 and parts[0] == "sections"

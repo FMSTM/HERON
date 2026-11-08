@@ -1,0 +1,19 @@
+{# Счётчики - только после согласия посетителя.
+
+   До выбора на странице нет ни одного скрипта счётчика и ни одного запроса к
+   ним: только плашка. «Принять» - счётчики подключаются сразу и на
+   следующих страницах; «Отказаться» - не подключаются, плашка больше не
+   показывается. Выбор хранится в localStorage этого браузера
+   (heron-consent: yes | no), передумать - кнопка в подвале.
+   Номера счётчиков - из site.yaml (analytics.*), на тег
+   подключения скрипта они попадают атрибутами data-*, а читает их
+   файл темы: это данные, а не разметка. #}
+{% if site.analytics.gtm or site.analytics.ga4 or site.analytics.metrika %}
+<div class="consent" data-consent hidden role="dialog" aria-live="polite" aria-label="{{ t.consent_title }}">
+  <p>{{ t.consent_text }}</p>
+  <div class="consent-actions">
+    <button type="button" data-consent-accept>{{ t.consent_accept }}</button>
+    <button type="button" class="quiet" data-consent-decline>{{ t.consent_decline }}</button>
+  </div>
+</div>
+{% endif %}

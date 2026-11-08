@@ -244,6 +244,25 @@ Which image you have is shown by `--version`: branch, commit and build time, for
 
 There is no moving `:X.Y` tag on purpose: a site must be able to pin itself to something that will not change under its feet tomorrow.
 
+### Moving a site from 0.2 to 0.3 <a id="upgrade-0-3"></a>
+
+The 0.3 engine is stricter about a production build: a page that still holds the stub text of `heron page` 0.2 (`TODO: what the visitor gets` in `description`, "Intro paragraph - what goes into the search snippet." in the text) does not build with `--env prod` - the error `E040` with the file and the field. The 0.2 engine published such pages, so check the site before you switch it to 0.3.
+
+1. **Allow both engines for the site.** The first key of `site.yaml`: `heron: ">=0.2,<0.4"`. Then the site builds both with 0.2, which it runs on now, and with 0.3.
+2. **Build the site with 0.3 in production mode on your machine.** The second command below (the `:beta` image is the 0.3 engine until it becomes `:prod`). The build goes into a temporary folder of the container and is published nowhere: only the list of errors matters.
+3. **Finish the pages from the `E040` list.** Open each with `page add` and its key (the third command) and replace the stub text with your own - or remove a section you do not need.
+4. **Repeat step 2** until no errors are left, and only then switch the site to 0.3 (`ENGINE` in the env file of the site, or the `:prod` image after the release).
+
+Folders without an `_index.md` of their own that 0.2 made (`services/` for `--folder services`) work in 0.3 as before. `check` suggests making such a folder a category - `heron category add services`; this can wait. If the language files of one page disagree on shared fields (the type, the order, the cover), `check` says so with a warning: in 0.3 such fields are edited in the main language and written into every file.
+
+```bash
+docker pull ghcr.io/fmstm/heron:beta
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta build . --env prod --out /tmp/heron-03
+docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta page add services/roofing .
+```
+
+A 0.2 theme is worth moving to the 0.3 contract too - a separate list in [07 · "Moving a theme from 0.2 to 0.3"](07-theme-author.md#migrate-0-3).
+
 ## Checklist before deploying
 
 1. `site.yaml` sets the domain, languages, `heron:` with a version range and the counters.

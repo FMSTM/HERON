@@ -733,6 +733,118 @@ def anchors_mismatch(site: Site, collector: Collector) -> None:
                 )
 
 
+# Поля SEO-блока, одни на все языки страницы (опросник и студия правят их только на
+# основном языке и пишут во все файлы, 21 §10): тип, порядок, обложка, флаги, дата.
+SHARED_FIELDS = ("order", "image", "og_image", "noindex", "date", "children_type")
+# Свои поля типа без текста - тоже одни на все языки (21 §7, `types.<тип>.fields`).
+TEXT_FIELD_TYPES = ("text", "markdown", "list", "link")
+
+
+def shared_mismatch(site: Site, theme: ThemeConfig, default: str, collector: Collector) -> None:
+    """Общие поля страницы расходятся между языками (`heron check`, предупреждение).
+
+    Тип, порядок, обложка, флаги, дата, вид раздела и свои поля темы без текста -
+    одни на все языки: расхождение - след ручной правки одного файла (или 0.2,
+    где языки правили по отдельности). Сверка - с основным языком.
+    """
+    by_key: dict[str, list] = {}
+    for page in [*site.pages, *site.held]:
+        by_key.setdefault(page.key, []).append(page)
+    for _key, pages in sorted(by_key.items()):
+        if len(pages) < 2:
+            continue
+        base = next((page for page in pages if page.lang == default), pages[0])
+        for page in pages:
+            if page is base:
+                continue
+            names = ["type", *SHARED_FIELDS, *_theme_shared(theme, base.type)]
+            differ = [
+                name for name in names if _shared_value(page, name) != _shared_value(base, name)
+            ]
+            if differ:
+                collector.warn(
+                    Msg(
+                        "build_shared_differ",
+                        lang=page.lang,
+                        other=base.lang,
+                        fields=", ".join(differ),
+                    ),
+                    path=page.source,
+                    kind="переводы",
+                )
+
+
+def _theme_shared(theme: ThemeConfig, page_type: str) -> list[str]:
+    spec = theme.types.get(page_type)
+    if spec is None:
+        return []
+    out = [spec.views.key] if spec.views is not None else []
+    out += [f.name for f in spec.fields or [] if f.type not in TEXT_FIELD_TYPES]
+    return out
+
+
+def _shared_value(page: Page, name: str) -> Any:
+    if name == "type":
+        return page.type
+    if name in SHARED_FIELDS:
+        return getattr(page.meta, name, None)
+    return page.meta.get(name)
+
+
+def implicit_folders(site: Site, site_root: Path, langs: list[str], collector: Collector) -> None:
+    """Папка со страницами без `_index.md` ни на одном языке (так было в 0.2): предупреждение.
+
+    Сборка считает такую папку разделом, как раньше; опросник и студия её не
+    трогают при правке страниц. Сделать категорией явно - `heron category add`.
+    """
+    content_root = site_root / "content"
+    seen: set[str] = set()
+    for page in sorted([*site.pages, *site.held], key=lambda p: p.source):
+        parts = page.source.split("/")[1:-1]
+        for depth in range(1, len(parts) + 1):
+            folder = "/".join(parts[:depth])
+            if folder in seen:
+                continue
+            seen.add(folder)
+            if any((content_root / lang / folder / INDEX_FILE).is_file() for lang in langs):
+                continue
+            collector.warn(
+                Msg("build_implicit_folder", folder=folder),
+                path=f"{page.lang}/{folder}/",
+                kind="прочее",
+            )
+
+
+INDEX_FILE = "_index.md"
+
+
+def svg_files(site_root: Path, theme_dir: Path, collector: Collector) -> None:
+    """SVG из `media/` и темы сайт отдаёт как есть: исполняемое в нём - `E043`.
+
+    Та же проверка, что у загрузки в студии (`heron.core.svg`): файлы, положенные
+    мимо студии (руками, темой, скриптом), ловит `heron check`.
+    """
+    from heron.core import svg
+
+    for path in svg.files(site_root / "media", theme_dir):
+        try:
+            reason = svg.problem(path.read_bytes())
+        except OSError as error:
+            reason = error.strerror or str(error)
+        if reason is None:
+            continue
+        try:
+            shown = path.relative_to(site_root).as_posix()
+        except ValueError:
+            shown = str(path)
+        collector.error(
+            "E043",
+            Msg("build_svg_unsafe", reason=reason),
+            path=shown,
+            hint=Msg("build_svg_unsafe_hint"),
+        )
+
+
 def _roots(site: Site, config: SiteConfig, collector: Collector, prod: bool) -> None:
     """У каждого языка сайта есть главная: `content/<язык>/index.md`.
 
@@ -832,6 +944,59 @@ def _schema(site, config, theme, collector, built, env, allow=(), exists=None) -
     built.schema = check_.finish(collector, built.notes_lang)
 
 
+def theme_controls(site_root: Path, theme_dir: Path, collector: Collector) -> None:
+    """Управляющие символы терминала в тексте темы - `E044` (`heron check --theme`).
+
+    Подсказки и справка `theme.yaml`, строки `theme/i18n/*.yaml` и SEO-блок
+    демо-страниц печатают `page add`, `describe`, `page list`: `ESC ] 52` в них
+    писал бы в буфер обмена, `ESC [ 2 J` стирал бы экран. Терминал движок
+    защищает сам (`heron.term`), а тема с такими символами в каталог не идёт.
+    """
+    import yaml
+
+    from heron import term
+    from heron.core.parser.frontmatter import FRONTMATTER
+
+    def walk(value, path: str, out: list[tuple[str, list[str]]]) -> None:
+        if isinstance(value, str):
+            found = term.controls(value)
+            if found:
+                out.append((path or "-", found))
+        elif isinstance(value, dict):
+            for key, item in value.items():
+                walk(key, path, out)
+                walk(item, f"{path}.{key}" if path else str(key), out)
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                walk(item, f"{path}.{index}", out)
+
+    sources = [theme_dir / "theme.yaml", *sorted((theme_dir / "i18n").glob("*.yaml"))]
+    content = site_root / "content"
+    demo = sorted(content.rglob("*.md")) if content.is_dir() else []
+    for path in [*sources, *demo]:
+        try:
+            text = path.read_text(encoding="utf-8")
+            if path.suffix == ".md":
+                match = FRONTMATTER.match(text)
+                text = match.group("body") if match else ""
+            data = yaml.safe_load(text)
+        except (OSError, UnicodeDecodeError, yaml.YAMLError):
+            continue  # негодный файл - забота своей проверки
+        found: list[tuple[str, list[str]]] = []
+        walk(data, "", found)
+        try:
+            shown = path.relative_to(site_root).as_posix()
+        except ValueError:
+            shown = str(path)
+        for where, chars in found:
+            collector.error(
+                "E044",
+                Msg("build_theme_control", field=where, chars=" ".join(chars)),
+                path=shown,
+                hint=Msg("build_theme_control_hint"),
+            )
+
+
 def theme_contract(theme: ThemeConfig, theme_dir: Path, collector: Collector) -> None:
     """Контракт темы для опросника и студии: описан ли и с подсказками ли.
 
@@ -901,12 +1066,17 @@ def check(
     site = content(site_root, config, theme, theme_dir, hooks, collector, drafts, env.is_prod)
     templates_check.missing_templates(site, theme, theme_dir, config, collector, hooks)
     templates_check.inline_scripts(theme_dir, site_root, collector)
+    svg_files(site_root, theme_dir, collector)
+    implicit_folders(site, site_root, config.site.languages, collector)
+    shared_mismatch(site, theme, config.site.default_lang, collector)
     _roots(site, config, collector, prod=False)
     media.folder(site_root, collector)
     media.check_video(site, collector)
     media.verify(site, site_root, collector, config)
     media.verify_covers(site, site_root, collector, theme.images, config)
     redirects.generate(site, collector, config)
+    if theme_demo:
+        theme_controls(site_root, theme_dir, collector)
     if theme_demo and not collector.failed:
         demo.verify(theme, theme_dir, site, config, collector, hooks)
 

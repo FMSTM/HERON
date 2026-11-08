@@ -45,6 +45,7 @@ import hmac
 import http.server
 import json
 import mimetypes
+import re
 import secrets
 import socketserver
 import tempfile
@@ -77,6 +78,22 @@ PREVIEW_CSP = (
     "form-action 'self'; frame-ancestors {studio}"
 )
 STUDIO = ("tree", "open", "check", "save", "site-check", "preview", "start")
+# Скрипт порта просмотра: убирает ключ ?k= из адресной строки страницы (`history.replaceState`).
+PREVIEW_SCRIPT = "/_studio/preview.js"
+_HEAD = re.compile(rb"<head(\s[^>]*)?>", re.I)
+
+
+def with_preview_script(html: bytes) -> bytes:
+    """Страница просмотра с `<script src="/_studio/preview.js">` первым в `<head>`.
+
+    Свой файл, а не встроенный код: политика просмотра - `script-src 'self'`.
+    Нет `<head>` - тег в самом начале документа.
+    """
+    tag = f'<script src="{PREVIEW_SCRIPT}"></script>'.encode()
+    found = _HEAD.search(html)
+    if found is None:
+        return tag + html
+    return html[: found.end()] + tag + html[found.end() :]
 
 
 class _Server(socketserver.ThreadingTCPServer):
@@ -332,6 +349,11 @@ def run(
                 return
             parsed = urllib.parse.urlsplit(self.path)
             route = urllib.parse.unquote(parsed.path)
+            if route == PREVIEW_SCRIPT:
+                # общий файл без секретов: убирает ?k= из адреса страницы просмотра
+                body = studio.asset("preview.js")
+                self._send(200, body, "application/javascript; charset=utf-8")
+                return
             allowed, fresh = self._key(urllib.parse.parse_qs(parsed.query))
             if not allowed:
                 self._json(403, {"error": say(lang, "srv_token")})
@@ -355,9 +377,12 @@ def run(
 
         def _file(self, path: Path, code: int = 200, extra=()) -> None:
             kind = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+            body = path.read_bytes()
+            if kind == "text/html":
+                body = with_preview_script(body)
             if kind.startswith("text/") or kind in ("application/javascript", "image/svg+xml"):
                 kind += "; charset=utf-8"
-            self._send(code, path.read_bytes(), kind, extra)
+            self._send(code, body, kind, extra)
 
         def _preview(self, route: str, extra) -> None:
             from heron.core import paths

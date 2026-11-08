@@ -853,7 +853,8 @@ async function save(decision) {
 }
 // Смена языка - событие heron:lang: его слушает студия (studio.js).
 const langChanged = () => document.dispatchEvent(new Event("heron:lang"));
-document.querySelectorAll(".langswitch button").forEach((b) => b.addEventListener("click", () => { L = b.dataset.lang; render(); langChanged(); }));
+// Ответы сайта ещё не пришли (A пусто) - форму нарисует их загрузка уже на новом языке.
+document.querySelectorAll(".langswitch button").forEach((b) => b.addEventListener("click", () => { L = b.dataset.lang; if (A) render(); langChanged(); }));
 $("#save").addEventListener("click", () => save());
 $("#bot").addEventListener("click", () => {
   if (BOT_URL) { window.open(BOT_URL, "_blank", "noopener"); return; }

@@ -103,6 +103,10 @@ def _site(config: SiteConfig | None, lang: str) -> dict[str, Any] | None:
     }
 
 
+# Типы, которые дают файлы `index.md` и `404.md` в корне языка, а не папка.
+SPECIAL_TYPES = ("home", "404")
+
+
 def _service(theme: ThemeConfig, config: SiteConfig | None, lang: str, scope: str) -> list:
     types = list(theme.types)
     site = _site(config, lang) or {}
@@ -128,7 +132,11 @@ def _service(theme: ThemeConfig, config: SiteConfig | None, lang: str, scope: st
                 "item": spec.item,
                 "values": (
                     types
-                    if spec.name in ("type", "children_type")
+                    if spec.name == "type"
+                    # главная и 404 - по одной на язык, по имени файла: страницами
+                    # внутри категории они не бывают
+                    else [name for name in types if name not in SPECIAL_TYPES]
+                    if spec.name == "children_type"
                     else list(service.VALUES.get(spec.name, ()))
                 ),
                 "only": spec.only,

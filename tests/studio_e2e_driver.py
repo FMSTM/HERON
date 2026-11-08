@@ -114,6 +114,78 @@ def remap(url: str) -> int:
     return 0
 
 
+def race(url: str) -> int:
+    """Ввод, пока форма грузится заново (переключили язык интерфейса), и ключ просмотра.
+
+    Ответ `open` нарочно задержан. Печатает: заперта ли форма во время загрузки, язык
+    вкладки (`S.edit`) в это время, ответы после ввода, текст итога записи, адрес
+    вкладки просмотра, открытой из итога «Посмотреть», и сообщения консоли.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return SKIP
+    import time
+
+    console: list[str] = []
+    with sync_playwright() as play:
+        try:
+            browser = play.chromium.launch()
+        except Exception:  # noqa: BLE001 - браузера нет или он не запускается
+            return SKIP
+        context = browser.new_context(viewport={"width": 1400, "height": 1000})
+        page = context.new_page()
+        page.on("console", lambda m: console.append(f"{m.type}: {m.text}"))
+        page.on("pageerror", lambda e: console.append(f"pageerror: {e}"))
+        page.on("dialog", lambda d: d.accept())
+        page.goto(url)
+        page.wait_for_selector('.st-node[data-key="blocks"]', timeout=30000)
+        page.click('.st-node[data-key="blocks"]')
+        page.wait_for_selector('[id="f-h1"]')
+        page.wait_for_timeout(500)
+
+        def slow(route) -> None:
+            time.sleep(1.5)
+            route.continue_()
+
+        page.route("**/api/studio/open", slow)
+        page.click("header >> text=EN")  # heron:lang: форма открывается заново
+        # загрузка началась: запрос open ушёл и висит (старый код в это время ставил edit = null)
+        page.wait_for_function(
+            "() => window.HERON_STUDIO.loading || window.HERON_STUDIO.edit === null",
+            timeout=10000,
+        )
+        locked = page.evaluate("() => document.getElementById('f-h1').disabled")
+        edit = page.evaluate("() => window.HERON_STUDIO.edit")
+        # Playwright ждёт, пока поле снова можно править: ввод ложится в новую форму
+        page.fill('[id="f-h1"]', "Набрано во время загрузки")
+        page.unroute("**/api/studio/open")
+        answers = page.evaluate("() => JSON.stringify(window.HERON_STUDIO.ans)")
+        page.click("#st-save")
+        page.wait_for_selector("#toast li", state="visible", timeout=30000)
+        saved = page.inner_text("#toast")
+        page.click("#toast button")
+        page.click("#st-preview")
+        page.wait_for_selector("#st-preview-link", timeout=60000)
+        with context.expect_page() as popup:
+            page.click("#st-preview-link")
+        view = popup.value
+        view.wait_for_load_state("load")
+        view.wait_for_timeout(500)
+        result = {
+            "locked": locked,
+            "edit": edit,
+            "answers": answers,
+            "saved": saved,
+            "preview": view.url,
+            "preview_title": view.title(),
+            "console": console,
+        }
+        browser.close()
+    print(json.dumps(result))
+    return 0
+
+
 def main(url: str, picture: str, shots: str) -> int:
     try:
         from playwright.sync_api import sync_playwright
@@ -202,4 +274,6 @@ if __name__ == "__main__":
         sys.exit(attack(sys.argv[2]))
     if sys.argv[1] == "remap":
         sys.exit(remap(sys.argv[2]))
+    if sys.argv[1] == "race":
+        sys.exit(race(sys.argv[2]))
     sys.exit(main(*sys.argv[1:4]))

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page.title }}{{ site.seo.title_suffix }}</title>
+<meta name="description" content="{{ page.meta.description }}">
+<link rel="canonical" href="{{ absolute(page.url) }}">
+<meta property="og:title" content="{{ page.meta.og_title or page.title }}">
+<meta property="og:description" content="{{ page.meta.og_description or page.meta.description }}">
+<meta property="og:url" content="{{ absolute(page.url) }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ site.site.name }}">
+<meta property="og:locale" content="{{ {'ru': 'ru_RU', 'uk': 'uk_UA', 'en': 'en_US'}.get(lang, lang) }}">
+{% set cover = page.cover %}
+{% set cover_src = cover_url(page) if cover else "" %}
+{% if cover_src %}
+<meta property="og:image" content="{{ cover_src }}">
+{% if cover.width %}<meta property="og:image:width" content="{{ cover.width }}">{% endif %}
+{% if cover.height %}<meta property="og:image:height" content="{{ cover.height }}">{% endif %}
+{% if cover.alt %}<meta property="og:image:alt" content="{{ cover.alt }}">{% endif %}
+{% endif %}
+<meta name="twitter:card" content="{{ site.seo.twitter_card }}">
+<meta name="twitter:title" content="{{ page.meta.extra.get('twitter_title') or page.meta.og_title or page.title }}">
+<meta name="twitter:description" content="{{ page.meta.extra.get('twitter_description') or page.meta.og_description or page.meta.description }}">
+{% if cover_src %}<meta name="twitter:image" content="{{ cover_src }}">{% endif %}
+{% for code, href in hreflang %}
+<link rel="alternate" hreflang="{{ code }}" href="{{ href }}">
+{% endfor %}
+<meta name="robots" content="{{ robots_meta }}">
+<meta name="color-scheme" content="light dark">
+{# светлая или тёмная: выбор человека, иначе - как в системе #}
+{% set a = site.analytics %}
+<script src="/assets/site.js"{% if env.analytics %}{% if a.gtm %} data-gtm="{{ a.gtm }}"{% endif %}{% if a.ga4 %} data-ga4="{{ a.ga4 }}"{% endif %}{% if a.metrika %} data-metrika="{{ a.metrika }}"{% endif %}{% endif %}></script>
+<link rel="stylesheet" href="/assets/site.css">
+{% set ld = jsonld() %}
+{% if ld %}<script type="application/ld+json">{{ ld }}</script>{% endif %}
+</head>
+<body>
+<a class="skip" href="#main">{{ t.skip }}</a>
+{% include "partials/header.html" %}
+<main id="main">
+{% block content %}{% endblock %}
+</main>
+{% include "partials/footer.html" %}
+{% if env.analytics %}{% include "partials/analytics.html" %}{% endif %}
+</body>
+</html>

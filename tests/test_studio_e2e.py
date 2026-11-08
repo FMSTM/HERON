@@ -311,3 +311,57 @@ def test_studio_behind_remapped_ports_finds_its_preview(tmp_path, monkeypatch):
     ), result
     console = [m for m in result["console"] if "can escape its sandboxing" not in m]
     assert not [m for m in console if "Content Security Policy" in m or "error" in m], console
+
+
+def test_typing_while_the_form_reloads_is_not_lost(tmp_path, monkeypatch):
+    """Приёмка 0.3.0, ошибка 1: пока форма грузится, ввод не уходит в `S.ans["null"]`.
+
+    Форма заперта до ответа, язык вкладки остаётся прежним; набранное после загрузки
+    записывается. Просмотр, открытый из итога «Посмотреть», убирает `?k=` из адреса.
+    """
+    python = _python()
+    if python is None:
+        pytest.skip("нет Playwright для Python: e2e студии пропущен")
+    monkeypatch.delenv("HERON_NOTES", raising=False)
+    root = tmp_path / "site"
+    create(root, name="Demo", languages=LANGS, notes="ru", demo=True)
+    port = _free_port()
+    box: dict[str, str] = {}
+    ready = threading.Event()
+
+    def on_ready(token: str) -> None:
+        box["token"] = token
+        ready.set()
+
+    thread = threading.Thread(
+        target=server.run,
+        args=(root, "127.0.0.1", port),
+        kwargs={"on_ready": on_ready, "start": {"tab": "pages"}},
+        daemon=True,
+    )
+    thread.start()
+    assert ready.wait(10)
+    try:
+        done = subprocess.run(
+            [python, str(DRIVER), "race", f"http://localhost:{port}/#{box['token']}"],
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
+        )
+    finally:
+        _stop(port, box["token"], thread)
+    if done.returncode == 77:
+        pytest.skip("Chromium для Playwright не запускается: e2e студии пропущен")
+    assert done.returncode == 0, done.stdout + done.stderr
+    result = json.loads(done.stdout.strip().splitlines()[-1])
+    assert result["locked"] is True, result
+    assert result["edit"] == "ru", result
+    answers = json.loads(result["answers"])
+    assert "null" not in answers and answers["ru"]["h1"] == "Набрано во время загрузки", result
+    assert "unknown keys" not in result["saved"] and "неизвестные" not in result["saved"]
+    assert "Набрано во время загрузки" in (root / "content" / "ru" / "blocks.md").read_text()
+    # просмотр открыт по ключу, и ключа в адресе уже нет
+    assert f":{port + 1}/" in result["preview"] and "k=" not in result["preview"], result
+    console = [m for m in result["console"] if "can escape its sandboxing" not in m]
+    assert not [m for m in console if "error" in m.lower()], console

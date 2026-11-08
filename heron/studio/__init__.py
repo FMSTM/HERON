@@ -40,17 +40,7 @@ RASTER = (".jpg", ".jpeg", ".png", ".webp", ".gif")
 IMAGES = (*RASTER, ".svg")
 MEDIA = "media"
 KINDS = {"page": False, "category": True}
-# SVG из media/ сайт отдаёт как есть, и открытый по прямой ссылке файл - документ со
-# своими скриптами. Поэтому SVG разбирается XML-парсером (сущности и ссылки на символы
-# уже раскрыты: `java&#x73;cript:` - это `javascript:`), и отказ - на всём, что
-# исполняется или тянет чужое: элементы script/foreignObject/iframe/embed/object,
-# любой атрибут on*, ссылки javascript:/vbscript:/data: и внешние (http:, //),
-# анимация, которая подменяет ссылку или обработчик, DOCTYPE и сущности.
-SVG_ELEMENTS = {"script", "foreignobject", "iframe", "embed", "object", "handler", "listener"}
-SVG_ANIMATE = {"set", "animate", "animatetransform", "animatemotion", "animatecolor"}
-SVG_LINKS = {"href", "src", "xlink:href", "action", "formaction", "from", "to", "values"}
-SVG_SCHEMES = re.compile(r"^(javascript|vbscript|data|https?|ftp|file):|^//")
-SVG_CSS = re.compile(r"url\s*\(|@import|expression\s*\(", re.I)
+# SVG проверяет heron.core.svg (XML-парсер, а не поиск по тексту) - тот же, что у heron check.
 
 
 HERE = Path(__file__).parent
@@ -99,6 +89,7 @@ def tree(root: Path, lang: str) -> dict[str, Any]:
                 "type": node.type,
                 "title": node.title,
                 "langs": node.langs,
+                "implicit": node.implicit,
             }
             for node in nodes
         ],
@@ -260,6 +251,8 @@ def state(entity: ops.Entity, lang: str) -> dict[str, Any]:
         files[code] = {
             "rel": entity.rel(code),
             "exists": entity.disk.get(code) is not None,
+            # запись создаст или поправит этот файл (у правки - только языки с файлом и тронутые)
+            "planned": code in entity.planned(),
             "pending": ops.is_pending(entity, code),
         }
     errors, warnings, found = ops.problems(entity, lang, with_issues=True)
@@ -311,10 +304,7 @@ def save(root: Path, request: dict[str, Any], lang: str) -> dict[str, Any]:
             message=Msg("edit_invalid", lines=errors),
             hint=Msg("studio_invalid_hint"),
         )
-    if not entity.new and not entity.moved and not entity.site and not _changed(entity):
-        saved = ops.Saved()
-    else:
-        saved = ops.save(entity)
+    saved = ops.save(entity) if entity.changed() else ops.Saved()
     target = {"kind": "category" if entity.category else "page", "key": entity.target}
     fresh = open_target(context(root, lang), target)
     return {
@@ -330,10 +320,6 @@ def save(root: Path, request: dict[str, Any], lang: str) -> dict[str, Any]:
         },
         "state": state(fresh, lang),
     }
-
-
-def _changed(entity: ops.Entity) -> bool:
-    return any(page.text != entity.disk.get(code) for code, page in entity.pages.items())
 
 
 # --- картинки ----------------------------------------------------------------------------
@@ -382,55 +368,11 @@ def _verify(data: bytes, ext: str, name: str) -> tuple[int | None, int | None]:
     return width, height
 
 
-def _local(name: str) -> str:
-    """Имя без пространства имён: `{http://www.w3.org/2000/svg}script` - `script`."""
-    return name.rsplit("}", 1)[-1].lower()
-
-
-def _plain_value(value: str) -> str:
-    """Значение атрибута, как его читает браузер: без пробелов и управляющих символов."""
-    return re.sub(r"[\x00-\x20]+", "", value).lower()
-
-
 def svg_safe(data: bytes) -> bool:
-    """SVG без исполняемого и без внешних ссылок - разбор XML, не поиск по тексту."""
-    import xml.etree.ElementTree as ET
+    """SVG без исполняемого и без внешних ссылок (`heron.core.svg`, как у `heron check`)."""
+    from heron.core import svg
 
-    head = data[:4096].lower()
-    if b"<!doctype" in head or b"<!entity" in data.lower():
-        return False
-    try:
-        root = ET.fromstring(data)
-    except ET.ParseError:
-        return False
-    if _local(root.tag) != "svg":
-        return False
-    for element in root.iter():
-        if not isinstance(element.tag, str):
-            continue
-        tag = _local(element.tag)
-        if tag in SVG_ELEMENTS:
-            return False
-        if tag == "style" and SVG_CSS.search(element.text or ""):
-            return False
-        for raw_name, value in element.attrib.items():
-            name = _local(raw_name)
-            if raw_name.endswith("}href"):
-                name = "xlink:href" if "xlink" in raw_name else "href"
-            plain = _plain_value(value)
-            if name.startswith("on"):
-                return False
-            if name in SVG_LINKS and SVG_SCHEMES.search(plain):
-                return False
-            if "javascript:" in plain or "vbscript:" in plain:
-                return False
-            if name == "style" and SVG_CSS.search(value):
-                return False
-            if tag in SVG_ANIMATE and name == "attributename":
-                target = plain.split(":")[-1]
-                if target.startswith("on") or target in ("href", "src"):
-                    return False
-    return True
+    return svg.safe(data)
 
 
 def upload(root: Path, name: str, data: bytes) -> dict[str, Any]:

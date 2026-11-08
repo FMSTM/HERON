@@ -83,7 +83,12 @@ def test_open_gives_the_same_fields_as_the_console_with_hints(site):
     assert {f["path"] for f in state["fields"]["en"]} < set(same)
     assert "type" not in {f["path"] for f in state["fields"]["en"]}
     # у de своего текста демо нет: копия английского с пометкой «перевод не готов»
-    assert state["files"]["de"] == {"rel": "content/de/blocks.md", "exists": True, "pending": True}
+    assert state["files"]["de"] == {
+        "rel": "content/de/blocks.md",
+        "exists": True,
+        "planned": True,
+        "pending": True,
+    }
     assert [g["name"] for g in state["groups"]][0] == "seo"
     kinds = {k["kind"]: k for k in state["sections"]["kinds"]}
     assert kinds["faq"]["auto"] and kinds["tabs"]["class"] == "tabs"

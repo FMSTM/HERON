@@ -23,9 +23,19 @@ MARKER = "MARKER-7f3a"
 
 
 def _free_port() -> int:
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        return sock.getsockname()[1]
+    """Свободный порт, за которым свободен и следующий: студии нужен ещё порт просмотра."""
+    for _ in range(50):
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = sock.getsockname()[1]
+        try:
+            with socket.socket() as one, socket.socket() as two:
+                one.bind(("127.0.0.1", port))
+                two.bind(("127.0.0.1", port + 1))
+        except OSError:
+            continue
+        return port
+    raise RuntimeError("no free pair of ports")
 
 
 def _outer_ip() -> str | None:

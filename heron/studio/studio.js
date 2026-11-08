@@ -54,7 +54,7 @@
       exists: "Уже есть - открыта на правку.", created_draft: "Заготовка открыта: файлы появятся после «Сохранить».",
       saved: "Сохранено", nothing: "Ничего не изменилось.", created: "Создано", written: "Записано", moved: "Перенесено",
       redirects: "301", site_yaml: "site.yaml: меню", pending_files: "перевод не готов", cats: "Создана категория",
-      error: "Не сохранено", check_ok: "Проверка пройдена", check_bad: "Проверка нашла ошибки",
+      error: "Не сохранено", build_bad: "Черновая сборка не прошла", loading: "Загружаю…", check_ok: "Проверка пройдена", check_bad: "Проверка нашла ошибки",
       building: "Собираю черновую версию…", built: "Черновая версия собрана", open_page: "Открыть страницу",
       ref_load: "Собрать и показать", ref_reload: "Обновить", ref_lead: "Справка собирается из описания темы и её демо-страниц: каждый блок с живым примером и исходным markdown рядом.",
       leave: "Есть несохранённые правки. Уйти без сохранения?",
@@ -112,7 +112,7 @@
       exists: "Already exists - opened for editing.", created_draft: "A draft is open: the files appear after “Save”.",
       saved: "Saved", nothing: "Nothing changed.", created: "Created", written: "Written", moved: "Moved",
       redirects: "301", site_yaml: "site.yaml: menu", pending_files: "translation not ready", cats: "Category created",
-      error: "Not saved", check_ok: "The check passed", check_bad: "The check found errors",
+      error: "Not saved", build_bad: "The draft build failed", loading: "Loading…", check_ok: "The check passed", check_bad: "The check found errors",
       building: "Building a draft…", built: "The draft is built", open_page: "Open the page",
       ref_load: "Build and show", ref_reload: "Refresh", ref_lead: "The reference is built from the theme description and its demo pages: every block with a live example and its markdown source side by side.",
       leave: "There are unsaved edits. Leave without saving?",
@@ -130,8 +130,16 @@
   };
   const S = {
     tab: "site", tree: null, target: null, state: null, ans: {}, ops: [], key: null, skip: {},
-    edit: null, seq: 0, timer: null, busy: false, refBuilt: false, help: new Set(),
+    edit: null, seq: 0, timer: null, busy: false, refBuilt: false, help: new Set(), preview: null,
   };
+  // Просмотр, справка темы и картинки - на своём порту (другой источник, origin): скрипты темы
+  // там не дотягиваются ни до ключа, ни до /api. Ключ просмотра - только смотреть.
+  const pv = (path) => {
+    if (!S.preview) return "about:blank";
+    const sep = path.includes("?") ? "&" : "?";
+    return location.protocol + "//" + location.hostname + ":" + S.preview.port + path + sep + "k=" + encodeURIComponent(S.preview.key);
+  };
+  const SANDBOX = "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox";
   const dirty = () => Object.values(S.ans).some((v) => Object.keys(v).length) || S.ops.length > 0 || S.key !== null || Object.values(S.skip).some(Boolean);
 
   async function api(name, body, raw) {
@@ -142,6 +150,10 @@
     return j;
   }
   const errLines = (j) => [j.error, j.hint].filter(Boolean);
+  // Ошибки сборки - как в терминале: код, файл и строка, что случилось, что сделать.
+  const buildLines = (j) => (j.errors || []).map((e) => (typeof e === "string" ? e
+    : (e.code ? e.code + " " : "") + (e.path ? e.path + (e.line ? ":" + e.line : "") + ": " : "") + (e.message || "") + (e.hint ? " - " + e.hint : "")))
+    .concat(errLines(j));
 
   // --- вкладки -------------------------------------------------------------------------
   function tabs() {
@@ -285,7 +297,12 @@
     clearTimeout(S.timer);
     S.busy = true; const btn = $("#st-save"); if (btn) { btn.disabled = true; btn.textContent = tr("saving"); }
     try {
-      const j = await api("save", request());
+      let j = await api("save", request());
+      // новый блок снимет переведённые языки с публикации: спросить, назвав их
+      if (j.ok && j.confirm) {
+        if (!window.confirm(j.confirm.message)) return;
+        j = await api("save", { ...request(), confirm_pending: true });
+      }
       if (!j.ok) { note("bad", tr("error"), errLines(j)); return; }
       report(j.saved);
       reset(); S.state = j.state; S.target = j.state.target;
@@ -514,7 +531,7 @@
     const write = on || ((v) => put(f.path, v || null));
     const el = input(id, "text", value, off, ph, (v) => { write(v); thumb(v); });
     const img = h("img", { alt: "", hidden: true });
-    const thumb = (v) => { if (v && /^\/?media\//.test(v)) { img.src = "/_studio/" + v.replace(/^\//, ""); img.hidden = false; } else img.hidden = true; };
+    const thumb = (v) => { if (v && /^\/?media\//.test(v)) { img.src = pv("/_studio/" + v.replace(/^\//, "")); img.hidden = false; } else img.hidden = true; };
     thumb(value);
     img.addEventListener("error", () => { img.hidden = true; });
     const fileIn = h("input", { type: "file", accept: "image/*", disabled: off, "aria-label": tr("upload"), "data-upload": f.path });
@@ -522,7 +539,9 @@
       const file = fileIn.files[0]; if (!file) return;
       const j = await api("upload", "?name=" + encodeURIComponent(file.name) + "&lang=" + L, file);
       if (!j.ok) { note("bad", tr("error"), errLines(j)); return; }
+      // пока картинка грузилась, форму могли перерисовать: значение - в ответы, форму - заново
       el.value = j.path; write(j.path); thumb(j.path);
+      if (!el.isConnected) renderEditor();
       note("ok", tr("uploaded"), [j.path + (j.width ? " · " + j.width + "×" + j.height + " px" : "")]);
     });
     const up = h("span", { class: "st-upload st-btn", title: tr("upload_h") }, tr("upload"), fileIn);
@@ -748,27 +767,27 @@
   async function preview() {
     note("ok", tr("building"), []);
     const j = await api("preview", { target: S.state && !S.state.new ? S.state.target : null });
-    if (!j.ok) { note("bad", tr("error"), (j.errors || []).map((e) => e.message || e).concat(errLines(j))); return; }
+    if (!j.ok) { note("bad", tr("build_bad"), buildLines(j)); return; }
     const url = j.urls[S.edit] || j.urls[S.state.default_lang];
     S.refBuilt = true;
     const el = $("#toast"); el.className = "toast";
     el.replaceChildren(h("button", { type: "button", "aria-label": "close", onclick: () => (el.style.display = "none") }, "×"), h("b", {}, tr("built")),
-      url ? h("p", { class: "st-links" }, h("a", { href: url === "/" ? "/index.html" : url, target: "_blank", rel: "noopener", id: "st-preview-link" }, tr("open_page"))) : null);
+      url ? h("p", { class: "st-links" }, h("a", { href: pv(url === "/" ? "/index.html" : url), target: "_blank", rel: "noopener noreferrer", id: "st-preview-link" }, tr("open_page"))) : null);
     el.style.display = "block";
   }
   async function renderRef(force) {
     const main = $("#tab-ref");
     const btn = h("button", { type: "button", class: "st-btn primary", id: "st-ref-build", onclick: () => renderRef(true) }, S.refBuilt ? tr("ref_reload") : tr("ref_load"));
-    const frame = h("iframe", { class: "st-ref", title: tr("tab_ref"), id: "st-ref-frame" });
+    const frame = h("iframe", { class: "st-ref", title: tr("tab_ref"), id: "st-ref-frame", sandbox: SANDBOX, referrerpolicy: "no-referrer" });
     main.replaceChildren(h("div", { class: "st-row" }, h("p", { class: "lead" }, tr("ref_lead")), btn), frame);
     if (!S.refBuilt || force) {
       btn.disabled = true; btn.textContent = tr("building");
       const j = await api("preview", {});
       btn.disabled = false; btn.textContent = tr("ref_reload");
-      if (!j.ok) { note("bad", tr("error"), (j.errors || []).map((e) => e.message || e).concat(errLines(j))); return; }
+      if (!j.ok) { note("bad", tr("build_bad"), buildLines(j)); return; }
       S.refBuilt = true; S.ref = j.ref;
     }
-    frame.src = (S.ref || "/_heron/theme/") + "?t=" + Date.now();
+    frame.src = pv((S.ref || "/_heron/theme/") + "?t=" + Date.now());
   }
 
   // --- запуск --------------------------------------------------------------------------
@@ -787,13 +806,18 @@
   async function start() {
     tabs();
     document.body.dataset.tab = "site";
-    await ready;
     try {
-      await fetch("/api/session", { method: "POST", headers: { "X-Heron-Token": TOKEN } });
+      // С чего открыться - сразу, не дожидаясь настроек сайта: иначе 2-4 секунды видна
+      // пустая вкладка «Сайт», а потом страница прыгает на «Страницы».
       const j = await api("start");
       if (!j.ok) return;
+      S.preview = j.preview || null;
       const tab = j.tab || "site";
-      if (tab !== "site") setTab(tab);
+      if (tab !== "site") {
+        setTab(tab);
+        if (tab === "pages" && !S.tree) $("#tab-pages").replaceChildren(h("p", { class: "lead" }, tr("loading")));
+      }
+      await ready;
       if (j.target) {
         if (!S.tree) await loadTree();
         if (j.answers) { if (j.answers.key) S.key = j.answers.key; for (const [k, v] of Object.entries(j.answers)) if (k !== "key" && typeof v === "object") S.ans[k] = { ...v }; }

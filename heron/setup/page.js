@@ -1,7 +1,17 @@
 "use strict";
 // Ключ доступа приходит в адресе после «#»: движок печатает его в терминале.
 // В саму страницу он не вшит, а на сервер браузер эту часть адреса не шлёт.
-const TOKEN = decodeURIComponent(location.hash.slice(1));
+// Прочитали - и сразу убрали из адресной строки (и из истории): ключ остаётся
+// только в памяти страницы и в sessionStorage этой вкладки - для перезагрузки.
+const TOKEN = (() => {
+  let key = decodeURIComponent(location.hash.slice(1));
+  try {
+    if (key) sessionStorage.setItem("heron-key", key);
+    else key = sessionStorage.getItem("heron-key") || "";
+  } catch (e) { /* без хранилища ключ живёт до перезагрузки */ }
+  if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+  return key;
+})();
 const DOCS_BY_LANG = {
   ru: "https://github.com/FMSTM/HERON/blob/prod/docs/ru/guide/06-deploy.md",
   en: "https://github.com/FMSTM/HERON/blob/prod/docs/en/guide/06-deploy.md",

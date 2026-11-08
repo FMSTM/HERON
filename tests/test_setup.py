@@ -641,7 +641,7 @@ def test_port_error_is_in_the_site_language(site: Path, monkeypatch):
             server.run(site, "127.0.0.1", port)
     assert caught.value.code == "E031"
     assert CYRILLIC.search(caught.value.message) and CYRILLIC.search(caught.value.hint)
-    assert f"--port {port + 1}" in caught.value.hint
+    assert f"--port {port + 2}" in caught.value.hint  # порт и соседний порт просмотра
 
 
 def test_page_sends_its_language_with_save():

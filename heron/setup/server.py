@@ -8,10 +8,15 @@
 запрос `/api/*` несёт его в заголовке X-Heron-Token. Часть после `#` браузер
 на сервер не отправляет, поэтому ключ не попадает ни в журналы, ни в Referer.
 
-Просмотр черновой сборки и справка темы открываются обычными ссылками, без
-заголовка: страница, у которой есть ключ, получает от `/api/session` cookie
-`HttpOnly; SameSite=Strict` с тем же ключом, и только с ним сервер отдаёт
-файлы просмотра и картинки из `media/`.
+Просмотр черновой сборки, справка темы и картинки из `media/` - на втором
+порту (`порт + 1`, по умолчанию 8001), то есть на другом источнике (origin)
+браузера. Там работают скрипты темы, и они не должны дотянуться до ключа и до
+`/api/*`: со своего источника скрипт не читает адрес страницы студии (ключ в нём
+после `#`, и страница сразу убирает его из адресной строки) и не шлёт запросы
+с заголовком ключа - браузер не пускает их без CORS, которого у сервера нет.
+Второй порт пускает по своему ключу просмотра (`?k=` в адресе, затем cookie
+`heron-preview`): с ним можно только смотреть, писать на этом порту нечем.
+Рамка студии с просмотром и справкой - `<iframe sandbox>` без выхода наверх.
 
 Заголовок Host дополнительно обязан быть локальным: это закрывает подмену DNS
 (чужой сайт, имя которого вдруг указывает на 127.0.0.1), но границей доступа
@@ -21,9 +26,9 @@
 `script-src 'self'`, как у собранного сайта, встроенных скриптов и
 обработчиков в разметке нет.
 
-В образе HERON сервер слушает все интерфейсы контейнера, а порт публикуется
-только на петлю машины: `-p 127.0.0.1:8000:8000`. На машине человека сервер
-слушает только 127.0.0.1 — те же правила, что у `heron serve`.
+В образе HERON сервер слушает все интерфейсы контейнера, а порты публикуются
+только на петлю машины: `-p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001`. На
+машине человека сервер слушает только 127.0.0.1 — те же правила, что у `heron serve`.
 """
 
 from __future__ import annotations
@@ -46,7 +51,7 @@ from heron.setup.reasons import plain, run_lang, say
 
 MAX_BODY = 210 * 1024 * 1024
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "[::1]", "::1"}
-COOKIE = "heron-studio"
+PREVIEW_COOKIE = "heron-preview"
 ASSETS = {
     "/_studio/setup.js": ("setup", "application/javascript; charset=utf-8"),
     "/_studio/studio.js": ("studio.js", "application/javascript; charset=utf-8"),
@@ -54,8 +59,14 @@ ASSETS = {
 }
 CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-    "img-src 'self' data: blob:; frame-src 'self'; object-src 'none'; base-uri 'none'; "
-    "form-action 'self'; frame-ancestors {frames}"
+    "img-src 'self' data: blob: {preview}; frame-src {preview}; object-src 'none'; "
+    "base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+)
+# Просмотр: страницы сайта со своими скриптами; рамкой - только в студии.
+PREVIEW_CSP = (
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: blob:; object-src 'none'; base-uri 'none'; "
+    "form-action 'self'; frame-ancestors {studio}"
 )
 STUDIO = ("tree", "open", "check", "save", "site-check", "preview", "start")
 
@@ -80,6 +91,9 @@ def run(
     from heron import setup, studio
 
     token = secrets.token_urlsafe(24)
+    # Ключ второго порта: только смотреть просмотр, справку и картинки (не ключ API).
+    preview_key = secrets.token_urlsafe(24)
+    preview_port = port + 1
     # Язык ответов сервера — язык запуска (--notes, HERON_NOTES, build.notes);
     # причины отказа при сохранении — на языке, который выбран на странице.
     lang = run_lang(root)
@@ -90,6 +104,7 @@ def run(
     lock = threading.Lock()
     done = threading.Event()
     opening = dict(start or {"tab": "site"})
+    opening["preview"] = {"port": preview_port, "key": preview_key}
 
     class Handler(http.server.BaseHTTPRequestHandler):
         server_version = "heron-setup"
@@ -105,29 +120,10 @@ def run(
             given = self.headers.get("X-Heron-Token") or ""
             return self._local() and hmac.compare_digest(given.encode(), token.encode())
 
-        def _cookie(self) -> bool:
-            """Ключ в cookie студии: просмотр и картинки открываются обычной ссылкой."""
-            given = ""
-            for part in (self.headers.get("Cookie") or "").split(";"):
-                name, _, value = part.strip().partition("=")
-                if name == COOKIE:
-                    given = value
-            return self._local() and hmac.compare_digest(given.encode(), token.encode())
-
-        def _send(
-            self, code: int, body: bytes, kind: str, frames: str = "'none'", extra=()
-        ) -> None:
-            self.send_response(code)
-            self.send_header("Content-Type", kind)
-            self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("X-Content-Type-Options", "nosniff")
-            self.send_header("Referrer-Policy", "no-referrer")
-            self.send_header("Content-Security-Policy", CSP.format(frames=frames))
-            for name, value in extra:
-                self.send_header(name, value)
-            self.end_headers()
-            self.wfile.write(body)
+        def _send(self, code: int, body: bytes, kind: str, extra=()) -> None:
+            name = _hostname(self.headers.get("Host"))
+            policy = CSP.format(preview=_origin(name, preview_port))
+            _write(self, code, body, kind, policy, extra)
 
         def _json(self, code: int, data: Any, extra=()) -> None:
             body = json.dumps(data, ensure_ascii=False).encode("utf-8")
@@ -155,41 +151,8 @@ def run(
                     self._json(200, setup.state(root, lang=lang))
                 else:
                     self._json(404, {"error": say(lang, "srv_not_found")})
-            elif not self._cookie():
-                self._json(403, {"error": say(lang, "srv_token")})
-            elif route.startswith("/_studio/media/"):
-                found = studio.media_file(root, route[len("/_studio/") :])
-                if found is None:
-                    self._json(404, {"error": say(lang, "srv_not_found")})
-                else:
-                    self._file(found)
             else:
-                self._preview(route)
-
-        def _file(self, path: Path, code: int = 200) -> None:
-            kind = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-            if kind.startswith("text/") or kind in ("application/javascript", "image/svg+xml"):
-                kind += "; charset=utf-8"
-            self._send(code, path.read_bytes(), kind, frames="'self'")
-
-        def _preview(self, route: str) -> None:
-            """Файл черновой сборки студии: страницы, справка темы, стили и картинки."""
-            from heron.core import paths
-            from heron.core.watch import not_found
-
-            if not built.is_set():
-                self._json(404, {"error": say(lang, "srv_not_found")})
-                return
-            target = dist / route.lstrip("/")
-            if route.endswith("/") or target.is_dir():
-                target = target / "index.html"
-            if paths.inside(dist, target) and target.is_file():
-                self._file(target)
-                return
-            page = not_found(dist, route)
-            if page is not None:
-                self._file(page, 404)
-            else:
+                # просмотр, справка темы и картинки - только на порту просмотра
                 self._json(404, {"error": say(lang, "srv_not_found")})
 
         def do_POST(self) -> None:  # noqa: N802
@@ -212,10 +175,6 @@ def run(
             if route == "/api/stop":
                 self._json(200, {"ok": True})
                 done.set()
-                return
-            if route == "/api/session":
-                cookie = f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict"
-                self._json(200, {"ok": True}, extra=[("Set-Cookie", cookie)])
                 return
             if route.startswith("/api/studio/"):
                 with lock:
@@ -324,16 +283,105 @@ def run(
                 },
             )
 
-    try:
-        server = _Server((host, port), Handler)
-    except OSError as error:
-        raise HeronError(
-            code="E031",
-            message=say(lang, "srv_port", host=host, port=port, reason=error.strerror or error),
-            hint=say(lang, "srv_port_hint", next=port + 1),
-        ) from error
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
+    class Preview(http.server.BaseHTTPRequestHandler):
+        """Порт просмотра: черновая сборка, справка темы, картинки из media/. Только GET."""
+
+        server_version = "heron-preview"
+
+        def log_message(self, *args: Any) -> None:
+            return
+
+        def _key(self, query: dict[str, list[str]]) -> tuple[bool, bool]:
+            """(пускать ли, пришёл ли ключ в адресе - тогда поставить cookie)."""
+            given = (query.get("k") or [""])[0]
+            if given and hmac.compare_digest(given.encode(), preview_key.encode()):
+                return True, True
+            for part in (self.headers.get("Cookie") or "").split(";"):
+                name, _, value = part.strip().partition("=")
+                if name == PREVIEW_COOKIE and hmac.compare_digest(
+                    value.encode(), preview_key.encode()
+                ):
+                    return True, False
+            return False, False
+
+        def _send(self, code: int, body: bytes, kind: str, extra=()) -> None:
+            name = _hostname(self.headers.get("Host"))
+            policy = PREVIEW_CSP.format(studio=_origin(name, port))
+            _write(self, code, body, kind, policy, extra)
+
+        def _json(self, code: int, data: Any) -> None:
+            body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+            self._send(code, body, "application/json; charset=utf-8")
+
+        def do_GET(self) -> None:  # noqa: N802
+            name = _hostname(self.headers.get("Host"))
+            if name not in LOCAL_HOSTS:
+                self._json(403, {"error": say(lang, "srv_local_only")})
+                return
+            parsed = urllib.parse.urlsplit(self.path)
+            route = urllib.parse.unquote(parsed.path)
+            allowed, fresh = self._key(urllib.parse.parse_qs(parsed.query))
+            if not allowed:
+                self._json(403, {"error": say(lang, "srv_token")})
+                return
+            extra = []
+            if fresh:
+                extra.append(
+                    (
+                        "Set-Cookie",
+                        f"{PREVIEW_COOKIE}={preview_key}; Path=/; HttpOnly; SameSite=Lax",
+                    )
+                )
+            if route.startswith("/_studio/media/"):
+                found = studio.media_file(root, route[len("/_studio/") :])
+                if found is None:
+                    self._json(404, {"error": say(lang, "srv_not_found")})
+                else:
+                    self._file(found, extra=extra)
+                return
+            self._preview(route, extra)
+
+        def _file(self, path: Path, code: int = 200, extra=()) -> None:
+            kind = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+            if kind.startswith("text/") or kind in ("application/javascript", "image/svg+xml"):
+                kind += "; charset=utf-8"
+            self._send(code, path.read_bytes(), kind, extra)
+
+        def _preview(self, route: str, extra) -> None:
+            from heron.core import paths
+            from heron.core.watch import not_found
+
+            if not built.is_set():
+                self._json(404, {"error": say(lang, "srv_not_found")})
+                return
+            target = dist / route.lstrip("/")
+            if route.endswith("/") or target.is_dir():
+                target = target / "index.html"
+            if paths.inside(dist, target) and target.is_file():
+                self._file(target, extra=extra)
+                return
+            page = not_found(dist, route)
+            if page is not None:
+                self._file(page, 404, extra)
+            else:
+                self._json(404, {"error": say(lang, "srv_not_found")})
+
+    servers = []
+    for number, handler in ((port, Handler), (preview_port, Preview)):
+        try:
+            servers.append(_Server((host, number), handler))
+        except OSError as error:
+            for server in servers:
+                server.server_close()
+            raise HeronError(
+                code="E031",
+                message=say(
+                    lang, "srv_port", host=host, port=number, reason=error.strerror or error
+                ),
+                hint=say(lang, "srv_port_hint", next=port + 2, preview=port + 3),
+            ) from error
+    for server in servers:
+        threading.Thread(target=server.serve_forever, daemon=True).start()
     if on_ready:
         on_ready(token)
     try:
@@ -342,8 +390,36 @@ def run(
     except KeyboardInterrupt:
         pass
     finally:
-        server.shutdown()
+        for server in servers:
+            server.shutdown()
+            server.server_close()
         workdir.cleanup()
+
+
+def _hostname(host: str | None) -> str:
+    """Имя из заголовка Host без порта: `localhost`, `127.0.0.1`, `[::1]`."""
+    return (host or "").rsplit(":", 1)[0].lower() if not (host or "").endswith("]") else host
+
+
+def _origin(name: str, port: int) -> str:
+    """Источник страницы на порту `port` того же имени, что открыл человек."""
+    if name not in LOCAL_HOSTS or name == "0.0.0.0":
+        name = "localhost"
+    return f"http://{name}:{port}"
+
+
+def _write(handler, code: int, body: bytes, kind: str, policy: str, extra=()) -> None:
+    handler.send_response(code)
+    handler.send_header("Content-Type", kind)
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("X-Content-Type-Options", "nosniff")
+    handler.send_header("Referrer-Policy", "no-referrer")
+    handler.send_header("Content-Security-Policy", policy)
+    for name, value in extra:
+        handler.send_header(name, value)
+    handler.end_headers()
+    handler.wfile.write(body)
 
 
 def _ui_lang(value: Any, fallback: str) -> str:

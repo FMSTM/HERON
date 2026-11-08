@@ -40,8 +40,17 @@ RASTER = (".jpg", ".jpeg", ".png", ".webp", ".gif")
 IMAGES = (*RASTER, ".svg")
 MEDIA = "media"
 KINDS = {"page": False, "category": True}
-# Опасное в SVG: картинка из media/ отдаётся сайтом как есть.
-SVG_DANGER = re.compile(rb"<script|javascript:|\son[a-z]+\s*=|<foreignObject", re.I)
+# SVG из media/ сайт отдаёт как есть, и открытый по прямой ссылке файл - документ со
+# своими скриптами. Поэтому SVG разбирается XML-парсером (сущности и ссылки на символы
+# уже раскрыты: `java&#x73;cript:` - это `javascript:`), и отказ - на всём, что
+# исполняется или тянет чужое: элементы script/foreignObject/iframe/embed/object,
+# любой атрибут on*, ссылки javascript:/vbscript:/data: и внешние (http:, //),
+# анимация, которая подменяет ссылку или обработчик, DOCTYPE и сущности.
+SVG_ELEMENTS = {"script", "foreignobject", "iframe", "embed", "object", "handler", "listener"}
+SVG_ANIMATE = {"set", "animate", "animatetransform", "animatemotion", "animatecolor"}
+SVG_LINKS = {"href", "src", "xlink:href", "action", "formaction", "from", "to", "values"}
+SVG_SCHEMES = re.compile(r"^(javascript|vbscript|data|https?|ftp|file):|^//")
+SVG_CSS = re.compile(r"url\s*\(|@import|expression\s*\(", re.I)
 
 
 HERE = Path(__file__).parent
@@ -173,13 +182,24 @@ def apply_ops(entity: ops.Entity, items: Any) -> list[str]:
 
 def prepare(root: Path, request: dict[str, Any], lang: str) -> ops.Entity:
     """Объект с диска, затем секции (`ops`), затем ответы - как `page add --answers`."""
+    return _prepare(root, request, lang)[0]
+
+
+def _prepare(root: Path, request: dict[str, Any], lang: str) -> tuple[ops.Entity, list[str]]:
+    """Объект, и какие языки правка снимет с публикации (были переведены, станут pending)."""
     ctx = context(root, lang)
     entity = open_target(ctx, request.get("target"))
+    was = {code: ops.is_pending(entity, code) for code in ctx.langs if code in entity.pages}
     apply_ops(entity, request.get("ops"))
     answers = request.get("answers") or {}
     if answers:
         ops.apply_answers(entity, answers)
-    return entity
+    lost = [
+        code
+        for code in ctx.langs[1:]
+        if code in was and not was[code] and ops.is_pending(entity, code)
+    ]
+    return entity, lost
 
 
 def _sections(entity: ops.Entity) -> dict[str, Any]:
@@ -270,8 +290,20 @@ def check(root: Path, request: dict[str, Any], lang: str) -> dict[str, Any]:
 
 
 def save(root: Path, request: dict[str, Any], lang: str) -> dict[str, Any]:
-    """Записать правки теми же функциями, что `heron page add`: ошибки полей - E039."""
-    entity = prepare(root, request, lang)
+    """Записать правки теми же функциями, что `heron page add`: ошибки полей - E039.
+
+    Новый блок снимает переведённые языки с публикации (пометка «перевод не
+    готов»): без `confirm_pending` запись не идёт, ответ называет эти языки -
+    страница спрашивает человека и повторяет запрос с подтверждением.
+    """
+    entity, lost = _prepare(root, request, lang)
+    if lost and not request.get("confirm_pending"):
+        return {
+            "confirm": {
+                "langs": lost,
+                "message": say(lang, "studio_confirm_pending", langs=", ".join(lost)),
+            }
+        }
     errors, _warnings = ops.problems(entity, lang)
     if errors:
         raise HeronError(
@@ -329,7 +361,7 @@ def _verify(data: bytes, ext: str, name: str) -> tuple[int | None, int | None]:
         head = data[:2048].lstrip()
         if b"<svg" not in data[:4096] or not head.startswith((b"<", b"\xef\xbb\xbf<")):
             raise HeronError(code="E039", message=Msg("studio_upload_bad", name=name))
-        if SVG_DANGER.search(data):
+        if not svg_safe(data):
             raise HeronError(code="E039", message=Msg("studio_upload_svg", name=name))
         return None, None
     import io
@@ -348,6 +380,57 @@ def _verify(data: bytes, ext: str, name: str) -> tuple[int | None, int | None]:
     if kind != want:
         raise HeronError(code="E039", message=Msg("studio_upload_bad", name=name))
     return width, height
+
+
+def _local(name: str) -> str:
+    """Имя без пространства имён: `{http://www.w3.org/2000/svg}script` - `script`."""
+    return name.rsplit("}", 1)[-1].lower()
+
+
+def _plain_value(value: str) -> str:
+    """Значение атрибута, как его читает браузер: без пробелов и управляющих символов."""
+    return re.sub(r"[\x00-\x20]+", "", value).lower()
+
+
+def svg_safe(data: bytes) -> bool:
+    """SVG без исполняемого и без внешних ссылок - разбор XML, не поиск по тексту."""
+    import xml.etree.ElementTree as ET
+
+    head = data[:4096].lower()
+    if b"<!doctype" in head or b"<!entity" in data.lower():
+        return False
+    try:
+        root = ET.fromstring(data)
+    except ET.ParseError:
+        return False
+    if _local(root.tag) != "svg":
+        return False
+    for element in root.iter():
+        if not isinstance(element.tag, str):
+            continue
+        tag = _local(element.tag)
+        if tag in SVG_ELEMENTS:
+            return False
+        if tag == "style" and SVG_CSS.search(element.text or ""):
+            return False
+        for raw_name, value in element.attrib.items():
+            name = _local(raw_name)
+            if raw_name.endswith("}href"):
+                name = "xlink:href" if "xlink" in raw_name else "href"
+            plain = _plain_value(value)
+            if name.startswith("on"):
+                return False
+            if name in SVG_LINKS and SVG_SCHEMES.search(plain):
+                return False
+            if "javascript:" in plain or "vbscript:" in plain:
+                return False
+            if name == "style" and SVG_CSS.search(value):
+                return False
+            if tag in SVG_ANIMATE and name == "attributename":
+                target = plain.split(":")[-1]
+                if target.startswith("on") or target in ("href", "src"):
+                    return False
+    return True
 
 
 def upload(root: Path, name: str, data: bytes) -> dict[str, Any]:

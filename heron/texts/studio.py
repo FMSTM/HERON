@@ -8,6 +8,10 @@ TEXT: dict[str, dict[str, str]] = {
             "Студия открыта: {url}  - откройте адрес целиком, с ключом после «#». Ctrl+C - выход."
         ),
         "studio_open_on": "Сразу на объекте: {kind} {key}.",
+        "studio_confirm_pending": (
+            "{langs} уйдут из публикации до перевода: новый блок там ещё не переведён "
+            "(translation: pending) - продолжить?"
+        ),
         "studio_bad_request": "запрос студии без нужного значения или с неверным: {field}",
         "studio_section_values": (
             "блок формы {kind} движок узнаёт по содержимому: заполните хотя бы первый пункт"
@@ -28,6 +32,10 @@ TEXT: dict[str, dict[str, str]] = {
             "Ctrl+C to stop."
         ),
         "studio_open_on": "Opened right on: {kind} {key}.",
+        "studio_confirm_pending": (
+            "{langs} will leave publication until translated: the new block is not translated "
+            "there yet (translation: pending) - continue?"
+        ),
         "studio_bad_request": "a studio request lacks a needed value or has a wrong one: {field}",
         "studio_section_values": (
             "the engine recognises a {kind} block by its content: fill in at least the first item"

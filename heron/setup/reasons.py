@@ -101,7 +101,8 @@ TEXT: dict[str, dict[str, str]] = {
         "srv_too_large": "слишком большой запрос",
         "srv_port": "не открыть конфигуратор на {host}:{port}: {reason}",
         "srv_port_hint": (
-            "возьмите другой порт: --port {next} (и -p 127.0.0.1:{next}:{next} в докере)"
+            "возьмите другой порт: --port {next} (просмотр займёт следующий, {preview}; в докере - "
+            "-p 127.0.0.1:{next}:{next} -p 127.0.0.1:{preview}:{preview})"
         ),
     },
     "en": {
@@ -176,7 +177,8 @@ TEXT: dict[str, dict[str, str]] = {
         "srv_too_large": "too large",
         "srv_port": "cannot open the configurator on {host}:{port}: {reason}",
         "srv_port_hint": (
-            "take another port: --port {next} (and -p 127.0.0.1:{next}:{next} in docker)"
+            "take another port: --port {next} (the preview takes the next one, {preview}; "
+            "in docker - -p 127.0.0.1:{next}:{next} -p 127.0.0.1:{preview}:{preview})"
         ),
     },
 }

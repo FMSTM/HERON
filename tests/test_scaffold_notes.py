@@ -172,6 +172,8 @@ D_PORT = (
     'docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site '
     '--user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod'
 )
+# конфигуратор и студия: ещё порт просмотра и справки темы
+D_PORTS = D_PORT.replace("8000:8000", "8000:8000 -p 127.0.0.1:8001:8001")
 
 
 def _root_note(tmp_path, lang):
@@ -199,7 +201,7 @@ def test_root_note_works_through_the_image(tmp_path, lang):
     text = _root_note(tmp_path, lang)
     assert "$H" not in text and "sh_word_split" not in text
     for command in (
-        f"{D_PORT} setup .",
+        f"{D_PORTS} setup .",
         f"{D_RUN} init .",
         f"{D_RUN} check .",
         f"{D_PORT} serve .",

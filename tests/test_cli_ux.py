@@ -234,8 +234,8 @@ def test_next_steps_in_container_are_ready_docker_commands(here, monkeypatch):
     assert f"\n      {page}\n" in result.output
     assert f"\n      {DOCKER}beta check my-site\n" in result.output
     setup = (
-        'docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site '
-        '--user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta setup my-site'
+        "docker run --rm -it -p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001 "
+        '-v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta setup my-site'
     )
     assert setup in result.output
     assert 'docker run --rm -it -v "$PWD:/site"' in result.output  # init спрашивает

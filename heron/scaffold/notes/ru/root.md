@@ -75,12 +75,12 @@ HERON - открытый проект. Нашли ошибку или хотит
 Каждую команду можно просто скопировать строкой целиком:
 
 ```bash
-docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod setup .
+docker run --rm -it -p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod setup .
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod init .
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod check .
 docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add about .
 docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod category add services .
-docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod studio .
+docker run --rm -it -p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod studio .
 docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod serve .
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod build . --env prod --strict
 ```
@@ -99,7 +99,9 @@ docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmst
 
 У `setup`, `studio` и `serve` в команде есть `-p 127.0.0.1:8000:8000`: он пробрасывает
 порт 8000 из контейнера на ваш компьютер, иначе страницу не открыть в
-браузере. Остальным командам порт не нужен. `-it` нужен тем, кто задаёт
+браузере. У `setup` и `studio` есть ещё `-p 127.0.0.1:8001:8001`: на этом порту
+студия показывает просмотр страниц и справку темы - отдельно от страницы с ключом,
+чтобы скрипты темы не дотянулись до ключа. Остальным командам порт не нужен. `-it` нужен тем, кто задаёт
 вопросы или работает до Ctrl+C.
 
 ### Короче: имя `heron` на время работы

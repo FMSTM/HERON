@@ -589,6 +589,9 @@ def docker_command(args: str) -> str:
     flags = " -it" if _asks(args) else ""
     if _port(args):
         flags += " -p 127.0.0.1:8000:8000"
+        if args.split()[0] != "serve":
+            # конфигуратор и студия: просмотр и справка темы - на соседнем порту
+            flags += " -p 127.0.0.1:8001:8001"
     return (
         f'docker run --rm{flags} -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" '
         f"{image()} {args}"

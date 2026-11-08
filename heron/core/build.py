@@ -255,7 +255,7 @@ def run(
     say.done("done_config", theme=config.site.theme, langs=len(config.site.languages))
 
     say.step("step_content")
-    site = content(site_root, config, theme, theme_dir, hooks, collector, drafts)
+    site = content(site_root, config, theme, theme_dir, hooks, collector, drafts, env.is_prod)
     say.done("done_pages", count=len(site.pages))
 
     # Сайт без страниц — нормальное состояние на деве: тему доводят раньше,
@@ -517,8 +517,13 @@ def content(
     hooks: Hooks,
     collector: Collector,
     drafts: bool,
+    prod: bool = False,
 ) -> Site:
     """Этапы 2–4, общие для `build` и `check`: обход, разбор, даты, связи.
+
+    `prod` - боевая сборка: страницы с пометкой `translation: pending` не
+    публикуются на своём языке (`site.held`), черновая показывает их с плашкой.
+    Обе говорят о каждой такой странице предупреждением: с `--strict` это ошибка.
 
     Расширения применяются одинаково в обоих: свои типы секций, правка
     страницы после разбора, свои связи после обхода. Иначе `check`
@@ -526,8 +531,15 @@ def content(
     """
     md = markdown.make(allow_raw_html=config.build.allow_raw_html)
     site, _ = tree.scan(
-        site_root / "content", config, md, collector, drafts=drafts, custom=hooks.blocks()
+        site_root / "content",
+        config,
+        md,
+        collector,
+        drafts=drafts,
+        custom=hooks.blocks(),
+        hold_pending=prod,
     )
+    pending_warnings(site, collector)
     for page in site.pages:
         hooks.call("on_page_parsed", page)
     site.data = data_module.load(site_root / "data", collector)
@@ -537,6 +549,17 @@ def content(
     notfound.ensure(site, config, theme_dir, collector)
     links.resolve(site, config, theme, collector)
     return site
+
+
+def pending_warnings(site: Site, collector: Collector) -> None:
+    """Предупреждение о каждой странице с непереведённым текстом (`translation: pending`)."""
+    for page in site.held:
+        collector.warn(Msg("build_pending_held", lang=page.lang), path=page.source, kind="переводы")
+    for page in site.pages:
+        if page.meta.pending:
+            collector.warn(
+                Msg("build_pending_shown", lang=page.lang), path=page.source, kind="переводы"
+            )
 
 
 def _roots(site: Site, config: SiteConfig, collector: Collector, prod: bool) -> None:
@@ -698,7 +721,8 @@ def check(
     # check шаблоны не рендерит; изменение данных, на котором песочница
     # уронит сборку (E033), видно и по разбору шаблона — говорим заранее
     templates_check.mutations(site_root, theme_dir, config, collector, hooks)
-    site = content(site_root, config, theme, theme_dir, hooks, collector, drafts)
+    env = env or BuildEnv.resolve(None)
+    site = content(site_root, config, theme, theme_dir, hooks, collector, drafts, env.is_prod)
     templates_check.missing_templates(site, theme, theme_dir, config, collector, hooks)
     templates_check.inline_scripts(theme_dir, site_root, collector)
     _roots(site, config, collector, prod=False)
@@ -723,7 +747,7 @@ def check(
         theme,
         collector,
         built,
-        env or BuildEnv.resolve(None),
+        env,
         allow_schema,
         exists=lambda rel: source_exists(site_root, rel, theme_dir),
     )

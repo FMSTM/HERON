@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from heron.contracts.frontmatter import DESCRIPTION_MAX, TITLE_MAX
+from heron.contracts.frontmatter import DESCRIPTION_MAX, TITLE_MAX, TRANSLATION_STATES
 from heron.messages import say
 
 # Порядок групп - порядок показа в опроснике, студии и describe.
@@ -81,6 +81,7 @@ SERVICE: tuple[ServiceField, ...] = (
         "updated", "date", "publishing", key="updated", default_from="site.yaml:build.updated_from"
     ),
     ServiceField("redirect_from", "list", "publishing", key="redirect_from", item="link"),
+    ServiceField("translation", "enum", "publishing", key="translation"),
     ServiceField(
         "heading", "text", "section", where="heading", key="## …", scope="section", required=True
     ),
@@ -90,6 +91,10 @@ SERVICE: tuple[ServiceField, ...] = (
 )
 
 BY_NAME = {spec.name: spec for spec in SERVICE}
+
+# Допустимые значения служебных полей-перечислений, которые знает сам движок
+# (`type` и `children_type` - типы темы, их подставляет describe).
+VALUES: dict[str, tuple[str, ...]] = {"translation": TRANSLATION_STATES}
 
 
 def group_title(lang: str, group: str) -> str:

@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from jinja2 import Environment, TemplateNotFound, TemplateSyntaxError
@@ -22,9 +23,29 @@ from heron.core.media import Manifest
 from heron.core.models import Page, Site
 from heron.core.render import env as envmod
 from heron.core.render import signature
-from heron.messages import Msg
+from heron.messages import Msg, say
 
 TEMPLATES = "templates"
+BODY_OPEN = re.compile(r"<body\b[^>]*>", re.IGNORECASE)
+# Плашка «перевод не готов» черновой сборки: свои стили, чтобы не зависеть от темы.
+PENDING_BANNER = (
+    '<div class="heron-pending" role="status" style="position:sticky;top:0;z-index:2147483647;'
+    "margin:0;padding:.6em 1em;background:#fff3cd;color:#3d2e00;border-bottom:2px solid #c99a00;"
+    'font:15px/1.4 system-ui,sans-serif">{text}</div>'
+)
+
+
+def pending_banner(html: str, page: Page, config: SiteConfig) -> str:
+    """Плашка «перевод не готов» сразу после `<body>` (только черновая сборка, 20 §4.2)."""
+    from markupsafe import escape
+
+    notes = config.build.notes if config.build.notes in ("ru", "en") else "en"
+    text = say(notes, "render_pending_banner", lang=page.lang, source=f"content/{page.source}")
+    banner = PENDING_BANNER.format(text=escape(text))
+    match = BODY_OPEN.search(html)
+    if match is None:
+        return banner + html
+    return html[: match.end()] + banner + html[match.end() :]
 
 
 def template_name(page: Page, theme: ThemeConfig) -> str:
@@ -173,6 +194,8 @@ def render_site(
                 build_env,
                 seen,
             )
+            if page.meta.pending and build_env is not None and not build_env.is_prod:
+                html = pending_banner(html, page, config)
             if hooks is not None:
                 html = hooks.pipe("on_page_rendered", page, html)
             if config.build.generator:

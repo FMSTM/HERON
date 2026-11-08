@@ -45,6 +45,7 @@ order: {order}
 published: true
 # ↑ false - the page is not built
 # noindex: true              # hide from search engines and drop from the sitemap
+# translation:               # pending - not translated yet: production does not publish it
 
 # ================= 8. RELATIONS =================
 # redirect_from:             # old addresses that should 301 here

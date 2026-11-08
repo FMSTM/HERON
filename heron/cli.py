@@ -623,6 +623,7 @@ def _check_json(
     kit = None
     schema = None
     old_section = None
+    pending: list[dict] = []
     try:
         result = pipeline.check(
             path,
@@ -663,6 +664,11 @@ def _check_json(
         ]
         strict = result.strict
         pages = len(result.site.pages) if getattr(result, "site", None) is not None else None
+        if result.report is not None:
+            pending = [
+                {"lang": code, "path": source, "published": shown}
+                for code, source, shown in result.report.pending
+            ]
     except HeronError as item:
         errors, warnings, pages = [error(item)], [], None
     if kit is None:
@@ -682,6 +688,7 @@ def _check_json(
                 "warnings": warnings,
                 "kit": kit.as_json(),
                 "schema": schema,
+                "pending": pending,
                 **({"old_urls": old_section} if old_section is not None else {}),
             },
             ensure_ascii=False,

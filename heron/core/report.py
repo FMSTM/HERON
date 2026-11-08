@@ -202,6 +202,8 @@ class Report:
     orphans: list[str] = field(default_factory=list)
     nameless_in_nav: list[str] = field(default_factory=list)
     untranslated: dict[str, list[str]] = field(default_factory=dict)
+    # перевод не готов (translation: pending): (язык, файл, опубликована ли в этой сборке)
+    pending: list[tuple[str, str, bool]] = field(default_factory=list)
     unused_media: list[str] = field(default_factory=list)
     static_media: list[str] = field(default_factory=list)
     notes_missing: list[str] = field(default_factory=list)
@@ -263,6 +265,13 @@ class Report:
             for code, pages in sorted(self.untranslated.items()):
                 shown = ", ".join(pages[:5]) + (" …" if len(pages) > 5 else "")
                 lines.append(f"  {code} - {len(pages)}: {shown}")
+
+        if self.pending:
+            lines.append("")
+            lines.append(say(lang, "report_pending", count=len(self.pending)))
+            for code, source, shown in self.pending[:20]:
+                state = say(lang, "report_pending_shown" if shown else "report_pending_held")
+                lines.append(f"  {code} - {source} ({state})")
 
         if self.missing_sections:
             lines.append("")
@@ -428,12 +437,21 @@ def build(
                     report.nameless_in_nav.append(page.source)
     report.nameless_in_nav.sort()
 
-    # переводы
+    # переводы: неготовые (translation: pending) - отдельным списком
+    report.pending = sorted(
+        [(p.lang, p.source, False) for p in site.held]
+        + [(p.lang, p.source, True) for p in site.pages if p.meta.pending]
+    )
+    held = {(p.lang, p.key) for p in site.held}
     default = config.site.default_lang
     for lang in config.site.languages:
         if lang == default:
             continue
-        absent = [p.key or "/" for p in site.of_lang(default) if lang not in p.translations]
+        absent = [
+            p.key or "/"
+            for p in site.of_lang(default)
+            if lang not in p.translations and (lang, p.key) not in held
+        ]
         if absent:
             report.untranslated[lang] = sorted(absent)
 

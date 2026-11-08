@@ -4,6 +4,14 @@ from __future__ import annotations
 
 TEXT: dict[str, dict[str, str]] = {
     "ru": {
+        "build_pending_held": (
+            "перевод на {lang} не готов (translation: pending): боевая сборка эту версию "
+            "не публикует - ни страницы, ни ссылок на неё в меню, sitemap и hreflang"
+        ),
+        "build_pending_shown": (
+            "перевод на {lang} не готов (translation: pending): здесь страница с плашкой, "
+            "боевая сборка её не опубликует. Перевели - удалите строку translation"
+        ),
         "build_theme_no_fields": (
             "тема {theme} не описала поля блоков (fields в theme.yaml): опросник и студия "
             "покажут только SEO-блок и служебные поля. Как описать - `heron docs theme`, "
@@ -59,6 +67,16 @@ TEXT: dict[str, dict[str, str]] = {
         "build_no_home_page_hint": "создайте index.md в корне языка",
     },
     "en": {
+        "build_pending_held": (
+            "the {lang} translation is not ready (translation: pending): the production build "
+            "does not publish this version - no page, no links to it in the menu, sitemap and "
+            "hreflang"
+        ),
+        "build_pending_shown": (
+            "the {lang} translation is not ready (translation: pending): shown here with a "
+            "banner, the production build will not publish it. Once translated, delete the "
+            "translation line"
+        ),
         "build_theme_no_fields": (
             "theme {theme} has not described the fields of its blocks (fields in theme.yaml): "
             "the questionnaire and the studio will show only the SEO block and the service "

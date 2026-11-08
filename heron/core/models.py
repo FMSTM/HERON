@@ -310,6 +310,9 @@ class Site:
     by_key: dict[tuple[str, str], Page] = field(default_factory=dict)
     data: dict[str, Any] = field(default_factory=dict)
     nav: dict[str, dict[str, list[Page]]] = field(default_factory=dict)
+    # Страницы с пометкой `translation: pending`, которые боевая сборка не
+    # публикует: их нет ни в `pages`, ни в меню, sitemap и hreflang (20 §4.2).
+    held: list[Page] = field(default_factory=list)
 
     def of_lang(self, lang: str) -> list[Page]:
         return [p for p in self.pages if p.lang == lang]

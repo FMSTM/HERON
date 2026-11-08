@@ -443,6 +443,8 @@ def _declared(site: Site, theme: ThemeConfig, collector: Collector) -> None:
 
 def _nav(site: Site, config: SiteConfig, collector: Collector) -> None:
     groups = config.nav.model_dump()
+    # перевод не готов и в боевую сборку не идёт: об этом уже сказано
+    held = {(page.lang, page.key) for page in site.held}
     for lang in config.site.languages:
         site.nav[lang] = {}
         for group, keys in groups.items():
@@ -451,6 +453,8 @@ def _nav(site: Site, config: SiteConfig, collector: Collector) -> None:
             pages: list[Page] = []
             for key in keys:
                 page = site.page(str(key), lang)
+                if page is None and (lang, str(key).strip("/")) in held:
+                    continue
                 if page is None:
                     # Страница есть на основном языке — значит это не опечатка
                     # в site.yaml, а непереведённый раздел. Разные беды: одну

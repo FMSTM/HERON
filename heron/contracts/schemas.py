@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 import heron
-from heron.contracts.frontmatter import PageMeta
+from heron.contracts.frontmatter import TRANSLATION_STATES, PageMeta
 from heron.contracts.site import LOCALIZED, SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core.errors import ERRORS, SCHEMA_CODES
@@ -195,7 +195,7 @@ EN: dict[str, tuple[str, str]] = {
         "`on` as a string.",
     ),
     "frontmatter.schema.json#/description": (
-        "1d58fc811a",
+        "11cc3cff34",
         "Page front matter: YAML between `---`. `title`, `h1` and `description` are required. "
         "Relation fields declared by the theme and any fields of your own (`page.meta.<field>`) "
         "are allowed as additional ones. An optional field may be left empty: an empty value "
@@ -207,7 +207,10 @@ EN: dict[str, tuple[str, str]] = {
         "`YYYY-MM-DD`. A date later than the moment of the build is a warning, with `--strict` "
         "an error. An update earlier than the publication is a warning too. "
         "redirect_from: a list of paths from the root, normalization is `20` §2; "
-        "a path must not coincide with an existing URL (`E009`).",
+        "a path must not coincide with an existing URL (`E009`). "
+        "translation: only `pending` - the translation is not ready: a draft build shows "
+        "the page with a banner, a production build does not publish it in this language; "
+        "when the translation is ready, there is no key.",
     ),
     "setup.schema.json#/$defs/AnalyticsAnswers/description": (
         "b4add0701c",
@@ -228,7 +231,9 @@ FRONTMATTER_RULES = (
     "`ГГГГ-ММ-ДД`. Дата позже момента сборки - предупреждение, при `--strict` - ошибка. "
     "Обновление раньше публикации - тоже предупреждение. "
     "redirect_from: список путей от корня, нормализация - `20` §2; "
-    "путь не должен совпадать с существующим URL (`E009`)."
+    "путь не должен совпадать с существующим URL (`E009`). "
+    "translation: только `pending` - перевод не готов: черновая сборка показывает "
+    "страницу с плашкой, боевая не публикует её на этом языке; перевод готов - ключа нет."
 )
 
 THEME_NOTE = (
@@ -543,6 +548,7 @@ def frontmatter_schema(lang: str = "ru") -> dict[str, Any]:
             props[name] = _nullable(prop)
     for name in ("type", "children_type", "slug"):
         props[name] = _number_or(props[name], "integer")
+    props["translation"] = {"anyOf": [{"enum": list(TRANSLATION_STATES)}, {"type": "null"}]}
     data["description"] = FRONTMATTER_RULES
     return _finish(data, "frontmatter.schema.json", lang)
 

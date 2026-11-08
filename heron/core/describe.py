@@ -126,7 +126,11 @@ def _service(theme: ThemeConfig, config: SiteConfig | None, lang: str, scope: st
                 "max_length": spec.max_length,
                 "min_width": min_width,
                 "item": spec.item,
-                "values": types if spec.name in ("type", "children_type") else [],
+                "values": (
+                    types
+                    if spec.name in ("type", "children_type")
+                    else list(service.VALUES.get(spec.name, ()))
+                ),
                 "only": spec.only,
                 "default": default,
                 "default_from": spec.default_from,

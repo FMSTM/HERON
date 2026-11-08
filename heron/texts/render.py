@@ -2,6 +2,11 @@
 
 TEXT: dict[str, dict[str, str]] = {
     "ru": {
+        "render_pending_banner": (
+            "Перевод не готов: на этой странице текст основного языка. Боевая сборка "
+            "её на языке {lang} не опубликует, пока в SEO-блоке файла {source} есть строка "
+            "translation: pending."
+        ),
         "render_template_missing": "для типа страницы {type!r} нет шаблона {name}",
         "render_template_missing_hint": "создайте {name} в теме или задайте другой тип страницы",
         "render_template_syntax": "ошибка в шаблоне {name}, строка {line}: {detail}",
@@ -34,6 +39,11 @@ TEXT: dict[str, dict[str, str]] = {
         "render_no_rendition_files": "нет файлов варианта {ratio} для {name}",
     },
     "en": {
+        "render_pending_banner": (
+            "Translation pending: this page holds the text of the main language. The "
+            "production build will not publish it in {lang} while the SEO block of {source} "
+            "has the line translation: pending."
+        ),
         "render_template_missing": "there is no template {name} for page type {type!r}",
         "render_template_missing_hint": "create {name} in the theme or set another page type",
         "render_template_syntax": "error in template {name}, line {line}: {detail}",

@@ -163,8 +163,13 @@ def scan(
     collector: Collector | None = None,
     drafts: bool = False,
     custom: dict | None = None,
+    hold_pending: bool = False,
 ) -> tuple[Site, Collector]:
-    """Прочитать все языковые деревья и собрать страницы."""
+    """Прочитать все языковые деревья и собрать страницы.
+
+    `hold_pending` - боевая сборка: страница с `translation: pending` не
+    публикуется на своём языке и уходит в `site.held` (20 §4.2).
+    """
     collector = collector or Collector()
     md = md or markdown.make(allow_raw_html=config.build.allow_raw_html)
     site = Site()
@@ -302,6 +307,9 @@ def scan(
             )
 
             if not meta.published and not drafts:
+                continue
+            if hold_pending and meta.pending:
+                site.held.append(page)
                 continue
 
             clash = site.by_url.get(page.url)

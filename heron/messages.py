@@ -893,6 +893,9 @@ TEXT["ru"].update(
         "report_pages": "Страниц - {count} ({by_lang})",
         "report_types": "Типы - {by_type}",
         "report_untranslated": "Не переведено:",
+        "report_pending": "Перевод не готов (translation: pending) - {count}:",
+        "report_pending_shown": "в этой сборке с плашкой, в боевую не попадёт",
+        "report_pending_held": "не опубликована",
         "report_missing": "Тема ждёт секцию, а в файле её нет:",
         "report_missing_line": (
             "  {section:12} - {count} {count:страница|страницы|страниц}: {shown}"
@@ -934,6 +937,9 @@ TEXT["en"].update(
         "report_pages": "Pages - {count} ({by_lang})",
         "report_types": "Types - {by_type}",
         "report_untranslated": "Not translated:",
+        "report_pending": "Translation pending (translation: pending) - {count}:",
+        "report_pending_shown": "shown in this build with a banner, stays out of production",
+        "report_pending_held": "not published",
         "report_missing": "The theme expects a section the file does not have:",
         "report_missing_line": "  {section:12} - {count} {count:page|pages}: {shown}",
         "report_format": "A section is not in the form the theme expects (not an error):",
@@ -1895,6 +1901,19 @@ TEXT["ru"].update(
             "Хорошо: каждый раз, когда меняется slug или категория.\n"
             "Частая ошибка: адрес, который занят другой страницей, - ошибка E009."
         ),
+        "field_translation_hint": (
+            "pending - перевод на этот язык не готов, в боевую сборку не идёт"
+        ),
+        "field_translation_help": (
+            "Пометка в SEO-блоке файла языка. Её ставят команды page add и category add, "
+            "когда перевод пропущен: в файле тогда текст основного языка.\n"
+            "На сайте: черновая сборка и heron serve показывают страницу с плашкой "
+            "«перевод не готов»; боевая (--env prod) её на этом языке не публикует - нет "
+            "ни страницы, ни ссылок на неё в меню, sitemap и hreflang, - и называет её в "
+            "отчёте. С --strict это ошибка.\n"
+            "Хорошо: перевели текст - удалите строку translation: pending.\n"
+            "Частая ошибка: перевели, а пометку оставили - страница не выходит в боевую сборку."
+        ),
         "field_heading_hint": "Заголовок блока на странице - текст после ##",
         "field_heading_help": (
             "Заголовок второго уровня: «## Как начать {{#start}}». Тема показывает его над "
@@ -2097,6 +2116,21 @@ TEXT["en"].update(
             "redirect from them, and search engines move the positions to the new address.\n"
             "Good: every time the slug or the category changes.\n"
             "A common mistake: an address taken by another page - error E009."
+        ),
+        "field_translation_hint": (
+            "pending - the translation into this language is not ready, it stays out of production"
+        ),
+        "field_translation_help": (
+            "A mark in the SEO block of a language file. The commands page add and category "
+            "add put it when a translation is skipped: the file then holds the text of the "
+            "main language.\n"
+            "On the site: a draft build and heron serve show the page with a "
+            '"translation pending" banner; a production build (--env prod) does not publish it '
+            "in this language - neither the page nor links to it in the menu, the sitemap and "
+            "hreflang - and names it in the report. With --strict it is an error.\n"
+            "Good: once the text is translated, delete the line translation: pending.\n"
+            "A common mistake: translated, but the mark is left - the page does not reach "
+            "production."
         ),
         "field_heading_hint": "The heading of the block on the page - the text after ##",
         "field_heading_help": (

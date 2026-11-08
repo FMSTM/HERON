@@ -22,6 +22,10 @@ TEXT = {
         "loader_fm_blank": "поле не может быть пустым",
         "loader_fm_slug": "слаг - латиница, цифры и дефис, без слешей и подчёркиваний",
         "loader_fm_old_url": "{url} - ожидается путь от корня, например /services/old/",
+        "loader_fm_translation": (
+            "translation: {value} - знает одно значение, pending (перевод не готов); "
+            "перевод готов - уберите строку"
+        ),
         "loader_fm_title_long": "title длиннее {max} знаков ({length})",
         "loader_fm_description_long": "description длиннее {max} знаков ({length})",
         "loader_fm_image_alt": "картинка задана, а image_alt нет",
@@ -50,6 +54,10 @@ TEXT = {
         "loader_fm_blank": "the field must not be empty",
         "loader_fm_slug": "a slug is Latin letters, digits and hyphens, without slashes or underscores",
         "loader_fm_old_url": "{url} - a path from the root is expected, for example /services/old/",
+        "loader_fm_translation": (
+            "translation: {value} - it knows one value, pending (the translation is not ready); "
+            "when the translation is ready, remove the line"
+        ),
         "loader_fm_title_long": "title is longer than {max} characters ({length})",
         "loader_fm_description_long": "description is longer than {max} characters ({length})",
         "loader_fm_image_alt": "an image is set but image_alt is not",

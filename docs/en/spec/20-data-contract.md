@@ -395,7 +395,7 @@ Groups and their order:
 | 4 | Twitter / X | `twitter_card` `twitter_title` `twitter_description` `twitter_image` |
 | 5 | Schema.org | the `schema` block - markup refinements for this page |
 | 6 | Card and catalog | `image` `image_alt` `order` `children_type` `type` `video` `video_poster` `video_title` |
-| 7 | Service | `updated` `published` `priority` |
+| 7 | Service | `updated` `published` `translation` `priority` |
 | 8 | Relations | relation fields declared by the theme, plus `redirect_from` |
 
 The block with all eight groups and comments is put by `heron new` and `heron init` into the starter pages (`index.md`, `404.md`) and by `heron page` into every new one. A new page is a copy of a file with edited values; the comments stay as they are, their language is set by `build.notes` (`ru` or `en`).
@@ -471,6 +471,7 @@ The "core" column says what the engine does with the field: **yes** - it reads a
 | `updated` | date `YYYY-MM-DD` | see `build.updated_from` | yes | 7 | the caption, `lastmod`, `dateModified` |
 | `published` | `true`/`false` | `true` | yes | 7 | `false` - the page is not built and appears nowhere (`--drafts` turns it on) |
 | `noindex` | `true`/`false` | `false` | yes | 7 | `robots: noindex`, excluded from the sitemap and `llms.txt` |
+| `translation` | `pending` | - | yes: another value - `E002` | 7 | the translation into the language of the file is not ready: a draft build shows the page with a banner, a production build does not publish it in this language (see below) |
 | `priority` | number | - | theme | 7 | the core does not output it in the sitemap |
 | `redirect_from` | list of paths | `[]` | yes: a path from the root, no spaces, `?` or `#`, otherwise `E002`; normalization - section 2 | 8 | old addresses with a 301 to this page |
 | relation fields | list of names or maps `{slug, note}` | - | yes, if declared by the theme in `links`: the name must be found (`E006`) | 8 | relations between pages (section 6) |
@@ -525,6 +526,15 @@ The page key is the folder path plus the file name without the extension (sectio
 The file name sets the address and is therefore written in Latin letters. If the site is not in a Latin script, the menu needs a word in its language, and `title` does not fit: it is written for search results and is long. The page declares the field itself, and it lives next to it - each language has its own file, there is nothing to sync. For a section, its `_index.md` declares the name.
 
 If it is not declared, the engine takes the file name. A single-language site whose files are named with words has nothing to fill. `heron check` shows the pages that got into the menu without a short name.
+
+#### Translation pending: `translation: pending` <a id="translation-pending"></a>
+
+The commands `heron page add` and `heron category add` create a page and a category in all languages of `site.yaml` at once. The main language is filled in completely; a language whose translation was skipped gets a copy of the main-language text and the line `translation: pending` in group 7 of the SEO block. A person sees it in the file, an agent - in `heron page list --json` and `heron check --json` (`pending`).
+
+- **a draft build** (`--env dev`, `heron serve`) builds such a page as usual and puts a "translation pending" banner with the file name right after `<body>`;
+- **a production build** (`--env prod`) does not publish this language version: there is no page, no sitemap entry, no `hreflang` to it from the other languages, no menu item in this language and none of its `redirect_from`. A link to it from the text leads to the main-language version (a `links` warning);
+- both builds name every such page with a warning (the kind "translations") and in the list "Translation pending" of the report; with `--strict` (or `build.fail_on_warning`) it is an error;
+- once translated, delete the line (or answer "ready" in the `page add` questionnaire): the page goes into the production build.
 
 `redirect_from` is a working tool for migration from WordPress: the old address is written next to the new content, not in a separate table that will drift apart.
 

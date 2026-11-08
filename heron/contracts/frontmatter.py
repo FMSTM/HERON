@@ -25,6 +25,10 @@ from heron.messages import Msg, MsgError
 SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\Z")
 URL_PATH_RE = re.compile(r"^/[^\s?#]*\Z")
 
+# Единственное значение пометки перевода; перевод готов - ключа нет.
+PENDING = "pending"
+TRANSLATION_STATES = (PENDING,)
+
 TITLE_MAX = 60
 DESCRIPTION_MAX = 155
 
@@ -65,6 +69,9 @@ class PageMeta(BaseModel):
     noindex: bool = False
     redirect_from: list[str] = Field(default_factory=list)
     gone: list[str] = Field(default_factory=list)
+    # Пометка «перевод не готов» (`pending`): черновая сборка показывает такую
+    # страницу с плашкой, боевая не публикует её на этом языке (20 §4.2).
+    translation: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -139,6 +146,21 @@ class PageMeta(BaseModel):
             if not URL_PATH_RE.match(url):
                 raise MsgError("loader_fm_old_url", url=repr(url))
         return v
+
+    @field_validator("translation")
+    @classmethod
+    def _translation(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = str(v).strip()
+        if v not in TRANSLATION_STATES:
+            raise MsgError("loader_fm_translation", value=repr(v))
+        return v
+
+    @property
+    def pending(self) -> bool:
+        """Перевод не готов: страница этого языка не публикуется в боевой сборке."""
+        return self.translation == PENDING
 
     @property
     def extra(self) -> dict[str, Any]:

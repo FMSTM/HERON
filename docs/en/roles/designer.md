@@ -5,7 +5,7 @@ Make a theme that draws every page type of the structure and does not break on i
 **Input:** page types and their sections from the architect (or an existing `theme.yaml`), a mockup or a description of the look.
 **Output:** the `theme/` folder: `theme.yaml`, `base.html`, type templates, form modules, `partials/`, `assets/`, `i18n/<lang>.yaml`.
 
-**Limits.** You write only to `theme/`; when the task is a theme for other sites, also its demo: pages in `content/` and pictures in `media/`. `content/`, `data/`, `site.yaml`, `.github/`, scripts are not yours. A theme by link or archive is installed only if the human named it. The report is `agents/work/report.md` in the form of [`templates/report.md`](../templates/report.md). Done when the build passes on the starter and on the full content, `heron check . --theme` has no `E008` and `E037` and the report has no missing `i18n` strings.
+**Limits.** You write only to `theme/`; when the task is a theme for other sites, also its demo: pages in `content/` and pictures in `media/`. `content/`, `data/`, `site.yaml`, `.github/`, scripts are not yours. A theme by link or archive is installed only if the human named it. The report is `agents/work/report.md` in the form of [`templates/report.md`](../templates/report.md). Done when the build passes on the starter and on the full content, `heron check . --theme` has no `E008`, `E041` and `E037` and the report has no missing `i18n` strings.
 
 ## 1. Start with the starter theme
 
@@ -40,7 +40,7 @@ By the contract of the theme a person fills pages in the console (`heron page ad
 
 - `types.<type>`: `hint_<lang>`, `help_<lang>`; `sections.<anchor>` - `required`, hints, `fields` for a section without a form (`intro`); a category type has `children_type` and `views` (`key`, `default`, `options` with hints) - exactly the views the templates draw (`page.meta.get('view')`);
 - `modules.<name>`: `scope` (`section` or `page`), `kinds`, `schemaorg`, `example_<lang>`, `fields` - every field has `name`, `type`, `md` (a place from the dictionary in `21`), limits; page modules have `fields: []`;
-- `languages` - the hint languages; `hint` is mandatory in each of them for a type, a section, a module, a field, a view, otherwise `heron check` gives `E008` with a list of paths;
+- `languages` - the hint languages; `hint` is mandatory in each of them for a type, a section, a module, a field, a view, otherwise `heron check` gives `E041` with a list of paths;
 - `help` is written for a newcomer: what it is, what it affects on the site and in search, a good example, common mistakes. The sample is `theme.yaml` of the starter theme;
 - service fields (`title`, `h1`, `description`, the address, the menu, the cover, `noindex`, `translation`) are described by the engine - do not repeat them in the theme.
 
@@ -122,5 +122,5 @@ Everything that belongs to the theme and not to the page ("Read more", "Question
 - [ ] the report has no missing `i18n` strings and no template errors
 - [ ] images go through `picture()`; ratios are declared
 - [ ] every type, section, module, field and view has a `hint` in every language of `languages`, blocks have a `help` for a newcomer
-- [ ] `heron check . --theme` - no `E008` and `E037`: the demo shows every type, block and view
+- [ ] `heron check . --theme` - no `E008`, `E041` and `E037`: the demo shows every type, block and view
 - [ ] templates without inline scripts and `on*=` handlers, everything from `assets/` (strict CSP)

@@ -117,7 +117,7 @@ Set a short name once in the terminal - an alias:
 alias heron='docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod'
 ```
 
-Now `heron` at the start of a command stands for that whole line: `heron new my-site`, `heron check my-site`, `heron build my-site`. The name has no port, so still run the preview and the configurator with the full command - for example, `docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod serve my-site`.
+Now `heron` at the start of a command stands for that whole line: `heron new my-site`, `heron check my-site`, `heron build my-site`. The name has no port, so still run the preview, the configurator and the studio with the full command - for example, `docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod serve my-site`.
 
 The name lives while this terminal is open. To remove it earlier - `unalias heron`. If you need it for good, the function from the next section is handier.
 
@@ -136,7 +136,8 @@ heron() {
   opts=(--rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)")
   [ -t 0 ] && [ -t 1 ] && opts+=(-it)
   case " $* " in
-    *" serve "*|*" setup "*) opts+=(-p 127.0.0.1:8000:8000) ;;
+    *" serve "*) opts+=(-p 127.0.0.1:8000:8000) ;;
+    *" setup "*|*" studio "*|*" --web "*) opts+=(-p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001) ;;
   esac
   docker run "${opts[@]}" ghcr.io/fmstm/heron:prod "$@"
 }

@@ -1128,7 +1128,7 @@ The JSON-LD types moved there too: `types.<type>.jsonld` is set in `theme.yaml`.
 
 The machine form is `heron schema --theme`.
 
-The theme passport and the basis of the `heron check` report. Unknown top-level keys are allowed; inside `types.<type>`, `links` and `images` an unknown key or an invalid value is `E008`.
+The theme passport and the basis of the `heron check` report. Unknown top-level keys are allowed; inside `types.<type>`, `links` and `images` an unknown key or an invalid value is `E041`.
 
 ```yaml
 name: main
@@ -1200,9 +1200,9 @@ images:
 
 The `images` values in the example are the defaults: the block may be omitted. `ratios` look like `16:9`, both parts positive integers; `widths` is a non-empty list of positive numbers, order and repeats do not matter; `fallback_width` and `cover_width` must be greater than zero. A violation is `E008`.
 
-**The contract for the questionnaire and the studio.** `languages`, a description of modules with `fields` (`modules` is then a mapping, not a list), `types.<type>.sections`, `children_type`, `views` and the `hint`/`help` hints in the languages of the theme - [`21` "Theme contract"](21-engine.md#theme-contract). A theme without them builds as before.
+**The contract for the questionnaire and the studio.** `languages`, a description of modules with `fields` (`modules` is then a mapping, not a list), `types.<type>.sections`, `types.<type>.fields` (own front matter fields of pages of the type: described as a block field, without `md`, the name does not coincide with an engine field - otherwise `E041`; the check - `E042`), `children_type`, `views` and the `hint`/`help` hints in the languages of the theme - [`21` "Theme contract"](21-engine.md#theme-contract). A theme without them builds as before.
 
-`uses` are the sections of the type. An element is a section anchor (`intro`), optionally with a form after a colon (`how:steps`, forms are table 4.4): a form mismatch is a line in the `check` report, not an error. `"*"` - the type accepts any sections. An unknown form, an invalid anchor or a repeated anchor is `E008`.
+`uses` are the sections of the type. An element is a section anchor (`intro`), optionally with a form after a colon (`how:steps`, forms are table 4.4): a form mismatch is a line in the `check` report, not an error. `"*"` - the type accepts any sections. An unknown form, an invalid anchor or a repeated anchor is `E041`.
 
 A page type is implemented by the file `templates/<type>.html` - an ordinary Jinja2 template. Another file is set by the key `types.<type>.template` (a path from `templates/`): `template: page.html` - the type is rendered by the common page template. The order of blocks is visible from top to bottom:
 
@@ -1459,7 +1459,7 @@ heron: ">=0.1"          # the engine version the theme is made for
 fields: [nav_title]     # frontmatter fields the templates access
 ```
 
-The `heron` requirement is written as in `site.yaml`; a malformed requirement is `E008` with the path to `theme.yaml`; a theme newer than the engine is `E012`.
+The `heron` requirement is written as in `site.yaml`; a malformed requirement is `E041` with the path to `theme.yaml`; a theme newer than the engine is `E012`.
 
 The engine checks this at the first stage, before traversing the content. A wrong version is
 `E012`; a field in `fields` the engine does not know is `E023` with the list of fields,

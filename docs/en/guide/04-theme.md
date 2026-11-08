@@ -142,7 +142,7 @@ Every key in detail - [`20` §6](../spec/20-data-contract.md#theme-yaml).
 
 ## Block fields and hints <a id="block-fields"></a>
 
-Templates tell the engine what a page looks like. But a person who will fill the page in needs something else: which blocks the page has, what to write in every field and how it affects the site and search. This is written in `theme.yaml` too - as the contract: the sections of every type, the fields of every block with their place in markdown, section views and the `hint` and `help` hints in every language of the theme. The questions of `page add` and `category add`, the studio, the theme reference and an agent (`describe --json`) work by it, and `check` makes sure the description is complete (`E008`).
+Templates tell the engine what a page looks like. But a person who will fill the page in needs something else: which blocks the page has, what to write in every field and how it affects the site and search. This is written in `theme.yaml` too - as the contract: the sections of every type, the fields of every block with their place in markdown, section views and the `hint` and `help` hints in every language of the theme. The questions of `page add` and `category add`, the studio, the theme reference and an agent (`describe --json`) work by it, and `check` makes sure the description is complete (`E041`).
 
 The description is optional: a theme without it builds as before, only `check` warns once that the questions and the studio show just the SEO block. The starter theme is fully described - its `theme.yaml` is the best sample. How to describe a type, a block, a field and a view, how to write hints for a newcomer and a worked example - [07 · Your own theme](07-theme-author.md#types).
 
@@ -274,7 +274,7 @@ If a template refers to a variable that does not exist, **the build stops** with
 
 ### Your own page fields
 
-A theme can expect its own fields in the SEO block of a page - for example, `topic` or `eyebrow` (a line above the heading). They do not need to be declared anywhere: the engine puts them into the page as they are.
+A theme can expect its own fields in the SEO block of a page - for example, `topic` or `eyebrow` (a line above the heading). The engine puts them into the page as they are, and if you describe them on the type (`types.<type>.fields` - name, type, hints), `page add` and the studio ask them with hints, and `check` checks whether they are required and the allowed values - how to do it, [07 · Your own theme, "Own fields of a page"](07-theme-author.md#own-fields). The starter theme describes `eyebrow` this way on the type `page`.
 
 ```jinja
 {% if page.meta.get('eyebrow') %}<p class="eyebrow">{{ page.meta.get('eyebrow') }}</p>{% endif %}
@@ -283,7 +283,7 @@ A theme can expect its own fields in the SEO block of a page - for example, `top
 
 Read your own fields with `page.meta.get('field', fallback)`: this way the template does not fail if the page has no such field. `page.meta.topic`, however, will fail - this is on purpose, to catch typos in the engine's own fields. All your own fields of a page at once - `page.meta.extra`.
 
-The `fields` key in `theme.yaml` is **only for engine fields** that the theme expects from a new engine version. Your own fields are not written there: the engine does not know them and answers with the error `E023`.
+The **top-level** `fields` key in `theme.yaml` is **only for engine fields** that the theme expects from a new engine version (`fields: [date, updated]`). Your own fields are not written there: the engine does not know them and answers with the error `E023`. Own fields are described on the type - `types.<type>.fields`.
 
 ### Values in the language of the page
 

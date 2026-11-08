@@ -84,7 +84,7 @@ What is what here:
 
 - **`uses`** - the sections of a page of this type in order. It is the agreement with the content: `page add` puts stubs of exactly these sections into a new page and asks for them in this order. After the colon - the form the theme expects from the section: `"how:steps"` - numbered steps. `"*"` - "any blocks": a person may add a section of any form. All forms - [`20` §4.4](../spec/20-data-contract.md#section-forms);
 - **`jsonld`** - the schema.org markup of pages of this type: `Service`, `Article`, `FAQPage`. A person fills in its fields in the "Markup" group;
-- **`sections.<anchor>`** - the description of a section from `uses`: `required` (whether it is mandatory), the hints and, when the section has no form of its own, its fields (`fields`). This is how `intro` is described - the intro block before the first `##` heading. A section that is not in `uses` is an `E008` error. The entry `"*"` in `sections` is the hint to "any blocks";
+- **`sections.<anchor>`** - the description of a section from `uses`: `required` (whether it is mandatory), the hints and, when the section has no form of its own, its fields (`fields`). This is how `intro` is described - the intro block before the first `##` heading. A section that is not in `uses` is an `E041` error. The entry `"*"` in `sections` is the hint to "any blocks";
 - **`template`** - when the type is drawn not by the file `templates/<type>.html` but by another one.
 
 ### Categories: `children_type` and `views` <a id="views"></a>
@@ -163,7 +163,7 @@ A field describes one value a person writes into a block. The main rule: **a fie
 |---|---|
 | `name` | the field name: lowercase Latin letters, digits and `_`, starting with a letter |
 | `type` | `text` - a line, `markdown` - text with markup, `list` - a list, `image` - a picture from `media/`, `link` - a link, `number` - a number, `date` - a date YYYY-MM-DD, `enum` - a choice from a list, `ref` - another page of the site, `flag` - yes or no |
-| `required` | whether it is mandatory: an empty field is an error at the field in the console and in the studio |
+| `required` | whether it is mandatory: an empty field is an error, nothing is written - the console asks again, the studio does not save, `--answers` stops with `E039`. The intro block does not vanish silently if its required text is erased |
 | `md` | where the value lies in markdown - a place from the dictionary |
 | `min_length`, `max_length` | the length of the text in characters |
 | `min_items`, `max_items` | how many items a list has |
@@ -189,9 +189,54 @@ For example, the gallery of the starter theme is a list of pictures, each with a
           - {name: alt, type: text, required: true, md: alt, max_length: 125, schemaorg: ImageObject.caption, hint_ru: Подпись - что на картинке, hint_en: The caption - what is in the picture}
 ```
 
-The limits are checked at once, right at the field: a question that is too long, a picture narrower than 800 pixels, an empty mandatory item - the console asks again, the studio shows the error, `check` names the file.
+The limits are checked at once, right at the field. An error - an empty required field or item, a value not from `values`, a picture not from `media/` or without a file: the console asks again, the studio does not save, `check` names the file. A warning - length and number of items out of bounds, a picture narrower than `min_width` or of another proportion: the answer is written, the warning stays in the report.
 
 **Service fields are not yours to write.** `title`, `h1`, `description`, the address (`slug`), the category, the menu, the cover, the picture for social networks, `noindex`, the "translation not ready" mark, the heading and the anchor of every block are described by the engine itself - the same for all themes, with hints in ru and en.
+
+### Own fields of a page <a id="own-fields"></a>
+
+Sometimes a template needs a value that is in no block: the status of a case, the figures of the result, an eyebrow above the `h1`. Such a value is written right into the SEO block of the page, and the theme describes it on the type - with the key `fields`. The description is the same as for a block field, only without `md`: the value lives in the front matter under the field name. An example - the type "case" with a list of figures and a status:
+
+```yaml
+types:
+  case:
+    uses: [intro, "*"]
+    hint_ru: Кейс - задача, что сделали, результат
+    hint_en: A case - the task, what was done, the result
+    fields:
+      - name: status
+        type: enum
+        values: [done, in-progress]
+        required: true
+        hint_ru: Статус работы - готово или ещё идёт
+        hint_en: The status of the work - done or still going
+      - name: metrics
+        type: list
+        item: text
+        max_items: 4
+        hint_ru: Цифры результата - по одной на пункт, например «+40% заявок»
+        hint_en: The figures of the result - one per item, such as "+40% requests"
+```
+
+In the page file these are two lines of the SEO block, and the template reads them via `page.meta.get(…)`:
+
+```yaml
+status: done
+metrics: ["+40% requests", "3 weeks"]
+```
+
+```jinja
+{% for item in page.meta.get('metrics') or [] %}<li>{{ item }}</li>{% endfor %}
+```
+
+What the engine does with them:
+
+- `page add` and the studio show them as the group "Theme fields" with your hints: an `enum` as a choice from `values`, a list one item per line. A new page gets a required field filled at once (the first of `values`, the example or the marker `TODO`), an optional one - as a stub `# metrics:` with the hint;
+- `check` and the build: a required one empty, a value not from `values` or of the wrong type - error `E042`; length and number of items out of bounds - a warning;
+- translations: the fields with text (`text`, `markdown`, `list`, `link`) are translated in other languages like the headings; the rest (`enum`, `number`, `flag`, `date`, `ref`, `image`) are one for all languages - an edit in the main language writes the same value into every file of the page;
+- `describe`, the theme reference and an agent (`describe --json`) show them at the type.
+
+The name of an own field does not coincide with an engine field (`title`, `slug`, `order`, `image`, `translation`, `view` and the others from `describe`) - otherwise `E041`. And do not confuse it with the **top-level** key `fields` of `theme.yaml`: that one is a list of names of engine fields your templates read (`fields: [date, updated]`); own fields are not described there (`E023`).
 
 ## Hints: for a person with no experience <a id="hints"></a>
 
@@ -201,7 +246,7 @@ Whoever runs a site on your theme often sees HERON, markdown and the word "snipp
 - **`help`** - detailed help by `?`: what it is, what it affects on the site and in search, a good example, common mistakes. Several lines - handy as a `|-` block.
 - **`example`** - for a module: a markdown sample one can copy.
 
-Hints are written in every language of the theme with the language suffix: `hint_ru`, `hint_en`, `help_uk`. A key without a suffix (`hint`) is for the languages that have no text of their own. The languages of the theme are the `languages` list. `hint` is mandatory for every type, section from `sections`, module from the description, field and view: when even one is missing, `check` stops with `E008` and lists the paths, for example `types.service.sections.how (en)`.
+Hints are written in every language of the theme with the language suffix: `hint_ru`, `hint_en`, `help_uk`. A key without a suffix (`hint`) is for the languages that have no text of their own. The languages of the theme are the `languages` list. `hint` is mandatory for every type, section from `sections`, module from the description, field and view: when even one is missing, `check` stops with `E041` and lists the paths, for example `types.service.sections.how (en)`.
 
 How to write them well:
 
@@ -274,7 +319,7 @@ docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmst
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod build . --env prod --strict
 ```
 
-- `check --theme` - the theme description is complete (`E008` - something is missing or wrong), the demo shows everything (`E037`), templates do not change data (`E033`), there are no inline scripts (a warning);
+- `check --theme` - the theme description is complete (`E041` - something is missing or wrong), every type has a template (`E008`), the demo shows everything (`E037`), templates do not change data (`E033`), there are no inline scripts (a warning);
 - `build --env prod --strict` - every page is drawn without errors and warnings.
 
 ## Packing and publishing <a id="pack"></a>
@@ -314,7 +359,7 @@ docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/
 docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add roofing . --category services
 ```
 
-5. **The demo texts.** The engine asks about the fields of the type - with your hints. Write a plausible service: an intro paragraph, three to five items "what is included", the steps, two or three questions. Translate into the other languages - otherwise the page gets the `translation: pending` mark. Add the `services` item to the menu (`nav.main` in `site.yaml`).
+5. **The demo texts.** The engine asks about the fields of the type - with your hints. The sections of the new page already stand in the form the theme expects (`includes` - a list, `how` - steps, `faq` - questions), with the sample from `example_<lang>` of the modules, and the section headings are the marker `TODO heading`. So you can press Enter at every question: `check .` passes, and the production build reminds you with error `E040` that the page is not finished. Lists are asked one item per line, items with fields - after `+`, field by field. Write a plausible service: an intro paragraph, three to five items "what is included", the steps, two or three questions. Translate into the other languages - otherwise the page gets the `translation: pending` mark. Add the `services` item to the menu (`nav.main` in `site.yaml`).
 6. **Checking the demo.** `check . --theme` no longer says "type service: no demo page at all". Open `localhost:8000/_heron/theme/` - the `service` type is in the reference.
 7. **Packing.** `theme pack . --out theme.tar.gz` - the archive is ready.
 
@@ -330,16 +375,16 @@ docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmst
 
 This section can be read apart from the rest. It is for someone who has already made a theme on engine 0.2 and moves it to 0.3. A 0.2 theme still builds on engine 0.3, but `check` warns "no description of fields", `page add` and the studio show a person only the SEO block, without the fields of the blocks and the hints, and the theme reference is almost empty. For the theme to work at full strength, go through the list.
 
-1. **Update the engine and check its version** - the first two commands at the end of the section. The version must be `0.3` or newer. It shows `0.2` - then 0.3 is not out as the stable version yet: take the `:beta` image instead of `:prod` in all commands.
+1. **Update the engine and check its version** - the first two commands at the end of the section. The version must be `0.3` or newer. If `--version` shows `0.2` both for the `:prod` and the `:beta` image (write `beta` instead of `prod` in the command), release 0.3 is not published yet - wait for it. Move the theme together with switching to engine 0.3, not in advance: engine 0.2 does not know the contract keys (`hint_*`, `help_*`, `sections`, `views`, `children_type`, `fields` of modules and types) and refuses to build such a theme ("the contract has no such field"), so a theme with the 0.3 description does not build on engine 0.2.
 2. **Raise the engine version in `theme.yaml`:** `heron: ">=0.3"`. If it said `">=0.2,<0.3"`, engine 0.3 does not build the theme (`E012`). Raise the `version` of your theme too.
 3. **Name the hint languages:** `languages: [ru, en]` - the ones you will write the hints in.
-4. **Describe every type.** Every type in `types` has `hint_<lang>` in every language and `help_<lang>`; every section from `uses` that a person fills in has an entry in `sections` with `required` and a hint; `intro` and other sections without a form have `fields` ([Page types](#types)).
+4. **Describe every type.** Every type in `types` has `hint_<lang>` in every language and `help_<lang>`; every section from `uses` that a person fills in has an entry in `sections` with `required` and a hint; `intro` and other sections without a form have `fields` ([Page types](#types)). If templates read own keys from the page (`page.meta.get('status')`, `page.meta.eyebrow`), describe them in `fields` of the type - then `page add` and the studio ask them with hints, and `check` checks them ([Own fields of a page](#own-fields)).
 5. **Describe every module.** Turn the list `modules: [prose, list, …]` into a description: a module has `scope`, `kinds`, `schemaorg` (when the block gives markup), the hints, `example_<lang>` and `fields` with the `md` place for every field ([Modules](#modules), [Fields](#fields)). The page modules (`breadcrumbs`, `children`) have `scope: page` and `fields: []`. Do not mix them up: the top-level `fields` key of `theme.yaml` is about engine fields, not blocks; your own fields do not go there (`E023`).
 6. **Categories.** When a type can be a category - `children_type` and `views` with the views your templates draw; the template reads the view from `page.meta.get('view')` ([Categories](#views)).
 7. **The demo.** In `content/` of the theme site - at least one page of every type (`404.md` as a file included), every block at least once and every category view on a category with pages inside ([The theme demo](#demo)). A module no page draws - remove it from `modules` or show it in the demo. Pages are easy to create with the `category add` and `page add` commands - they put files in every site language at once.
 8. **Old commands in texts.** If the demo or the docs of the theme advise `page <type> <key>` or `--folder`, replace them with `page add <key> --type <type> --category <path>`: the old form is removed in 0.3 (`E038`).
 9. **Strict CSP.** No inline `<script>` with code and no `onclick=`, `onload=` handlers in templates - code goes to `assets/*.js`, data goes in `data-*` attributes; fonts, pictures and scripts come from `assets/`, not from other servers ([Strict CSP](04-theme.md#strict-csp)).
-10. **Check and pack.** `check . --theme` - not a single `E008` or `E037`; `describe` - the whole description is in place; `localhost:8000/_heron/theme/` in the preview - the reference reads as instructions for a newcomer; `build . --env prod --strict` - no errors; `theme pack . --out theme.tar.gz` - the archive is ready.
+10. **Check and pack.** `check . --theme` - not a single `E008`, `E041` or `E037`; `describe` - the whole description is in place; `localhost:8000/_heron/theme/` in the preview - the reference reads as instructions for a newcomer; `build . --env prod --strict` - no errors; `theme pack . --out theme.tar.gz` - the archive is ready.
 
 The commands of the list in full, in order:
 

@@ -51,7 +51,7 @@ The easiest way to create a page is the `page add` command:
 docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add about my-site
 ```
 
-After `page add` come the page **key** (`about`; if the page lies in a section folder, the key is the folder plus the name, for example `services/roof`) and the site folder. The command has one rule: no page - it is created in all languages of the site at once, the page exists - it opens for editing. The file gets a full SEO block and drafts of every section the theme expects for this type. You can also do without the command: copy a ready file under a new name into every language folder.
+After `page add` come the page **key** (`about`; if the page lies in a section folder, the key is the folder plus the name, for example `services/roof`) and the site folder. The command has one rule: no page - it is created in all languages of the site at once, the page exists - it opens for editing. The file gets a full SEO block and drafts of every section the theme expects for this type: each already in its form (a list, steps, questions) with sample text from the theme, the section heading is the marker `TODO heading`. You can build and look at the draft at once, but the production build (`--env prod`) does not release a page with `TODO` markers and placeholder text: error `E040` names the file and the field. You can also do without the command: copy a ready file under a new name into every language folder.
 
 ### How to answer the questions <a id="questions"></a>
 
@@ -60,7 +60,8 @@ After `page add` come the page **key** (`about`; if the page lies in a section f
 - in square brackets - the value that stays if you just press **Enter**: from `site.yaml`, from the theme or from the stub;
 - next to the field name - a one-line hint, and **`?`** instead of an answer shows detailed help: what it is, what it affects on the site and in search, a good example and common mistakes. The help on blocks is written by the author of the theme;
 - **`-`** clears the field, **Ctrl+C** - quit without writing;
-- an answer with an error (for example, a `title` longer than 60 characters) is marked at once and asked again, and a remark (`title` equals `h1`) is shown and the engine goes on - the rules are the same as for `check`.
+- an answer with an error is marked at once and asked again: an empty required field, a value not from the list, a picture not from `media/` or without a file. A remark is shown and the engine goes on, the answer is written: `title` longer than 60 characters, `description` longer than 155, `title` equals `h1`, a text shorter or longer than the theme asks. The rules are the same as for `check`;
+- a list (items, `redirect_from`) is asked one item per line: type the first item, then the next ones, an empty line ends the list, Enter at once keeps it as it is. For items with fields (a question and an answer, a term and a text) first `+`, then the fields of each item in turn; an empty first field ends the list.
 
 The order of questions: the category - a number from the list (`0` - the root of the site, `1+` - a new category inside the first one, `+` - a new one at the top), the page type if the theme has several, then the fields by groups. "Search: title and description" and "Address and type" are always asked, "Menu and order", "Cover", "Social networks and messengers" and "Publishing" - with the question "Change? [y/N]": Enter leaves the group as it is. The blocks of the page come last - in the order the theme expects them. This is how it looks (shortened):
 
@@ -85,7 +86,7 @@ The engine asks the main language in full. Then, for every other language, - onl
 
 ### Without questions: an agent and scripts <a id="answers"></a>
 
-Agents and scripts do not need questions, and there is no `-it` in their commands. `--dump` prints all fields of the page as YAML, `--answers file` writes the answers from a file (the same fields per language; a language without a translation - `pending`), and `--lang de` edits one language only. Without a terminal and without answers the command creates a page from the stub and leaves an existing one alone. Field paths and hints - `describe --json`:
+Agents and scripts do not need questions, and there is no `-it` in their commands. `--dump` prints all fields of the page as YAML, `--answers file` writes the answers from a file (the same fields per language; a language without a translation - `pending`), and `--lang de` edits one language only. Without a terminal and without answers the command creates a page from the stub and leaves an existing one alone. `key` in the answers wins over `category`: a new key moves the page as a whole, and `category` from the same dump is then not applied (changed only `category` - a move into that category with the same name). Field paths and hints - `describe --json`:
 
 ```bash
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add about my-site --dump > about.yaml
@@ -100,7 +101,7 @@ Then:
 - write the intro and the sections. If there is no material for a section - **do not create it**: the theme does not draw an empty block, and the "Not filled in" summary after the build shows what is missing;
 - build the site. The page appears by itself in the catalog of its section, in the sitemap, in the links between translations (hreflang) and in `llms.txt`.
 
-**Translation pending.** If a translation is skipped while creating, the language file gets the text of the main language and the line `translation: pending` in group 7 of the SEO block. A draft build and the preview show such a page with a yellow "translation pending" banner, and a production build (`--env prod`) does not publish it in this language: neither the page nor links to it in the menu, the sitemap and hreflang; the build report names such pages in a list, and with `--strict` it is an error. Once translated, delete the line, and the page appears.
+**Translation pending.** If a translation is skipped while creating, the language file gets the text of the main language and the line `translation: pending` in group 7 of the SEO block. A draft build and the preview show such a page with a yellow "translation pending" banner, and a production build (`--env prod`) does not publish it in this language: neither the page nor links to it in the menu, the sitemap and hreflang; the build report names such pages in a list, and with `--strict` it is an error. Once translated, delete the line, and the page appears. A category that is not translated (`_index.md` with the mark) - the production build does not publish it in that language, nor any page inside, even translated ones: they are in the report list too and in `pending` of `check --json`.
 
 To delete a page, delete its file. If the old address was already in search, do not abandon it: add this address to `redirect_from` of the page that replaces it (the visitor is redirected, code 301), or to `gone` in `site.yaml` (the address answers "gone for good", code 410).
 
@@ -109,13 +110,13 @@ To delete a page, delete its file. If the old address was already in search, do 
 The same - creating a page or a section, editing fields, translating, moving - can be done with the mouse, in the studio. The `studio` command opens it:
 
 ```bash
-docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod studio my-site
+docker run --rm -it -p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod studio my-site
 ```
 
-The engine prints an address like `http://localhost:8000/#key` - open it whole, together with the part after `#`: this is the access key, without it the studio shows nothing. The studio is open on your computer only and closes with Ctrl+C in the terminal. The `--web` flag of `page add` and `category add` opens it right on the page or section you need - with the same `-it -p 127.0.0.1:8000:8000`:
+The engine prints an address like `http://localhost:8000/#key` - open it whole, together with the part after `#`: this is the access key, without it the studio shows nothing. The studio is open on your computer only and closes with Ctrl+C in the terminal. The `--web` flag of `page add` and `category add` opens it right on the page or section you need - with the same `-it -p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001`. Port 8001 is for the page preview and the theme reference: the studio shows them from a port of their own, apart from the page with the key, so that theme scripts cannot reach the key:
 
 ```bash
-docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add about my-site --web
+docker run --rm -it -p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add about my-site --web
 ```
 
 What you will see:
@@ -124,7 +125,7 @@ What you will see:
 - on the left - the tree of sections and pages. Each shows the languages of the site: `RU` - the file exists, `DE!` - the translation is not ready, struck through - there is no file. A page or a section can be dragged into another section: the files move in all languages, the old addresses get a 301;
 - on the right - the fields of the page by groups, as in the questions of `page add`: titles and description for search, the address, the menu, the cover, social networks, publishing, then the blocks of the page. Hover over the name of a field - a short hint; the `?` button opens help with an example. Errors and remarks show right at the field, by the same rules as `check`. A section also has its view here (cards, a list - what the theme can do) and the type of the pages inside;
 - language tabs above the fields. The main language has all fields, the others - only the texts. In a new language file an empty field means "not translated yet": the language gets the mark `translation: pending`, and the production build does not publish it until the translation is there;
-- "+ Page" and "+ Category" (that is, a section) create a draft in all languages at once, "+ Block" adds a section of the form you need, "Upload" at a picture puts the file into `media/` and checks its width and proportions, "Check" and "Preview" do what `check` and `serve` do.
+- "+ Page" and "+ Category" (that is, a section) create a draft in all languages at once, "+ Block" adds a section of the form you need in all languages (on languages already translated it gets the "translation pending" mark, and before saving the studio asks: "en, de will leave publication until translated - continue?"; `page add` asks the same), "Upload" at a picture puts the file into `media/` and checks its width and proportions, "Check" and "Preview" do what `check` and `serve` do.
 
 The studio writes the same files as the commands, and only what you changed: your comments, the order of the fields and the hand-written markup stay as they were. The files appear on disk with the Save button.
 
@@ -153,11 +154,11 @@ The `--category` flag puts a page straight into the right section (if there is n
 docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add roof --category services my-site
 ```
 
-The same flag on an existing page is a move: the files move in all languages, and a 301 is set from the old addresses (`redirect_from`). A whole section, with all pages inside, is moved the same way: by dragging in the studio tree or with a new key (`key`) in the `--answers` of the `category add` command.
+The same flag on an existing page is a move: the files move in all languages, and a 301 is set from the old addresses (`redirect_from`). A whole section, with all pages inside, is moved the same way: by dragging in the studio tree or with a new key (`key`) in the `--answers` of the `category add` command. Moved a page back to where it already was - its former address leaves `redirect_from`, otherwise it would point to itself (`E009`). A section anchor changes in all languages at once: it is part of the page structure, and `check` warns if the anchors differ in some language.
 
 What matters about sections:
 
-- `slug` in `_index.md` changes the address of the section itself and of all pages in it: the Russian pages of the section end up under `/ru/uslugi/` by themselves;
+- `slug` in `_index.md` changes the address of the section itself and of all pages in it: the Russian pages of the section end up under `/ru/uslugi/` by themselves. If you change `slug` with `page add`, `category add` or in the studio, every page with a new address gets the old one in `redirect_from` - the old addresses answer 301;
 - in `_index.md` you can set the type for all pages of the section, for example `children_type: service` - if the theme has such a type (the white starter theme has only `home`, `page` and `404`; with an unknown type the build stops with error `E008`). Then the theme draws them with its own template;
 - how the section page shows its pages - as cards, a list or otherwise - is decided by the **view** (`view` in `_index.md`, the `--view` flag of `category add`, a field in the studio). Every theme has its own views - [04 · Theme and design](04-theme.md#category-views);
 - the section page gets the list of its pages as `page.children`. They are sorted by the `order` field, and with equal `order` - by `h1`;

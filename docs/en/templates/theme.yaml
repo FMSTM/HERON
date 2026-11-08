@@ -15,7 +15,7 @@ requires:                      # site.yaml paths the theme does not work without
 fields: [nav_title]            # engine front matter fields the templates use (not block fields)
 
 # Modules are the blocks of the theme: which forms they draw, their fields with the place in markdown (md) and the hints.
-# Describing one module with fields turns on the hint check for all of them: E008 when something is missing.
+# Describing one module with fields turns on the hint check for all of them: E041 when something is missing.
 modules:
   prose:
     kinds: [prose]

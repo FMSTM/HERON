@@ -88,12 +88,12 @@ Created:
 
 What next:
   1. Set the site up in the configurator:
-      docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod setup my-site
+      docker run --rm -it -p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod setup my-site
     name, domain, who you are, publishing. Or by hand in my-site/site.yaml.
   ...
 ```
 
-In the "What next" block the engine suggests the next steps - we go through them in order below. Every hint is a ready command on its own line: select the whole line and paste it into the terminal. If the engine is installed without Docker, the hints are short - for example, `heron setup my-site`.
+In the "What next" block the engine suggests the next steps - we go through them in order below. In Docker every hint is a ready `docker run …` command on its own line: select the whole line and paste it into the terminal. If the engine is installed without Docker, the hints are short and sit right in the text - for example, `heron setup my-site`: copy them without the quotes.
 
 ### What appeared in the folder
 
@@ -117,7 +117,7 @@ Besides the home page, `content/` holds demo pages:
 - "Documentation" (`docs.md`) - where to read next;
 - "Structure" (the folder `structure/`) - a section with its own page `_index.md` and two pages inside: how to lay a site out as pages and sections.
 
-They are handy to look at like this: the file in the editor on the left, the same page in the browser on the right. The demo pages have texts in Russian and English; other languages get the English ones. This is the demo of the theme - a sample its author thought through: which pages a site needs and which blocks they have. Replace the texts with your own or, when you no longer need the pages, delete the files and remove them from the menu - `nav.main` in `site.yaml`. How to remove the demo and how to bring it back - [04 · Theme and design](04-theme.md#demo-pages).
+They are handy to look at like this: the file in the editor on the left, the same page in the browser on the right. The demo pages have texts in Russian, Ukrainian and English; other languages get the English ones - marked `translation: pending` (except the main language): the production build does not release English text as German until it is translated. If the home page of such a language is not translated either, the production build stops (`E028`) and suggests translating the home page or removing the language from `site.languages`. This is the demo of the theme - a sample its author thought through: which pages a site needs and which blocks they have. Replace the texts with your own or, when you no longer need the pages, delete the files and remove them from the menu - `nav.main` in `site.yaml`. How to remove the demo and how to bring it back - [04 · Theme and design](04-theme.md#demo-pages).
 
 **If an AI agent writes the texts.** Give it a link to the site repository and the task: "Read `AGENTS.md` and write the page texts." `AGENTS.md` describes the agent roles; texts and SEO are the "Content and SEO" role. The `agents/` folder holds the engine documentation of the same version and in the same language you chose; it does not get onto the site. If you do not need agents, create the site with the `--no-agents` flag at the end of the `new` command - the engine remembers it in `site.yaml`. When a new engine version comes out, the command `init my-site --agents` updates the instructions you have not edited. More - [`agents/README.md`](../README.md).
 
@@ -146,10 +146,10 @@ All site settings live in one file - `my-site/site.yaml`. There are two ways to 
 
 ### Way 1: the configurator in the browser
 
-If the preview is running (in any tab), stop it first with Ctrl+C: the configurator needs the same port 8000. Then:
+If the preview is running (in any tab), stop it first with Ctrl+C: the configurator needs the same port 8000. The configurator and the studio take one more port, 8001, for the page preview and the theme reference - so the command has two `-p`. Then:
 
 ```bash
-docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod setup my-site
+docker run --rm -it -p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod setup my-site
 ```
 
 The engine prints an address like this:
@@ -238,7 +238,7 @@ Let's add an "About us" page with the key `about`:
 docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod page add about my-site
 ```
 
-How to read the end of the command: `page add` - "create a page, and if it already exists - open it for editing", `about` - its **key** (the file name and the address come from it), `my-site` - the site folder. `-it` is needed because the engine asks questions: which category the page lives in, the title for search, the heading on the page itself, the description and the other fields. Every question shows in brackets the value that stays if you just press Enter, next to it - a one-line hint, and `?` shows the detailed help. An answer with a mistake (for example, a title that is too long) is flagged at once and asked again. First the engine asks everything in the main language, then for every other language - a translation of the same texts: type the translation or press Enter to skip the field. How to answer the questions, with an example, - [03 · Pages and content](03-content.md#questions).
+How to read the end of the command: `page add` - "create a page, and if it already exists - open it for editing", `about` - its **key** (the file name and the address come from it), `my-site` - the site folder. `-it` is needed because the engine asks questions: which category the page lives in, the title for search, the heading on the page itself, the description and the other fields. Every question shows in brackets the value that stays if you just press Enter, next to it - a one-line hint, and `?` shows the detailed help. An answer with an error (for example, an empty required field) is flagged at once and asked again, and a remark (for example, a `title` longer than 60 characters) is shown and the answer is written - you can fix it later. First the engine asks everything in the main language, then for every other language - a translation of the same texts: type the translation or press Enter to skip the field. How to answer the questions, with an example, - [03 · Pages and content](03-content.md#questions).
 
 At the end the engine shows a summary and asks "Write?". The page appears in all languages at once: `my-site/content/en/about.md` and `my-site/content/ru/about.md` - with a ready SEO block and drafts of the sections. If you skipped the translation, the Russian file keeps the English text and the line `translation: pending`: a draft build and the preview show such a page with a yellow "translation pending" banner, and a production build does not publish it in Russian until you translate the text and delete this line.
 
@@ -262,7 +262,7 @@ You can also do without the command: copy any page file under a new name and edi
 Or with a mouse, in the studio in the browser: the page tree on the left, the fields with hints on the right, languages as tabs. Stop the preview (Ctrl+C) - the studio needs the same port - and run:
 
 ```bash
-docker run --rm -it -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod studio my-site
+docker run --rm -it -p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod studio my-site
 ```
 
 Open the address the engine prints in full - with the key after `#`, as for the configurator. What is in the studio - [03 · Pages and content](03-content.md#studio).

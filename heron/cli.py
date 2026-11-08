@@ -1495,14 +1495,14 @@ def setup(
     host: str | None,
     notes: str | None,
 ) -> None:
-    """Конфигуратор-анкета. Справка — help_setup в heron/messages.py."""
+    """Конфигуратор. Справка — help_setup в heron/messages.py."""
     from heron import setup as configurator
 
     notes = notes or ctx_notes()
     lang = _lang(notes, path)
     _need_dir(path, lang)
     if not (path / "site.yaml").is_file():
-        # Без этой проверки анкета открывалась пустой в любой папке: человек
+        # Без этой проверки конфигуратор открывался пустым в любой папке: человек
         # заполнял её, а сайт лежал рядом, в другой папке, и ничего не знал.
         _err(say(lang, "setup_no_site", path=_shown(path)))
         _err(say(lang, "setup_no_site_hint", path=_shown(path)), None)

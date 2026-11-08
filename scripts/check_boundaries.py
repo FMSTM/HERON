@@ -38,7 +38,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 HASHES = HERE / "boundary-hashes.txt"
 LOCAL = HERE / "boundary-patterns.local.txt"
-# classifier.yaml - общий классификатор сфер деятельности для анкеты (как
+# classifier.yaml - общий классификатор сфер деятельности для конфигуратора (как
 # словарь schema.org): медицина, право и прочее там - это рубрики для любого
 # сайта, а не данные конкретного. Решено 2026-10-20.
 # schemaorg-29.3.json - индекс словаря schema.org (стандарт, одинаковый у всех

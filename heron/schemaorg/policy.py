@@ -360,7 +360,7 @@ class SiteFindings:
 def site_findings(
     config: SiteConfig, today: date | None = None, allow: Sequence[str] = ()
 ) -> SiteFindings:
-    """Проверить только узлы site.yaml (без страниц и темы): для анкеты."""
+    """Проверить только узлы site.yaml (без страниц и темы): для конфигуратора."""
     from heron.modules import jsonld
 
     today = today or today_for_build()

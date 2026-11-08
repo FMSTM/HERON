@@ -10,7 +10,7 @@
 | GitHub    | с автосборкой — `.github/workflows/image.yml` (путь задаёт GitHub)  |
 | статика   | GitHub Pages — `.github/workflows/pages.yml`                        |
 
-Помощники включаются и выключаются в анкете (`publish.helpers`). Скрипты
+Помощники включаются и выключаются в конфигураторе (`publish.helpers`). Скрипты
 лежат в скрытой папке `.heron/`: в сборку сайта она не попадает. Внутри —
 свои папки (`scripts/`, дальше и другое), чтобы корень сайта не зарастал.
 
@@ -113,7 +113,7 @@ def engine_image(engine: str) -> str:
 
 
 # Как запускается движок — одна политика на все сценарии: scripts/site.sh,
-# site-image.yml и файлы, которые пишет анкета. Без сети, корень образа
+# site-image.yml и файлы, которые пишет конфигуратор. Без сети, корень образа
 # только на чтение, без capabilities, не от рута. Сравнение с двумя другими
 # местами — tests/test_docker_policy.py.
 POLICY = (
@@ -301,7 +301,7 @@ MARK = "heron setup"
 OWNED = (
     BUILD,
     PUBLISH,
-    # прежние места: анкета их писала раньше и убирает, переселяя в .heron/
+    # прежние места: конфигуратор их писал раньше и убирает, переселяя в .heron/
     "scripts/build.sh",
     "scripts/publish.sh",
     "scripts/keys.sh",

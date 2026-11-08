@@ -145,7 +145,7 @@ def prop_head(prop: str) -> str:
 
 
 def fields_for(about: Any) -> list[str]:
-    """Поля анкеты, допустимые итоговому типу: свойство разметки есть у типа по словарю."""
+    """Поля конфигуратора, допустимые итоговому типу: свойство разметки есть у типа по словарю."""
     kind = about.type
     if not kind:
         return list(vocab()["common"])
@@ -218,7 +218,7 @@ class ThemeAnswers(Model):
     @field_validator("source", mode="before")
     @classmethod
     def _later(cls, value: Any) -> Any:
-        # «решу потом» убран из анкеты: белая тема и так стоит у нового сайта
+        # «решу потом» убран из конфигуратора: белая тема и так стоит у нового сайта
         return "keep" if value == "later" else value
 
 
@@ -431,7 +431,7 @@ class PublishAnswers(Model):
     static_target: Literal["server", "pages"] = "server"
     server: str = ""
     path: str = ""
-    # Помощники для удобства: какие файлы анкета кладёт рядом с site.yaml.
+    # Помощники для удобства: какие файлы конфигуратор кладёт рядом с site.yaml.
     # Скрипты — в скрытую папку .heron/scripts/, в сборку сайта они не идут.
     helpers: dict[str, bool] = Field(
         default_factory=lambda: {"build": True, "publish": True, "gitignore": True}
@@ -677,7 +677,7 @@ def _read_from_entity(entity: dict[str, Any], name: str, prop: str | None = None
 
 
 def _read_type(raw: Any) -> tuple[str, str]:
-    """Тип из записанной разметки: (вид для анкеты, точный тип специализации)."""
+    """Тип из записанной разметки: (вид для конфигуратора, точный тип специализации)."""
     kinds = vocab()["types"]
     values = raw if isinstance(raw, list) else [raw]
     values = [v for v in values if isinstance(v, str)]
@@ -926,7 +926,7 @@ def _entity_contacts(
     """Связь в разметке: основной телефон и почта, точки связи по назначению, профили.
 
     Телефон и почта — подстановкой из `contact.phone`/`contact.email`, как у
-    всего остального. Точки связи и профили — списком: их состав пишет анкета
+    всего остального. Точки связи и профили — списком: их состав пишет конфигуратор
     при каждом сохранении, из того же `contact.channels`.
     """
     from heron.schemaorg import vocab as schema_vocab
@@ -1072,7 +1072,7 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
         site["name"] = a.name
     domains = dict(site.get("domains") or {})
     # Рабочий домен — тот, что реально у прода: site.domains.prod, если он
-    # задан, иначе site.domain. Поменяли его в анкете — меняются оба, иначе
+    # задан, иначе site.domain. Поменяли его в конфигураторе — меняются оба, иначе
     # прод собирался бы со старым. Не меняли — файл остаётся как был.
     effective = domains.get("prod") or site.get("domain")
     if a.domain and a.domain != effective:
@@ -1175,11 +1175,11 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
             out.pop("organization")
 
     schema = out.get("schema") if isinstance(out.get("schema"), dict) else {}
-    # Узел разметки сливается в три стороны. База — то, что анкета сама
+    # Узел разметки сливается в три стороны. База — то, что конфигуратор сам
     # записала бы для прежнего конфига; если ответ не менялся, ключ берётся
-    # из site.yaml как есть. Так переживают сохранение поля, которых анкета
+    # из site.yaml как есть. Так переживают сохранение поля, которых конфигуратор
     # не знает (geo, openingHours, medicalSpecialty, founder…), точный
-    # @type и чужой @id — и меняется только то, что человек поменял в анкете.
+    # @type и чужой @id — и меняется только то, что человек поменял в конфигураторе.
     previous = schema.get("entity") if isinstance(schema.get("entity"), dict) else {}
     base = _entity(read(data)) if previous else None
     entity = _three_way(previous, base or {}, _entity(answers) or {})
@@ -1222,7 +1222,7 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
     off = sorted(k for k, v in p.helpers.items() if not v)
     if p.way == "none":
         # «Пока не знаю» — но решения о помощниках и движок для скрипта
-        # сборки уже приняты: без них повторное открытие анкеты вернуло бы
+        # сборки уже приняты: без них повторное открытие конфигуратора вернуло бы
         # умолчания и переписало помощники.
         block = {"way": "none"}
         if p.engine != "prod":
@@ -1263,11 +1263,11 @@ _MISSING = object()
 
 
 def _three_way(theirs: Any, base: Any, ours: Any) -> Any:
-    """Слить узел: `theirs` — в site.yaml, `base` — что дала бы анкета для
+    """Слить узел: `theirs` — в site.yaml, `base` — что дал бы конфигуратор для
     него, `ours` — что она даёт для новых ответов.
 
     Ответ не менялся (`ours == base`) — остаётся записанное в файле, будь то
-    поле руками или поле анкеты. Менялся — берётся новое; пропал из ответов —
+    поле руками или поле конфигуратора. Менялся — берётся новое; пропал из ответов —
     ключ убирается. Словари сливаются по ключам.
     """
     if isinstance(theirs, dict) and isinstance(ours, dict):
@@ -1328,7 +1328,7 @@ def ordered(data: dict[str, Any]) -> dict[str, Any]:
 # --- находки проверки разметки при сохранении --------------------------------------
 
 SCHEMA_MODES = ("check", "drop", "except")
-# свойство разметки -> поле анкеты, которое не лежит в vocab.yaml по prop
+# свойство разметки -> поле конфигуратора, которое не лежит в vocab.yaml по prop
 _PROP_FIELD = {
     "telephone": "contacts",
     "email": "contacts",
@@ -1351,7 +1351,7 @@ class SchemaFindings(ValueError):
 
 
 def field_for(path: str) -> str | None:
-    """Поле анкеты, которому принадлежит находка по пути `schema.entity.<свойство>`."""
+    """Поле конфигуратора, которому принадлежит находка по пути `schema.entity.<свойство>`."""
     if not path.startswith(_ENTITY_PREFIX):
         return None
     prop = path[len(_ENTITY_PREFIX) :]

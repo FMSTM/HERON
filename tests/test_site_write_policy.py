@@ -90,7 +90,7 @@ def test_symlinked_helpers_folder(tmp_path):
     root = _site(tmp_path)
     out = _outside(tmp_path)
     (out / "scripts").mkdir()
-    # чужой файл с отметкой анкеты: удаление прежних помощников его бы стёрло
+    # чужой файл с отметкой конфигуратора: удаление прежних помощников его бы стёрло
     (out / "scripts" / "build.sh").write_text(f"# {files_module.MARK}\n", encoding="utf-8")
     import shutil
 

@@ -5,7 +5,7 @@ Make a theme that draws every page type of the structure and does not break on i
 **Input:** page types and their sections from the architect (or an existing `theme.yaml`), a mockup or a description of the look.
 **Output:** the `theme/` folder: `theme.yaml`, `base.html`, type templates, form modules, `partials/`, `assets/`, `i18n/<lang>.yaml`.
 
-**Limits.** You write only to `theme/`. `content/`, `data/`, `site.yaml`, `.github/`, scripts are not yours. A theme by link or archive is installed only if the human named it. The report is `agents/work/report.md` in the form of [`templates/report.md`](../templates/report.md). Done when the build passes on the starter and on the full content, `heron check . --theme` has no `E008` and `E037` and the report has no missing `i18n` strings.
+**Limits.** You write only to `theme/`; when the task is a theme for other sites, also its demo: pages in `content/` and pictures in `media/`. `content/`, `data/`, `site.yaml`, `.github/`, scripts are not yours. A theme by link or archive is installed only if the human named it. The report is `agents/work/report.md` in the form of [`templates/report.md`](../templates/report.md). Done when the build passes on the starter and on the full content, `heron check . --theme` has no `E008` and `E037` and the report has no missing `i18n` strings.
 
 ## 1. Start with the starter theme
 

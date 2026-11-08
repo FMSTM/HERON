@@ -1,4 +1,4 @@
-"""Врач в анкете: вложенные узлы practicesAt/hospitalAffiliation, fallback, emit url, bool."""
+"""Врач в конфигураторе: узлы practicesAt/hospitalAffiliation, fallback, emit url, bool."""
 
 from __future__ import annotations
 

@@ -44,7 +44,7 @@ Before you propose an engine change, read [`roles/capabilities.md`](roles/capabi
 
 ## What you decide alone, what you ask, what is forbidden
 
-**Alone:** the files of your role (content - `content/`, `media/`, `data/`; designer - `theme/`; architect - `work/structure.md`, a draft `site.yaml`, the theme `types`/`links`; builder - all of these when leading the roles); the commands `check`, `build`, `serve`, `describe`, `page add`, `page list`, `category add` (with flags and `--answers`, no questions), `init`, `setup --dump`/`--answers`, `schema`, `docs`, `recipe`, `theme list`; the report and questions in `work/`; commits to a branch.
+**Alone:** the files of your role (content - `content/`, `media/`, `data/`; designer - `theme/` and, when the theme is made for other sites, its demo; architect - `work/structure.md`, a draft `site.yaml`, the theme `types`/`links`; builder - all of these when leading the roles); the commands `check`, `build`, `serve`, `describe`, `page add`, `page list`, `category add` (with flags and `--answers`, no questions), `init`, `setup --dump`/`--answers`, `schema`, `docs`, `recipe`, `theme list`; the report and questions in `work/`; commits to a branch.
 
 **You ask** - with an entry in `work/questions.md` with options and a recommendation, leave the field empty and move on: any fact; deleting a page, changing the key or address of an existing one; `redirect_from`/`gone` for addresses not from the source; `languages`, `default_lang`, `domain`, `theme` outside the architect role; a theme by link or archive that the human did not name.
 

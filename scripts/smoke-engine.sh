@@ -54,7 +54,7 @@ engine -v "$WORK/site":/site:ro -v "$WORK/out":/out -w /site "$IMAGE" \
   build . --env prod --strict --out /out/dist
 [ "$first" = "$(sums)" ] || { echo "пересборка дала другие файлы" >&2; exit 1; }
 
-# анкета без браузера: ответы → site.yaml, schema.org, workflow; сайт собирается
+# конфигуратор без браузера: ответы → site.yaml, schema.org, workflow; сайт собирается
 cat > "$WORK/answers.yaml" <<'YAML'
 site: {name: Smoke, domain: smoke.example.com, languages: [en, ru]}
 about: {type: LocalBusiness, fields: {name: Smoke, city: Vienna}, contacts: [{type: phone, value: "+00 000 000 00 00"}]}
@@ -66,6 +66,6 @@ engine -v "$WORK/site":/work -v "$WORK/answers.yaml":/answers.yaml:ro -w /work "
 rm -rf "$WORK/out/dist"
 engine -v "$WORK/site":/site:ro -v "$WORK/out":/out -w /site "$IMAGE" \
   build . --env prod --strict --out /out/dist
-grep -q '"LocalBusiness"' "$WORK/out/dist/index.html" || { echo "нет разметки из анкеты" >&2; exit 1; }
+grep -q '"LocalBusiness"' "$WORK/out/dist/index.html" || { echo "нет разметки из конфигуратора" >&2; exit 1; }
 engine "$IMAGE" recipe | grep -q nginx-unprivileged || { echo "recipe пуст" >&2; exit 1; }
 echo "образ движка создал, настроил и строго собрал сайт; пересборка совпала побайтно"

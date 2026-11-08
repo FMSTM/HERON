@@ -1,4 +1,4 @@
-"""Страница анкеты heron/setup/page.html и её скрипт page.js (вынесен ради CSP, ST8).
+"""Страница конфигуратора heron/setup/page.html и её скрипт page.js (вынесен ради CSP, ST8).
 
 Виджеты enum, subtype, bool, hours (разбор файла как текста).
 """
@@ -229,7 +229,7 @@ def test_findings_selectors_use_css_escape():
     assert not re.search(r"""\[data-field="' \+ (?!CSS\.escape)""", block)
 
 
-# T65: страница анкеты и список стран без длинных и коротких тире.
+# T65: страница конфигуратора и список стран без длинных и коротких тире.
 # Исключения (явный список): строки JS-комментариев (// ...) и массив SEPS с
 # регулярным выражением splitSuffix: они принимают тире, которое автор мог ввести.
 def _dash_lines_outside_exceptions(text: str) -> list[str]:

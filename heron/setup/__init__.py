@@ -1,11 +1,11 @@
-"""Конфигуратор `heron setup`: анкета вместо ручного `site.yaml`.
+"""Конфигуратор `heron setup` вместо ручного `site.yaml`.
 
 Один источник правды и для формы в браузере, и для агента:
 
 - `answers` — модель ответов и их место в `site.yaml`;
-- `vocab.yaml` — справочник типов schema.org и полей анкеты;
+- `vocab.yaml` — справочник типов schema.org и полей конфигуратора;
 - `files` — что ещё ложится рядом с `site.yaml` по способу публикации;
-- `server` — локальная страница анкеты.
+- `server` — локальная страница конфигуратора.
 
 `apply` делает всё целиком и одинаково при любом входе: проверяет ответы,
 переписывает управляемые ключи `site.yaml` (прочее не трогает), подгоняет
@@ -139,21 +139,21 @@ def notes_lang(data: dict[str, Any], flag: str | None = None) -> str:
 
 
 def state(root: Path, lang: str | None = None) -> dict[str, Any]:
-    """Всё, что нужно странице анкеты: ответы, справочник, темы, репозиторий."""
+    """Всё, что нужно странице конфигуратора: ответы, справочник, темы, репозиторий."""
     from heron import __version__, build_info
 
     data = raw_config(root)
     site = data.get("site")
     try:
         answers = read(data)
-    except (AttributeError, TypeError, ValueError):  # site.yaml не по контракту — анкета с нуля
+    except (AttributeError, TypeError, ValueError):  # site.yaml не по контракту — начать с нуля
         answers = read({})
     themes = []
     try:
         from heron.themes import catalog
 
         themes = catalog()
-    except Exception:  # каталог тем — подсказка, а не условие анкеты
+    except Exception:  # каталог тем — подсказка, а не условие конфигуратора
         themes = []
     return {
         "answers": json.loads(answers.model_dump_json()),
@@ -215,7 +215,7 @@ DAY_LABELS = {
 
 
 def schema_state(lang: str) -> dict[str, Any]:
-    """Списки для полей анкеты: версия schema.org, значения перечислений, дни недели."""
+    """Списки для полей конфигуратора: версия schema.org, значения перечислений, дни недели."""
     from heron.schemaorg import RELEASE
     from heron.schemaorg import vocab as schema_vocab
 
@@ -250,7 +250,7 @@ def props_by_spec() -> dict[str, list[str]]:
     """Свойства разметки, допустимые итоговому типу пары `вид|специализация`.
 
     Только пары, где набор отличается от набора самого вида: страница скрывает
-    поля без запроса к серверу. Берутся лишь свойства, которые есть у полей анкеты.
+    поля без запроса к серверу. Берутся лишь свойства, которые есть у полей конфигуратора.
     """
     from heron.schemaorg import vocab as schema_vocab
     from heron.setup.answers import AboutAnswers, final_types, prop_head
@@ -298,7 +298,7 @@ def _version_spec() -> str:
 
 
 def _check(data: dict[str, Any], path: Path) -> None:
-    """Проверить итог той же схемой, что и сборка: анкета не пишет то, на чём сборка упадёт."""
+    """Проверить итог той же схемой, что и сборка: не писать то, на чём сборка упадёт."""
     from heron.contracts.loader import build
     from heron.contracts.site import SiteConfig
 
@@ -421,7 +421,7 @@ def apply(
         schema = answers._schema
     new = _decide(root, old, new, answers, schema, lang, result)
 
-    # Всё, что анкета запишет, зарезервирует или удалит, — внутри папки сайта.
+    # Всё, что конфигуратор запишет, зарезервирует или удалит, — внутри папки сайта.
     # Проверяется до первой записи: ссылка наружу (site.yaml, content/,
     # .heron/, .heron-cache/, тема, .gitignore) — E024, и не меняется ничего.
     generated = files_module.plan(answers, lang)
@@ -543,7 +543,7 @@ def current_answers(root: Path) -> str:
 
 
 def page() -> bytes:
-    """Страница анкеты так, как её отдаёт сервер: ссылки на документацию - на ветку канала образа.
+    """Страница конфигуратора, как её отдаёт сервер: ссылки на документацию - ветки канала образа.
 
     В исходнике страницы адрес ведёт на ветку prod; в образе канала beta
     (`HERON_CHANNEL`) его заменяет та же подстановка, что у комплекта и демо

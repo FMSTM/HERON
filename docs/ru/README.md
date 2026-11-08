@@ -44,7 +44,7 @@ heron docs --lang ru --search E023   # поиск: файл, строка, ко�
 
 ## Что решаешь сам, что спрашиваешь, что запрещено
 
-**Сам:** файлы своей роли (контент - `content/`, `media/`, `data/`; дизайнер - `theme/`; архитектор - `work/structure.md`, черновик `site.yaml`, `types`/`links` темы; сборщик - всё это, когда ведёт роли); команды `check`, `build`, `serve`, `describe`, `page add`, `page list`, `category add` (флагами и `--answers`, без вопросов), `init`, `setup --dump`/`--answers`, `schema`, `docs`, `recipe`, `theme list`; отчёт и вопросы в `work/`; коммиты в ветку.
+**Сам:** файлы своей роли (контент - `content/`, `media/`, `data/`; дизайнер - `theme/` и, если тема делается для других сайтов, её демо; архитектор - `work/structure.md`, черновик `site.yaml`, `types`/`links` темы; сборщик - всё это, когда ведёт роли); команды `check`, `build`, `serve`, `describe`, `page add`, `page list`, `category add` (флагами и `--answers`, без вопросов), `init`, `setup --dump`/`--answers`, `schema`, `docs`, `recipe`, `theme list`; отчёт и вопросы в `work/`; коммиты в ветку.
 
 **Спрашиваешь** - записью в `work/questions.md` с вариантами и рекомендацией, поле оставляешь пустым и идёшь дальше: любой факт; удаление страницы, смена ключа или адреса существующей; `redirect_from`/`gone` для адресов не из источника; `languages`, `default_lang`, `domain`, `theme` вне роли архитектора; тема по ссылке или архивом, которую не назвал человек.
 

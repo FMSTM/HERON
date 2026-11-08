@@ -654,7 +654,7 @@ def test_page_sends_its_language_with_save():
     assert re.search(r"JSON\.stringify\(\{[^}]*\blang: L\b", call), call
 
 
-# --- тема из анкеты на языке пояснений сайта (E15.S1.T10, W1, F07) -------------------
+# --- тема из конфигуратора на языке пояснений сайта (E15.S1.T10, W1, F07) -------------------
 
 STARTER_ANSWERS = "site:\n  name: Example\n  languages: [en]\ntheme:\n  source: starter\n"
 RU_THEME = "# Что тема ждёт от site.yaml"
@@ -722,14 +722,14 @@ def test_notes_lang_survives_build_that_is_not_a_block():
     assert notes_lang({"build": "x"}, "ru") == "ru"
 
 
-# --- ссылка анкеты на документацию - на ветку канала образа (E13.S1.T23) ------------
+# --- ссылка конфигуратора на документацию - на ветку канала образа (E13.S1.T23) ------------
 
 DOCS_LINK = re.compile(r'\b(ru|en): "(https://github\.com/FMSTM/HERON/blob/([^/]+)/([^"]+))"')
 
 
 def _docs_link(page: str, lang: str = "ru") -> tuple[str, str, str]:
     found = {m[1]: m for m in DOCS_LINK.finditer(page)}.get(lang)
-    assert found, f"в странице анкеты нет ссылки помощи на языке {lang}"
+    assert found, f"в странице конфигуратора нет ссылки помощи на языке {lang}"
     return found[2], found[3], found[4]
 
 

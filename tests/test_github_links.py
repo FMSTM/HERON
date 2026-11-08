@@ -1,6 +1,6 @@
 """Адреса GitHub на файлы движка ведут на существующие пути дерева.
 
-Демо-страница каждого нового сайта, анкета setup, документация и комплект для
+Демо-страница каждого нового сайта, конфигуратор setup, документация и комплект для
 агентов ссылаются на репозиторий движка абсолютными адресами
 ``https://github.com/FMSTM/HERON/(blob|tree)/<ветка>/<путь>``. Ветки beta и prod
 раздают это же дерево (23 §9), поэтому путь после ветки обязан существовать здесь.
@@ -88,7 +88,7 @@ def test_github_links_point_to_existing_paths() -> None:
 
 
 def test_scan_sees_the_known_links() -> None:
-    """Проверка не пустая: адреса из демо-страницы, анкеты и docs/ru найдены."""
+    """Проверка не пустая: адреса из демо-страницы, конфигуратора и docs/ru найдены."""
     found = {(where, kind, branch, path) for where, _, kind, branch, path in _links(ROOT)}
     assert ("heron/scaffold/demo/ru/docs.md", "tree", "prod", "docs/ru/guide") in found
     assert ("heron/scaffold/demo/en/docs.md", "tree", "prod", "docs/en/guide") in found

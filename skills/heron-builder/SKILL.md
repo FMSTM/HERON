@@ -5,19 +5,19 @@ description: Build, check and publish a HERON site - heron check, serve, build w
 
 # HERON builder
 
-Read first: `$H docs --lang en kit` (role «Builder»), `$H docs first-site`, `$H docs deploy`, error codes in `$H docs engine` §11.
+Read first: `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta docs --lang en kit` (role «Builder»), `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta docs first-site`, `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta docs deploy`, error codes in `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta docs engine` §11.
 Inside a HERON site the same documentation sits in `agents/` (start with `AGENTS.md`); your deliverables go to `agents/work/`.
-`H="docker run --rm -i -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"
-HP="docker run --rm -i -p 127.0.0.1:8000:8000 -v $PWD:/site -w /site --user $(id -u):$(id -g) ghcr.io/fmstm/heron:beta"  # only for `serve`: it publishes the port`
+Every command is written in full, ready to copy; run it from the site folder. No `-it`: an agent has no terminal. `-p 127.0.0.1:8000:8000` only for `serve`: it publishes the port.
 
 **You may write:** anything the other roles may, when you lead them; plus `heron setup` answers for publishing.
 **You do not touch:** the engine. Add no Dockerfile, compose, `.env` or tokens to the site: Docker Hub uses `docker login`, GitHub builds with its own short-lived token.
 
 Steps:
 
-1. `$H check .` — the report without a build; fix errors, sort warnings into content debt or fixes.
-2. `$HP serve .` — preview on localhost:8000 with a rebuild on every save.
-3. `$H build . --env prod --strict` — the final build into `dist/`.
-4. Publishing: `$H setup . --dump`, set `publish.way` (github, dockerhub, static), apply with `--answers`. The agent only prepares settings and the build; the human runs publishing (`.heron/scripts/publish.sh`, or `git push` for the git way).
+1. `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta check .` — the report without a build; fix errors, sort warnings into content debt or fixes. Pages marked `translation: pending` are listed and stay out of production: `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta page list . --json`.
+2. `docker run --rm -p 127.0.0.1:8000:8000 -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta serve .` — preview on localhost:8000 with a rebuild on every save; the theme reference is at `/_heron/theme/`.
+3. `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta build . --env prod --strict` — the final build into `dist/`.
+4. A theme handed over on its own: `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta check . --theme` (no `E008`, `E037`), then `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta theme pack . --out theme.tar.gz`.
+5. Publishing: `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta setup . --dump > answers.yaml`, set `publish.way` (github, dockerhub, static), apply with `--answers answers.yaml`. The agent only prepares settings and the build; the human runs publishing (`.heron/scripts/publish.sh`, or `git push` for the git way).
 
 Report: what was done, content debt, questions, warnings left on purpose and why.

@@ -1,7 +1,8 @@
 """Навыки в skills/: правильная шапка и ссылки только на существующие темы документации.
 
-Темы — `$H docs [--lang <язык>] <тема>` из heron.docs.TOPICS; `template <файл>` — образец
-из docs/<язык>/templates.
+Темы — `docker run … ghcr.io/fmstm/heron:<канал> docs [--lang <язык>] <тема>` из
+heron.docs.TOPICS; `template <файл>` — образец из docs/<язык>/templates. Команды в
+навыках пишутся целиком, без переменных оболочки вроде `$H` (их не скопировать как есть).
 """
 
 import re
@@ -31,12 +32,18 @@ def test_frontmatter_and_docs_topics():
         head = yaml.safe_load(text.split("---", 2)[1])
         assert head["name"] == path.parent.name
         assert 20 < len(head["description"]) <= 1024
-        assert "$H docs agents" not in text, f"{path.parent.name}: вместо agents — kit"
-        found = re.findall(r"\$H docs (?:--lang (\w+) )?([a-z][a-z0-9-]*)(?: ([\w.-]+))?", text)
+        assert "heron:beta docs agents" not in text, f"{path.parent.name}: вместо agents — kit"
+        assert not re.search(r"\$H\b|\$HP\b|\bH=", text), f"{path.parent.name}: команда переменной"
+        found = re.findall(
+            r"ghcr\.io/fmstm/heron:\w+ docs (?:--lang (\w+) )?([a-z][a-z0-9-]*)(?: ([\w.-]+))?",
+            text,
+        )
         assert found, path.parent.name
         for lang, topic, arg in found:
             if lang:
                 assert lang in docs.LANGS, f"{path.parent.name}: нет языка {lang}"
+            if topic == "theme-ref":  # справка темы сайта, не тема документации (21 §10)
+                continue
             if topic == "template":
                 assert arg in docs.templates(lang or "en"), f"{path.parent.name}: нет образца {arg}"
                 continue
@@ -51,6 +58,7 @@ def test_skills_point_to_the_kit_and_the_site_folder():
     )
     for path in SKILLS:
         text = path.read_text(encoding="utf-8")
-        assert "`$H docs --lang en kit`" in text, path.parent.name
+        full = 'docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)"'
+        assert f"`{full} ghcr.io/fmstm/heron:beta docs --lang en kit`" in text, path.parent.name
         assert line in text, path.parent.name
         assert "ghcr.io/fmstm/heron:beta" in text, path.parent.name

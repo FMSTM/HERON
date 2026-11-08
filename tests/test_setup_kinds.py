@@ -1,4 +1,4 @@
-"""Виды полей анкеты hours/enum/subtype/bool и списки схемы в state()."""
+"""Виды полей конфигуратора hours/enum/subtype/bool и списки схемы в state()."""
 
 from __future__ import annotations
 

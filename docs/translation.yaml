@@ -4,7 +4,7 @@
 # files — файлы docs/ru; root_files — пара README репозитория: русский README.ru.md — исходник, английский README.md — перевод.
 files:
   - path: README.md
-    ru_sha256: "829d25ce4a9f98f79231de0936ce5b38c4e6d788283d7340870ebc194af3b97d"
+    ru_sha256: "552dee4395915931eded52bd7fee90773b86664ff6d3622b66932c85bb09218f"
     en_status: current
   - path: architecture.md
     ru_sha256: "07c18aeff2a629a59bf27f0de2e90a890aa59fbe15a5b1e8e2a6897c82d8bbfe"
@@ -46,7 +46,7 @@ files:
     ru_sha256: "45af59467cfd7c8486c5c73785b60c42bfc326f5abc956b70df4d5630a188141"
     en_status: current
   - path: roles/designer.md
-    ru_sha256: "df83560dc464b73d5ed19a0a07092368b50b112b38bdb16a5e9bcfc609554ba6"
+    ru_sha256: "a17b41673647c283e5e61f7ab954e2c3dd5a424952f5b06c0b7fca701a063dfb"
     en_status: current
   - path: spec/20-data-contract.md
     ru_sha256: "618d26d052d5c25422b75f837bdb6e75c5d0600e63eef765c5fa9572c3bdb58c"

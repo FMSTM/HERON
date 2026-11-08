@@ -285,7 +285,7 @@ class BuildBlock(Strict):
     @field_validator("agents", mode="before")
     @classmethod
     def _agents(cls, v: Any) -> Any:
-        # YAML даёт true/false булевыми; строкой их пишут из шаблонов и анкет.
+        # YAML даёт true/false булевыми; строкой их пишут из шаблонов и конфигураторов.
         # Всё прочее («yes», 1) — ошибка: значений ровно три.
         if isinstance(v, bool):
             return v

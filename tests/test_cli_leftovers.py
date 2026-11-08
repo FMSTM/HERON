@@ -1,5 +1,5 @@
 """Остатки ревью e15-fix (E15.S1.T13): один поиск --notes, E011 вместо «engine bug»,
-склонение en, анкета с языком запуска.
+склонение en, конфигуратор с языком запуска.
 
 Источник: reports/qa/E15.fix.review.report.yaml, раздел not_blocking_beta.
 """
@@ -53,7 +53,7 @@ def tree(root: Path) -> dict[str, bytes]:
     }
 
 
-# --- анкета через браузер: язык запуска доходит до apply (server.py:133) ---------
+# --- конфигуратор через браузер: язык запуска доходит до apply (server.py:133) ---------
 
 
 def _serve_in_context(root: Path, notes: str, port: int, ready: threading.Event, box: dict) -> None:

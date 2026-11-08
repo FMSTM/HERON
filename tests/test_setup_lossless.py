@@ -108,7 +108,7 @@ def test_answer_removed_on_purpose_drops_its_key(tmp_path):
     assert entity["geo"] == ENTITY["geo"]
 
 
-# --- домен: анкета показывает и меняет реальный прод-домен ---------------------
+# --- домен: конфигуратор показывает и меняет реальный прод-домен ---------------------
 
 
 def test_domain_change_moves_the_effective_prod_domain(tmp_path):

@@ -325,7 +325,7 @@ def ctx_notes() -> str | None:
     """`--notes` текущей команды click или объемлющей группы (`heron --notes ru build`).
 
     Единственное место, где язык запуска ищется в контексте click: им пользуются
-    CLI, анкета (`setup.reasons.run_lang`) и установка темы. Вне команды click
+    CLI, конфигуратор (`setup.reasons.run_lang`) и установка темы. Вне команды click
     или без флага - None.
     """
     import click

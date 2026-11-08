@@ -1191,7 +1191,7 @@ def test_setup_keeps_kit_language_of_the_snapshot(tmp_path):
     root = tmp_path / "s"
     create(root, name="s", notes="ru")
     before = (root / "agents/heron-kit.yaml").read_bytes()
-    plan = adopt(root, notes="en")  # анкета зовёт adopt с языком своих пояснений
+    plan = adopt(root, notes="en")  # конфигуратор зовёт adopt с языком своих пояснений
     assert plan.kit.lang == "ru" and plan.kit.notes_lang == "en"
     assert (root / "agents/heron-kit.yaml").read_bytes() == before
 

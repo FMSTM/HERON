@@ -58,7 +58,7 @@ files:
     ru_sha256: "52e43ba657d1008bbc8dcca5584d3cfd84e8e271382bb38e5fd48e9282fd060e"
     en_status: current
   - path: spec/23-distribution.md
-    ru_sha256: "65075c55f41841846f5a8fc4b5c6efde22705cb25f181222647835ad64dea342"
+    ru_sha256: "8243e9ada2967df34a28a20e976d9fe005105b656706e12bf1e206ae62243657"
     en_status: current
   - path: templates/page.md
     ru_sha256: "c45fa56cdf289625f2bcb0b274e454d8e400508977cc4af958edc825ec393c07"

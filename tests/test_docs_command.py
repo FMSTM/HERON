@@ -625,3 +625,11 @@ def test_cli_contents_on_english_has_no_cyrillic():
     assert result.exit_code == 0, result.output
     lines = [line for line in result.output.splitlines() if CYRILLIC.search(line)]
     assert not lines, lines
+
+
+def test_topic_in_release_channel_uses_semver_image(monkeypatch):
+    monkeypatch.setenv("HERON_CHANNEL", "v0.2.0")
+    text = docs.read_topic("kit", "ru")
+    assert "ghcr.io/fmstm/heron:0.2.0" in text
+    assert "blob/v0.2.0/" in text
+    assert "heron:v0.2.0" not in text

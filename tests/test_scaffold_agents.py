@@ -1486,3 +1486,24 @@ def test_new_english_site_gets_english_schemas(tmp_path, monkeypatch):
     ru.mkdir()
     create(ru, name="Demo", languages=["en"], notes="ru")
     assert _cyrillic((ru / "agents" / "schemas" / "errors.json").read_text(encoding="utf-8"))
+
+
+def test_channel_links_release_tag_uses_semver_image_and_tag_branch(monkeypatch):
+    """Релизный канал vX.Y.Z: ветка blob/vX.Y.Z, образ heron:X.Y.Z (23 §12)."""
+    from heron.scaffold import agents
+
+    src = (
+        "docker run --rm ghcr.io/fmstm/heron:prod docs\n"
+        "https://github.com/FMSTM/HERON/blob/prod/AGENTS.md\n"
+    )
+    monkeypatch.setenv("HERON_CHANNEL", "v0.2.0")
+    out = agents.channel_links(src)
+    assert "ghcr.io/fmstm/heron:0.2.0 docs" in out
+    assert "blob/v0.2.0/AGENTS.md" in out
+    assert "heron:v0.2.0" not in out
+    monkeypatch.setenv("HERON_CHANNEL", "prod")
+    assert agents.channel_links(src) == src
+    monkeypatch.setenv("HERON_CHANNEL", "   ")
+    assert agents.channel_links(src) == src
+    monkeypatch.setenv("HERON_CHANNEL", "beta")
+    assert "heron:beta docs" in agents.channel_links(src)

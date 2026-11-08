@@ -391,3 +391,15 @@ def test_root_note_image_follows_the_channel(tmp_path, monkeypatch, lang):
         else:
             assert "heron:beta" in note
             assert "heron:prod" not in note
+
+
+@pytest.mark.parametrize("lang", ["ru", "en"])
+def test_demo_page_in_release_channel(tmp_path, monkeypatch, lang):
+    monkeypatch.setenv("HERON_CHANNEL", "v0.2.0")
+    root = tmp_path / "s"
+    root.mkdir()
+    create(root, name="S", languages=[lang], demo=True, agents="false")
+    body = (root / "content" / lang / "docs.md").read_text(encoding="utf-8")
+    assert "ghcr.io/fmstm/heron:0.2.0 serve ." in body
+    assert "blob/v0.2.0/AGENTS.md" in body
+    assert "heron:v0.2.0" not in body

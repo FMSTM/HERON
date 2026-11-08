@@ -138,7 +138,7 @@ def test_good_link_and_templates_pass(tmp_path: Path, text: str) -> None:
     assert _broken(_tree(tmp_path, text + "\n")) == []
 
 
-@pytest.mark.parametrize("channel", [None, "beta", "prod"])
+@pytest.mark.parametrize("channel", [None, "beta", "prod", "v0.2.0"])
 def test_demo_site_links_follow_the_channel(tmp_path: Path, monkeypatch, channel) -> None:
     """Демо-страница нового сайта ведёт на ветку канала образа, и путь есть в дереве."""
     from heron.scaffold import create

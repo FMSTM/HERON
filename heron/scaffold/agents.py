@@ -33,6 +33,7 @@ from typing import Any, Literal
 from heron.core import paths
 from heron.core.errors import HeronError
 from heron.core.notes import NOTE
+from heron.messages import image
 from heron.scaffold import NOTES, Plan
 
 KIT = "agents"
@@ -160,10 +161,14 @@ def channel_links(text: str) -> str:
     поиск, `--export`) и демо-страницы нового сайта. В prod — текст как есть.
     """
     name = channel()
-    if name == "prod":
+    tag = image().rpartition(":")[2]
+    if name == "prod" and tag == "prod":
         return text
-    text = _PROD_BLOB.sub(lambda m: f"{REPO}/{m[1]}/{name}/", text)
-    return _PROD_IMAGE.sub(f"{IMAGE}:{name}", text)
+    if name != "prod":
+        text = _PROD_BLOB.sub(lambda m: f"{REPO}/{m[1]}/{name}/", text)
+    if tag != "prod":
+        text = _PROD_IMAGE.sub(f"{IMAGE}:{tag}", text)
+    return text
 
 
 def deliver(rel: str, data: bytes, lang: str, level: str = "true") -> bytes:

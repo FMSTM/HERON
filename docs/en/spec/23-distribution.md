@@ -34,7 +34,7 @@ Themes and plugins are separate portable units, distributed as packages or as li
 `site.yaml` declares the required version on its first line:
 
 ```yaml
-heron: ">=0.1,<0.2"
+heron: ">=0.2,<0.3"
 ```
 
 The engine checks itself against this requirement before anything else and on a mismatch stops with `E012`, naming its own version and the required one. This is the only thing that keeps three sites from drifting apart onto incompatible engines.

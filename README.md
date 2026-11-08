@@ -139,7 +139,7 @@ Error codes (`E002`, `E006`, `E012`...) and their causes are in [`docs/en/spec/2
 
 ```
 my-site/
-├── site.yaml       config: domain, languages, theme, menu, SEO settings; the first key is heron: ">=0.1,<0.2"
+├── site.yaml       config: domain, languages, theme, menu, SEO settings; the first key is heron: ">=0.2,<0.3"
 ├── content/<lang>/ pages in markdown, one folder per language
 ├── media/          images, video, documents
 ├── data/           yaml reference data: reviews, team, requisites
@@ -230,7 +230,7 @@ How it differs from one site:
 | Which engine | the one you started | `ENGINE` in env: an exact version, `:prod` or sources next to it |
 | Site image | build by hand | `site.sh image`, check with `site.sh smoke` |
 
-**The engine version is pinned in the site itself**: the first key of `site.yaml` is `heron: ">=0.1,<0.2"`. An engine that does not fit refuses to build (`E012`). This way two sites can live on different versions, and updating the engine is changing one line.
+**The engine version is pinned in the site itself**: the first key of `site.yaml` is `heron: ">=0.2,<0.3"`. An engine that does not fit refuses to build (`E012`). This way two sites can live on different versions, and updating the engine is changing one line.
 
 `image`, `serve`, `smoke` and `push` pack what is already in `out/` and build the site themselves only on the first run. If you edited the content, run `build` first.
 

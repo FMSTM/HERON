@@ -35,7 +35,7 @@ heron new мой-сайт --notes ru --name "Название" --domain example.
 Образец всех ключей - [`templates/site.yaml`](../templates/site.yaml). Минимум:
 
 ```yaml
-heron: ">=0.1,<0.2"
+heron: ">=0.2,<0.3"
 site:
   domain: example.com
   theme: main

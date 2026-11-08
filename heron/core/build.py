@@ -11,12 +11,14 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from heron.contracts import wiring
+from heron.contracts.fields import SHARED
 from heron.contracts.site import SiteConfig, load_site
 from heron.contracts.theme import ThemeConfig, load_theme, missing_hints
 from heron.core import check as templates_check
@@ -284,7 +286,7 @@ def run(
 
     _roots(site, config, collector, prod=env.is_prod)
     # исполняемый SVG в прод не уходит; на деве и в serve - предупреждение
-    svg_files(site_root, theme_dir, collector, error=env.is_prod, cache=dist.parent / CACHE)
+    svg_files(site_root, theme_dir, collector, error=env.is_prod, cached=True)
 
     result = Result(
         config=config,
@@ -736,8 +738,8 @@ def anchors_mismatch(site: Site, collector: Collector) -> None:
 
 
 # Поля SEO-блока, одни на все языки страницы (опросник и студия правят их только на
-# основном языке и пишут во все файлы, 21 §10): тип, порядок, обложка, флаги, дата.
-SHARED_FIELDS = ("order", "image", "og_image", "noindex", "date", "children_type")
+# основном языке и пишут во все файлы, 21 §10) - тот же список, что у редактора.
+SHARED_FIELDS = SHARED
 # Свои поля типа без текста - тоже одни на все языки (21 §7, `types.<тип>.fields`).
 TEXT_FIELD_TYPES = ("text", "markdown", "list", "link")
 
@@ -750,7 +752,7 @@ def shared_mismatch(site: Site, theme: ThemeConfig, default: str, collector: Col
     где языки правили по отдельности). Сверка - с основным языком.
     """
     by_key: dict[str, list] = {}
-    for page in [*site.pages, *site.held]:
+    for page in [*site.pages, *site.held, *site.unpublished]:
         by_key.setdefault(page.key, []).append(page)
     for _key, pages in sorted(by_key.items()):
         if len(pages) < 2:
@@ -759,7 +761,7 @@ def shared_mismatch(site: Site, theme: ThemeConfig, default: str, collector: Col
         for page in pages:
             if page is base:
                 continue
-            names = ["type", *SHARED_FIELDS, *_theme_shared(theme, base.type)]
+            names = [*SHARED_FIELDS, *_theme_shared(theme, base.type)]
             differ = [
                 name for name in names if _shared_value(page, name) != _shared_value(base, name)
             ]
@@ -793,34 +795,41 @@ def _shared_value(page: Page, name: str) -> Any:
     return page.meta.get(name)
 
 
-def implicit_folders(site: Site, site_root: Path, langs: list[str], collector: Collector) -> None:
+def implicit_folders(
+    site: Site, site_root: Path, langs: list[str], collector: Collector, default: str = ""
+) -> None:
     """Папка со страницами без `_index.md` ни на одном языке (так было в 0.2): предупреждение.
 
     Сборка считает такую папку разделом, как раньше; опросник и студия её не
-    трогают при правке страниц. Сделать категорией явно - `heron category add`.
+    трогают при правке страниц. Сделать категорией явно - `heron category add`:
+    он спрашивает поля раздела на каждом языке, где в папке уже есть страницы, -
+    язык без перевода раздела не публикует и страниц внутри. Путь в предупреждении -
+    основного языка, если в папке есть его страницы.
     """
     content_root = site_root / "content"
-    seen: set[str] = set()
-    for page in sorted([*site.pages, *site.held], key=lambda p: p.source):
+    order = [default, *[lang for lang in langs if lang != default]] if default else list(langs)
+    found: dict[str, set[str]] = {}
+    for page in [*site.pages, *site.held]:
         parts = page.source.split("/")[1:-1]
         for depth in range(1, len(parts) + 1):
-            folder = "/".join(parts[:depth])
-            if folder in seen:
-                continue
-            seen.add(folder)
-            if any((content_root / lang / folder / INDEX_FILE).is_file() for lang in langs):
-                continue
-            collector.warn(
-                Msg("build_implicit_folder", folder=folder),
-                path=f"{page.lang}/{folder}/",
-                kind="прочее",
-            )
+            found.setdefault("/".join(parts[:depth]), set()).add(page.lang)
+    for folder in sorted(found):
+        if any((content_root / lang / folder / INDEX_FILE).is_file() for lang in langs):
+            continue
+        shown = next((lang for lang in order if lang in found[folder]), sorted(found[folder])[0])
+        collector.warn(
+            Msg("build_implicit_folder", folder=folder),
+            path=f"{shown}/{folder}/",
+            kind="прочее",
+        )
 
 
 INDEX_FILE = "_index.md"
 
 
-SVG_CACHE = "svg-safe.json"  # в .heron-cache рядом со сборкой: sha256 файла -> находка
+SVG_CACHE = "svg-safe.json"  # в .heron-cache папки сайта: sha256 файлов, проверенных годными
+SVG_FOLDERS = ("media", "static")  # и тема: всё, что сайт отдаёт как есть
+_DIGEST = re.compile(r"[0-9a-f]{64}")
 
 
 def svg_files(
@@ -828,40 +837,46 @@ def svg_files(
     theme_dir: Path,
     collector: Collector,
     error: bool = True,
-    cache: Path | None = None,
+    cached: bool = False,
 ) -> None:
-    """SVG из `media/` и темы сайт отдаёт как есть: исполняемое в нём - `E043`.
+    """SVG из `media/`, `static/` и темы сайт отдаёт как есть: исполняемое в нём - `E043`.
 
     Та же проверка, что у загрузки в студии (`heron.core.svg`): файлы, положенные
     мимо студии (руками, темой, скриптом), ловят `heron check` и сборка. `error` -
     ошибка (`check`, боевая сборка: такой файл в прод не уходит), иначе
-    предупреждение (черновая сборка, `serve`). `cache` - папка `.heron-cache`:
-    итог по sha256 файла, чтобы не разбирать одни и те же SVG на каждой сборке.
+    предупреждение (черновая сборка, `serve`). `cached` - помнить годные файлы в
+    `.heron-cache/svg-safe.json` папки сайта (где бы ни лежала сборка), чтобы не
+    разбирать их на каждой сборке. В кэше только sha256 файлов, которые проверка
+    пропустила, и версия правил: негодный файл разбирается каждый раз, запись
+    чужого вида или другой версии правил - промах, а не «годен».
     """
     import hashlib
     import json
 
     from heron.core import svg
 
-    known: dict[str, str | None] = {}
-    store = cache / SVG_CACHE if cache is not None else None
+    store = _svg_store(site_root) if cached else None
+    known: set[str] = set()
     if store is not None:
         try:
             loaded = json.loads(store.read_text(encoding="utf-8"))
-            if isinstance(loaded, dict):
-                known = {str(k): v for k, v in loaded.items() if v is None or isinstance(v, str)}
         except (OSError, ValueError):
-            known = {}
-    seen: dict[str, str | None] = {}
-    for path in svg.files(site_root / "media", theme_dir):
+            loaded = None
+        if isinstance(loaded, dict) and loaded.get("rules") == svg.RULES:
+            items = loaded.get("safe")
+            if isinstance(items, list):
+                known = {i for i in items if isinstance(i, str) and _DIGEST.fullmatch(i)}
+    safe: set[str] = set()
+    for path in svg.files(*(site_root / name for name in SVG_FOLDERS), theme_dir):
         try:
             data = path.read_bytes()
         except OSError as failure:
             reason: str | None = failure.strerror or str(failure)
         else:
             digest = hashlib.sha256(data).hexdigest()
-            reason = known[digest] if digest in known else svg.problem(data)
-            seen[digest] = reason
+            reason = None if digest in known else svg.problem(data)
+            if reason is None:
+                safe.add(digest)
         if reason is None:
             continue
         try:
@@ -877,14 +892,26 @@ def svg_files(
             )
         else:
             collector.warn(Msg("build_svg_unsafe", reason=reason), path=shown, kind="прочее")
-    if store is not None and seen != known:
+    if store is not None and safe != known:
         try:
             store.parent.mkdir(parents=True, exist_ok=True)
             temp = store.with_suffix(".tmp")
-            temp.write_text(json.dumps(seen, sort_keys=True), encoding="utf-8")
+            body = {"rules": svg.RULES, "safe": sorted(safe)}
+            temp.write_text(json.dumps(body, indent=0), encoding="utf-8")
             temp.replace(store)
         except OSError:
             pass  # кэш - ускорение, не условие сборки
+
+
+def _svg_store(site_root: Path) -> Path | None:
+    """Файл кэша SVG в `.heron-cache` сайта; папка - ссылка или ведёт наружу - без кэша."""
+    folder = site_root / CACHE
+    if folder.is_symlink():
+        return None
+    try:
+        return paths.in_site(site_root, f"{CACHE}/{SVG_CACHE}")
+    except HeronError:
+        return None
 
 
 def _roots(site: Site, config: SiteConfig, collector: Collector, prod: bool) -> None:
@@ -1109,7 +1136,7 @@ def check(
     templates_check.missing_templates(site, theme, theme_dir, config, collector, hooks)
     templates_check.inline_scripts(theme_dir, site_root, collector)
     svg_files(site_root, theme_dir, collector)
-    implicit_folders(site, site_root, config.site.languages, collector)
+    implicit_folders(site, site_root, config.site.languages, collector, config.site.default_lang)
     shared_mismatch(site, theme, config.site.default_lang, collector)
     _roots(site, config, collector, prod=False)
     media.folder(site_root, collector)

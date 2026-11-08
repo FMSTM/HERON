@@ -66,7 +66,7 @@
       lines_h: "Каждая строка - отдельный пункт.",
       no_key: "нет ключа",
       not_created: "файла нет - появится, если перевести поля или отметить «Пропустить язык»",
-      implicit: "без _index.md", implicit_h: "Папка без своей страницы _index.md (так было в 0.2): сайт собирается, раздел работает. Откройте её и нажмите «Сохранить», чтобы завести категорию явно - то же, что heron category add.",
+      implicit: "без _index.md", implicit_h: "Папка без своей страницы _index.md (так было в 0.2): сайт собирается, раздел работает. Откройте её и нажмите «Сохранить», чтобы завести категорию явно - то же, что heron category add. Заполните поля раздела на каждом языке, где в папке есть страницы: на языке, где раздел не переведён, прод не покажет и страниц внутри - студия спросит, прежде чем так записать.",
     },
     en: {
       tab_site: "Site", tab_pages: "Pages", tab_ref: "Theme reference",
@@ -127,7 +127,7 @@
       lines_h: "Every line is a separate item.",
       no_key: "no key",
       not_created: "no file - it appears once you translate fields or tick “Skip the language”",
-      implicit: "no _index.md", implicit_h: "A folder without its own page _index.md (as in 0.2): the site builds, the section works. Open it and press “Save” to make it a category explicitly - the same as heron category add.",
+      implicit: "no _index.md", implicit_h: "A folder without its own page _index.md (as in 0.2): the site builds, the section works. Open it and press “Save” to make it a category explicitly - the same as heron category add. Fill in the section fields in every language with pages in the folder: where the section is not translated, prod does not show the pages inside either - the studio asks before writing it so.",
     },
   };
   const tr = (k, vars) => {
@@ -138,6 +138,7 @@
   const S = {
     tab: "site", tree: null, target: null, state: null, ans: {}, ops: [], key: null, skip: {},
     edit: null, seq: 0, timer: null, busy: false, refBuilt: false, help: new Set(), preview: null, loading: false,
+    opening: 0, treeSeq: 0,
   };
   // Просмотр, справка темы и картинки - на своём порту (другой источник, origin): скрипты темы
   // там не дотягиваются ни до ключа, ни до /api. Ключ просмотра - только смотреть.
@@ -206,8 +207,11 @@
   function helpBtn(key) { return qm("ui:" + key, tr(key)); }
 
   // --- дерево --------------------------------------------------------------------------
+  // Ответ на устаревший запрос дерева (пришёл новый) отбрасывается: дерево - от последнего.
   async function loadTree() {
+    const seq = ++S.treeSeq;
     const j = await api("tree");
+    if (seq !== S.treeSeq) return;
     if (!j.ok) { note("bad", tr("error"), errLines(j)); return; }
     S.tree = j;
     renderPages();
@@ -285,27 +289,39 @@
   function reset() { S.ans = {}; S.ops = []; S.key = null; S.skip = {}; }
   // Пока форма грузится, её поля заперты: ввод не уходит ни в прежнюю страницу, ни в пустоту.
   // Язык вкладки (S.edit) остаётся прежним до ответа: правки не теряются молча.
-  function lock(on) {
-    S.loading = on;
+  // Запросов open может быть несколько подряд (смена языка интерфейса шлёт дерево и open
+  // дважды): у каждого свой номер, ответ на устаревший отбрасывается, а форму отпирает
+  // только ответ последнего - уже после того, как форма нарисована по нему.
+  function lock(on) { S.loading = on; paintLock(); }
+  function paintLock() {
     const box = $("#st-editor"); if (!box) return;
+    const on = S.loading;
     box.classList.toggle("st-loading", on);
     box.setAttribute("aria-busy", String(on));
     for (const el of box.querySelectorAll("input, textarea, select, button")) {
-      if (on) { el.dataset.locked = el.disabled ? "was" : "1"; el.disabled = true; }
+      if (on) { if (!el.dataset.locked) { el.dataset.locked = el.disabled ? "was" : "1"; el.disabled = true; } }
       else if (el.dataset.locked) { el.disabled = el.dataset.locked === "was"; delete el.dataset.locked; }
     }
+  }
+  // Запрос open под своим номером; null - пока он шёл, ушёл новый (тот и отопрёт форму).
+  async function openRequest() {
+    const seq = ++S.opening;
+    lock(true);
+    let j;
+    try { j = await api("open", request()); } catch (err) { j = { ok: false, error: String(err) }; }
+    return seq === S.opening ? j : null;
   }
   async function choose(target, keep) {
     if (!keep && dirty() && !confirm(tr("leave"))) return;
     const was = S.edit;
     S.target = target; if (!keep) reset();
-    lock(true);
-    let j;
-    try { j = await api("open", request()); } finally { lock(false); }
-    if (!j.ok) { note("bad", tr("error"), errLines(j)); S.target = S.state ? S.state.target : null; return; }
+    const j = await openRequest();
+    if (!j) return;
+    if (!j.ok) { lock(false); note("bad", tr("error"), errLines(j)); S.target = S.state ? S.state.target : null; return; }
     S.state = j.state; S.target = target;
     S.edit = keep && was && j.state.languages.includes(was) ? was : j.state.default_lang;
     renderPages();
+    lock(false);
   }
   function changed() {
     clearTimeout(S.timer);
@@ -382,7 +398,7 @@
   function renderEditor() {
     const box = $("#st-editor"); if (!box) return;
     const st = S.state;
-    if (!st || !S.target) { box.replaceChildren(h("p", { class: "st-empty" }, tr("pick"))); return; }
+    if (!st || !S.target) { box.replaceChildren(h("p", { class: "st-empty" }, tr("pick"))); paintLock(); return; }
     if (!st.languages.includes(S.edit)) S.edit = st.default_lang;
     const cat = st.target.kind === "category";
     const title = (cat ? tr("category_word") : tr("page_word")) + " " + (st.target.key || "/");
@@ -404,6 +420,7 @@
       onclick: () => { S.edit = code; renderEditor(); } }, code.toUpperCase() + (code === st.default_lang ? " · " + tr("main_lang") : ""))));
     box.replaceChildren(head, files, langtabs, langNote(), h("div", { id: "st-issues" }), ...groupsOf());
     markIssues();
+    paintLock();  // форма нарисована во время загрузки - заперта, как и прежняя
   }
   function langNote() {
     const st = S.state, code = S.edit;
@@ -680,13 +697,13 @@
   async function opened(target) {
     if (dirty() && !confirm(tr("leave"))) return;
     reset(); S.target = target;
-    lock(true);
-    let j;
-    try { j = await api("open", request()); } finally { lock(false); }
-    if (!j.ok) return errLines(j).join(" ");
+    const j = await openRequest();
+    if (!j) return null;
+    if (!j.ok) { lock(false); return errLines(j).join(" "); }
     S.state = j.state; S.target = { ...target, key: j.state.target.key }; S.edit = j.state.default_lang;
     note("ok", j.state.new ? tr("created_draft") : tr("exists"), []);
     renderPages();
+    lock(false);
     return null;
   }
   function childType(cat) {

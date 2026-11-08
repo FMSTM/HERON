@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="64mm"
+   height="32mm"
+   viewBox="0 0 64 32"
+   version="1.1"
+   id="svg1"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <linearGradient
+       id="linearGradient2">
+      <stop
+         style="stop-color:#1d4ed8;stop-opacity:1;"
+         offset="0"
+         id="stop1" />
+      <stop
+         style="stop-color:#9333ea;stop-opacity:1;"
+         offset="1"
+         id="stop2" />
+    </linearGradient>
+    <linearGradient
+       xlink:href="#linearGradient2"
+       id="linearGradient3"
+       x1="0"
+       y1="16"
+       x2="64"
+       y2="16"
+       gradientUnits="userSpaceOnUse" />
+  </defs>
+  <g
+     id="layer1">
+    <rect
+       style="fill:url(#linearGradient3);fill-opacity:1;stroke:none"
+       id="rect1"
+       width="60"
+       height="28"
+       x="2"
+       y="2"
+       ry="4" />
+    <image
+       width="16"
+       height="16"
+       preserveAspectRatio="none"
+       xlink:href="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA="
+       id="image1"
+       x="4"
+       y="8" />
+    <a
+       id="a1"
+       xlink:href="mailto:hello@example.org">
+      <text
+         xml:space="preserve"
+         style="font-size:6px;font-family:'DejaVu Sans';fill:#ffffff"
+         x="24"
+         y="18"
+         id="text1"><tspan
+           id="tspan1"
+           x="24"
+           y="18">HERON</tspan></text>
+    </a>
+  </g>
+</svg>

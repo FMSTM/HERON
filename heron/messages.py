@@ -141,7 +141,8 @@ TEXT: dict[str, dict[str, str]] = {
             "-- нет файла; имя с / - категория"
         ),
         "page_list_implicit": (
-            "папка без _index.md (как в 0.2) - сделать категорией: `heron category add {key}`"
+            "папка без _index.md (как в 0.2) - сделать категорией: `heron category add {key}` "
+            "(с переводом на каждом языке, где в ней есть страницы, иначе они уйдут из prod)"
         ),
         "page_list_pending": (
             "Не переведено: {count}. Боевая сборка их не публикует; перевели - удалите "
@@ -355,7 +356,8 @@ TEXT: dict[str, dict[str, str]] = {
         ),
         "page_list_implicit": (
             "a folder without _index.md (as in 0.2) - make it a category: "
-            "`heron category add {key}`"
+            "`heron category add {key}` (translated in every language with pages in it, "
+            "otherwise they leave prod)"
         ),
         "page_list_pending": (
             "Not translated: {count}. The production build does not publish them; once "

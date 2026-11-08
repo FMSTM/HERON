@@ -80,20 +80,30 @@ PREVIEW_CSP = (
 STUDIO = ("tree", "open", "check", "save", "site-check", "preview", "start")
 # Скрипт порта просмотра: убирает ключ ?k= из адресной строки страницы (`history.replaceState`).
 PREVIEW_SCRIPT = "/_studio/preview.js"
-_HEAD = re.compile(rb"<head(\s[^>]*)?>", re.I)
+# Начало документа до первого содержимого: пробелы, BOM, комментарии, <!doctype>, <?…?>.
+_PROLOG = re.compile(rb"(?:\s+|\xef\xbb\xbf|<!--.*?-->|<![^>]*>|<\?.*?\?>)*", re.S)
+_OPEN = {name: re.compile(rb"<" + name + rb"(?:\s[^>]*)?>", re.I) for name in (b"html", b"head")}
 
 
 def with_preview_script(html: bytes) -> bytes:
     """Страница просмотра с `<script src="/_studio/preview.js">` первым в `<head>`.
 
     Свой файл, а не встроенный код: политика просмотра - `script-src 'self'`.
-    Нет `<head>` - тег в самом начале документа.
+    Место ищется по строению документа, а не первым `<head` в тексте: тот мог
+    оказаться в комментарии в начале или в строке скрипта. После пролога
+    (комментарии, `<!doctype>`) и открывающих `<html>` и `<head>`, если они идут
+    первыми; иначе - туда, где начинается содержимое (браузер сам отнесёт скрипт
+    в `<head>`).
     """
     tag = f'<script src="{PREVIEW_SCRIPT}"></script>'.encode()
-    found = _HEAD.search(html)
-    if found is None:
-        return tag + html
-    return html[: found.end()] + tag + html[found.end() :]
+    at = _PROLOG.match(html).end()  # type: ignore[union-attr]
+    for name in (b"html", b"head"):
+        found = _OPEN[name].match(html, at)
+        if found is None:
+            continue
+        at = found.end()
+        at = _PROLOG.match(html, at).end()  # type: ignore[union-attr]
+    return html[:at] + tag + html[at:]
 
 
 class _Server(socketserver.ThreadingTCPServer):

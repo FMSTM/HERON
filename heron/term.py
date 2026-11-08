@@ -44,6 +44,26 @@ def clean(text: str) -> str:
     return CONTROL.sub(lambda match: visible(match.group()), text.replace("\r\n", "\n"))
 
 
+# Что JSON печатает только кодом `\\uXXXX`: C0 (перевод строки - только отступ JSON), DEL
+# и C1 (фильтр `Stream` иначе переписал бы их в `\\x9b` - в JSON это неверное
+# экранирование), разделители строк U+2028/2029 и область частного использования, из
+# которой взята метка `MARK`.
+JSON_RAW = re.compile(r"[\x00-\x09\x0b-\x1f\x7f-\x9f\u2028\u2029\ue000-\uf8ff]")
+
+
+def dumps(data: Any, **options: Any) -> str:
+    """JSON для вывода в терминал: читаемый текст, но ни одного символа, который тронет `Stream`.
+
+    `json.dumps(ensure_ascii=False)` оставляет DEL и C1 как есть; фильтр вывода делал из
+    них `\\x7f` - уже не JSON. Здесь каждый такой символ - `\\u007f`: разбор JSON
+    даёт тот же текст, а фильтру менять нечего.
+    """
+    import json
+
+    text = json.dumps(data, ensure_ascii=False, **options)
+    return JSON_RAW.sub(lambda match: f"\\u{ord(match.group()):04x}", text)
+
+
 def controls(text: str) -> list[str]:
     """Управляющие символы в тексте (`\\x1b`, `\\x07`), по одному разу, по порядку."""
     found: list[str] = []

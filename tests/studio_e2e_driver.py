@@ -117,7 +117,8 @@ def remap(url: str) -> int:
 def race(url: str) -> int:
     """Ввод, пока форма грузится заново (переключили язык интерфейса), и ключ просмотра.
 
-    Ответ `open` нарочно задержан. Печатает: заперта ли форма во время загрузки, язык
+    Ответы `open` держатся и отпускаются по одному, устаревший первым. Печатает: заперта
+    ли форма, пока не пришёл ответ последнего запроса (и после устаревшего), язык
     вкладки (`S.edit`) в это время, ответы после ввода, текст итога записи, адрес
     вкладки просмотра, открытой из итога «Посмотреть», и сообщения консоли.
     """
@@ -125,7 +126,6 @@ def race(url: str) -> int:
         from playwright.sync_api import sync_playwright
     except ImportError:
         return SKIP
-    import time
 
     console: list[str] = []
     with sync_playwright() as play:
@@ -144,22 +144,49 @@ def race(url: str) -> int:
         page.wait_for_selector('[id="f-h1"]')
         page.wait_for_timeout(500)
 
-        def slow(route) -> None:
-            time.sleep(1.5)
-            route.continue_()
+        # Ответы open держатся, пока драйвер их не отпустит: порядок ответов задан, а не
+        # случаен. Смена языка интерфейса шлёт дерево и open дважды - второй запрос
+        # open уходит, пока первый ещё висит.
+        held: list = []
+        page.route("**/api/studio/open", lambda route: held.append(route))
 
-        page.route("**/api/studio/open", slow)
+        def wait_held(count: int) -> None:
+            for _ in range(200):
+                if len(held) >= count:
+                    return
+                page.wait_for_timeout(50)
+            raise AssertionError(f"open requests held: {len(held)}, wanted {count}")
+
+        def release(route) -> None:
+            with page.expect_response("**/api/studio/open"):
+                route.continue_()
+            page.wait_for_timeout(300)  # ответ разобран и форма (если надо) нарисована
+
+        def state() -> dict:
+            return page.evaluate(
+                "() => ({locked: document.getElementById('f-h1').disabled,"
+                " loading: window.HERON_STUDIO.loading, edit: window.HERON_STUDIO.edit})"
+            )
+
         page.click("header >> text=EN")  # heron:lang: форма открывается заново
-        # загрузка началась: запрос open ушёл и висит (старый код в это время ставил edit = null)
-        page.wait_for_function(
-            "() => window.HERON_STUDIO.loading || window.HERON_STUDIO.edit === null",
-            timeout=10000,
-        )
-        locked = page.evaluate("() => document.getElementById('f-h1').disabled")
-        edit = page.evaluate("() => window.HERON_STUDIO.edit")
-        # Playwright ждёт, пока поле снова можно править: ввод ложится в новую форму
-        page.fill('[id="f-h1"]', "Набрано во время загрузки")
+        wait_held(1)
+        if len(held) < 2:
+            # второй heron:lang - как от загрузки настроек сайта сразу после щелчка
+            page.evaluate("() => document.dispatchEvent(new Event('heron:lang'))")
+        wait_held(2)
+        page.wait_for_timeout(300)  # ответы дерева пришли: форма нарисована заново
+        during = [state()]
+        release(held[0])  # первый, устаревший ответ: форма всё ещё заперта
+        during.append(state())
+        locked = all(item["locked"] for item in during)
+        edit = during[-1]["edit"]
+        for route in held[1:]:
+            release(route)
         page.unroute("**/api/studio/open")
+        after = state()
+        if after["locked"] or after["loading"]:
+            raise AssertionError(f"the form stays locked after the last answer: {after}")
+        page.fill('[id="f-h1"]', "Набрано во время загрузки")
         answers = page.evaluate("() => JSON.stringify(window.HERON_STUDIO.ans)")
         page.click("#st-save")
         page.wait_for_selector("#toast li", state="visible", timeout=30000)
@@ -174,6 +201,7 @@ def race(url: str) -> int:
         view.wait_for_timeout(500)
         result = {
             "locked": locked,
+            "during": during,
             "edit": edit,
             "answers": answers,
             "saved": saved,

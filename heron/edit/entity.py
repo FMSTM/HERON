@@ -24,6 +24,7 @@ from typing import Any
 
 import yaml
 
+from heron.contracts.fields import PER_LANGUAGE, TRANSLATABLE
 from heron.contracts.frontmatter import PENDING
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
@@ -45,14 +46,8 @@ from heron.edit.slots import EditError
 from heron.edit.validate import Issue, validate
 from heron.messages import Msg
 
-# Служебные поля, у которых на каждом языке свой текст; остальные (тип, порядок,
-# обложка, флаги) общие и при создании копируются с основного языка.
-TRANSLATABLE = frozenset(
-    {"title", "h1", "description", "nav_title", "slug", "image_alt", "og_title", "og_description"}
-)
-# Поля SEO-блока, у которых на каждом языке своё значение, хоть это и не перевод:
-# пометка перевода, прежние адреса этого языка (у языков свои адреса) и дата правки файла.
-PER_LANGUAGE = frozenset({"translation", "redirect_from", "updated"})
+# Поля с текстом на каждом языке, свои поля языка и общие - один список на движок
+# (`heron.contracts.fields`): тот же у `heron check` (`shared_mismatch`).
 CATEGORY = "category"
 TRANSLATION = "translation"
 MENU = "menu"
@@ -89,7 +84,11 @@ def own_value(item: Field) -> bool:
 
 
 def shared(item: Field) -> bool:
-    """Поле SEO-блока, одно на все языки: правка на основном языке пишет его во все файлы."""
+    """Поле SEO-блока, одно на все языки: правка на основном языке пишет его во все файлы.
+
+    Служебные из них - ровно `SHARED` (тот же список сверяет `heron check`), а ещё
+    свои поля темы без текста и вид раздела (ключ `views` типа).
+    """
     return item.where == "frontmatter" and item.editable and not own_value(item)
 
 
@@ -465,8 +464,16 @@ def page_of(entity: Entity, lang: str) -> Page:
 
 
 def translation_of(entity: Entity, lang: str) -> Page:
-    """Копия основного языка для нового файла языка `lang`, с пометкой «перевод не готов»."""
+    """Копия основного языка для нового файла языка `lang`, с пометкой «перевод не готов».
+
+    Поля со своим значением у каждого языка (`PER_LANGUAGE`: прежние адреса, дата
+    правки) не копируются: `redirect_from` основного языка на копии - те же старые
+    адреса у двух страниц (E009), `updated` - дата чужой правки.
+    """
     page = _load(entity.ctx, entity.main.text, rel_for(lang, entity.key, entity.category))
+    for name in sorted(PER_LANGUAGE - {TRANSLATION}):
+        if name in page.front.data:
+            page = set_field(page, name, None)
     return set_field(page, TRANSLATION, PENDING)
 
 
@@ -814,7 +821,12 @@ class Saved:
 
 
 def ensure_category(ctx: Ctx, key: str, saved: Saved) -> None:
-    """Категория `key` и все над ней - на всех языках; нет - создаются с заготовкой."""
+    """Категория `key` и все над ней - на всех языках; нет - создаются с заготовкой.
+
+    Заготовка на неосновных языках - с пометкой `translation: pending`. На месте папки
+    0.2 со страницами это прячет переведённые страницы внутри: запись до этого
+    спрашивает согласия (`drops`).
+    """
     if key == "":
         return
     parts = key.split("/")
@@ -834,6 +846,132 @@ def ensure_category(ctx: Ctx, key: str, saved: Saved) -> None:
             page_of(entity, lang)
         _write_files(entity, saved)
         saved.categories.append(path)
+
+
+def implicit(ctx: Ctx, folder: str) -> bool:
+    """Папка со страницами хоть на одном языке, но без `_index.md` ни на одном (0.2)."""
+    if folder == "" or where(ctx, folder) is not None:
+        return False
+    for lang in ctx.langs:
+        base = ctx.root / "content" / lang / folder
+        inside = base.is_dir() and paths.inside(ctx.root / "content" / lang, base)
+        if inside and any(path.is_file() for path in base.rglob("*.md")):
+            return True
+    return False
+
+
+def published_inside(
+    ctx: Ctx, folder: str, lang: str, nodes: list[Node] | None = None
+) -> list[str]:
+    """Переведённые страницы языка внутри папки: файлы, которые прод сейчас публикует.
+
+    Страница с пометкой `translation: pending` и страница внутри непереведённой
+    категории (её `_index.md` на этом языке с пометкой) в прод и так не идут.
+    """
+    nodes = tree(ctx) if nodes is None else nodes
+    held = {n.key for n in nodes if n.category and n.langs.get(lang) == "pending"}
+    out = []
+    for node in nodes:
+        if node.implicit or not node.key.startswith(folder + "/"):
+            continue
+        if node.langs.get(lang) != "ok":
+            continue
+        parts = node.key.split("/")
+        above = ["/".join(parts[:depth]) for depth in range(1, len(parts))]
+        if any(key in held for key in above if len(key) > len(folder)):
+            continue
+        out.append(rel_for(lang, node.key, node.category))
+    return out
+
+
+def drops(entity: Entity) -> dict[str, dict[str, list[str]]]:
+    """Переведённые страницы, которые эта запись уберёт из прод: раздел -> язык -> файлы.
+
+    Новая категория на месте папки 0.2 (страницы в ней уже есть) - сама эта
+    категория или та, что создаётся попутно над новой или перенесённой страницей:
+    язык, на котором её `_index.md` останется с пометкой `translation: pending`, не
+    публикует и всё, что внутри. Правило остаётся (непереведённый раздел держит
+    свои страницы), поэтому опросник и студия спрашивают подтверждение, а без него
+    (`-y`, `--answers` без ответа для языка) запись не идёт - `E039`.
+    """
+    ctx = entity.ctx
+    if not (entity.new or entity.moved):
+        return {}
+    planned = entity.planned()
+    nodes: list[Node] | None = None
+    out: dict[str, dict[str, list[str]]] = {}
+    folders: list[tuple[str, bool]] = []
+    parent = parent_of(entity.target)
+    parts = parent.split("/") if parent else []
+    for depth in range(1, len(parts) + 1):
+        folder = "/".join(parts[:depth])
+        if where(ctx, folder) is None:
+            folders.append((folder, False))
+    if entity.new and entity.category:
+        folders.append((entity.target, True))
+    for folder, own in folders:
+        if not implicit(ctx, folder):
+            continue
+        nodes = tree(ctx) if nodes is None else nodes
+        for lang in ctx.langs[1:]:
+            if own and (lang not in planned or not is_pending(entity, lang)):
+                continue
+            found = published_inside(ctx, folder, lang, nodes)
+            if not own and lang in planned and not is_pending(entity, lang):
+                found.append(entity.rel(lang))  # сама страница уедет внутрь и тоже пропадёт
+            if found:
+                out.setdefault(folder, {})[lang] = found
+    return out
+
+
+def consented(entity: Entity, data: Any) -> set[tuple[str, str]]:
+    """Что ответы явно разрешили: `<язык>: pending` у категории - её раздел на этом языке."""
+    if not isinstance(data, dict) or not entity.category:
+        return set()
+    out = set()
+    for lang, given in data.items():
+        if given == PENDING or (isinstance(given, dict) and given.get(TRANSLATION) == PENDING):
+            out.add((entity.target, str(lang)))
+    return out
+
+
+def every(found: dict[str, dict[str, list[str]]]) -> set[tuple[str, str]]:
+    """Все пары (раздел, язык) из `drops`: человек подтвердил всё, что ему показали."""
+    return {(folder, lang) for folder, langs in found.items() for lang in langs}
+
+
+def _drop_msgs(found: dict[str, dict[str, list[str]]]) -> list[Msg]:
+    return [
+        Msg("edit_drops", count=len(rels), lang=lang, folder=folder, pages=", ".join(rels))
+        for folder, langs in found.items()
+        for lang, rels in langs.items()
+    ]
+
+
+def drops_lines(found: dict[str, dict[str, list[str]]], lang: str) -> list[str]:
+    """Предупреждения о страницах, которые уйдут из прод, - по строке на раздел и язык."""
+    return [message.text(lang) for message in _drop_msgs(found)]
+
+
+def refuse_drops(
+    entity: Entity, found: dict[str, dict[str, list[str]]], allowed: set[tuple[str, str]]
+) -> None:
+    """Без согласия на пары (раздел, язык) из `found` - `E039` до записи, с тем, что делать."""
+    left: dict[str, dict[str, list[str]]] = {}
+    for folder, langs in found.items():
+        for lang, rels in langs.items():
+            if (folder, lang) not in allowed:
+                left.setdefault(folder, {})[lang] = rels
+    if not left:
+        return
+    folder = next(iter(left))
+    langs = ", ".join(left[folder])
+    own = entity.category and entity.new and folder == entity.target
+    raise HeronError(
+        code="E039",
+        message=Msg("edit_drops_refused", key=folder, lines=_drop_msgs(left)),
+        hint=Msg("edit_drops_hint" if own else "edit_drops_parent_hint", key=folder, langs=langs),
+    )
 
 
 def save(entity: Entity) -> Saved:
@@ -1059,16 +1197,22 @@ def _in_place(text: str, old: dict[str, Any], new: dict[str, Any]) -> str | None
 def dump_answers(entity: Entity) -> dict[str, Any]:
     """Текущие значения полей по языкам - тот же вид, что принимает `apply_answers`.
 
-    Основной язык - все поля, которые можно записать; остальные - поля перевода
-    и пометка `translation`. Значения с диска; у новой страницы - заготовка.
+    Основной язык - все поля, которые можно записать; остальные - поля перевода,
+    свои `redirect_from` и `updated` и пометка `translation`. Значения с диска; у новой
+    страницы - заготовка.
     """
     ctx = entity.ctx
     out: dict[str, Any] = {"key": entity.target, "kind": KINDS[entity.category]}
     for lang in ctx.langs:
         main = lang == ctx.default
         values: dict[str, Any] = {}
-        for item in fields_of(entity, lang, only_translatable=not main):
+        for item in fields_of(entity, lang):
             if not item.editable:
+                continue
+            # неосновной язык: перевод и свои адреса и дата (`redirect_from`, `updated`)
+            if not main and not translatable(item) and item.path not in PER_LANGUAGE:
+                continue
+            if not main and item.path == TRANSLATION:
                 continue
             values[item.path] = _plain(item.value)
         if not main:

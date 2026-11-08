@@ -28,7 +28,7 @@ files:
     ru_sha256: "8fe293df854d7a768f3b8ff1ad7c6fc077ec1d489979530cc58293e1bc663d1b"
     en_status: current
   - path: guide/06-deploy.md
-    ru_sha256: "b9e9ef0028cf11d696a60b4112cd80081cd99b9adab60b84ecec509408ecb106"
+    ru_sha256: "e5e08a4f3b6653f59d4b8f5fc96000069ba55612877fac4e5e9cfa428efac022"
     en_status: current
   - path: guide/07-theme-author.md
     ru_sha256: "b3a99a653df3cf0dc8d917673d1a5e16b34a590cc1b4758f3e3d9335bf616930"
@@ -52,7 +52,7 @@ files:
     ru_sha256: "76a4b3897089d3e82eaf802a35d80aa40ffaed2612a6e3473992099d3ff190c3"
     en_status: current
   - path: spec/21-engine.md
-    ru_sha256: "a05577eb70a16e530ef74aa9ca5d087384793bb496911cff5aa3bcf791fe7c5b"
+    ru_sha256: "e9c40ae588bfb7757fe8c6046f6a60ed88804eb222e540cd25538a0b31017f6b"
     en_status: current
   - path: spec/22-deploy.md
     ru_sha256: "52e43ba657d1008bbc8dcca5584d3cfd84e8e271382bb38e5fd48e9282fd060e"

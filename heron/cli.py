@@ -620,7 +620,6 @@ def _check_json(
     Агенту текст отчёта на языке человека не нужен: ему нужны код ошибки,
     файл, строка и подсказка. Код выхода тот же, что у обычного check.
     """
-    import json
 
     def error(item: HeronError) -> dict:
         return {
@@ -689,7 +688,7 @@ def _check_json(
         kit = report_module.kit_status(path.resolve(), SimpleNamespace(build=None))
     failed = bool(errors) or (strict and bool(warnings))
     click.echo(
-        json.dumps(
+        term.dumps(
             {
                 "ok": not failed,
                 "version": build_info.label(),
@@ -702,7 +701,6 @@ def _check_json(
                 "pending": pending,
                 **({"old_urls": old_section} if old_section is not None else {}),
             },
-            ensure_ascii=False,
             indent=2,
         )
     )
@@ -712,12 +710,11 @@ def _check_json(
 
 def _no_site_json(path: Path, strict: bool, lang: str) -> None:
     """`check --json` без папки или site.yaml: тот же объект, что у `_check_json` (21 §10)."""
-    import json
     from types import SimpleNamespace
 
     kit = report_module.kit_status(path.resolve(), SimpleNamespace(build=None))
     click.echo(
-        json.dumps(
+        term.dumps(
             {
                 "ok": False,
                 "version": build_info.label(),
@@ -736,7 +733,6 @@ def _no_site_json(path: Path, strict: bool, lang: str) -> None:
                 "kit": kit.as_json(),
                 "schema": None,
             },
-            ensure_ascii=False,
             indent=2,
         )
     )
@@ -2009,8 +2005,12 @@ def _edit_session(
         click.echo(yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100), nl=False)
         return
     preset()
+    # языки, которым разрешено спрятать уже переведённые страницы (раздел на месте папки 0.2)
+    agreed: set[tuple[str, str]] = set()
     if answers_file is not None:
-        ops.apply_answers(entity, _read_answers(answers_file, lang))
+        data = _read_answers(answers_file, lang)
+        ops.apply_answers(entity, data)
+        agreed = ops.consented(entity, data)
     elif can_ask() and not yes:
         session = console.Console(entity, console.Io.terminal(), lang)
         try:
@@ -2021,12 +2021,17 @@ def _edit_session(
         except click.exceptions.Abort:
             click.echo("\n" + say(lang, "edit_cancelled"))
             return
+        agreed = session.agreed
     elif not entity.changed():
         _status(entity, lang, path)
         return
     elif entity.new:
         for code in ctx.langs[1:]:
             ops.mark(entity, code, True)
+    lost = ops.drops(entity)
+    ops.refuse_drops(entity, lost, agreed)
+    for line in ops.drops_lines(lost, lang):
+        click.secho("  " + say(lang, "edit_warning", text=line), fg="yellow", err=True)
     _validate(entity, lang)
     saved = ops.save(entity)
     _saved_report(entity, saved, lang, path)
@@ -2219,7 +2224,6 @@ def page_add(
 @_path_argument
 def page_list(as_json: bool, path: Path, notes: str | None) -> None:
     """Дерево категорий и страниц с языками и пометками перевода."""
-    import json
 
     from heron.edit import entity as ops
 
@@ -2243,7 +2247,7 @@ def page_list(as_json: bool, path: Path, notes: str | None) -> None:
                 for node in nodes
             ],
         }
-        click.echo(json.dumps(data, ensure_ascii=False, indent=2))
+        click.echo(term.dumps(data, indent=2))
         return
     click.secho(
         say(lang, "page_list_head", path=_shown(path), langs=", ".join(ctx.langs)), bold=True
@@ -2381,7 +2385,6 @@ def describe(
     name: str | None, as_json: bool, lang_flag: str | None, path: Path, notes: str | None
 ) -> None:
     """Контракт темы и служебные поля: человеку текстом, агенту - JSON (21 §10)."""
-    import json
 
     from heron.contracts.site import LANG_RE
     from heron.core import describe as library
@@ -2396,7 +2399,7 @@ def describe(
     except HeronError as error:
         _fail(error, language)
     if as_json:
-        click.echo(json.dumps(data, ensure_ascii=False, indent=2))
+        click.echo(term.dumps(data, indent=2))
         return
     click.echo((rendered(library.text(data, lang_flag or language), language) or "").rstrip("\n"))
 

@@ -23,6 +23,10 @@ TEXT: dict[str, dict[str, str]] = {
             "{langs} уйдут из публикации до перевода: новый блок там ещё не переведён "
             "(translation: pending) - продолжить?"
         ),
+        "studio_confirm_drops": (
+            "{lines}\n\nЧтобы страницы остались в prod, отмените и заполните поля раздела на "
+            "этих языках. Записать раздел без перевода?"
+        ),
         "studio_bad_request": "запрос студии без нужного значения или с неверным: {field}",
         "studio_section_values": (
             "блок формы {kind} движок узнаёт по содержимому: заполните хотя бы первый пункт"
@@ -57,6 +61,10 @@ TEXT: dict[str, dict[str, str]] = {
         "studio_confirm_pending": (
             "{langs} will leave publication until translated: the new block is not translated "
             "there yet (translation: pending) - continue?"
+        ),
+        "studio_confirm_drops": (
+            "{lines}\n\nTo keep the pages in prod, cancel and fill in the section fields in "
+            "these languages. Write the section without a translation?"
         ),
         "studio_bad_request": "a studio request lacks a needed value or has a wrong one: {field}",
         "studio_section_values": (

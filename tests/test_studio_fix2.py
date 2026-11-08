@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import urllib.request
 
@@ -223,18 +224,24 @@ def test_dev_build_warns_and_goes_on(site, tmp_path):
 
 
 def test_the_svg_verdict_is_cached_by_file_hash(site, tmp_path, monkeypatch):
+    """В кэше - только sha256 годных файлов, в `.heron-cache` сайта, где бы ни была сборка."""
     _unsafe(site)
-    pipeline.run(site, dist=tmp_path / "dist")
-    cache = json.loads((tmp_path / ".heron-cache" / "svg-safe.json").read_text("utf-8"))
-    assert len(cache) >= 3 and any(v and "xml-stylesheet" in v for v in cache.values())
+    pipeline.run(site, dist=tmp_path / "out" / "dist")
+    assert not (tmp_path / "out" / ".heron-cache" / "svg-safe.json").exists()
+    cache = json.loads((site / ".heron-cache" / "svg-safe.json").read_text("utf-8"))
+    assert cache["rules"] == svg.RULES
+    good = {hashlib.sha256(p.read_bytes()).hexdigest() for p in svg.files(site / "media")}
+    bad = hashlib.sha256(XSLT_PI).hexdigest()
+    assert bad not in cache["safe"] and set(cache["safe"]) == good - {bad}
     calls: list[int] = []
     real = svg.problem
     monkeypatch.setattr(svg, "problem", lambda data: (calls.append(1), real(data))[1])
     again = pipeline.run(site, dist=tmp_path / "dist")
-    assert calls == []  # ни одного разбора: все файлы те же
+    assert calls == [1, 1]  # годные не разбираются, негодные - каждый раз
     assert len([w for w in again.collector.warnings if "SVG" in w.message.text("en")]) == 2
-    # файл поменялся - разбирается заново
+    # файл поменялся на годный - разобран один раз и попал в кэш
     (site / "media" / "evil.svg").write_bytes(GOOD)
+    calls.clear()
     third = pipeline.run(site, dist=tmp_path / "dist")
-    assert calls == [1]
+    assert calls == [1, 1]
     assert len([w for w in third.collector.warnings if "SVG" in w.message.text("en")]) == 1

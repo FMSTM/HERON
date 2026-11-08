@@ -92,6 +92,27 @@ SERVICE: tuple[ServiceField, ...] = (
 
 BY_NAME = {spec.name: spec for spec in SERVICE}
 
+# Языки страницы и поля SEO-блока - одно место для опросника, студии и `heron check`.
+# Поля с текстом на каждом языке: их спрашивают при переводе.
+TRANSLATABLE = frozenset(
+    {"title", "h1", "description", "nav_title", "slug", "image_alt", "og_title", "og_description"}
+)
+# Своё значение у каждого языка, хоть это и не перевод: пометка перевода, прежние
+# адреса этого языка (у языков свои адреса) и дата правки файла. Новая копия языка
+# их не наследует.
+PER_LANGUAGE = frozenset({"translation", "redirect_from", "updated"})
+# Остальные служебные поля SEO-блока - одни на все языки страницы: тип, тип страниц
+# категории, порядок, обложка, картинка для соцсетей, флаги, дата. Опросник и студия
+# правят их на основном языке и пишут во все файлы, `check` предупреждает о расхождении.
+SHARED = tuple(
+    spec.key
+    for spec in SERVICE
+    if spec.where == "frontmatter"
+    and spec.scope == "page"
+    and spec.key is not None
+    and spec.name not in TRANSLATABLE | PER_LANGUAGE
+)
+
 # Допустимые значения служебных полей-перечислений, которые знает сам движок
 # (`type` и `children_type` - типы темы, их подставляет describe).
 VALUES: dict[str, tuple[str, ...]] = {"translation": TRANSLATION_STATES}

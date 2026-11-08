@@ -47,13 +47,16 @@ TEXT: dict[str, dict[str, str]] = {
         ),
         "build_svg_unsafe_hint": (
             "уберите из файла инструкции <?…?> (кроме <?xml …?>), DOCTYPE, XSLT, скрипты, "
-            "обработчики on* и внешние ссылки - или сохраните картинку заново из редактора "
-            "как «простой SVG»"
+            "обработчики on* и то, что тянет другие файлы (url(…) и <use> не на #id, @import, "
+            "внешние картинки) - или сохраните картинку заново из редактора как «простой SVG». "
+            "Градиенты url(#id), картинка внутри файла (PNG, JPEG) и ссылки в <a> можно"
         ),
         "build_implicit_folder": (
             "папка {folder} без _index.md ни на одном языке (так было в 0.2): раздел "
             "собирается, но у него нет своей страницы. Сделать категорией явно - "
-            "`heron category add {folder}`"
+            "`heron category add {folder}`; переведите поля раздела на каждом языке, где в "
+            "папке есть страницы: язык, на котором раздел не переведён, не публикует в prod "
+            "и страниц внутри"
         ),
         "build_pending_category": (
             "категория {category} на {lang} не переведена (translation: pending в её _index.md): "
@@ -173,13 +176,17 @@ TEXT: dict[str, dict[str, str]] = {
         ),
         "build_svg_unsafe_hint": (
             "remove processing instructions <?…?> (except <?xml …?>), DOCTYPE, XSLT, scripts, "
-            "on* handlers and external links from the file - or export the picture again "
-            "as a “plain SVG”"
+            "on* handlers and whatever pulls in other files (url(…) and <use> not to #id, "
+            "@import, external pictures) from the file - or export the picture again as a "
+            "“plain SVG”. Gradients url(#id), a picture inside the file (PNG, JPEG) and links "
+            "in <a> are fine"
         ),
         "build_implicit_folder": (
             "the folder {folder} has no _index.md in any language (as in 0.2): the section "
             "builds, but it has no page of its own. To make it a category explicitly - "
-            "`heron category add {folder}`"
+            "`heron category add {folder}`; translate the section fields in every language "
+            "whose pages are in the folder: a language without the section translated does "
+            "not publish the pages inside to prod either"
         ),
         "build_pending_category": (
             "the category {category} is not translated into {lang} (translation: pending in its "

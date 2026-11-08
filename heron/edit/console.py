@@ -142,6 +142,8 @@ class Console:
         self.entity = entity
         self.io = io
         self.lang = lang  # язык подсказок и сообщений опросника
+        # (раздел, язык), которым человек разрешил спрятать переведённые страницы
+        self.agreed: set[tuple[str, str]] = set()
 
     def _say(self, name: str, /, **values: Any) -> str:
         return say(self.lang, name, **values)
@@ -230,7 +232,26 @@ class Console:
             if bad:
                 self.entity.pages = before
                 continue
+            if lang == self.entity.ctx.default and ops.shared(item):
+                self._others(item.path)
             return True
+
+    def _others(self, path: str) -> None:
+        """Общее поле записалось во все языки: их замечания из-за него - сразу, как у `check`.
+
+        Обложка (`image`) без подписи `image_alt` на другом языке - то же замечание,
+        что напишет `heron check`; подпись спросит перевод этого языка.
+        """
+        related = {"image": "image_alt"}.get(path)
+        if related is None:
+            return
+        for code in self.entity.ctx.langs[1:]:
+            if code not in self.entity.pages or ops.is_pending(self.entity, code):
+                continue
+            for issue in ops.issues(self.entity, code):
+                if issue.path == related:
+                    text = issue.message.text(self.lang)
+                    self.io.echo(f"    {code}: {related} - {text}", "yellow")
 
     def _list(self, item: Field, current: Any, label: str | None = None) -> Any:
         """Список: Enter - оставить; иначе пункты по одному на строке до пустой строки.
@@ -398,7 +419,13 @@ class Console:
                 fresh = next(
                     (f for f in ops.fields_of(self.entity, lang) if f.path == item.path), item
                 )
-                self.field(lang, fresh)
+                # у языка без файла Enter - «пропустить», а не значение основного языка
+                skip_label = (
+                    self._say("edit_con_skip")
+                    if not main and self.entity.created(lang) and ops.translatable(fresh)
+                    else None
+                )
+                self.field(lang, fresh, prompt_value=skip_label)
 
     def translate(self, lang: str) -> None:
         """Поля с текстом на языке `lang`: перевод или Enter - пропустить (пометка pending)."""
@@ -407,13 +434,25 @@ class Console:
         self.io.echo("")
         key = "edit_con_translate_new" if created else "edit_con_translate"
         self.io.echo(self._say(key, lang=lang, main=entity.ctx.default), "cyan", False, True)
+        if entity.new and entity.category:
+            inside = ops.published_inside(entity.ctx, entity.target, lang)
+            if inside:
+                self.io.echo(f"  {self._say('edit_con_drops', lang=lang)}", "yellow")
+                for rel in inside:
+                    self.io.echo(f"    {rel}", None, True)
         main = {
             f.path: f for f in ops.fields_of(entity, entity.ctx.default, only_translatable=True)
         }
         given: set[str] = set()
         for item in ops.fields_of(entity, lang, only_translatable=True):
             source = main.get(item.path)
-            if source is None or not ops._filled(source.value) or not _askable(item):
+            if source is None or not _askable(item):
+                continue
+            # подпись обложки спрашивается и при пустой на основном: `check` ждёт её у всех
+            needed = item.path == "image_alt" and ops._filled(
+                ops.page_of(entity, lang).front.data.get("image")
+            )
+            if not ops._filled(source.value) and not needed:
                 continue
             self._hint(item)
             self.io.echo(f"    {entity.ctx.default}: {_shown(source.value, self.lang)}", None, True)
@@ -491,6 +530,13 @@ class Console:
             self.io.echo("  " + self._say("edit_con_category_made", key=parent))
         if entity.site:
             self.io.echo("  site.yaml - " + self._say("edit_con_menu"))
+        lost = ops.drops(entity)
+        if lost:
+            for line in ops.drops_lines(lost, self.lang):
+                self.io.echo(f"  {line}", "yellow")
+            if self.io.ask(f"{self._say('edit_con_drops_q')}").strip().lower() not in YES:
+                return False
+            self.agreed = ops.every(lost)
         answer = self.io.ask(f"{self._say('edit_con_save')} [Y/n]").strip().lower()
         return answer == "" or answer in YES
 

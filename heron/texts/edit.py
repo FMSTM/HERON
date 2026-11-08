@@ -202,6 +202,29 @@ TEXT: dict[str, dict[str, str]] = {
         "edit_saved_moved": "перенесено: {old} → {new}",
         "edit_saved_redirect": "301: {old} → {new} (redirect_from)",
         "edit_comments_lost": "комментарии не удалось сохранить, копия - в .heron-cache/setup/",
+        "edit_drops": (
+            "{count} {count:переведённая страница|переведённые страницы|переведённых страниц} "
+            "на {lang} {count:выпадет|выпадут|выпадут} из prod, пока раздел {folder} не "
+            "переведён: {pages}"
+        ),
+        "edit_drops_refused": (
+            "раздел {key} без перевода спрячет из prod страницы, которые уже переведены:\n"
+            "    {lines}"
+        ),
+        "edit_drops_hint": (
+            "дайте ответы с полями раздела на {langs} (--answers; что заполнить - "
+            "`heron category add {key} --dump`). Можно и оставить раздел непереведённым: "
+            "`<язык>: pending` в ответах - согласие, что эти страницы уйдут из prod до перевода"
+        ),
+        "edit_drops_parent_hint": (
+            "папка {key} станет разделом попутно, без перевода на {langs}. Сначала заведите "
+            "раздел сами, с его полями на этих языках: `heron category add {key}` - и повторите"
+        ),
+        "edit_con_drops": (
+            "Раздел на {lang} останется непереведённым - и прод перестанет показывать "
+            "переведённые страницы внутри него. Чтобы этого не было, переведите поля раздела"
+        ),
+        "edit_con_drops_q": "Записать раздел без перевода и убрать эти страницы из prod? [y/N]",
         "edit_saved_pending": (
             "Пометка translation: pending - эти языки боевая сборка не опубликует. "
             "Перевести: `heron {command}`"
@@ -421,6 +444,32 @@ TEXT: dict[str, dict[str, str]] = {
         "edit_saved_moved": "moved: {old} → {new}",
         "edit_saved_redirect": "301: {old} → {new} (redirect_from)",
         "edit_comments_lost": "the comments could not be kept, a copy is in .heron-cache/setup/",
+        "edit_drops": (
+            "{count} {count:translated page|translated pages} in {lang} will drop out of prod "
+            "until the section {folder} is translated: {pages}"
+        ),
+        "edit_drops_refused": (
+            "the section {key} without a translation would hide pages that are already "
+            "translated from prod:\n    {lines}"
+        ),
+        "edit_drops_hint": (
+            "answer the section fields for {langs} (--answers; what to fill in - "
+            "`heron category add {key} --dump`). The section may stay untranslated too: "
+            "`<language>: pending` in the answers agrees that these pages leave prod until "
+            "it is translated"
+        ),
+        "edit_drops_parent_hint": (
+            "the folder {key} becomes a section on the way, untranslated in {langs}. Make the "
+            "section first, with its fields in these languages: `heron category add {key}` - "
+            "then repeat"
+        ),
+        "edit_con_drops": (
+            "The section stays untranslated in {lang} - and prod stops showing the translated "
+            "pages inside it. To avoid that, translate the section fields"
+        ),
+        "edit_con_drops_q": (
+            "Write the section without a translation and take these pages out of prod? [y/N]"
+        ),
         "edit_saved_pending": (
             "Marked translation: pending - the production build will not publish these languages. "
             "To translate: `heron {command}`"

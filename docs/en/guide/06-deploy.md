@@ -246,19 +246,21 @@ There is no moving `:X.Y` tag on purpose: a site must be able to pin itself to s
 
 ### Moving a site from 0.2 to 0.3 <a id="upgrade-0-3"></a>
 
-The 0.3 engine is stricter about a production build: a page that still holds the stub text of `heron page` 0.2 (`TODO: what the visitor gets` in `description`, "Intro paragraph - what goes into the search snippet." in the text) does not build with `--env prod` - the error `E040` with the file and the field. The 0.2 engine published such pages, so check the site before you switch it to 0.3.
+The 0.3 engine is stricter about a production build: a page that still holds the stub text of `heron page` 0.2 (`TODO: what the visitor gets` in `description`, "Intro paragraph - what goes into the search snippet." in the text) does not build with `--env prod` - the error `E040` with the file and the field. Nor does a site with an SVG that holds executable content or a link to another file - the error `E043` with the list of files. The 0.2 engine published such sites, so check the site before you switch it to 0.3.
 
 1. **Allow both engines for the site.** The first key of `site.yaml`: `heron: ">=0.2,<0.4"`. Then the site builds both with 0.2, which it runs on now, and with 0.3.
 2. **Build the site with 0.3 in production mode on your machine.** The second command below (the `:beta` image is the 0.3 engine until it becomes `:prod`). The build goes into a temporary folder of the container and is published nowhere: only the list of errors matters.
 3. **Finish the pages from the `E040` list.** Open each with `page add` and its key (the third command) and replace the stub text with your own - or remove a section you do not need.
-4. **Repeat step 2** until no errors are left, and only then switch the site to 0.3 (`ENGINE` in the env file of the site, or the `:prod` image after the release).
+4. **Fix the SVGs from the `E043` list.** The check is the fourth command (`check`): it names every SVG in `media/`, `static/` and in the theme that has a script, an `on*` handler, an instruction `<?…?>`, a DOCTYPE or something that pulls in another file (`url(…)` and `<use>` not to an `#id` of the same file, `@import`, a picture by address). The site serves such files as they are, and a file opened by a direct link would run in the browser - so 0.3 does not let them into prod. Open the file in the editor and save it again as a plain SVG (Inkscape: "Save As" → "Plain SVG"; Illustrator: "Export" → SVG, without "Preserve Illustrator Editing Capabilities"), remove scripts and links to other files - or replace the picture with a PNG. Gradients `url(#id)`, a picture inside the file (PNG, JPEG, GIF, WebP) and plain links in `<a>` may stay.
+5. **Repeat step 2** until no errors are left, and only then switch the site to 0.3 (`ENGINE` in the env file of the site, or the `:prod` image after the release).
 
-Folders without an `_index.md` of their own that 0.2 made (`services/` for `--folder services`) work in 0.3 as before. `check` suggests making such a folder a category - `heron category add services`; this can wait. If the language files of one page disagree on shared fields (the type, the order, the cover), `check` says so with a warning: in 0.3 such fields are edited in the main language and written into every file.
+Folders without an `_index.md` of their own that 0.2 made (`services/` for `--folder services`) work in 0.3 as before. `check` suggests making such a folder a category - `heron category add services`. There is no hurry, but mind this: a section not translated into a language does not publish the pages inside in that language either. So `category add` asks the section fields in every language that already has pages in the folder and warns which translated pages drop out of prod if the translation is skipped; without a terminal (`-y`, `--answers` without an answer for that language) such a section is not written - `E039`, until you answer for the language or agree explicitly (`<language>: pending` in the answers). The same goes for a new page or a move that makes such a folder a section on the way. If the language files of one page disagree on shared fields (the type, the order, the cover, publishing), `check` says so with a warning: in 0.3 such fields are edited in the main language and written into every file.
 
 ```bash
 docker pull ghcr.io/fmstm/heron:beta
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta build . --env prod --out /tmp/heron-03
 docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta page add services/roofing .
+docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta check .
 ```
 
 A 0.2 theme is worth moving to the 0.3 contract too - a separate list in [07 · "Moving a theme from 0.2 to 0.3"](07-theme-author.md#migrate-0-3).

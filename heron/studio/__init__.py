@@ -40,6 +40,7 @@ RASTER = (".jpg", ".jpeg", ".png", ".webp", ".gif")
 IMAGES = (*RASTER, ".svg")
 MEDIA = "media"
 KINDS = {"page": False, "category": True}
+OWN_FIELDS = ("updated", "redirect_from")  # свои поля языка без перевода, которые правит форма
 # SVG проверяет heron.core.svg (XML-парсер, а не поиск по тексту) - тот же, что у heron check.
 
 
@@ -245,8 +246,12 @@ def state(entity: ops.Entity, lang: str) -> dict[str, Any]:
     files: dict[str, dict[str, Any]] = {}
     for code in ctx.langs:
         main = code == ctx.default
+        # неосновной язык: перевод и свои адреса и дата (`redirect_from`, `updated`);
+        # пометку `translation` форма ставит своим флажком
         fields[code] = [
-            item.to_dict() for item in ops.fields_of(entity, code, only_translatable=not main)
+            item.to_dict()
+            for item in ops.fields_of(entity, code)
+            if main or ops.translatable(item) or item.path in OWN_FIELDS
         ]
         files[code] = {
             "rel": entity.rel(code),
@@ -286,15 +291,23 @@ def save(root: Path, request: dict[str, Any], lang: str) -> dict[str, Any]:
     """Записать правки теми же функциями, что `heron page add`: ошибки полей - E039.
 
     Новый блок снимает переведённые языки с публикации (пометка «перевод не
-    готов»): без `confirm_pending` запись не идёт, ответ называет эти языки -
-    страница спрашивает человека и повторяет запрос с подтверждением.
+    готов»), раздел на месте папки 0.2 без перевода прячет переведённые страницы
+    внутри (`ops.drops`): без `confirm_pending` запись не идёт, ответ называет эти
+    языки и страницы - студия спрашивает человека и повторяет запрос с подтверждением.
     """
     entity, lost = _prepare(root, request, lang)
-    if lost and not request.get("confirm_pending"):
+    # раздел на месте папки 0.2 без перевода спрячет переведённые страницы внутри - тоже спросить
+    dropped = ops.drops(entity)
+    if (lost or dropped) and not request.get("confirm_pending"):
+        parts = [say(lang, "studio_confirm_pending", langs=", ".join(lost))] if lost else []
+        if dropped:
+            lines = "\n".join(ops.drops_lines(dropped, lang))
+            parts.append(say(lang, "studio_confirm_drops", lines=lines))
         return {
             "confirm": {
-                "langs": lost,
-                "message": say(lang, "studio_confirm_pending", langs=", ".join(lost)),
+                "langs": sorted({*lost, *(code for langs in dropped.values() for code in langs)}),
+                "drops": dropped,
+                "message": "\n\n".join(parts),
             }
         }
     errors, _warnings = ops.problems(entity, lang)

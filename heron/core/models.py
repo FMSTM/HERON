@@ -317,6 +317,9 @@ class Site:
     # Страницы с пометкой `translation: pending`, которые боевая сборка не
     # публикует: их нет ни в `pages`, ни в меню, sitemap и hreflang (20 §4.2).
     held: list[Page] = field(default_factory=list)
+    # Страницы с `published: false` (без `--drafts`): не собираются, но `check` сверяет
+    # по ним общие поля языков - `published` тоже одно на все языки.
+    unpublished: list[Page] = field(default_factory=list)
 
     def of_lang(self, lang: str) -> list[Page]:
         return [p for p in self.pages if p.lang == lang]

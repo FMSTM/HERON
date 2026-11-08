@@ -333,6 +333,7 @@ def scan(
             )
 
             if not meta.published and not drafts:
+                site.unpublished.append(page)
                 continue
             if hold_pending and meta.pending:
                 site.held.append(page)

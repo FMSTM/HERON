@@ -184,3 +184,57 @@ def test_new_does_not_call_a_typed_domain_a_placeholder(tmp_path, monkeypatch):
     summary = next(line for line in result.output.splitlines() if "domain: workshop" in line)
     assert "заглушка" not in summary and "зона .example зарезервирована" in summary
     assert "Домен сейчас заглушка" not in result.output
+
+
+# --- сборка: исполняемый SVG в прод не уходит ---------------------------------------------
+
+
+def _unsafe(site):
+    (site / "media" / "evil.svg").write_bytes(XSLT_PI)
+    (site / "theme" / "assets" / "icon.svg").write_bytes(BAD[2])
+
+
+def test_prod_build_stops_on_an_unsafe_svg(site, tmp_path):
+    from heron.core.environment import BuildEnv
+
+    _unsafe(site)
+    result = pipeline.run(site, dist=tmp_path / "dist", env=BuildEnv.resolve("prod"))
+    found = sorted(e.path for e in result.collector.errors if e.code == "E043")
+    assert found == ["media/evil.svg", "theme/assets/icon.svg"], found
+    assert not (tmp_path / "dist" / "index.html").exists()
+
+
+def test_prod_build_from_the_command_line_lists_the_files(site, tmp_path):
+    _unsafe(site)
+    out = tmp_path / "dist"
+    result = CliRunner().invoke(main, ["build", str(site), "--env", "prod", "--out", str(out)])
+    assert result.exit_code != 0
+    assert "E043" in result.output
+    assert "media/evil.svg" in result.output and "theme/assets/icon.svg" in result.output
+
+
+def test_dev_build_warns_and_goes_on(site, tmp_path):
+    _unsafe(site)
+    result = pipeline.run(site, dist=tmp_path / "dist")
+    assert not [e for e in result.collector.errors if e.code == "E043"]
+    warned = [w.path for w in result.collector.warnings if "SVG" in w.message.text("en")]
+    assert sorted(warned) == ["media/evil.svg", "theme/assets/icon.svg"], warned
+    assert (tmp_path / "dist" / "index.html").is_file()
+
+
+def test_the_svg_verdict_is_cached_by_file_hash(site, tmp_path, monkeypatch):
+    _unsafe(site)
+    pipeline.run(site, dist=tmp_path / "dist")
+    cache = json.loads((tmp_path / ".heron-cache" / "svg-safe.json").read_text("utf-8"))
+    assert len(cache) >= 3 and any(v and "xml-stylesheet" in v for v in cache.values())
+    calls: list[int] = []
+    real = svg.problem
+    monkeypatch.setattr(svg, "problem", lambda data: (calls.append(1), real(data))[1])
+    again = pipeline.run(site, dist=tmp_path / "dist")
+    assert calls == []  # ни одного разбора: все файлы те же
+    assert len([w for w in again.collector.warnings if "SVG" in w.message.text("en")]) == 2
+    # файл поменялся - разбирается заново
+    (site / "media" / "evil.svg").write_bytes(GOOD)
+    third = pipeline.run(site, dist=tmp_path / "dist")
+    assert calls == [1]
+    assert len([w for w in third.collector.warnings if "SVG" in w.message.text("en")]) == 1

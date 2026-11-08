@@ -283,6 +283,8 @@ def run(
         )
 
     _roots(site, config, collector, prod=env.is_prod)
+    # исполняемый SVG в прод не уходит; на деве и в serve - предупреждение
+    svg_files(site_root, theme_dir, collector, error=env.is_prod, cache=dist.parent / CACHE)
 
     result = Result(
         config=config,
@@ -818,31 +820,71 @@ def implicit_folders(site: Site, site_root: Path, langs: list[str], collector: C
 INDEX_FILE = "_index.md"
 
 
-def svg_files(site_root: Path, theme_dir: Path, collector: Collector) -> None:
+SVG_CACHE = "svg-safe.json"  # в .heron-cache рядом со сборкой: sha256 файла -> находка
+
+
+def svg_files(
+    site_root: Path,
+    theme_dir: Path,
+    collector: Collector,
+    error: bool = True,
+    cache: Path | None = None,
+) -> None:
     """SVG из `media/` и темы сайт отдаёт как есть: исполняемое в нём - `E043`.
 
     Та же проверка, что у загрузки в студии (`heron.core.svg`): файлы, положенные
-    мимо студии (руками, темой, скриптом), ловит `heron check`.
+    мимо студии (руками, темой, скриптом), ловят `heron check` и сборка. `error` -
+    ошибка (`check`, боевая сборка: такой файл в прод не уходит), иначе
+    предупреждение (черновая сборка, `serve`). `cache` - папка `.heron-cache`:
+    итог по sha256 файла, чтобы не разбирать одни и те же SVG на каждой сборке.
     """
+    import hashlib
+    import json
+
     from heron.core import svg
 
+    known: dict[str, str | None] = {}
+    store = cache / SVG_CACHE if cache is not None else None
+    if store is not None:
+        try:
+            loaded = json.loads(store.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                known = {str(k): v for k, v in loaded.items() if v is None or isinstance(v, str)}
+        except (OSError, ValueError):
+            known = {}
+    seen: dict[str, str | None] = {}
     for path in svg.files(site_root / "media", theme_dir):
         try:
-            reason = svg.problem(path.read_bytes())
-        except OSError as error:
-            reason = error.strerror or str(error)
+            data = path.read_bytes()
+        except OSError as failure:
+            reason: str | None = failure.strerror or str(failure)
+        else:
+            digest = hashlib.sha256(data).hexdigest()
+            reason = known[digest] if digest in known else svg.problem(data)
+            seen[digest] = reason
         if reason is None:
             continue
         try:
             shown = path.relative_to(site_root).as_posix()
         except ValueError:
             shown = str(path)
-        collector.error(
-            "E043",
-            Msg("build_svg_unsafe", reason=reason),
-            path=shown,
-            hint=Msg("build_svg_unsafe_hint"),
-        )
+        if error:
+            collector.error(
+                "E043",
+                Msg("build_svg_unsafe", reason=reason),
+                path=shown,
+                hint=Msg("build_svg_unsafe_hint"),
+            )
+        else:
+            collector.warn(Msg("build_svg_unsafe", reason=reason), path=shown, kind="прочее")
+    if store is not None and seen != known:
+        try:
+            store.parent.mkdir(parents=True, exist_ok=True)
+            temp = store.with_suffix(".tmp")
+            temp.write_text(json.dumps(seen, sort_keys=True), encoding="utf-8")
+            temp.replace(store)
+        except OSError:
+            pass  # кэш - ускорение, не условие сборки
 
 
 def _roots(site: Site, config: SiteConfig, collector: Collector, prod: bool) -> None:

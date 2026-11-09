@@ -44,6 +44,10 @@ const T = {
     bot: "Нужна помощь или есть вопросы?", bot_off: "Скоро здесь будет связь с нами.",
     dir: "Сфера деятельности", dir_none: "- сфера деятельности -", spec_none: "- специализация (необязательно) -", kind_none: "- вид (необязательно) -",
     sep: "Разделитель", suffix_text: "Текст после разделителя",
+    cache_t: "Кэш браузера", cache_about: "Сколько браузер посетителя держит файлы темы и картинки, не спрашивая сервер. Страницы не кэшируются никогда: правка текста видна сразу. Срок - число секунд или 30m, 12h, 1d, 7d, 1y. Ключи nginx.cache в site.yaml.",
+    cache_v: "Файлы с версией", cache_v_h: "Копии с хешем содержимого в имени (site.0123456789.css) - на них ссылаются страницы. Под таким именем файл не меняется никогда, поэтому срок долгий. По умолчанию 1y. Менять почти незачем: новая версия файла - новое имя.",
+    cache_a: "Файлы темы без версии", cache_a_h: "Те же стили, скрипты и шрифты под прежним именем: на них ссылаются старые страницы в кэше и чужие сайты. По умолчанию 1d. Короче - если тема меняется несколько раз в день и на файлы ссылаются снаружи.",
+    cache_m: "Картинки и файлы без версии", cache_m_h: "Файлы media/ под прежним именем, например ссылка на памятку или скан. По умолчанию 1d. Длиннее - если файлы почти не меняются; короче - если заменяете их под тем же именем.",
     helpers_t: "Помощники для вашего удобства", helpers_about: "site.yaml записывается всегда - это настройки сайта. Остальное - по желанию: скрипты лягут в скрытую папку .heron/ и в сборку сайта не попадут.",
     h_build: "Скрипт сборки", h_build_s: ".heron/scripts/build.sh - итоговая сборка одной командой",
     h_publish: "Скрипт публикации", h_publish_s: ".heron/scripts/publish.sh - публикует выбранным способом",
@@ -104,6 +108,10 @@ const T = {
     bot: "Need help or have questions?", bot_off: "A way to reach us will be here soon.",
     dir: "Field of work", dir_none: "- field of work -", spec_none: "- specialization (optional) -", kind_none: "- kind (optional) -",
     sep: "Separator", suffix_text: "Text after the separator",
+    cache_t: "Browser cache", cache_about: "How long the visitor's browser keeps theme files and images without asking the server. Pages are never cached: an edit of the text shows at once. A time is a number of seconds or 30m, 12h, 1d, 7d, 1y. The nginx.cache keys in site.yaml.",
+    cache_v: "Versioned files", cache_v_h: "Copies with the content hash in the name (site.0123456789.css) - pages link to them. Under such a name the file never changes, so the time is long. Default 1y. There is hardly a reason to change it: a new version of a file is a new name.",
+    cache_a: "Theme files without a version", cache_a_h: "The same styles, scripts and fonts under the plain name: old pages in a cache and other sites link to them. Default 1d. Shorter if the theme changes several times a day and files are linked from outside.",
+    cache_m: "Images and files without a version", cache_m_h: "media/ files under the plain name, for example a link to a leaflet or a scan. Default 1d. Longer if the files hardly change; shorter if you replace them under the same name.",
     helpers_t: "Helpers for your convenience", helpers_about: "site.yaml is always written: it is the settings of the site. The rest is up to you: scripts go to the hidden .heron/ folder and never into the build of the site.",
     h_build: "Build script", h_build_s: ".heron/scripts/build.sh - the final build in one command",
     h_publish: "Publish script", h_publish_s: ".heron/scripts/publish.sh - publishes the way you chose",
@@ -706,6 +714,12 @@ function gPublish() {
   if (p.way === "github" && p.auto !== false) fixed.push(h("div", { class: "hint", style: "margin-top:.9rem" }, t("h_workflow")));
   if (p.way === "static" && p.static_target === "pages") fixed.push(h("div", { class: "hint", style: "margin-top:.9rem" }, t("h_pages")));
   body.push(h("div", { class: "subbox", style: "margin-top:1rem" }, h("h3", {}, t("helpers_t")), h("p", { class: "hint", style: "margin:0 0 .8rem" }, t("helpers_about")), helpers, ...fixed));
+  A.cache = A.cache || {};
+  body.push(h("div", { class: "subbox", id: "cache", style: "margin-top:1rem" }, h("h3", {}, t("cache_t")), h("p", { class: "hint", style: "margin:0 0 .8rem" }, t("cache_about")),
+    h("div", { class: "grid" },
+      field(t("cache_v"), "cache.versioned", t("cache_v_h"), "text", { placeholder: "1y" }),
+      field(t("cache_a"), "cache.assets", t("cache_a_h"), "text", { placeholder: "1d" }),
+      field(t("cache_m"), "cache.media", t("cache_m_h"), "text", { placeholder: "1d" }))));
   return group("pub", "7", t("g_pub"), t("g_pub_about"), null, ...body);
 }
 function gKeys() { return group("keys", "8", t("g_keys"), t("g_keys_about"), "dev"); }

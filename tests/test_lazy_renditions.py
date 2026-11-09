@@ -70,9 +70,20 @@ def site(tmp_path) -> Path:
     return root
 
 
+# Копия с хешем содержимого в имени (core/versions.py) - тот же файл, что и
+# под прежним именем: здесь считаются только файлы.
+HASHED = re.compile(r"\.[0-9a-f]{10}(\.[A-Za-z0-9]+)(?=$|[\s\"')?#,])")
+
+
+def unhash(text: str) -> str:
+    return HASHED.sub(r"\1", text)
+
+
 def built(root: Path) -> set[str]:
     media_dir = root / "dist" / "media"
-    return {p.relative_to(root / "dist").as_posix() for p in media_dir.rglob("*") if p.is_file()}
+    return {
+        unhash(p.relative_to(root / "dist").as_posix()) for p in media_dir.rglob("*") if p.is_file()
+    }
 
 
 def links(root: Path) -> set[str]:
@@ -83,7 +94,7 @@ def links(root: Path) -> set[str]:
         if "_heron" in path.relative_to(root / "dist").parts:
             continue
         if path.is_file() and path.suffix in {".html", ".xml", ".txt", ".json", ".css"}:
-            found.update(LINK.findall(path.read_text(encoding="utf-8")))
+            found.update(LINK.findall(unhash(path.read_text(encoding="utf-8"))))
     return found
 
 
@@ -125,7 +136,7 @@ def test_one_fallback_per_ratio_and_not_wider_than_fallback_width(site):
         "media/card-16x9-1200.png",
         "media/cover.png",  # обложка по умолчанию заготовки (E18.S1.T11)
     }, pngs
-    html = (site / "dist" / "card" / "index.html").read_text(encoding="utf-8")
+    html = unhash((site / "dist" / "card" / "index.html").read_text(encoding="utf-8"))
     assert 'src="/media/card-16x9-800.png"' in html
     with Image.open(site / "dist" / "media" / "card-16x9-800.png") as out:
         assert out.width == 800
@@ -145,7 +156,7 @@ def test_fallback_width_comes_from_the_theme(site):
     theme.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
     pipeline.run(site)
     pngs = {n for n in built(site) if n.endswith(".png")}
-    html = (site / "dist" / "card" / "index.html").read_text(encoding="utf-8")
+    html = unhash((site / "dist" / "card" / "index.html").read_text(encoding="utf-8"))
     assert 'src="/media/card-16x9-400.png"' in html
     # прочие .png - мастер обложки и её вариант шириной max(fallback_width, cover_width)
     assert pngs == {

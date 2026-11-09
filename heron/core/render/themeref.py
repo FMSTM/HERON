@@ -434,8 +434,9 @@ class Live:
         media: Manifest | None,
         build_env: BuildEnv | None,
         hooks=None,
+        assets=None,
     ) -> None:
-        self.env = envmod.make(theme_dir, config, hooks)
+        self.env = envmod.make(theme_dir, config, hooks, assets)
         self.theme_dir = theme_dir
         self.site, self.config, self.theme = site, config, theme
         self.media, self.build_env = media, build_env
@@ -693,13 +694,14 @@ def pages(
     build_env: BuildEnv | None = None,
     hooks=None,
     notes_lang: str | None = None,
+    assets=None,
 ) -> dict[str, str]:
     """Файлы справки для черновой сборки: имя в сборке → HTML, по языку сайта.
 
     Подсказки - на языке страницы справки, рамка - на нём же, если движок его
     знает (ru, en), иначе на языке сообщений запуска.
     """
-    live = Live(theme_dir, site, config, theme, media, build_env, hooks)
+    live = Live(theme_dir, site, config, theme, media, build_env, hooks, assets)
     out: dict[str, str] = {}
     for lang in config.site.languages:
         data = reference(theme, theme_dir, site, config, found, lang)

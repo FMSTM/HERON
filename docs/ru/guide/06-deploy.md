@@ -150,6 +150,66 @@ Workflow отдаёт выход `image` - полное имя собранно�
 
 Пока бета не вышла в prod, для беты вызывайте workflow как `@beta` вместе с `engine: beta`.
 
+### Внешний nginx перед образом сайта <a id="outer-nginx"></a>
+
+Образ сайта - это nginx со всем, что нужно сайту: заголовки безопасности, CSP, кэш браузера, 301 и 410 из `site.yaml`, страница 404, закрытые скрытые файлы. Он слушает порт 8080 без TLS. Перед ним на сервере стоит внешний nginx, и его работа - три вещи: принять TLS, отправить с зеркал (www, старые домены) на основной домен и с http на https. Готовый минимальный блок - замените `example.com` своими доменами, а порт - тем, на который опубликован контейнер сайта (`docker run -p 127.0.0.1:8080:8080 …`):
+
+```nginx
+# основной домен: TLS и передача в контейнер сайта
+server {
+    listen 443 ssl;
+    server_name example.com;
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# зеркала: www и старые домены - 301 на основной с тем же путём
+server {
+    listen 443 ssl;
+    server_name www.example.com old-example.com;
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+    return 301 https://example.com$request_uri;
+}
+
+# http: 301 на https основного домена с тем же путём
+server {
+    listen 80;
+    server_name example.com www.example.com old-example.com;
+    return 301 https://example.com$request_uri;
+}
+```
+
+Сертификат зеркал должен покрывать и их имена (один сертификат на все домены или свой у каждого). Если сертификат выпускается через http (certbot с `--webroot`), добавьте в блок порта 80 `location /.well-known/acme-challenge/` с `root` папки certbot, а `return` перенесите в `location /`.
+
+**Внешний nginx не добавляет своих заголовков и не кэширует.** Никаких `add_header Cache-Control`, `expires`, `Content-Security-Policy`, `Strict-Transport-Security` и `proxy_cache` в этих блоках: заголовки ставит образ сайта, и второй комплект от внешнего nginx задвоит их или перебьёт, а кэш на прокси отдаст старую страницу после выкладки. Внутренний конфиг, в свою очередь, ничего не знает о доменах: зеркала и https - только здесь.
+
+### Кэш браузера и версии файлов <a id="browser-cache"></a>
+
+**После обновления темы кэш не мешает.** Страницы ссылаются на файлы темы и картинки по именам с хешем содержимого: `/assets/site.0123456789.css`. Новая версия стилей - новое имя, и первая же загрузка страницы берёт новый файл, сколько бы старый ни лежал в кэше браузера. Поэтому файлы с хешем отдаются на год с `immutable`, файлы под прежними именами (`/assets/site.css` - на них ссылаются старые страницы в кэше и чужие сайты) - на сутки, страницы - `no-cache`: правка текста видна сразу.
+
+Сроки меняются в `site.yaml` или в конфигураторе (вкладка «Сайт», блок «Кэш браузера»):
+
+```yaml
+nginx:
+  cache:
+    versioned: 1y   # файлы с хешем в имени, плюс immutable
+    assets: 1d      # файлы темы без хеша
+    media: 1d       # media/ без хеша
+```
+
+Срок - число секунд или число с единицей: `30m`, `12h`, `1d`, `7d`, `1y`. Страницам срок не задаётся: с ними приходят новые имена файлов, и кэш страницы задержал бы всё обновление. Ключи - [`20` §5](../spec/20-data-contract.md), правила отдачи - [`22` §5](../spec/22-deploy.md).
+
+Если ваш сайт сам дописывал `?v=…` к адресам стилей и скриптов (например, шагом Dockerfile после `heron build`), уберите этот шаг: движок версионирует файлы сам, а `?v=` к имени с хешем ничего не добавляет. Внутри `.js` адреса не переписываются - как передать их скрипту, в [04 · «Как подключать файлы темы»](04-theme.md#asset).
+
 ## Несколько сайтов: `scripts/site.sh`
 
 Если вы ведёте несколько сайтов, удобнее работать из клона репозитория движка: там есть скрипт `scripts/site.sh`, который делает всё одной командой.

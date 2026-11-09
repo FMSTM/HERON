@@ -511,6 +511,7 @@ TITLES: dict[str, dict[str, str]] = {
         "E042": "an own page field from the theme contract is empty or does not fit",
         "E043": "an SVG in media/ or in the theme has executable content or external links",
         "E044": "the theme text has terminal control characters",
+        "E045": "asset() names a file that is not in the theme assets/ or in the site media/",
     },
 }
 
@@ -939,6 +940,17 @@ TEXT["en"].update(
 # В подсказках двойные скобки: `say` подставляет поля через str.format.
 TEXT["ru"].update(
     {
+        "build_owner_versioned": "{owner}, копия с хешем в имени",
+        "theme_asset_hardcoded": (
+            "строка {line}: адрес /assets/ записан руками; сборка всё равно подставит имя с "
+            "хешем, но asset('…') проверяется - опечатка в имени станет ошибкой E045, а не "
+            "битой ссылкой. См. heron docs theme, «Как подключать файлы темы: asset()»"
+        ),
+        "theme_js_asset_path": (
+            "строка {line}: путь {path} в скрипте темы - внутри .js движок имена с хешем не "
+            "подставляет, и файл по этому адресу кэшируется на срок nginx.cache.assets; "
+            "передайте адрес из шаблона атрибутом data-…=\"{{{{ asset('…') }}}}\""
+        ),
         "theme_inline_script": (
             "инлайн-скрипт в строке {line} заблокирует CSP сайта (script-src 'self'): "
             "вынесите код в файл темы, см. docs guide/04-theme"
@@ -972,6 +984,19 @@ TEXT["ru"].update(
 )
 TEXT["en"].update(
     {
+        "build_owner_versioned": "{owner}, a copy with a hash in the name",
+        "theme_asset_hardcoded": (
+            "line {line}: the /assets/ address is written by hand; the build substitutes the "
+            "hashed name anyway, but asset('…') is checked - a typo in the name becomes error"
+            ' E045 instead of a broken link. See heron docs theme, "How to include theme '
+            'files: asset()"'
+        ),
+        "theme_js_asset_path": (
+            "line {line}: the path {path} in a theme script - inside .js the engine does not "
+            "substitute hashed names, and the file at this address is cached for "
+            "nginx.cache.assets; pass the address from the template in an attribute "
+            "data-…=\"{{{{ asset('…') }}}}\""
+        ),
         "theme_inline_script": (
             "the inline script on line {line} will be blocked by the site CSP (script-src 'self'): "
             "move the code to a theme file, see docs guide/04-theme"

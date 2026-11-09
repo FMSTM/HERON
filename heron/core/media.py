@@ -1276,6 +1276,22 @@ def finish(
     return placed
 
 
+def ensure(manifest: Manifest, site_root: Path, spec: ImagesSpec, rel: str) -> Path | None:
+    """Закодировать одну нарезку сейчас, а не после рендера; путь к её байтам.
+
+    Нужно `asset()` в шаблоне: имя с хешем считается по готовым байтам, а
+    шаблон рендерится раньше нарезки. Запись кэша та же, что у `finish`, -
+    второй раз нарезка не кодируется. Нет такой нарезки в плане - None.
+    """
+    if rel not in manifest.planned:
+        return None
+    kept = manifest.cached[rel]
+    if not _reusable(kept):
+        src, ratio, fmt, width = manifest.planned[rel]
+        slice_master(src, paths.source(site_root, src), spec, [(ratio, fmt, width, kept)])
+    return kept
+
+
 @contextlib.contextmanager
 def using(cache_dir: Path):
     """Сборка пользуется кэшем: разделяемая блокировка от плана до записи.

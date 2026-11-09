@@ -295,6 +295,52 @@ class BuildBlock(Strict):
         raise MsgError("site_agents", value=repr(v))
 
 
+# Срок кэша: целое число секунд или число с единицей - s, m, h, d, w, y.
+# Больше 2^31-1 секунд max-age не бывает (RFC 9111, 1.2.2).
+DURATION_RE = re.compile(r"^(\d+)([smhdwy]?)\Z")
+DURATION_UNITS = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800, "y": 31536000}
+DURATION_MAX = 2**31 - 1
+
+
+def duration(value: Any) -> int:
+    """Срок кэша в секундах: `1y`, `7d`, `12h`, `30m`, `3600`. Иначе MsgError."""
+    text = "" if isinstance(value, bool) or not isinstance(value, (str, int)) else str(value)
+    match = DURATION_RE.match(text.strip().lower())
+    if not match:
+        raise MsgError("site_duration", value=repr(value))
+    seconds = int(match.group(1)) * DURATION_UNITS[match.group(2)]
+    if seconds > DURATION_MAX:
+        raise MsgError("site_duration_big", value=repr(value))
+    return seconds
+
+
+class CacheBlock(Strict):
+    """Сроки кэша браузера для файлов темы и ресурсов (22 §5).
+
+    `versioned` - файлы с хешем содержимого в имени (`site.0123abcdef.css`):
+    под таким именем содержимое не меняется никогда, поэтому срок долгий и
+    с `immutable`. `assets` и `media` - те же файлы под прежними именами, без
+    хеша: их держат на случай старых страниц в кэше и чужих ссылок.
+
+    Страниц здесь нет: им всегда `no-cache`, иначе правка текста и новые
+    имена файлов темы доходили бы до посетителя с опозданием.
+    """
+
+    versioned: str = "1y"
+    assets: str = "1d"
+    media: str = "1d"
+
+    @field_validator("versioned", "assets", "media", mode="before")
+    @classmethod
+    def _duration(cls, value: Any) -> str:
+        duration(value)
+        return str(value).strip().lower()
+
+    def seconds(self, key: str) -> int:
+        """Срок ключа `key` в секундах - для max-age."""
+        return duration(getattr(self, key))
+
+
 class NginxBlock(Strict):
     """Конфиг nginx, который движок собирает вместе с сайтом.
 
@@ -302,9 +348,12 @@ class NginxBlock(Strict):
     location, а не строковые карты: хэш-таблицы карт, под которые считались
     map_hash_bucket_size и map_hash_max_size, больше не строятся. Ключ
     принимается, чтобы существующие site.yaml собирались без правки.
+
+    `cache` - сроки кэша браузера для файлов темы и ресурсов.
     """
 
     hash_sizes: Literal["auto", "off"] = "auto"
+    cache: CacheBlock = Field(default_factory=CacheBlock)
 
 
 class FormSpec(Strict):

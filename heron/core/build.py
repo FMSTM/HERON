@@ -42,6 +42,7 @@ from heron.core import (
     resolver,
     tree,
     urls,
+    versions,
 )
 from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError, Warning_
@@ -340,6 +341,14 @@ def run(
         if collector.failed:
             return result
 
+        # Хеши файлов темы - до рендера: шаблону `asset('site.css')` нужно
+        # готовое имя с хешем (core/versions.py).
+        assets = versions.plan(
+            theme_dir / ASSETS,
+            media=_media_file(site_root, manifest, theme) if with_media else None,
+            collector=collector,
+        )
+
         say.step("step_templates")
         # Черновая сборка пишет, что нарисовал каждый модуль: из этого и из
         # контракта темы собирается служебная справка темы /_heron/theme/.
@@ -355,6 +364,7 @@ def run(
             progress=say,
             hooks=hooks,
             seen=seen,
+            assets=assets,
         )
         say.done("done_pages", count=len(html))
         if collector.failed:
@@ -399,7 +409,7 @@ def run(
             found = demo.shown(site, theme, seen)
             claim(
                 themeref.pages(
-                    theme_dir, site, config, theme, found, manifest, env, hooks, notes_lang
+                    theme_dir, site, config, theme, found, manifest, env, hooks, notes_lang, assets
                 ),
                 "generator",
                 Msg("build_owner_theme_ref"),
@@ -432,11 +442,16 @@ def run(
             texts = outputs.texts()
             texts += _texts(theme_dir / ASSETS)
             texts += _texts(site_root / STATIC)
+            # asset('media/…') в шаблоне дал имя с хешем: исходный путь ищется
+            # по нему, а не по тексту страницы
+            for rel in sorted(assets.issued):
+                if rel not in manifest.planned and rel not in manifest.masters:
+                    manifest.copies.setdefault(rel, paths.source(site_root, rel))
             placed = media.finish(
                 manifest,
                 site_root,
                 theme.images,
-                used=media.used_in(texts),
+                used=media.used_in(texts) | assets.issued,
                 workers=config.build.workers if workers is None else workers,
                 progress=say,
             )
@@ -453,6 +468,9 @@ def run(
                 )
             say.done("done_files", count=len(placed))
 
+        # Копии с хешем в имени и ссылки на них в HTML (core/versions.py)
+        domain = config.site.domain
+        versions.finish(outputs, assets, (f"https://{domain}", f"http://{domain}"), collector)
         outputs.check_tree(collector)
         outputs.check_overrides(collector)
 
@@ -1046,6 +1064,24 @@ def sources(site_root: Path, theme_dir: Path) -> list[Path]:
     return [*(site_root / name for name in names), theme_dir]
 
 
+def _media_file(
+    site_root: Path, manifest: media.Manifest, theme: ThemeConfig
+) -> Callable[[str], Path | None]:
+    """Где до рендера взять байты файла `media/…`: нарезка - кодируется сейчас,
+    прочее - исходник сайта, который ляжет в сборку байт в байт."""
+
+    def find(rel: str) -> Path | None:
+        if rel in manifest.planned:
+            return media.ensure(manifest, site_root, theme.images, rel)
+        try:
+            source = paths.source(site_root, rel)
+        except HeronError:
+            return None
+        return source if source.is_file() else None
+
+    return find
+
+
 def _texts(folder: Path) -> list[str]:
     """Текстовые файлы папки: в них тоже бывают ссылки на /media/."""
     out = []
@@ -1203,6 +1239,7 @@ def check(
     site = content(site_root, config, theme, theme_dir, hooks, collector, drafts, env.is_prod)
     templates_check.missing_templates(site, theme, theme_dir, config, collector, hooks)
     templates_check.inline_scripts(theme_dir, site_root, collector)
+    templates_check.asset_paths(theme_dir, site_root, collector)
     svg_files(site_root, theme_dir, collector)
     implicit_folders(site, site_root, config.site.languages, collector, config.site.default_lang)
     shared_mismatch(site, theme, config.site.default_lang, collector)

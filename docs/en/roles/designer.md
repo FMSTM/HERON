@@ -82,7 +82,8 @@ For each form the theme draws - `modules/<name>.html`. Inside: `section` (the se
 
 - only `picture(src, ratio, alt=…)` - renditions, WebP/AVIF, sizes; building `<picture>` by hand means losing the variants;
 - the ratios you use go in `images.ratios`;
-- CSS, JS, fonts - in `theme/assets/`; favicon and `.well-known` - in the site's `static/`.
+- CSS, JS, fonts - in `theme/assets/`; favicon and `.well-known` - in the site's `static/`;
+- theme files in templates go through `asset('site.css')`, not `/assets/site.css`: a name with the content hash, a typo is `E045`; an address for a script goes in a `data-*` attribute from the template, inside `.js` the engine does not rewrite addresses ([`guide/04`, "How to include theme files"](../guide/04-theme.md#asset)).
 
 ### The cover and robots in `<head>`
 

@@ -31,8 +31,9 @@
 <meta name="color-scheme" content="light dark">
 {# heron:note base.scheme #}
 {% set a = site.analytics %}
-<script src="/assets/site.js"{% if env.analytics %}{% if a.gtm %} data-gtm="{{ a.gtm }}"{% endif %}{% if a.ga4 %} data-ga4="{{ a.ga4 }}"{% endif %}{% if a.metrika %} data-metrika="{{ a.metrika }}"{% endif %}{% endif %}></script>
-<link rel="stylesheet" href="/assets/site.css">
+{# heron:note base.asset #}
+<script src="{{ asset('site.js') }}"{% if env.analytics %}{% if a.gtm %} data-gtm="{{ a.gtm }}"{% endif %}{% if a.ga4 %} data-ga4="{{ a.ga4 }}"{% endif %}{% if a.metrika %} data-metrika="{{ a.metrika }}"{% endif %}{% endif %}></script>
+<link rel="stylesheet" href="{{ asset('site.css') }}">
 {% set ld = jsonld() %}
 {% if ld %}<script type="application/ld+json">{{ ld }}</script>{% endif %}
 </head>

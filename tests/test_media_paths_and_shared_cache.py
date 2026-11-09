@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import multiprocessing
+import re
 from pathlib import Path
 
 import pytest
@@ -75,7 +76,9 @@ def test_root_absolute_media_in_markdown_lands_in_the_build(tmp_path):
     )
     ok(root)
     assert (root / "dist/media/picture.png").is_file()
-    assert 'src="/media/picture.png"' in (root / "dist/about/index.html").read_text("utf-8")
+    # в src - копия с хешем содержимого в имени (core/versions.py)
+    page = (root / "dist/about/index.html").read_text("utf-8")
+    assert re.search(r'src="/media/picture\.[0-9a-f]{10}\.png"', page)
 
 
 def test_relative_media_on_a_nested_page_points_to_the_root(tmp_path):
@@ -93,7 +96,7 @@ def test_relative_media_on_a_nested_page_points_to_the_root(tmp_path):
     )
     ok(root)
     html = (root / "dist/services/design/index.html").read_text("utf-8")
-    assert 'src="/media/file.svg"' in html
+    assert re.search(r'src="/media/file\.[0-9a-f]{10}\.svg"', html)
     assert 'href="/media/file.svg"' in html
     assert 'src="media/file.svg"' not in html
     assert (root / "dist/media/file.svg").is_file()

@@ -25,7 +25,7 @@ from pydantic import BaseModel
 from heron.contracts.loader import read_yaml
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
-from heron.core import paths, urls
+from heron.core import paths, urls, versions
 from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError
 from heron.core.media import Manifest
@@ -217,12 +217,16 @@ class ThemeSandbox(ImmutableSandboxedEnvironment):
         return super().is_safe_attribute(obj, attr, value)
 
 
-def make(theme_dir: Path, config: SiteConfig, hooks=None) -> Environment:
+def make(theme_dir: Path, config: SiteConfig, hooks=None, assets=None) -> Environment:
     """Собрать окружение Jinja2 для темы — в песочнице (`ThemeSandbox`).
 
     Фильтры и глобальные переменные плагинов (`hooks.filter`,
     `hooks.add_global`) добавляются последними, но встроенные не
     перекрывают: имя, которое уже есть, плагину не отдаётся.
+
+    `assets` - хеши файлов (`versions.Versions`) для `asset()`. Не передан
+    (проверка, демо) - хеши файлов темы считаются при первом вызове, а
+    `asset('media/…')` отвечает адресом без хеша.
     """
     env = ThemeSandbox(
         loader=ThemeLoader(theme_dir),
@@ -234,6 +238,15 @@ def make(theme_dir: Path, config: SiteConfig, hooks=None) -> Environment:
     )
     env.globals["absolute"] = lambda url: f"https://{config.site.domain}{url}"
     env.filters["absolute"] = env.globals["absolute"]
+    known = [assets]
+
+    def asset(path: str) -> str:
+        """Адрес файла темы с хешем содержимого в имени: `asset('site.css')`."""
+        if known[0] is None:
+            known[0] = versions.plan(Path(theme_dir) / "assets")
+        return known[0].asset(path)
+
+    env.globals["asset"] = asset
     if hooks is not None:
         for name, handler in hooks.filters.items():
             env.filters.setdefault(name, handler)

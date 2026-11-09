@@ -35,7 +35,8 @@ def test_escaped_name_gets_its_renditions(tmp_path):
     problems += [w.message for w in result.collector.warnings]
     assert not result.failed, problems
     html = (root / "dist" / "index.html").read_text("utf-8")
-    assert "a&amp;b-16x9-400.webp" in html and "a&b-16x9" not in html  # экранировано
+    # экранировано; копия с хешем в имени (core/versions.py) - тоже
+    assert re.search(r"a&amp;b-16x9-400\.[0-9a-f]{10}\.webp", html) and "a&b-16x9" not in html
     found = re.findall(r'(?:src|srcset)="([^"]+)"', html)
     refs = {part.split()[0] for item in found for part in item.split(",") if "16x9" in part}
     assert refs

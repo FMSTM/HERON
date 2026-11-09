@@ -82,7 +82,8 @@ images:
 
 - только `picture(src, ratio, alt=…)` - нарезки, WebP/AVIF, размеры; собирать `<picture>` руками значит потерять варианты;
 - пропорции, которые используешь, - в `images.ratios`;
-- CSS, JS, шрифты - в `theme/assets/`; favicon и `.well-known` - в `static/` сайта.
+- CSS, JS, шрифты - в `theme/assets/`; favicon и `.well-known` - в `static/` сайта;
+- файлы темы в шаблонах - через `asset('site.css')`, не `/assets/site.css`: имя с хешем содержимого, опечатка - `E045`; адрес для скрипта - атрибутом `data-*` из шаблона, внутри `.js` движок адреса не переписывает ([`guide/04`, «Как подключать файлы темы»](../guide/04-theme.md#asset)).
 
 ### Обложка и robots в `<head>`
 

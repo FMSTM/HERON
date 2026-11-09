@@ -150,6 +150,66 @@ The `export_docs` input is needed only by the site of the engine itself. Before 
 
 Until beta is released to prod, for beta call the workflow as `@beta` together with `engine: beta`.
 
+### The outer nginx in front of the site image <a id="outer-nginx"></a>
+
+The site image is nginx with everything the site needs: security headers, CSP, browser cache, 301 and 410 from `site.yaml`, the 404 page, closed hidden files. It listens on port 8080 without TLS. In front of it the server has an outer nginx, and its job is three things: accept TLS, send mirrors (www, old domains) to the main domain and http to https. A ready minimal block - replace `example.com` with your domains, and the port with the one the site container is published on (`docker run -p 127.0.0.1:8080:8080 …`):
+
+```nginx
+# the main domain: TLS and passing to the site container
+server {
+    listen 443 ssl;
+    server_name example.com;
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# mirrors: www and old domains - 301 to the main one with the same path
+server {
+    listen 443 ssl;
+    server_name www.example.com old-example.com;
+    ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+    return 301 https://example.com$request_uri;
+}
+
+# http: 301 to https of the main domain with the same path
+server {
+    listen 80;
+    server_name example.com www.example.com old-example.com;
+    return 301 https://example.com$request_uri;
+}
+```
+
+The certificate of the mirrors must cover their names too (one certificate for all domains or one of their own each). If the certificate is issued over http (certbot with `--webroot`), add `location /.well-known/acme-challenge/` with the `root` of the certbot folder to the port 80 block, and move `return` into `location /`.
+
+**The outer nginx adds no headers of its own and does not cache.** No `add_header Cache-Control`, `expires`, `Content-Security-Policy`, `Strict-Transport-Security` or `proxy_cache` in these blocks: the site image sets the headers, and a second set from the outer nginx would double them or override them, while a cache on the proxy would serve an old page after a deployment. The inner config, in turn, knows nothing about domains: mirrors and https live only here.
+
+### Browser cache and file versions <a id="browser-cache"></a>
+
+**After a theme update the cache does not get in the way.** Pages link to theme files and pictures by names with the content hash: `/assets/site.0123456789.css`. A new version of the styles is a new name, and the very first page load takes the new file, however long the old one sits in the browser cache. That is why hashed files are served for a year with `immutable`, files under their plain names (`/assets/site.css` - old pages in a cache and other sites link to them) for a day, and pages with `no-cache`: an edit of the text shows at once.
+
+The times are changed in `site.yaml` or in the configurator (the Site tab, the Browser cache box):
+
+```yaml
+nginx:
+  cache:
+    versioned: 1y   # files with a hash in the name, plus immutable
+    assets: 1d      # theme files without a hash
+    media: 1d       # media/ without a hash
+```
+
+A time is a number of seconds or a number with a unit: `30m`, `12h`, `1d`, `7d`, `1y`. Pages get no time: the new file names arrive with them, and caching a page would delay the whole update. The keys - [`20` §5](../spec/20-data-contract.md), the serving rules - [`22` §5](../spec/22-deploy.md).
+
+If your site appended `?v=…` to the addresses of styles and scripts itself (for example, with a Dockerfile step after `heron build`), remove that step: the engine versions the files itself, and `?v=` adds nothing to a hashed name. Inside `.js` addresses are not rewritten - how to pass them to a script is in [04 · "How to include theme files"](04-theme.md#asset).
+
 ## Several sites: `scripts/site.sh`
 
 If you run several sites, it is more convenient to work from a clone of the engine repository: it has the `scripts/site.sh` script, which does everything with one command.

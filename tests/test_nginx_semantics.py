@@ -157,7 +157,7 @@ def test_config_does_not_depend_on_the_environment(tmp_path, monkeypatch):
 
 def test_comment_tables_match():
     assert set(nginx.COMMENTS["ru"]) == set(nginx.COMMENTS["en"])
-    used = set(nginx.MARK.findall(nginx.HEAD + nginx.TAIL)) | {("    ", "exact")}
+    used = set(nginx.MARK.findall(nginx.HEAD + nginx.VERSIONED + nginx.TAIL)) | {("    ", "exact")}
     assert {key for _, key in used} == set(nginx.COMMENTS["en"])
 
 
@@ -184,8 +184,8 @@ def test_config_has_security_headers_and_healthz(tmp_path):
     assert "add_header Strict-Transport-Security" in conf
     assert "location = /healthz {" in conf
     # add_header в location заменяет server-уровень: заголовки повторены везде,
-    # где задан свой add_header (healthz, media, assets)
-    assert conf.count("add_header X-Content-Type-Options") == 4
+    # где задан свой add_header (healthz, media, assets и копии с хешем в обеих)
+    assert conf.count("add_header X-Content-Type-Options") == 6
 
 
 @needs_nginx

@@ -22,16 +22,16 @@ files:
     ru_sha256: "56058e1e91d95d4f03035350e4fdd426070eb4d586908ffc6e14acc211d2937a"
     en_status: current
   - path: guide/04-theme.md
-    ru_sha256: "ed1bea176153ef36612832bc12e0b38fe1a5d5c73979f9af4fe681b51585d37c"
+    ru_sha256: "d5d2918287614be24992e100d1bda8cfaa6b44bef005b80607b256e7fe130789"
     en_status: current
   - path: guide/05-seo.md
     ru_sha256: "8fe293df854d7a768f3b8ff1ad7c6fc077ec1d489979530cc58293e1bc663d1b"
     en_status: current
   - path: guide/06-deploy.md
-    ru_sha256: "e5e08a4f3b6653f59d4b8f5fc96000069ba55612877fac4e5e9cfa428efac022"
+    ru_sha256: "c747b47f7358ae7bf6bc6d9d9d092c31631d9f3e88005f0a79408be153d6890b"
     en_status: current
   - path: guide/07-theme-author.md
-    ru_sha256: "4fce6f1ffbf46226556355551c59602483504ed534680248dd055b2bbaac792b"
+    ru_sha256: "c83fd1b38ee26ea821128e7a79b44a75ba90bf8cb1d75522add35dd65b327177"
     en_status: current
   - path: roles/architect.md
     ru_sha256: "357ccd262a83d03b911520e0effc32427904e786d1a691946673e2e0774cf2da"
@@ -46,19 +46,19 @@ files:
     ru_sha256: "d83747218f6c49bae45cf2661fac9a3a786987bd3ee7c3b5deab4fe7ecff8cec"
     en_status: current
   - path: roles/designer.md
-    ru_sha256: "b7f29b072fefe1334ae3a28f06bd70264680fc63990420b91c02a7aeb9eb55be"
+    ru_sha256: "7162aa68a2b3471191225c6303d0d77ae320ded9f7d5c104e5c8bd79274ba31f"
     en_status: current
   - path: spec/20-data-contract.md
-    ru_sha256: "834ec82281ca6d0ea7520c42900375cd5f32c26df354a0103100b3830e8c7488"
+    ru_sha256: "91fd58ebddbbb5db81d893cb407ea865832739a9cbdb9883e97689f553dfc54a"
     en_status: current
   - path: spec/21-engine.md
-    ru_sha256: "ff6f61b4daef878b3fcf380a04b912077c85b0d9c1057e9d38a9d527b385e5cd"
+    ru_sha256: "10a0316c47bf16ff2e4eaad6db34a933d40121591735a93f12af2f4f85532494"
     en_status: current
   - path: spec/22-deploy.md
-    ru_sha256: "52e43ba657d1008bbc8dcca5584d3cfd84e8e271382bb38e5fd48e9282fd060e"
+    ru_sha256: "ce53345df14bafadbed5ede6f6a8770accdbf5d38bc04e3373248e878cf8217a"
     en_status: current
   - path: spec/23-distribution.md
-    ru_sha256: "8243e9ada2967df34a28a20e976d9fe005105b656706e12bf1e206ae62243657"
+    ru_sha256: "5dbe99ce1a9e1b2cd395bf73d6b2195f0cfea2cf3d32022e89af80a26414e84c"
     en_status: current
   - path: templates/page.md
     ru_sha256: "c45fa56cdf289625f2bcb0b274e454d8e400508977cc4af958edc825ec393c07"

@@ -1075,9 +1075,15 @@ Rules:
 ```yaml
 nginx:
   hash_sizes: auto   # deprecated: accepted and does nothing
+  cache:             # browser cache times
+    versioned: 1y    # files with a hash in the name, plus immutable
+    assets: 1d       # theme files without a hash
+    media: 1d        # media/ resources without a hash
 ```
 
 A core key, validated (`E011`). `hash_sizes` is left over from the string maps for 301/410; now these are exact `location` blocks, map hash tables are not built, and there is no reason to set their sizes. Details - `23-distribution.md`, "The 404 page and serving", and `../guide/06-deploy.md`, "Your own nginx on the server".
+
+`cache` - the `Cache-Control: max-age` times in the inner nginx (`22` §5): a number of seconds (`3600`) or a number with a unit `s`, `m`, `h`, `d`, `w`, `y` (`30m`, `12h`, `7d`, `1y`); any other value or an unknown key is `E011` with examples. The defaults are as in the sample. `versioned` - copies of files with the content hash in the name (`21` §4, "Versions of theme files and resources"), the response also gets `immutable`; `assets` and `media` - the same files under their plain names. Pages are not in the block: they always get `no-cache` - the new names of theme files arrive with the page, and caching the page would delay the whole update. The configurator writes the keys too (`heron setup`, the Site tab, the Browser cache box): only those that differ from what is written.
 
 ### The `gone` block: 410 for what no longer exists
 

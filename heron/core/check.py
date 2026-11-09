@@ -382,3 +382,63 @@ def inline_scripts(theme_dir: Path, site_root: Path | None, collector: Collector
                 line=text.count("\n", 0, tag.start()) + 1,
                 kind="контент",
             )
+
+
+# Адрес /assets/ в шаблоне: в кавычках, в url(…), после `=` или пробела.
+# Адрес на чужом домене (`https://cdn…/assets/`) не считается: перед ним не граница.
+_HARDCODED = re.compile(r"""(?:(?<=["'(=\s])|^)/assets/""", re.M)
+# Строка с путём /assets/ или /media/ в скрипте темы.
+_JS_PATH = re.compile(r"""["'`](/(?:assets|media)/[^"'`\s]*)""")
+_JS_BLOCK = re.compile(r"/\*.*?\*/", re.S)
+JS_SUFFIXES = {".js", ".mjs"}
+
+
+def asset_paths(theme_dir: Path, site_root: Path | None, collector: Collector) -> None:
+    """Предупредить о ручных адресах файлов темы (21 §7, «Версии файлов»).
+
+    В шаблоне `/assets/…` сборка и так перепишет на имя с хешем, но
+    `asset('…')` проверяется: опечатка - ошибка E045, а не битая ссылка.
+    В скрипте темы (`.js`) имена не переписываются вовсе: такой файл
+    кэшируется на срок без версии, и после обновления темы посетитель
+    может получить вчерашний.
+    """
+    theme_dir = Path(theme_dir)
+    if not theme_dir.is_dir():
+        return
+    root = Path(site_root).resolve() if site_root is not None else None
+    for rel in _candidates(theme_dir):
+        try:
+            text = (theme_dir / rel).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        text = _COMMENTS.sub(_blank, text)
+        lines = sorted({text.count("\n", 0, m.start()) + 1 for m in _HARDCODED.finditer(text)})
+        for line in lines:
+            collector.warn(
+                Msg("theme_asset_hardcoded", line=line),
+                path=_shown(theme_dir, rel, root),
+                line=line,
+                kind="контент",
+            )
+    assets = theme_dir / "assets"
+    if not assets.is_dir():
+        return
+    for path in sorted(assets.rglob("*")):
+        if path.suffix.lower() not in JS_SUFFIXES or not path.is_file():
+            continue
+        if not paths.inside(theme_dir, path):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        text = _JS_BLOCK.sub(_blank, text)
+        rel = path.relative_to(theme_dir).as_posix()
+        for match in _JS_PATH.finditer(text):
+            line = text.count("\n", 0, match.start()) + 1
+            collector.warn(
+                Msg("theme_js_asset_path", line=line, path=match.group(1)),
+                path=_shown(theme_dir, rel, root),
+                line=line,
+                kind="контент",
+            )

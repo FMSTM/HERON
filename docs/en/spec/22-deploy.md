@@ -150,7 +150,7 @@ Docker layers live in the same GitHub Actions cache storage (the `scope=heron-en
 
 The minimum the config must have:
 
-- static files: HTML with `Cache-Control: no-cache`, `assets/` and `media/` with `public, max-age=86400`
+- static files: HTML with `Cache-Control: no-cache`; copies of `assets/` and `media/` files with the content hash in the name (`site.0123456789.css`) - `public, max-age=31536000, immutable`; the same files under their plain names - `public, max-age=86400`. The times are the `nginx.cache` keys in `site.yaml` (`20` §5). Pages always get `no-cache`, and this is not configurable: the new names of theme files arrive together with the page, and caching the page would delay the whole update
 - gzip compression for text, styles, scripts, svg, maps and markup; the config does not enable brotli
 - 301 from `redirect_from` and 410 from `gone` are served without touching files. The maps are already written into the config the engine builds together with the site (`dist/.heron-nginx.conf`); `redirects.map` and, if `gone` is set, `gone.map` in `dist/` are human-readable copies
 - `try_files` with a trailing slash, one canonical URL form
@@ -160,6 +160,8 @@ The minimum the config must have:
 - dot files are closed
 
 The CSP is strict: `script-src 'self'`; there is one exception - the domains of the counters enabled in `analytics` of `site.yaml`. For `heron-relay` the config has no exception yet: the service is not implemented.
+
+**Two nginx servers.** All of the above is done by the inner nginx - the one in the site image: security headers, CSP, cache, 301 and 410 from `site.yaml`, hidden files. The outer nginx of the server only accepts TLS and passes the request to the container (`proxy_pass`); 301 from mirrors (www, old domains) to the main domain and 301 from http to https are its job too, the inner config knows nothing about domains. The outer nginx adds no `Cache-Control`, CSP or other headers of its own and does not cache responses: the headers would be doubled, and an old version of a page would outlive the deployment. A ready block - [`guide/06`, "The outer nginx in front of the site image"](../guide/06-deploy.md#outer-nginx).
 
 ## 6. Migration from an existing site <a id="migrate-existing-site"></a>
 

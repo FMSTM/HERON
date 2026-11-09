@@ -165,17 +165,22 @@ def test_page_loads_site_js_in_head_before_paint(tmp_path):
     assert (dist / "assets" / "site.js").is_file()
     html = (dist / "index.html").read_text(encoding="utf-8")
     head = html.split("</head>", 1)[0]
-    match = re.search(r'<script src="/assets/site\.js"([^>]*)>', head)
+    # стартовая тема подключает файлы через asset(): имя с хешем содержимого
+    match = re.search(r'<script src="/assets/site\.[0-9a-f]{10}\.js"([^>]*)>', head)
     assert match, head
     # без defer и async: ранняя установка темы выполняется до отрисовки
     assert "defer" not in match.group(1) and "async" not in match.group(1)
-    assert head.index("/assets/site.js") < head.index("/assets/site.css")
+    assert head.index("/assets/site.") < head.index('rel="stylesheet" href="/assets/site.')
 
 
 def test_counter_ids_reach_site_js_as_data_attributes(tmp_path):
     dist = _built(tmp_path, COUNTERS)
     tags = _tags(dist / "index.html")
-    script = next(s for s in tags.scripts if s.get("src") == "/assets/site.js")
+    script = next(
+        s
+        for s in tags.scripts
+        if re.fullmatch(r"/assets/site\.[0-9a-f]{10}\.js", s.get("src") or "")
+    )
     assert script["data-ga4"] == "G-TEST000001"
     assert script["data-gtm"] == "GTM-TEST001"
     assert script["data-metrika"] == "10000001"
@@ -190,7 +195,11 @@ def test_counter_ids_stay_out_of_pages_when_the_build_forbids_analytics(tmp_path
     (root / "site.yaml").write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
     assert not pipeline.run(root, env=BuildEnv.named("dev")).failed
     tags = _tags(root / "dist" / "index.html")
-    script = next(s for s in tags.scripts if s.get("src") == "/assets/site.js")
+    script = next(
+        s
+        for s in tags.scripts
+        if re.fullmatch(r"/assets/site\.[0-9a-f]{10}\.js", s.get("src") or "")
+    )
     assert not [name for name in script if name.startswith("data-")]
 
 

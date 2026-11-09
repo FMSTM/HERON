@@ -310,6 +310,10 @@ Read the reference with the eyes of a newcomer: is it clear from the hints what 
 
 A HERON site is served with the browser security rule `script-src 'self'`. A theme has to live by it - the rules and how to rework an old theme are in [04 · Theme and design](04-theme.md#strict-csp). In short: no scripts right in the HTML and no `onclick=` handlers - only files from `assets/`; fonts, pictures and scripts come from your own site, not from other servers.
 
+## How to include theme files: `asset()` <a id="asset"></a>
+
+Styles, scripts, fonts and pictures of the theme go through `asset('site.css')`, not `/assets/site.css`: the address gets the content hash in the name, after a theme update the browser does not keep yesterday's file, and a typo in the name is build error `E045`. Links inside `.css` (`url(…)`, `@import`) the engine rewrites itself. Inside `.js` it does not: pass an address for a script from the template in a `data-*` attribute with the value `{{ asset('…') }}`. Details and examples - [04 · Theme and design](04-theme.md#asset).
+
 ## Checking <a id="check"></a>
 
 After every step:
@@ -319,7 +323,7 @@ docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmst
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod build . --env prod --strict
 ```
 
-- `check --theme` - the theme description is complete (`E041` - something is missing or wrong), every type has a template (`E008`), the demo shows everything (`E037`), templates do not change data (`E033`), there are no inline scripts (a warning);
+- `check --theme` - the theme description is complete (`E041` - something is missing or wrong), every type has a template (`E008`), the demo shows everything (`E037`), templates do not change data (`E033`), there are no inline scripts and no hand-written `/assets/` addresses (warnings, [`asset()`](#asset));
 - `build --env prod --strict` - every page is drawn without errors and warnings.
 
 ## Packing and publishing <a id="pack"></a>
@@ -383,7 +387,7 @@ This section can be read apart from the rest. It is for someone who has already 
 6. **Categories.** When a type can be a category - `children_type` and `views` with the views your templates draw; the template reads the view from `page.meta.get('view')` ([Categories](#views)).
 7. **The demo.** In `content/` of the theme site - at least one page of every type (`404.md` as a file included), every block at least once and every category view on a category with pages inside ([The theme demo](#demo)). A module no page draws - remove it from `modules` or show it in the demo. Pages are easy to create with the `category add` and `page add` commands - they put files in every site language at once.
 8. **Old commands in texts.** If the demo or the docs of the theme advise `page <type> <key>` or `--folder`, replace them with `page add <key> --type <type> --category <path>`: the old form is removed in 0.3 (`E038`).
-9. **Strict CSP.** No inline `<script>` with code and no `onclick=`, `onload=` handlers in templates - code goes to `assets/*.js`, data goes in `data-*` attributes; fonts, pictures and scripts come from `assets/`, not from other servers ([Strict CSP](04-theme.md#strict-csp)).
+9. **Strict CSP.** No inline `<script>` with code and no `onclick=`, `onload=` handlers in templates - code goes to `assets/*.js`, data goes in `data-*` attributes; fonts, pictures and scripts come from `assets/`, not from other servers ([Strict CSP](04-theme.md#strict-csp)); theme files in templates go through `asset('…')` instead of `/assets/…` ([How to include theme files](#asset)).
 10. **Check and pack.** `check . --theme` - not a single `E008`, `E041` or `E037`; `describe` - the whole description is in place; `localhost:8000/_heron/theme/` in the preview - the reference reads as instructions for a newcomer; `build . --env prod --strict` - no errors; `theme pack . --out theme.tar.gz` - the archive is ready.
 
 The commands of the list in full, in order:

@@ -48,6 +48,11 @@ TEXT: dict[str, dict[str, str]] = {
         "ga4_bad": "Google Analytics {value}: ожидается G-XXXXXXX",
         "gtm_bad": "Tag Manager {value}: ожидается GTM-XXXXXX",
         "metrika_bad": "Яндекс Метрика {value}: только цифры",
+        # кэш браузера
+        "cache_bad": (
+            "nginx.cache.{field} {value}: число секунд или число с единицей s, m, h, d, w, y - "
+            "например 3600, 12h, 1d, 7d, 1y"
+        ),
         # публикация
         "control_chars": "{field}: служебные символы (перевод строки, NUL, ...) недопустимы",
         "helpers_unknown": "helpers: неизвестные {names}",
@@ -145,6 +150,10 @@ TEXT: dict[str, dict[str, str]] = {
         "ga4_bad": "Google Analytics {value}: expected G-XXXXXXX",
         "gtm_bad": "Tag Manager {value}: expected GTM-XXXXXX",
         "metrika_bad": "Yandex Metrica {value}: digits only",
+        "cache_bad": (
+            "nginx.cache.{field} {value}: a number of seconds or a number with a unit "
+            "s, m, h, d, w, y - for example 3600, 12h, 1d, 7d, 1y"
+        ),
         "control_chars": "{field}: control characters (newline, NUL, ...) are not allowed",
         "helpers_unknown": "helpers: unknown {names}",
         "engine_bad": (

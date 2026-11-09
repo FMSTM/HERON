@@ -5,6 +5,10 @@
 # The ru and en keys match, tests/test_scaffold_notes.py checks it.
 base.scheme: |-
   {# light or dark: the visitor's choice, otherwise as the system says #}
+base.asset: |-
+  {# Theme files go through `asset()`: the address carries a name with the content
+     hash, so after a theme update the browser takes the new file, not yesterday's
+     one from its cache. A typo in the name is build error E045, not a broken link. #}
 checklist: |-
   {# checklist: three or more ### groups with lists; two-lists: exactly two, side by side #}
 timeline: |-

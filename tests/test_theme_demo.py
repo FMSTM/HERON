@@ -296,7 +296,8 @@ def test_draft_build_writes_the_reference_page(site: Path, tmp_path: Path):
     assert done.exit_code == 0, done.output
     page = (out / "_heron" / "theme" / "index.html").read_text(encoding="utf-8")
     assert '<meta name="robots" content="noindex, nofollow">' in page
-    assert '<link rel="stylesheet" href="/assets/site.css">' in page
+    # стили темы - копией с хешем в имени (core/versions.py)
+    assert re.search(r'<link rel="stylesheet" href="/assets/site\.[0-9a-f]{10}\.css">', page)
     # живой пример модуля и его markdown рядом
     assert '<section id="gallery" class="block gallery">' in page
     assert "## Галерея {#gallery .gallery}" in page

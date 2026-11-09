@@ -49,9 +49,15 @@ COMMENTS = {
             "сразу. Ответ «не изменилось» (ETag, Last-Modified) почти бесплатен."
         ),
         "assets": (
-            "Картинки, стили и скрипты — сутки. Имена файлов не меняются при\n"
-            "замене содержимого, поэтому «навсегда» здесь значило бы неделю\n"
-            "показывать старую картинку тем, кто уже заходил."
+            "Картинки, стили и скрипты под прежними именами — сутки (nginx.cache.assets\n"
+            "и nginx.cache.media): имя не меняется при замене содержимого, поэтому\n"
+            "«навсегда» здесь значило бы показывать старое тем, кто уже заходил.\n"
+            "Страницы ссылаются на копии с хешем в имени, эти имена — запасные."
+        ),
+        "versioned": (
+            "Копия с хешем содержимого в имени (site.0123456789.css): под этим\n"
+            "именем байты не меняются никогда, поэтому срок долгий и immutable\n"
+            "(nginx.cache.versioned). Новая версия файла — новое имя."
         ),
         "hidden": (
             "Скрытые файлы наружу не отдаём. Рядом со статикой лежит служебное —\n"
@@ -88,9 +94,15 @@ COMMENTS = {
             'A "not modified" answer (ETag, Last-Modified) costs almost nothing.'
         ),
         "assets": (
-            "Images, styles and scripts: one day. File names do not change when\n"
-            'the content is replaced, so "forever" here would mean showing the old\n'
-            "image for a week to those who have visited before."
+            "Images, styles and scripts under their plain names: one day (nginx.cache.assets\n"
+            "and nginx.cache.media). The name does not change when the content is replaced,\n"
+            '"forever" here would mean showing the old file to those who visited before.\n'
+            "Pages link to the copies with a hash in the name; plain names are the fallback."
+        ),
+        "versioned": (
+            "A copy with the content hash in the name (site.0123456789.css): under this\n"
+            "name the bytes never change, so the time is long and immutable\n"
+            "(nginx.cache.versioned). A new version of the file is a new name."
         ),
         "hidden": (
             "Hidden files are not served. Service files lie next to the static ones,\n"
@@ -211,17 +223,29 @@ server {
 
     #@assets
     location ^~ /media/ {
-        add_header Cache-Control "public, max-age=86400" always;
+        add_header Cache-Control "public, max-age=@MEDIA@" always;
 @SECURITY8@
         location ~ /\\. { return 404; }
+@VERSIONED@
         try_files $uri =404;
     }
     location ^~ /assets/ {
-        add_header Cache-Control "public, max-age=86400" always;
+        add_header Cache-Control "public, max-age=@ASSETS@" always;
 @SECURITY8@
         location ~ /\\. { return 404; }
+@VERSIONED@
         try_files $uri =404;
     }
+"""
+
+# Имя с хешем содержимого: `<имя>.<10 знаков hex>.<расширение>` (heron/core/versions.py).
+# Регулярка вложена в префиксные location: `^~` отключает регулярки уровня server.
+VERSIONED = """        #@versioned
+        location ~ "\\.[0-9a-f]{10}\\.[A-Za-z0-9]+$" {
+            add_header Cache-Control "public, max-age=@AGE@, immutable" always;
+@SECURITY12@
+            try_files $uri =404;
+        }
 """
 
 # Язык в своей папке: и страница 404, и всё остальное лежат под префиксом.
@@ -383,10 +407,19 @@ def generate(config: SiteConfig, plan: Plan | None = None) -> dict[str, str]:
     # же конфиг на любой машине. Метки раскрываются в шаблоне до вставки
     # адресов: строка сайта меткой не станет.
     notes = config.build.notes
+    cache = config.nginx.cache
+    versioned = (
+        _comments(VERSIONED, notes)
+        .replace("@SECURITY12@\n", _security(12, config.analytics))
+        .replace("@AGE@", str(cache.seconds("versioned")))
+    )
     head = (
         _comments(HEAD, notes)
+        .replace("@VERSIONED@\n", versioned)
         .replace("@SECURITY8@\n", _security(8, config.analytics))
         .replace("@SECURITY@\n", _security(4, config.analytics))
+        .replace("@MEDIA@", str(cache.seconds("media")))
+        .replace("@ASSETS@", str(cache.seconds("assets")))
     )
     head = head.replace(
         "    absolute_redirect off;\n",

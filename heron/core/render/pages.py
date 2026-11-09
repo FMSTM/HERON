@@ -159,6 +159,7 @@ def render_site(
     progress=None,
     hooks=None,
     seen: set[tuple[str, str, str | None]] | None = None,
+    assets=None,
 ) -> dict[str, str]:
     """Собрать HTML всех страниц. Ключ — адрес страницы.
 
@@ -166,8 +167,10 @@ def render_site(
 
     `on_page_rendered(page, html)` плагина может вернуть новый HTML —
     он и идёт дальше; `None` — оставить как есть.
+
+    `assets` - хеши файлов темы и ресурсов для `asset()` (`core/versions.py`).
     """
-    env = envmod.make(theme_dir, config, hooks)
+    env = envmod.make(theme_dir, config, hooks, assets)
     strings = {}
     for lang in config.site.languages:
         try:

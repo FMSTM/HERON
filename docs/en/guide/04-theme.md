@@ -368,11 +368,31 @@ This line outputs a ready `<picture>` tag. The engine cuts the image for the wid
 
 **Only what the template asked for is cut.** `ratios` in `theme.yaml` are the proportions the theme *may* ask for, and only those that the templates really called through `picture()` or `media_url()` get into the build. A card asks for 16:9 - so its image in the build will have only 16:9. The fallback file in the source format (for browsers without AVIF and WebP) is one per proportion, with the width `images.fallback_width` (800 by default). If you need a bigger width, ask for it explicitly: `media_url(src, '16:9', 1200)` for og:image. → [`20` §7](../spec/20-data-contract.md#images)
 
+## How to include theme files: `asset()` <a id="asset"></a>
+
+Include the styles, scripts, fonts and pictures of a theme through `asset()`:
+
+```jinja
+<link rel="stylesheet" href="{{ asset('site.css') }}">
+<script src="{{ asset('site.js') }}" defer></script>
+<link rel="preload" href="{{ asset('fonts/inter.woff2') }}" as="font" type="font/woff2" crossorigin>
+<img src="{{ asset('media/logo.svg') }}" alt="">
+```
+
+`asset('site.css')` gives the address `/assets/site.0123456789.css`: the name carries the hash of the file content. The file changed - the name changed, and after a theme update the visitor's browser takes the new file, not yesterday's one from its cache. nginx serves a hashed file for a year and a file under its plain name for a day ([06 · "Browser cache"](06-deploy.md#browser-cache)). The path is written from the theme's `assets/` folder, a site resource - from the root: `asset('media/logo.svg')`. A typo in the name is build error `E045` with the file name, not a broken link on the site.
+
+What else to know:
+
+- **hand-written addresses work too.** The build rewrites `href="/assets/site.css"` to the hashed name itself, as it does with the addresses the engine draws (`picture()`, `media_url()`). But `check` warns: `asset()` is checked, a hand-written address is not;
+- **links inside styles** (`url(fonts/a.woff2)`, `@import "base.css"`) are written as usual, relative or from the root: the engine rewrites them itself, and a new font changes the name of the styles that refer to it;
+- **inside `.js` the engine does not rewrite addresses.** A script that takes `'/assets/icons.svg'` as a string gets the file without a hash: the browser keeps it for a day, and after a theme update an old version is possible for up to a day. Pass the address from the template in an attribute: `<script src="{{ asset('site.js') }}" data-icons="{{ asset('icons.svg') }}">`, and in the script read `document.currentScript.dataset.icons`. A module with a relative `import './chunk.js'` works, but `chunk.js` itself is cached without a version. `check` warns about a `/assets/` or `/media/` string in a theme script;
+- **og:image and the markup stay without a hash:** social and search caches key on the URL, a stable address serves them better. `<a href="/media/…">` links too: the file is downloaded under its own name and forwarded as a link.
+
 ## Strict CSP: the rules for a theme <a id="strict-csp"></a>
 
 The engine serves pages with the browser security rule (CSP) `script-src 'self'`, and the rule is strict: the browser runs and loads only what lies on the site itself. For a theme this means:
 
-- **scripts only as files.** `<script src="/assets/site.js">` works, and a `<script>` with code right in the HTML (an inline script) the browser will not run. The exception is the markup `<script type="application/ld+json">`: it is data, not code;
+- **scripts only as files.** `<script src="{{ asset('site.js') }}">` works, and a `<script>` with code right in the HTML (an inline script) the browser will not run. The exception is the markup `<script type="application/ld+json">`: it is data, not code;
 - **no handlers in the markup.** `onclick=`, `onload=`, `onsubmit=` and `javascript:` links do not work: attach handlers from the script file (`addEventListener`);
 - **data for a script goes in `data-*` attributes** on the `<script src=…>` tag or on an element, as in `base.html` of the starter theme;
 - **everything is your own.** Fonts, pictures, styles and scripts come from `assets/` of the theme and `media/` of the site. A font from another server, a script or a picture from a CDN the browser will not load: download the file and put it into `assets/`;
@@ -382,7 +402,7 @@ The engine serves pages with the browser security rule (CSP) `script-src 'self'`
 If your theme is of an older version and has an inline script:
 
 1. move the code into a theme file (`assets/site.js`);
-2. pass data (counter numbers and the like) as `data-*` attributes on the `<script src="/assets/site.js">` tag;
+2. pass data (counter numbers and the like) as `data-*` attributes on the `<script src="{{ asset('site.js') }}">` tag;
 3. run `check`: it shows an inline script in the theme as a warning.
 
 ## How to check a theme

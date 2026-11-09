@@ -32,8 +32,9 @@ from pydantic import (
     model_validator,
 )
 
-from heron.contracts.site import LANG_RE, NAME_RE
+from heron.contracts.site import LANG_RE, NAME_RE, CacheBlock
 from heron.contracts.site import domain as clean_domain
+from heron.contracts.site import duration as cache_duration
 from heron.setup.reasons import Reason
 
 HERE = Path(__file__).parent
@@ -424,6 +425,26 @@ class AnalyticsAnswers(Model):
         return self
 
 
+class CacheAnswers(Model):
+    """Сроки кэша браузера - ключи nginx.cache в site.yaml (22 §5)."""
+
+    versioned: str = CacheBlock.model_fields["versioned"].default
+    assets: str = CacheBlock.model_fields["assets"].default
+    media: str = CacheBlock.model_fields["media"].default
+
+    @field_validator("versioned", "assets", "media", mode="before")
+    @classmethod
+    def _duration(cls, value: Any, info: ValidationInfo) -> str:
+        text = "" if value is None else str(value).strip().lower()
+        if not text:
+            return CacheBlock.model_fields[info.field_name].default
+        try:
+            cache_duration(text)
+        except ValueError:
+            raise Reason("cache_bad", field=info.field_name, value=repr(value)) from None
+        return text
+
+
 class PublishAnswers(Model):
     way: Literal["github", "dockerhub", "static", "none"] = "none"
     # GitHub: собирать и публиковать образ самому GitHub на каждый push.
@@ -519,6 +540,7 @@ class Answers(Model):
     search: SearchAnswers = Field(default_factory=SearchAnswers)
     analytics: AnalyticsAnswers = Field(default_factory=AnalyticsAnswers)
     publish: PublishAnswers = Field(default_factory=PublishAnswers)
+    cache: CacheAnswers = Field(default_factory=CacheAnswers)
     # решение по находкам разметки из файла ответов (ключ schema); в site.yaml не пишется
     _schema: dict[str, Any] | None = PrivateAttr(default=None)
 
@@ -638,13 +660,16 @@ def read(data: dict[str, Any]) -> Answers:
     if isinstance(publish, dict):
         known = PublishAnswers.model_fields
         out["publish"] = {k: v for k, v in publish.items() if k in known}
+    cache = _get(data, "nginx.cache")
+    if isinstance(cache, dict):
+        out["cache"] = {k: v for k, v in cache.items() if k in CacheAnswers.model_fields}
     try:
         return Answers.model_validate(out, context=_STALE)
     except ValueError:
         # Сырой конфиг не повод отказать в конфигураторе: он и нужен, чтобы
         # конфиг поправить. Берём то, что проходит по отдельности.
         answers = Answers()
-        for block in ("site", "about", "search", "analytics", "publish"):
+        for block in ("site", "about", "search", "analytics", "publish", "cache"):
             with contextlib.suppress(ValueError):
                 setattr(
                     answers,
@@ -1258,9 +1283,34 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
                 block.update(server=p.server, path=p.path or "/var/www/" + site["domain"])
         out["publish"] = block
 
+    _merge_cache(out, answers.cache)
     if not NAME_RE.match(str(site.get("theme"))):
         site["theme"] = "main"
     return out
+
+
+def _merge_cache(out: dict[str, Any], cache: CacheAnswers) -> None:
+    """Сроки кэша в nginx.cache: пишется только то, что человек поменял.
+
+    Ответ совпал с записанным в файле (или с умолчанием, когда ключа нет) -
+    файл не трогается: ключ, вписанный руками, остаётся как был, а умолчание
+    не появляется в каждом site.yaml после первого сохранения.
+    """
+    nginx = out.get("nginx") if isinstance(out.get("nginx"), dict) else None
+    block = nginx.get("cache") if nginx is not None and isinstance(nginx.get("cache"), dict) else {}
+    changed = dict(block)
+    for key in CacheAnswers.model_fields:
+        answer = getattr(cache, key)
+        written = block.get(key)
+        current = str(written).strip().lower() if written not in (None, "") else None
+        if answer == (current or CacheAnswers.model_fields[key].default):
+            continue
+        changed[key] = answer
+    if changed == block:
+        return
+    nginx = dict(nginx or {})
+    nginx["cache"] = changed
+    out["nginx"] = nginx
 
 
 LANG_TAIL = re.compile(r"^(?P<key>.+?)_(?P<lang>[a-z]{2}(?:-[a-z]{2})?)$")

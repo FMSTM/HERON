@@ -9,6 +9,11 @@ TEXT = {
         "site_lang_dup": "языки повторяются",
         "site_default_lang": "default_lang {default} отсутствует в languages {languages}",
         "site_agents": "build.agents: {value} - ожидается true, kit или false",
+        "site_duration": (
+            "срок кэша {value}: число секунд или число с единицей s, m, h, d, w, y - "
+            "например 3600, 30m, 12h, 1d, 7d, 1y"
+        ),
+        "site_duration_big": "срок кэша {value}: больше 68 лет (2^31-1 секунд) не бывает",
         "site_form_no_fields": "у формы нет ни одного поля",
         "site_field_name": "имя поля {name} - латиница, цифры, дефис и подчёркивание",
         "site_gone_root": "gone: {entry} - ожидается путь от корня, например /old-page/",
@@ -84,6 +89,11 @@ TEXT = {
         "site_lang_dup": "languages are repeated",
         "site_default_lang": "default_lang {default} is missing from languages {languages}",
         "site_agents": "build.agents: {value} - expected true, kit or false",
+        "site_duration": (
+            "cache time {value}: a number of seconds or a number with a unit s, m, h, d, w, y - "
+            "for example 3600, 30m, 12h, 1d, 7d, 1y"
+        ),
+        "site_duration_big": "cache time {value}: more than 68 years (2^31-1 seconds) is not allowed",
         "site_form_no_fields": "the form has no fields",
         "site_field_name": "the field name {name} must be Latin letters, digits, hyphen and underscore",
         "site_gone_root": "gone: {entry} - expected a path from the root, for example /old-page/",

@@ -73,12 +73,23 @@ EN: dict[str, tuple[str, str]] = {
         "The menu. Its content is free: the theme invents the names of the groups.",
     ),
     "site.schema.json#/$defs/NginxBlock/description": (
-        "020cfce853",
+        "592e4fb59e",
         "The nginx config that the engine builds together with the site.\n\n"
         "`hash_sizes` is obsolete and does nothing. 301 and 410 are now exact\n"
         "locations, not string maps: the hash tables of the maps that\n"
         "map_hash_bucket_size and map_hash_max_size were sized for are no longer built.\n"
-        "The key is accepted so that existing site.yaml files build without changes.",
+        "The key is accepted so that existing site.yaml files build without changes.\n\n"
+        "`cache` - browser cache times for theme files and resources.",
+    ),
+    "site.schema.json#/$defs/CacheBlock/description": (
+        "ef38a53998",
+        "Browser cache times for theme files and resources (22 §5).\n\n"
+        "`versioned` - files with the content hash in the name (`site.0123abcdef.css`):\n"
+        "under such a name the content never changes, so the time is long and\n"
+        "comes with `immutable`. `assets` and `media` - the same files under their plain\n"
+        "names, without a hash: kept for old pages in a cache and for external links.\n\n"
+        "Pages are not here: they always get `no-cache`, otherwise an edit of the text and\n"
+        "the new names of theme files would reach the visitor late.",
     ),
     "site.schema.json#/$defs/SchemaException/description": (
         "a8589520d1",
@@ -226,6 +237,10 @@ EN: dict[str, tuple[str, str]] = {
         "translation: only `pending` - the translation is not ready: a draft build shows "
         "the page with a banner, a production build does not publish it in this language; "
         "when the translation is ready, there is no key.",
+    ),
+    "setup.schema.json#/$defs/CacheAnswers/description": (
+        "55582526c1",
+        "Browser cache times - the nginx.cache keys in site.yaml (22 §5).",
     ),
     "setup.schema.json#/$defs/AnalyticsAnswers/description": (
         "b4add0701c",

@@ -412,6 +412,7 @@ def _cases():
         "ga4_bad": {"analytics": {"ga4": "UA-1"}},
         "gtm_bad": {"analytics": {"gtm": "x"}},
         "metrika_bad": {"analytics": {"metrika": "abc"}},
+        "cache_bad": {"cache": {"assets": "1 day"}},
         "control_chars": {"publish": {"repo": "a\nb"}},
         "helpers_unknown": {"publish": {"helpers": {"x": True}}},
         "engine_bad": {"publish": {"engine": "latest"}},

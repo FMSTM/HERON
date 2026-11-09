@@ -43,6 +43,7 @@ from heron.core import (
     tree,
     urls,
     versions,
+    yamlsafe,
 )
 from heron.core.environment import BuildEnv
 from heron.core.errors import Collector, HeronError, Warning_
@@ -1158,7 +1159,7 @@ def theme_controls(site_root: Path, theme_dir: Path, collector: Collector) -> No
             if path.suffix == ".md":
                 match = FRONTMATTER.match(text)
                 text = match.group("body") if match else ""
-            data = yaml.safe_load(text)
+            data = yamlsafe.load(text)
         except (OSError, UnicodeDecodeError, yaml.YAMLError):
             continue  # негодный файл - забота своей проверки
         found: list[tuple[str, list[str]]] = []
@@ -1174,6 +1175,36 @@ def theme_controls(site_root: Path, theme_dir: Path, collector: Collector) -> No
                 path=shown,
                 hint=Msg("build_theme_control_hint"),
             )
+
+
+def theme_anchors(site_root: Path, theme_dir: Path, collector: Collector) -> None:
+    """YAML-якоря и ссылки в теме и её демо - `E032` (`heron check --theme`).
+
+    Те же файлы, что упакует `theme pack` и проверит `theme get`: YAML темы,
+    фронтматтер страниц и data/. Сайт с ними собирается (развёртка ссылок там
+    ограничена, `heron.core.yamlsafe`), тема в каталог не идёт.
+    """
+    folders = [theme_dir, site_root / "content", site_root / "data"]
+    for folder in folders:
+        for path in sorted(folder.rglob("*")) if folder.is_dir() else []:
+            if path.suffix.lower() not in (".yaml", ".yml", ".md") or not path.is_file():
+                continue
+            try:
+                line = yamlsafe.file_anchor(path.name, path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError):
+                continue
+            if line:
+                try:
+                    shown = path.relative_to(site_root).as_posix()
+                except ValueError:
+                    shown = str(path)
+                collector.error(
+                    "E032",
+                    Msg("loader_yaml_anchors"),
+                    path=shown,
+                    line=line,
+                    hint=Msg("loader_yaml_anchors_hint"),
+                )
 
 
 def theme_contract(theme: ThemeConfig, theme_dir: Path, collector: Collector) -> None:
@@ -1260,6 +1291,7 @@ def check(
     redirects.generate(site, collector, config)
     if theme_demo:
         theme_controls(site_root, theme_dir, collector)
+        theme_anchors(site_root, theme_dir, collector)
     if theme_demo and not collector.failed:
         demo.verify(theme, theme_dir, site, config, collector, hooks)
 

@@ -9,6 +9,13 @@ TEXT = {
         ),
         "loader_bad_yaml": "битый YAML: {problem}",
         "loader_bad_yaml_hint": "проверьте отступы и двоеточия - YAML не прощает табуляцию",
+        "loader_yaml_expands": (
+            "YAML разворачивается слишком широко (якоря и ссылки): больше {limit} узлов, "
+            "глубже {depth} уровней или ссылка на саму себя"
+        ),
+        "loader_yaml_expands_hint": "раскройте ссылки *имя вручную или уберите повторы",
+        "loader_yaml_anchors": "в файлах темы нельзя YAML-якоря и ссылки (&имя, *имя, <<:)",
+        "loader_yaml_anchors_hint": "раскройте ссылки вручную: тема приходит чужим архивом",
         "loader_empty": "файл пуст",
         "loader_not_mapping": "ожидался набор ключей, а в файле {type}",
         "loader_root": "<корень>",
@@ -44,6 +51,13 @@ TEXT = {
         ),
         "loader_bad_yaml": "broken YAML: {problem}",
         "loader_bad_yaml_hint": "check indentation and colons: YAML does not tolerate tabs",
+        "loader_yaml_expands": (
+            "YAML expands too much (anchors/aliases): over {limit} nodes, "
+            "deeper than {depth} levels or an alias of itself"
+        ),
+        "loader_yaml_expands_hint": "write the *name aliases out by hand or remove the repeats",
+        "loader_yaml_anchors": "theme files may not use YAML anchors and aliases (&name, *name, <<:)",
+        "loader_yaml_anchors_hint": "write the aliases out by hand: a theme arrives as somebody else's archive",
         "loader_empty": "file is empty",
         "loader_not_mapping": "a set of keys was expected, but the file contains {type}",
         "loader_root": "<root>",

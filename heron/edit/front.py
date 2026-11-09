@@ -20,6 +20,7 @@ from typing import Any
 import yaml
 from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
 
+from heron.core import yamlsafe
 from heron.core.parser.frontmatter import FRONTMATTER
 from heron.edit.text import BOM
 
@@ -57,7 +58,7 @@ def read(text: str) -> Front:
     start, end = match.span("body")
     raw = text[start:end]
     try:
-        data = yaml.safe_load(raw)
+        data = yamlsafe.load(raw)
         root = yaml.compose(raw)
     except yaml.YAMLError as exc:
         return Front(True, start, end, match.end(), {}, None, error=str(exc))
@@ -181,7 +182,7 @@ def _plain_ok(value: str, flow: bool = False) -> bool:
     if flow and any(ch in value for ch in ",[]{}"):
         return False
     try:
-        return yaml.safe_load(f"k: {value}") == {"k": value}
+        return yamlsafe.load(f"k: {value}") == {"k": value}
     except yaml.YAMLError:
         return False
 
@@ -314,7 +315,7 @@ def set_value(text: str, front: Front, path: list[str], value: Any, nl: str) -> 
             target = _nest(rest, value)
             if isinstance(value_node, MappingNode) and value_node.flow_style:
                 merged = _merge(
-                    yaml.safe_load(
+                    yamlsafe.load(
                         text[base + value_node.start_mark.index : base + value_node.end_mark.index]
                     )
                     or {},
@@ -373,7 +374,7 @@ def _replace(
     ):
         # список в скобках: прежние пункты - как написаны (кавычки), новые - как обычно
         olds = [
-            (yaml.safe_load(front.raw[i.start_mark.index : i.end_mark.index]), i)
+            (yamlsafe.load(front.raw[i.start_mark.index : i.end_mark.index]), i)
             for i in value_node.value
             if isinstance(i, ScalarNode)
         ]
@@ -419,7 +420,7 @@ def _block_scalar(text: str, front: Front, node: ScalarNode, value: str, nl: str
     pad = " " * column
     rows = [pad + row if row else "" for row in body.split("\n")]
     try:
-        same = yaml.safe_load("k: " + header + "\n" + "\n".join(rows) + "\n") == {"k": value}
+        same = yamlsafe.load("k: " + header + "\n" + "\n".join(rows) + "\n") == {"k": value}
     except yaml.YAMLError:
         return None
     return nl.join([header, *rows]) if same else None
@@ -457,7 +458,7 @@ def _seq_edit(text: str, front: Front, node: SequenceNode, value: list, nl: str)
         rows.append((row[0], row[1], leaf, _line_bounds(text, leaf)[1]))
     if any(isinstance(entry, dict | list) for entry in value):
         return None
-    old = [yaml.safe_load(front.raw[i.start_mark.index : i.end_mark.index]) for i in items]
+    old = [yamlsafe.load(front.raw[i.start_mark.index : i.end_mark.index]) for i in items]
     pad = text[rows[0][0] : rows[0][1]].split("-")[0]
     region_start, region_end = rows[0][0], rows[-1][3]
     edits: list[tuple[int, int, str]] = []
@@ -513,7 +514,7 @@ def _item_text(text: str, base: int, node: SequenceNode, index: int, item: Any) 
         old = node.value[index]
         if isinstance(old, ScalarNode):
             raw = text[base + old.start_mark.index : base + old.end_mark.index]
-            if yaml.safe_load(raw) == item:
+            if yamlsafe.load(raw) == item:
                 return "- " + raw
             return "- " + scalar(item, old.style if old.style in ('"', "'") else None)
     return f"- {scalar(item)}"

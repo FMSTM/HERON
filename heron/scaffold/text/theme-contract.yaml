@@ -17,7 +17,7 @@ types:
       In search: the home page is usually what shows up for the name of the site, so write title and description for that query.
       Good: h1 "Sites you run from a folder of text", the first paragraph is one sentence about the benefit.
       Common mistakes: h1 "Home" or "Welcome", an intro of five paragraphs, title equal to h1.
-    views: &views
+    views:
       key: view
       default: cards
       hint_ru: Как категория показывает свои страницы
@@ -116,7 +116,36 @@ types:
       In search: every page answers one question of a person. One page - one intent: "Prices" and "How to order" are two pages, not one.
       Good: h1 "Get started in ten minutes", an intro paragraph, then steps and questions.
       Common mistakes: one long page about everything at once, h1 repeats title, no intro paragraph.
-    views: *views
+    views:
+      key: view
+      default: cards
+      hint_ru: Как категория показывает свои страницы
+      hint_en: How a category shows its pages
+      help_ru: |-
+        Действует на странице категории (файл _index.md папки) и на главной. Ключ view во фронтматтере этой страницы выбирает вид; без ключа - карточки.
+        На каждой карточке - h1 и description страницы, поэтому description пишите так, чтобы по нему было понятно, зачем открывать страницу.
+      help_en: |-
+        It works on the page of a category (the _index.md file of a folder) and on the home page. The key view in the front matter of that page picks the look; without the key - cards.
+        Every card shows the h1 and the description of a page, so write the description so that it tells why to open the page.
+      options:
+        cards:
+          hint_ru: Карточки сеткой - для коротких разделов на 3-12 страниц
+          hint_en: Cards in a grid - for short sections of 3-12 pages
+          help_ru: |-
+            Карточки в несколько колонок, на телефоне - одна под другой. Хорошо смотрятся, когда описания страниц примерно одной длины.
+            Частая ошибка: двадцать карточек с описаниями в три строки - такой раздел удобнее списком.
+          help_en: |-
+            Cards in several columns, on a phone one under another. They look good when the descriptions of the pages are about the same length.
+            A common mistake: twenty cards with three-line descriptions - such a section reads better as a list.
+        list:
+          hint_ru: Список строками - для длинных разделов и справочников
+          hint_en: A list of rows - for long sections and reference pages
+          help_ru: |-
+            Каждая страница - строка во всю ширину: заголовок и описание под ним. Включается строкой view: list во фронтматтере этой страницы.
+            Подходит, когда страниц много или описания длинные.
+          help_en: |-
+            Every page is a full-width row: the heading and the description under it. It is turned on by the line view: list in the front matter of that page.
+            It fits when there are many pages or the descriptions are long.
     sections:
       intro:
         required: true

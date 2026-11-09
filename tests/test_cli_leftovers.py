@@ -277,12 +277,11 @@ def test_read_yaml_names_the_encoding(tmp_path: Path):
 def test_build_agents_write_failure_speaks_the_notes_language(
     tmp_path: Path, monkeypatch, notes: str, word: str
 ):
-    import yaml
-
+    from heron.core import yamlsafe
     from heron.scaffold import set_build_agents
 
     (tmp_path / "site.yaml").write_text("site:\n  name: X\n", encoding="utf-8")
-    monkeypatch.setattr(yaml, "safe_load", lambda _text: {"build": {"agents": "bogus"}})
+    monkeypatch.setattr(yamlsafe, "load", lambda _text, **_: {"build": {"agents": "bogus"}})
     with pytest.raises(HeronError) as raised:
         set_build_agents(tmp_path, "false", notes)
     assert raised.value.code == "E011"

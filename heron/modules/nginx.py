@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 
 from heron.contracts.site import AnalyticsBlock, SiteConfig
+from heron.core.errors import HeronError
 from heron.messages import Msg
 from heron.modules.redirects import Plan
 
@@ -357,12 +358,27 @@ TAIL = """
 """
 
 
+# Чего в строке конфига nginx быть не может: управляющие C0 и C1, DEL и
+# разделители строк U+2028/U+2029. Перевод строки внутри кавычек nginx принял
+# бы как часть значения, а следующая директива начиналась бы с адреса сайта.
+UNSAFE = re.compile("[\x00-\x1f\x7f-\x9f\u2028\u2029]")
+
+
 def quote(value: str) -> str:
     """Строка для конфига nginx: в кавычках, с экранированными `"` и `\\`.
 
     Ключи карты — литералы, переменные в них не раскрываются, поэтому `$`
-    экранировать не нужно.
+    экранировать не нужно. Управляющий символ — `E022`, а не экранирование:
+    адреса проверены раньше (E002, E022), и сюда он может попасть только мимо
+    проверок — тогда конфиг не собирается вовсе.
     """
+    if UNSAFE.search(value):
+        raise HeronError(
+            code="E022",
+            message=Msg("redirects_nginx_control", value=value),
+            path=NAME,
+            hint=Msg("redirects_control_hint"),
+        )
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{escaped}"'
 

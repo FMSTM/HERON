@@ -26,7 +26,7 @@ from typing import Any
 
 import yaml
 
-from heron.core import paths
+from heron.core import paths, yamlsafe
 from heron.setup import comments
 from heron.setup import files as files_module
 from heron.setup.answers import (
@@ -126,7 +126,7 @@ def raw_config(root: Path) -> dict[str, Any]:
     path = root / SITE_YAML
     if not path.is_file():
         return {}
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    data = yamlsafe.load(path.read_text(encoding="utf-8")) or {}
     return data if isinstance(data, dict) else {}
 
 
@@ -524,7 +524,7 @@ def load_answers(text: str) -> Answers:
 
     Ключ `schema` (mode, drop, reason) - решение по находкам разметки, не ответ.
     """
-    data = yaml.safe_load(text) or {}
+    data = yamlsafe.load(text) or {}
     if not isinstance(data, dict):
         raise Reason("answers_mapping")
     data = dict(data)

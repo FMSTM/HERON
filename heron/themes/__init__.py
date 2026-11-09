@@ -48,7 +48,7 @@ from typing import Any
 
 import yaml
 
-from heron.core import paths
+from heron.core import paths, yamlsafe
 from heron.core.errors import HeronError
 from heron.messages import Msg, say
 
@@ -222,10 +222,26 @@ def _strip_root(files: list[tuple[str, bytes]]) -> list[tuple[str, bytes]]:
     return files
 
 
+def _no_anchors(name: str, data: bytes) -> None:
+    """YAML темы и демо без якорей и ссылок (`heron.core.yamlsafe`) - иначе E032."""
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        return  # не текст - забота своей проверки
+    line = yamlsafe.file_anchor(name, text)
+    if line:
+        raise _fail(
+            Msg("themes_yaml_anchors", file=name, line=line), Msg("loader_yaml_anchors_hint")
+        )
+
+
 def _unpack(blob: bytes, target: Path) -> dict[str, Any]:
     files = _strip_root(_members(blob))
     if not any(name.startswith("theme/") for name, _ in files):
         raise _fail(Msg("themes_no_theme_folder"), Msg("themes_no_theme_folder_hint"))
+    # до записи на диск: файл с YAML-бомбой не должен лечь даже во временную папку
+    for name, data in files:
+        _no_anchors(name, data)
     for name, data in files:
         out = target / name
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -233,7 +249,7 @@ def _unpack(blob: bytes, target: Path) -> dict[str, Any]:
     manifest_path = target / MANIFEST
     manifest: dict[str, Any] = {}
     if manifest_path.is_file():
-        loaded = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+        loaded = yamlsafe.load(manifest_path.read_text(encoding="utf-8"), theme=True) or {}
         manifest = loaded if isinstance(loaded, dict) else {}
     return manifest
 
@@ -248,7 +264,7 @@ def _check_theme(theme_dir: Path, manifest: dict[str, Any]) -> str:
     theme_yaml = theme_dir / "theme.yaml"
     if not theme_yaml.is_file():
         raise _fail(Msg("themes_yaml_missing"))
-    config = build(ThemeConfig, read_yaml(theme_yaml), theme_yaml)
+    config = build(ThemeConfig, read_yaml(theme_yaml, theme=True), theme_yaml)
     wanted = str(manifest.get("heron") or "")
     try:
         wanted_ok = not wanted or satisfies(__version__, wanted)
@@ -493,6 +509,11 @@ def pack(root: Path, out: Path, notices: list[Msg] | None = None) -> Path:
     """
     root = Path(root)
     theme = root / "theme"
+    packed = [theme] + [root / folder for folder in DEMO_FOLDERS]
+    for base in packed:
+        for path in sorted(base.rglob("*")) if base.is_dir() else []:
+            if path.is_file() and path.suffix.lower() in (".yaml", ".yml", ".md"):
+                _no_anchors(path.relative_to(root).as_posix(), path.read_bytes())
     name = _check_theme(theme, {})
     warned = check_demo(root)
     if notices is not None:

@@ -25,6 +25,7 @@ TEXT: dict[str, dict[str, str]] = {
         "redirects_reserved_exact": "{path} - служебный адрес сайта, 301 и 410 на нём невозможны",
         "redirects_reserved_exact_hint": "уберите адрес из gone или redirect_from",
         "redirects_nginx_rejected": "nginx -t не принял собранный конфиг: {emerg}",
+        "redirects_nginx_control": "строка для конфига nginx {value!r}: управляющий символ",
     },
     "en": {
         "redirects_from_control": "redirect_from {written!r}: control character in the address",
@@ -50,5 +51,6 @@ TEXT: dict[str, dict[str, str]] = {
         "redirects_reserved_exact": "{path} is a reserved site address, 301 and 410 are impossible on it",
         "redirects_reserved_exact_hint": "remove the address from gone or redirect_from",
         "redirects_nginx_rejected": "nginx -t rejected the built config: {emerg}",
+        "redirects_nginx_control": "string for the nginx config {value!r}: control character",
     },
 }

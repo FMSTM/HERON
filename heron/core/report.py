@@ -20,13 +20,11 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlsplit
 
-import yaml
-
 import heron
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core import links as links_module
-from heron.core import media, notes, versions
+from heron.core import media, notes, versions, yamlsafe
 from heron.core import urls as urls_module
 from heron.core.errors import Collector, HeronError, Warning_
 from heron.core.models import Site
@@ -118,7 +116,7 @@ def kit_status(site_root: Path | None, config: SiteConfig) -> KitStatus:
         # is_file до открытия: FIFO и каталог не читаем (чтение FIFO зависает)
         if not manifest.is_file() or manifest.stat().st_size > KIT_MANIFEST_LIMIT:
             return status
-        data = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+        data = yamlsafe.load(manifest.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001 — битый манифест не ошибка (21 §4), в т. ч. RecursionError
         return status
     if not isinstance(data, dict):

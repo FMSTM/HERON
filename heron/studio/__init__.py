@@ -365,14 +365,20 @@ def _verify(data: bytes, ext: str, name: str) -> tuple[int | None, int | None]:
         return None, None
     import io
 
-    from PIL import Image
+    from heron.core import media
 
     try:
-        with Image.open(io.BytesIO(data)) as image:
+        # площадь - по заголовку, до verify: verify у части форматов декодирует
+        with media.open_master(io.BytesIO(data)) as image:
             image.verify()
-        with Image.open(io.BytesIO(data)) as image:
+        with media.open_master(io.BytesIO(data)) as image:
             kind = (image.format or "").lower()
             width, height = image.size
+    except media.TooLarge as error:
+        raise HeronError(
+            code="E039",
+            message=Msg("studio_upload_pixels", name=name, size=error.size, limit=media.MAX_PIXELS),
+        ) from error
     except Exception as error:  # noqa: BLE001 - любой сбой разбора - не картинка
         raise HeronError(code="E039", message=Msg("studio_upload_bad", name=name)) from error
     want = {".jpg": "jpeg", ".png": "png", ".webp": "webp", ".gif": "gif"}[ext]

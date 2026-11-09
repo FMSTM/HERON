@@ -40,6 +40,9 @@ TEXT: dict[str, dict[str, str]] = {
             "файл {name}: в SVG есть скрипт или обработчик событий, такую картинку студия не кладёт"
         ),
         "studio_upload_large": "картинка больше {mb} МБ: уменьшите её перед загрузкой",
+        "studio_upload_pixels": (
+            "картинка {name}: {size} пикселей больше предела {limit}, уменьшите её перед загрузкой"
+        ),
     },
     "en": {
         "studio_open": (
@@ -81,5 +84,8 @@ TEXT: dict[str, dict[str, str]] = {
             "such a picture"
         ),
         "studio_upload_large": "the picture is larger than {mb} MB: make it smaller first",
+        "studio_upload_pixels": (
+            "picture {name}: {size} pixels is over the limit of {limit}, make it smaller first"
+        ),
     },
 }

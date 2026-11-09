@@ -31,7 +31,7 @@ files:
     ru_sha256: "d3b83cac1ba61b471339f6f61ce2b1924241b324b641f02bba049af1242f0b4b"
     en_status: current
   - path: guide/07-theme-author.md
-    ru_sha256: "abd43df429b4d8009759c2ba41bcd9cde46179f756167ad55fe451b74bb944e5"
+    ru_sha256: "8efbb42c04264875194d351ea0a6a2dc5a58facc24cdaec8c050d7aea6145f77"
     en_status: current
   - path: roles/architect.md
     ru_sha256: "357ccd262a83d03b911520e0effc32427904e786d1a691946673e2e0774cf2da"
@@ -52,7 +52,7 @@ files:
     ru_sha256: "3203034ae77102d4da4fdc730b8c438a9cf6b71fed4f046cef9191244e82b054"
     en_status: current
   - path: spec/21-engine.md
-    ru_sha256: "66a0ad12673d6492757e61474e82eed2618854be79f2018e715b2c5e5253f2eb"
+    ru_sha256: "e330418a0f0bcf5fb458d270dc823626ffa63ddb67d99845aae4cb5083fb277c"
     en_status: current
   - path: spec/22-deploy.md
     ru_sha256: "f642c65a351a3faae6e5c6128cb5957b2d2cc76b0765ba33cbd2aebdca28167d"

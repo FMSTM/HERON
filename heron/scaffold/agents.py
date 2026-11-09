@@ -30,7 +30,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from heron.core import paths
+from heron.core import paths, yamlsafe
 from heron.core.errors import HeronError
 from heron.core.notes import NOTE
 from heron.messages import image
@@ -260,11 +260,9 @@ def root_files(lang: str, fields: dict[str, Any], level: str = "true") -> dict[s
 def _site_data(site_yaml: Path) -> dict[str, Any]:
     """site.yaml мягко: комплект кладут и в недостроенную папку."""
     try:
-        import yaml
-
         if not site_yaml.is_file():
             return {}
-        data = yaml.safe_load(site_yaml.read_text(encoding="utf-8"))
+        data = yamlsafe.load(site_yaml.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001 — сырой конфиг не повод оставить сайт без комплекта
         return {}
     return data if isinstance(data, dict) else {}
@@ -410,9 +408,8 @@ def read_manifest(root: Path) -> Manifest:
     try:
         if path.is_symlink() or not path.is_file() or path.stat().st_size > MANIFEST_LIMIT:
             return broken
-        import yaml
 
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        data = yamlsafe.load(path.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001 — битый манифест: все файлы считаются правлеными
         return broken
     entries = data.get("files") if isinstance(data, dict) else None

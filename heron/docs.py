@@ -344,9 +344,9 @@ def translation() -> dict[str, str]:
     """`docs/translation.yaml`: путь внутри docs/<язык>/ → en_status. Читается мягко."""
     path = root() / "docs" / "translation.yaml"
     try:
-        import yaml
+        from heron.core import yamlsafe
 
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        data = yamlsafe.load(path.read_text(encoding="utf-8")) or {}
     except Exception:  # noqa: BLE001 — нет файла или он битый: просто без пометок
         return {}
     out: dict[str, str] = {}
@@ -419,9 +419,9 @@ def root_translation() -> str:
     """`en_status` пары README.ru.md → README.md из `root_files`; нет записи — пустая строка."""
     path = root() / "docs" / "translation.yaml"
     try:
-        import yaml
+        from heron.core import yamlsafe
 
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        data = yamlsafe.load(path.read_text(encoding="utf-8")) or {}
     except Exception:  # noqa: BLE001 — нет файла или он битый: просто без пометок
         return ""
     pairs = data.get("root_files") if isinstance(data, dict) else None
@@ -544,9 +544,9 @@ def _frontmatter(text: str) -> dict[str, Any]:
     if not sep:
         return {}
     try:
-        import yaml
+        from heron.core import yamlsafe
 
-        data = yaml.safe_load(head)
+        data = yamlsafe.load(head)
     except Exception:  # noqa: BLE001 — битая шапка навыка: без описания
         return {}
     return data if isinstance(data, dict) else {}

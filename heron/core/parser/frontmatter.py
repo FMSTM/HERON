@@ -18,6 +18,7 @@ from pydantic import ValidationError
 
 from heron.contracts.frontmatter import PageMeta
 from heron.contracts.loader import describe
+from heron.core import yamlsafe
 from heron.core.errors import HeronError, Warning_
 from heron.messages import Msg
 
@@ -40,7 +41,15 @@ def split(text: str, path: str) -> tuple[dict[str, Any], str, int]:
 
     raw = match.group("body")
     try:
-        data = yaml.safe_load(raw)
+        data = yamlsafe.load(raw)
+    except yamlsafe.Expands as exc:
+        raise HeronError(
+            code="E001",
+            message=Msg("loader_yaml_expands", limit=yamlsafe.MAX_NODES, depth=yamlsafe.MAX_DEPTH),
+            path=path,
+            line=2,
+            hint=Msg("loader_yaml_expands_hint"),
+        ) from exc
     except yaml.YAMLError as exc:
         mark = getattr(exc, "problem_mark", None)
         raise HeronError(

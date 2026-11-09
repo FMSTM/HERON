@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 from heron import __version__
 from heron.contracts.site import LANG_RE
-from heron.core import paths
+from heron.core import paths, yamlsafe
 from heron.core.errors import HeronError
 from heron.core.notes import NOTE
 
@@ -377,7 +377,7 @@ def site_yaml_problem(site_yaml: Path, lang: str) -> HeronError | None:
     import yaml
 
     try:
-        data = yaml.safe_load(text)
+        data = yamlsafe.load(text)
     except yaml.YAMLError:
         return None
     if data is not None and not isinstance(data, dict):
@@ -446,9 +446,7 @@ NOTE_MARK = re.compile(r"\{# heron:note ([a-z0-9.-]+) #\}|/\* heron:note ([a-z0-
 
 
 def theme_notes(lang: str) -> dict[str, str]:
-    import yaml
-
-    return yaml.safe_load(_text(lang, "theme-notes.yaml"))
+    return yamlsafe.load(_text(lang, "theme-notes.yaml"))
 
 
 def with_notes(text: str, lang: str) -> str:
@@ -976,8 +974,6 @@ def set_build_agents(root: Path, value: str, notes: str = "en") -> bool:
     в конец. Нет site.yaml — ничего не пишется (False). Сообщение об ошибке - на
     языке `notes`.
     """
-    import yaml
-
     value = agents_level(value)
     path = paths.in_site(root, "site.yaml")
     if not path.is_file():
@@ -1016,7 +1012,7 @@ def set_build_agents(root: Path, value: str, notes: str = "en") -> bool:
             lines.insert(at, f"{indent}agents: {value}")
     updated = "\n".join(lines)
     try:
-        data = yaml.safe_load(updated) or {}
+        data = yamlsafe.load(updated) or {}
         written: str | None = agents_level((data.get("build") or {}).get("agents"))
     except Exception:  # noqa: BLE001 — правка не удалась: файл не трогаем
         written = None
@@ -1176,9 +1172,7 @@ def _declared(site_yaml: Path) -> dict | None:
     if not site_yaml.is_file():
         return None
     try:
-        import yaml
-
-        data = yaml.safe_load(site_yaml.read_text(encoding="utf-8")) or {}
+        data = yamlsafe.load(site_yaml.read_text(encoding="utf-8")) or {}
         block = data.get("site") or {}
         languages = [str(x) for x in (block.get("languages") or []) if x]
         default = block.get("default_lang")

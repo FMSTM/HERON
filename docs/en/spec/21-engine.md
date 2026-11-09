@@ -527,6 +527,8 @@ An image that something links to but that is not on disk: in strict mode (`--str
 
 Only `.jpg`, `.jpeg`, `.png` and `.webp` are cut (`KEEP` in `heron/core/media.py`). `.avif`, `.gif`, `.svg` and any other file are copied as is, without variants.
 
+**The master limit is 50 megapixels** (width × height, `MAX_PIXELS` in `heron/core/media.py`): a decoded frame takes 4 bytes a pixel and as much again for every copy when rotating and cropping. The size is taken from the file header before the pixels are read; over it - `E036` with the size and the limit in the build, the renditions and `heron check`, and an upload in the studio - `E039`. Pillow has the same limit (`Image.MAX_IMAGE_PIXELS`) and refuses on its own at twice the limit. For an animated WebP (and a GIF uploaded in the studio) one frame is measured, not the sum of the frames: only the first is decoded.
+
 ### Rendition cache
 
 Encoding is the most expensive part of the build: 95 masters with three aspect ratios, four widths and three formats give more than two thousand files and minutes of CPU work. Editing one line of CSS must not cost that.
@@ -947,7 +949,7 @@ The detail and hint of an error and the text of a warning are in the language of
 
 | Code | Condition |
 |---|---|
-| `E001` | broken YAML in the frontmatter |
+| `E001` | broken YAML in the frontmatter; YAML that aliases expand beyond the limit ("YAML limits", [below](#yaml-limits)) |
 | `E002` | no `title`, `h1` or `description`, or a frontmatter field of the wrong type (a date that is not a date, an `order` that is not a number) |
 | `E003` | a duplicate section identifier in a file |
 | `E004` | two files give one URL; for `heron page add` and `category add` - the key is taken by a page of the other kind or a move onto a taken key |
@@ -957,7 +959,7 @@ The detail and hint of an error and the text of a warning are in the language of
 | `E008` | a page type has no template in the theme, the strings file `theme/i18n/<language>.yaml` is unusable |
 | `E009` | `redirect_from` coincides with an existing URL |
 | `E010` | access to a variable that does not exist in a template, or an exception while a template runs |
-| `E011` | `site.yaml` does not pass validation; also an invalid value of `HERON_WORKERS` (outside 0-64 or not a number) |
+| `E011` | `site.yaml` does not pass validation; also an invalid value of `HERON_WORKERS` (outside 0-64 or not a number); `site.yaml` or a `data/` file that aliases expand beyond the limit ("YAML limits", [below](#yaml-limits)) |
 | `E012` | the engine version does not satisfy the `heron:` requirement in `site.yaml` or in the theme `theme.yaml` - the message names the file |
 | `E013` | the theme is found neither locally nor among the installed packages |
 | `E014` | a plugin from `plugins:` is not installed, failed on loading or in a hook, or has an invalid name |
@@ -968,7 +970,7 @@ The detail and hint of an error and the text of a warning are in the language of
 | `E019` | a local video has no poster |
 | `E020` | the schema.org markup cannot be built: not JSON, no type declared by the theme, the address or coordinates are declared but empty in the site-wide node, there are money fields with `seo.allow_prices: false` |
 | `E021` | a production build in which the default language is empty: the site root would answer 404 |
-| `E022` | a `gone` entry closes the address of an existing page or overlaps with `redirect_from` |
+| `E022` | a `gone` entry closes the address of an existing page or overlaps with `redirect_from`; a string with a control character (C0, C1, DEL, U+2028/U+2029) on its way into the nginx config - the config is not built, the character is not escaped |
 | `E023` | the top-level `fields` of `theme.yaml` names fields the engine does not know, or is not a list of names (for example, a description of block fields): own front matter fields go into `types.<type>.fields`, block fields into `modules.<block>.fields`, or a newer engine is needed |
 | `E024` | a path goes outside the allowed folders: `..` in a file path, a symbolic link pointing outside from `content/`, `data/`, `media/`, `static/` or the theme, a result name outside the build folder; the build, cache and source folders overlap; `.heron-cache` or its `renditions/` is a link (§4, "File boundaries") |
 | `E025` | a heading attribute outside the allowed set (`#id`, `.class`, `lang`, `dir`, `title`, `data-*`): `onclick=`, `style=` and the like (`20` §4) |
@@ -978,18 +980,18 @@ The detail and hint of an error and the text of a warning are in the language of
 | `E029` | two files of one language give one page key (`a.md` with its own `slug` and the section `a/_index.md`): the key links translations and links |
 | `E030` | a source folder or file cannot be read - no permissions, a disk failure: the build is stopped instead of passing without some of the pages (§4, "File boundaries") |
 | `E031` | `heron serve`, `setup` or `studio` cannot take the address and port: the port is taken by another program or the address does not belong to the machine; for the studio - also the preview port (`--preview-port` is taken, equal to `--port` or outside 1-65535) |
-| `E032` | the theme cannot be installed: the archive breaks the rules (paths, links, code, size) or is broken/truncated, the catalog is unavailable, the sha256 does not match, `theme.yaml` did not pass the check |
+| `E032` | the theme cannot be installed: the archive breaks the rules (paths, links, code, size) or is broken/truncated, the catalog is unavailable, the sha256 does not match, `theme.yaml` did not pass the check; a YAML anchor or alias (`&name`, `*name`, `<<:`) in the YAML of the theme, its demo or `heron-theme.yaml` - `theme get` before unpacking, `theme pack`, `heron check --theme` with the file and the line ("YAML limits", [below](#yaml-limits)) |
 | `E033` | a theme template accesses something the sandbox closes: Python service attributes, changing site data, `BaseModel` methods, paths (§7). `check` finds data changes without a build too (§12) |
 | `E034` | a build file the engine must check before writing is empty, unreadable or not UTF-8: a replacement of `.heron-nginx.conf` from `static/` via `build.overrides`. An error even without `--strict`, `dist/` is not changed |
 | `E035` | `.heron-cache` or the lock file `.<dist>.heron-lock` cannot be created next to the build folder: the folder above `--out` is not writable. `dist/` is not touched; the engine names the path and the system's reason, not a generic "no permission" |
-| `E036` | an image master exists on disk but cannot be read as an image: a Git LFS pointer, an empty, truncated or oversized file. It is an error in both strict and dev builds (unlike `E007`, where the file is simply absent). The engine names the `src`, the owner page and the kind of failure |
+| `E036` | an image master exists on disk but cannot be read as an image: a Git LFS pointer, an empty, truncated or oversized file, a frame over 50 megapixels (§8). It is an error in both strict and dev builds (unlike `E007`, where the file is simply absent). The engine names the `src`, the owner page and the kind of failure |
 | `E037` | the theme demo does not show everything its contract declares: a type has no demo page, a module never drew anything, a section view is not shown (`heron theme pack`, `heron check --theme`; for a theme without `fields` - a warning); `theme pack` in a folder without `site.yaml` (§7, "The theme demo and reference") |
 | `E038` | this form of the command was removed: `heron page <type> <key>` (0.3.0); the hint is the same page with the command `heron page add` (§10) |
 | `E039` | a field value or a questionnaire answer does not fit: an unknown key, language or field in `--answers`, YAML does not read, a value cannot be written in its place, a field check error (`page add`, `category add`, the studio, §10); in the studio also - a wrong request, a block without its first item, a file that is not a picture; the files are untouched |
 | `E040` | a page with placeholder text of `page add`/`category add` is left in a production build (`--env prod`): the `TODO` marker at the start of `title`, `h1`, `description`, `nav_title`, `og_*` or a section heading, a stub line of the body in any notes language; the message names the file and the field. A page marked `translation: pending` does not go into a production build, and its stub gives no `E040`. In a draft build and in `check` without `--env prod` - a warning |
 | `E041` | the theme contract in `theme.yaml` does not pass the check: YAML, the keys and values of the passport, block and type fields, views, no `hint` in one of the theme languages (`heron check`), an invalid `heron:` requirement; an unknown name in `heron describe`, an unknown type or view for `page add` and `category add` |
 | `E042` | an own page field from `types.<type>.fields`: a required one empty, a value not from `values` or of the wrong type (`heron check`, the build) |
-| `E043` | an SVG in `media/`, `static/` or in the theme with executable content or a link to another file: an instruction `<?…?>` (except `<?xml …?>`), a DOCTYPE, an ENTITY, XSLT, `script`, `foreignObject`, `on*` attributes, links with a scheme and `//`, `<use>`, `url(…)` and `@import` not to an `#id` of the same file (CSS escapes and comments do not hide them) - the same rules as an upload in the studio (`url(#id)`, a raster `data:image/…` in `<image>`, `http(s):` and `mailto:` in `<a>` are fine); the site serves such files as they are. `heron check` and a production build (`--env prod`, with or without `--strict`) stop with the list of files; a draft build and `heron serve` give the warning `build_svg_unsafe` and the build goes on. Safe files are remembered in `.heron-cache/svg-safe.json` of the site folder (wherever the build goes, `--out`): sha256 and the rules version; an unsafe file is parsed every time, an entry of another form or another rules version is a miss; an unchanged safe SVG is not parsed again |
+| `E043` | an SVG in `media/`, `static/` or in the theme with executable content or a link to another file: an instruction `<?…?>` (except `<?xml …?>`), a DOCTYPE, an ENTITY, XSLT, `script`, `foreignObject`, the HTML media `video`, `audio`, `source`, `track` in any namespace, `on*` attributes, links with a scheme and `//` (in `poster` too), `<use>`, `url(…)` and `@import` not to an `#id` of the same file (CSS escapes and comments do not hide them) - the same rules as an upload in the studio (`url(#id)`, a raster `data:image/…` in `<image>`, `http(s):` and `mailto:` in `<a>` are fine); the site serves such files as they are. `heron check` and a production build (`--env prod`, with or without `--strict`) stop with the list of files; a draft build and `heron serve` give the warning `build_svg_unsafe` and the build goes on. Safe files are remembered in `.heron-cache/svg-safe.json` of the site folder (wherever the build goes, `--out`): sha256 and the rules version; an unsafe file is parsed every time, an entry of another form or another rules version is a miss; an unchanged safe SVG is not parsed again |
 | `E044` | the theme text has terminal control characters (C0 and C1, except a line break and a tab): hints and help in `theme.yaml`, strings in `theme/i18n/*.yaml`, the SEO block of demo pages (`heron check --theme`) |
 | `E045` | `asset('…')` in a template names a file that is neither in the theme `assets/` nor in the site `media/`, or an external address; the version (a hashed name or a `?v=` mark) handed to a template before rendering does not match the file in the build (the file was replaced after rendering) (§4, "Versions of theme files and resources") |
 | `E046` | a relative link or file address (`pic.jpg`, `./x/`, `../y`) in markdown text or in a theme template with `urls.trailing_slash: never`, including `url(…)` in `style` and `<style>` (the contents of `<script>` are not checked): on an address without the slash the browser resolves it against the folder of the page. A path from the root, an address with a scheme, `#anchor`, `?parameter`, `mailto:`, `tel:` are fine; `media/…` in markdown the engine writes from the root itself (`20` §2, "A slash at the end of the address") |
@@ -1057,6 +1059,10 @@ The line lists the source paths `page.source`, up to 5, then " …"; without a l
 - `old URL <url> leads nowhere; probably set a 301 to <target>: redirect_from: [<url>] in the front matter of <file>` (kind "redirects", path `old-urls`) - only with `--old-urls`; what to do: add the address to `redirect_from` of the named page or to `gone`.
 
 This is exactly the list for the client that otherwise gets lost. It is printed after every build, not remembered once a quarter.
+
+### YAML limits <a id="yaml-limits"></a>
+
+The engine reads all YAML files through one entry (`heron/core/yamlsafe.py`). An anchor and an alias (`&name`, `*name`) are a reference to one object: ten levels of ten aliases are a kilobyte of text and a billion nodes when walked. In site files (`site.yaml`, the front matter, `data/`) anchors are allowed, but a document with aliases is at most 100,000 nodes and 64 levels when expanded, and an alias of itself is refused; the count goes over the node graph before the objects are built and costs as much as the text. Over the limit - the code of the file: the front matter `E001`, `site.yaml` and `data/` - `E011`, `theme.yaml` - `E041`, `i18n/` - `E008`. A document without aliases is not counted at all. In theme files that arrive as somebody else's archive (the YAML of the theme, its demo and `heron-theme.yaml`) there are no anchors and aliases at all: `E032`, refused at the first parser event.
 
 ## 12. The `heron check` report <a id="check-report"></a>
 

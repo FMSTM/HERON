@@ -12,6 +12,7 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, ValidationError
 
+from heron.core import yamlsafe
 from heron.core.errors import HeronError
 from heron.messages import Msg
 
@@ -21,12 +22,32 @@ FIELD_HINTS: dict[str, str] = {
 }
 
 
-def read_yaml(path: Path, code: str = "E011", allow_empty: bool = False) -> dict[str, Any]:
-    """Прочитать YAML-файл в словарь. Битый YAML — остановка с номером строки."""
+def read_yaml(
+    path: Path, code: str = "E011", allow_empty: bool = False, theme: bool = False
+) -> dict[str, Any]:
+    """Прочитать YAML-файл в словарь. Битый YAML — остановка с номером строки.
+
+    `theme` - файл темы из архива: якорь или ссылка - E032 (`heron.core.yamlsafe`).
+    """
     if not path.is_file():
         raise HeronError(code=code, message=Msg("loader_file_missing"), path=str(path))
     try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        data = yamlsafe.load(path.read_text(encoding="utf-8"), theme=theme)
+    except yamlsafe.Anchors as exc:
+        raise HeronError(
+            code="E032",
+            message=Msg("loader_yaml_anchors"),
+            path=str(path),
+            line=exc.problem_mark.line + 1 if exc.problem_mark else None,
+            hint=Msg("loader_yaml_anchors_hint"),
+        ) from exc
+    except yamlsafe.Expands as exc:
+        raise HeronError(
+            code=code,
+            message=Msg("loader_yaml_expands", limit=yamlsafe.MAX_NODES, depth=yamlsafe.MAX_DEPTH),
+            path=str(path),
+            hint=Msg("loader_yaml_expands_hint"),
+        ) from exc
     except UnicodeDecodeError as exc:
         raise HeronError(
             code=code,

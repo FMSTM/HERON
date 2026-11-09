@@ -323,7 +323,7 @@ docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmst
 docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod build . --env prod --strict
 ```
 
-- `check --theme` - the theme description is complete (`E041` - something is missing or wrong), every type has a template (`E008`), the demo shows everything (`E037`), templates do not change data (`E033`), there are no inline scripts and no hand-written `/assets/` addresses (warnings, [`asset()`](#asset));
+- `check --theme` - the theme description is complete (`E041` - something is missing or wrong), every type has a template (`E008`), the demo shows everything (`E037`), templates do not change data (`E033`), there are no inline scripts and no hand-written `/assets/` addresses (warnings, [`asset()`](#asset)), there are no YAML anchors (`E032`, below);
 - `build --env prod --strict` - every page is drawn without errors and warnings.
 
 ## Packing and publishing <a id="pack"></a>
@@ -335,6 +335,8 @@ docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmst
 ```
 
 Before writing, `theme pack` makes the same demo check as `check --theme`: the demo is incomplete - `E037`, and there is no archive. The archive holds `heron-theme.yaml` (the theme name and the engine versions it is compatible with), the `theme/` folder and the `demo/` folder - the pages from `content/`, the pictures from `media/`, the reference data from `data/`. There can be no code in the archive: `.py`, `.sh`, `.exe` files, `plugins` and `.git` folders, links to other files - `theme get` will not install such an archive (`E032`).
+
+**No YAML anchors.** In `theme.yaml`, `i18n/`, the SEO block of the demo pages and the demo `data/`, do not write YAML anchors and aliases (`&name`, `*name`, the merge `<<: *name`): write a repeated piece out in full. A theme reaches people as somebody else's archive, and a dozen aliases of each other expand into a billion lines and hang the engine. So `theme get` refuses such an archive before unpacking it, `theme pack` does not pack it, and `check --theme` names the file and the line - all `E032`. A site with anchors in its own files builds: there the engine only limits the expansion ([`21` §11](../spec/21-engine.md#yaml-limits)).
 
 How to hand the theme over:
 

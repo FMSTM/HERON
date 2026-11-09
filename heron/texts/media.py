@@ -37,6 +37,12 @@ TEXT: dict[str, dict[str, str]] = {
         "media_cache_rebuild_hint": "удалите папку .heron-cache - она пересоздастся при сборке",
         "media_slice_is_dir": "на месте нарезки в кэше - папка: {path}",
         "media_missing_on_disk": "картинки {src} нет на диске",
+        "media_too_large": (
+            "мастер {src}: {size} пикселей больше предела {limit} (ширина × высота)"
+        ),
+        "media_too_large_hint": (
+            "уменьшите картинку: для сайта хватает 4000-6000 пикселей по длинной стороне"
+        ),
         "media_bad_master": "мастер {src} не читается как изображение ({kind})",
         "media_bad_master_hint": (
             "замените файл настоящей картинкой: это может быть указатель Git LFS, "
@@ -86,6 +92,12 @@ TEXT: dict[str, dict[str, str]] = {
         "media_cache_rebuild_hint": "delete the .heron-cache folder: it is recreated on build",
         "media_slice_is_dir": "a folder sits where a rendition should be in the cache: {path}",
         "media_missing_on_disk": "image {src} is not on disk",
+        "media_too_large": (
+            "master {src}: {size} pixels is over the limit of {limit} (width × height)"
+        ),
+        "media_too_large_hint": (
+            "make the picture smaller: 4000-6000 pixels on the long side is plenty for a site"
+        ),
         "media_bad_master": "master {src} cannot be read as an image ({kind})",
         "media_bad_master_hint": (
             "replace the file with a real image: it may be a Git LFS pointer, "

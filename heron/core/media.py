@@ -23,6 +23,7 @@ import shutil
 import stat
 import urllib.parse
 import uuid
+import warnings
 from collections.abc import Collection
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
@@ -672,6 +673,51 @@ def cover_sources(site: Site, config) -> set[str]:
     return covers
 
 
+# Предел мастера по площади, ширина × высота. Декодированный кадр занимает 4 байта
+# на пиксель и ещё столько же на каждую копию при повороте и кадрировании: 50 Мп -
+# это фотография любой камеры, а 170 Мп под пределом самого Pillow - около 700 МБ
+# памяти на одну картинку. Размер берётся из заголовка: `Image.open` ленив и
+# пиксели не читает, поэтому проверка идёт до декодирования.
+MAX_PIXELS = 50_000_000
+# Pillow сам отказывает от двойного предела (DecompressionBombError) - тем, кто
+# откроет картинку мимо `open_master`. От одинарного он только предупреждает:
+# это предупреждение `open_master` гасит, отказ - его собственный, с размерами.
+Image.MAX_IMAGE_PIXELS = MAX_PIXELS
+
+
+class TooLarge(ValueError):
+    """Мастер больше MAX_PIXELS: `size` - «ширина×высота» или число пикселей."""
+
+    def __init__(self, size: str) -> None:
+        super().__init__(size)
+        self.size = size
+
+
+def check_pixels(image: Image.Image) -> None:
+    """Размер из заголовка не больше MAX_PIXELS - или TooLarge.
+
+    Кадры анимации не умножаются: нарезка и студия декодируют только первый.
+    """
+    width, height = image.size
+    if width * height > MAX_PIXELS:
+        raise TooLarge(f"{width}×{height}")
+
+
+@contextlib.contextmanager
+def open_master(source):
+    """`Image.open` с проверкой площади до декодирования: больше предела - TooLarge."""
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", Image.DecompressionBombWarning)
+            opened = Image.open(source)
+    except Image.DecompressionBombError as exc:
+        found = re.search(r"\((\d+) pixels\)", str(exc))
+        raise TooLarge(found.group(1) if found else "?") from exc
+    with opened:
+        check_pixels(opened)
+        yield opened
+
+
 # Мастер есть, но не читается как картинка: заглушка, пустой файл, обрезок, бомба.
 BAD_MASTER = (OSError, ValueError, SyntaxError, Image.DecompressionBombError)
 
@@ -679,6 +725,14 @@ BAD_MASTER = (OSError, ValueError, SyntaxError, Image.DecompressionBombError)
 def _bad_master(
     collector: Collector, declared: dict[str, list[str]], src: str, exc: Exception
 ) -> None:
+    if isinstance(exc, TooLarge):
+        collector.error(
+            "E036",
+            Msg("media_too_large", src=src, size=exc.size, limit=MAX_PIXELS),
+            path=_owner(declared, src),
+            hint=Msg("media_too_large_hint"),
+        )
+        return
     collector.error(
         "E036",
         Msg("media_bad_master", src=src, kind=type(exc).__name__),
@@ -846,7 +900,7 @@ def _load(source: Path) -> Image.Image:
     до определения размеров, кадрирования и кодирования; сам тег в нарезку
     не идёт.
     """
-    with Image.open(source) as opened:
+    with open_master(source) as opened:
         upright = ImageOps.exif_transpose(opened)
         mode = "RGBA" if upright.mode in ("RGBA", "LA", "P") else "RGB"
         return _opaque(upright.convert(mode))
@@ -1108,9 +1162,14 @@ def _shape(entry: Path, source: Path) -> Shape:
         if record.is_symlink():
             raise ValueError("shape.json is a link")  # пересчитать и заменить
         data = json.loads(record.read_text(encoding="utf-8"))
-        return Shape(int(data["width"]), int(data["height"]), bool(data["alpha"]))
+        shape = Shape(int(data["width"]), int(data["height"]), bool(data["alpha"]))
     except (OSError, ValueError, KeyError, TypeError):
         pass
+    else:
+        # запись из кэша прежней версии без предела: мастер всё равно отказ
+        if shape.width * shape.height > MAX_PIXELS:
+            raise TooLarge(f"{shape.width}×{shape.height}")
+        return shape
     shape = shape_of(source)
     entry.mkdir(parents=True, exist_ok=True)
     temp = entry / f".shape.{os.getpid()}.{uuid.uuid4().hex}.tmp"

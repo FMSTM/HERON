@@ -28,7 +28,7 @@ from heron.contracts.fields import ALT_OF, FALLBACK, PER_LANGUAGE, TRANSLATABLE
 from heron.contracts.frontmatter import PENDING
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
-from heron.core import paths
+from heron.core import paths, yamlsafe
 from heron.core.errors import Collector, HeronError
 from heron.core.parser.frontmatter import FRONTMATTER
 from heron.edit.langs import folder_type, key_of, rel_for
@@ -206,7 +206,7 @@ class Node:
 def _head(path: Path) -> dict[str, Any]:
     try:
         match = FRONTMATTER.match(path.read_text(encoding="utf-8"))
-        data = yaml.safe_load(match.group("body")) if match else None
+        data = yamlsafe.load(match.group("body")) if match else None
     except (OSError, UnicodeDecodeError, yaml.YAMLError):
         return {}
     return data if isinstance(data, dict) else {}
@@ -1150,7 +1150,7 @@ def write_site(
 
     path = paths.in_site(ctx.root, "site.yaml")
     current = path.read_text(encoding="utf-8")
-    data = yaml.safe_load(current) or {}
+    data = yamlsafe.load(current) or {}
     for dotted, value in changes.items():
         node = data
         parts = dotted.split(".")
@@ -1167,9 +1167,9 @@ def write_site(
             for group, items in list(nav.items()):
                 if isinstance(items, list):
                     nav[group] = _rename(items, *renames)
-    if data == (yaml.safe_load(current) or {}):
+    if data == (yamlsafe.load(current) or {}):
         return False, False
-    text = _in_place(current, yaml.safe_load(current) or {}, data)
+    text = _in_place(current, yamlsafe.load(current) or {}, data)
     if text is not None:
         path.write_text(text, encoding="utf-8")
         return True, False
@@ -1209,14 +1209,14 @@ def _in_place(text: str, old: dict[str, Any], new: dict[str, Any]) -> str | None
         return None
     nl = newline_of(text)
     for path, value in changed:
-        front = fronts.Front(True, 0, len(text), len(text), yaml.safe_load(text), root, raw=text)
+        front = fronts.Front(True, 0, len(text), len(text), yamlsafe.load(text), root, raw=text)
         try:
             start, end, piece = fronts.set_value(text, front, path, value, nl)
         except fronts.FrontError:
             return None
         text = text[:start] + piece + text[end:]
         root = yaml.compose(text)
-    return text if yaml.safe_load(text) == new else None
+    return text if yamlsafe.load(text) == new else None
 
 
 # --- ответы для агента: --answers и --dump --------------------------------------------

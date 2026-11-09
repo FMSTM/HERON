@@ -12,6 +12,7 @@ SVG из `media/`, `static/` и темы сайт отдаёт как есть, 
    expat инструкцией не считает), на DOCTYPE и ENTITY, на пространстве имён XSLT
    и атрибутах `xsl:`.
 2. ElementTree - элементы и атрибуты: script/foreignObject/iframe/embed/object,
+   медиа HTML (video/audio/source/track) в любом пространстве имён,
    любой атрибут on*, ссылки со схемой (`javascript:`, `data:`, `http:`…) и `//`,
    анимация, которая подменяет ссылку или обработчик, внешние `url(…)` и
    `@import` в стилях.
@@ -36,13 +37,18 @@ from pathlib import Path
 from xml.parsers import expat
 
 # Версия правил: кэш годных файлов (`.heron-cache/svg-safe.json`) другой версии не годится.
-RULES = 3
+RULES = 4
 ELEMENTS = {
     *("script", "foreignobject", "iframe", "frame", "frameset", "embed", "object", "applet"),
     *("portal", "handler", "listener", "meta", "link", "base"),
+    # медиа HTML: грузит файл по адресу (src, poster) и в SVG не нужна
+    *("video", "audio", "source", "track"),
 }
 ANIMATE = {"set", "animate", "animatetransform", "animatemotion", "animatecolor"}
-LINKS = {"href", "src", "xlink:href", "action", "formaction", "from", "to", "values", "base"}
+LINKS = {
+    *("href", "src", "xlink:href", "action", "formaction", "from", "to", "values", "base"),
+    "poster",
+}
 # ссылка со схемой (`javascript:`, `blob:`, `https:`…) или на другой хост (`//`, `\\`)
 SCHEMES = re.compile(r"^[a-z][a-z0-9+.\-]*:|^[/\\]{2}")
 # что можно в `<a>`: обычная ссылка и почта

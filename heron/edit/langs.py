@@ -15,6 +15,7 @@ from typing import Any
 import yaml
 
 from heron.contracts.site import SiteConfig
+from heron.core import yamlsafe
 from heron.core.parser.frontmatter import FRONTMATTER
 from heron.edit.model import DEFAULT_TYPE, HOME_TYPE, INDEX, Page, load
 
@@ -85,7 +86,7 @@ def missing(
 def _index_data(path: Path) -> dict[str, Any]:
     try:
         match = FRONTMATTER.match(path.read_text(encoding="utf-8"))
-        data = yaml.safe_load(match.group("body")) if match else None
+        data = yamlsafe.load(match.group("body")) if match else None
     except (OSError, UnicodeDecodeError, yaml.YAMLError):
         return {}
     return data if isinstance(data, dict) else {}

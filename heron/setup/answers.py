@@ -21,7 +21,6 @@ from functools import cache
 from pathlib import Path
 from typing import Any, Literal
 
-import yaml
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -35,7 +34,7 @@ from pydantic import (
 from heron.contracts.site import LANG_RE, NAME_RE, CacheBlock, UrlsBlock
 from heron.contracts.site import domain as clean_domain
 from heron.contracts.site import duration as cache_duration
-from heron.core import paths
+from heron.core import paths, yamlsafe
 from heron.setup.reasons import Reason
 
 HERE = Path(__file__).parent
@@ -67,13 +66,13 @@ HOURS_RE = re.compile(rf"^{_DAY}(?:-{_DAY})?(?:,{_DAY}(?:-{_DAY})?)* {_SPAN}(?:,
 @cache
 def vocab() -> dict[str, Any]:
     """Справочник типов schema.org и полей конфигуратора."""
-    return yaml.safe_load((HERE / "vocab.yaml").read_text(encoding="utf-8"))
+    return yamlsafe.load((HERE / "vocab.yaml").read_text(encoding="utf-8"))
 
 
 @cache
 def classifier() -> list[dict[str, Any]]:
     """Сферы деятельности со специализациями (classifier.yaml)."""
-    data = yaml.safe_load((HERE / "classifier.yaml").read_text(encoding="utf-8"))
+    data = yamlsafe.load((HERE / "classifier.yaml").read_text(encoding="utf-8"))
     return data["directions"]
 
 

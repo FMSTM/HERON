@@ -29,6 +29,7 @@ from heron.contracts import site as site_contract
 from heron.contracts.site import LANG_RE
 from heron.core import build as pipeline
 from heron.core import report as report_module
+from heron.core import yamlsafe
 from heron.core.environment import BuildEnv
 from heron.core.errors import HeronError
 from heron.core.notes import NOTE
@@ -573,9 +574,9 @@ def _debug(ctx: click.Context) -> bool:
 # --- сборка и проверка: итог ----------------------------------------------------
 
 
-# Ошибки `check --theme`, с которыми сайт собирается: демо темы (E037, его ловит и `theme pack`)
-# и управляющие символы в тексте темы (E044).
-THEME_ONLY = frozenset({"E037", "E044"})
+# Ошибки `check --theme`, с которыми сайт собирается: демо темы (E037, его ловит и `theme pack`),
+# управляющие символы в тексте темы (E044) и YAML-якоря в ней (E032).
+THEME_ONLY = frozenset({"E032", "E037", "E044"})
 
 
 def _finish(
@@ -1372,9 +1373,7 @@ def init(
     domain = None
     name = ""
     try:
-        import yaml
-
-        data = yaml.safe_load((path / "site.yaml").read_text(encoding="utf-8")) or {}
+        data = yamlsafe.load((path / "site.yaml").read_text(encoding="utf-8")) or {}
         domain = str((data.get("site") or {}).get("domain") or "") or None
         name = str((data.get("site") or {}).get("name") or "")
     except Exception:  # noqa: BLE001 — конфиг проверит сборка
@@ -2023,7 +2022,7 @@ def _read_answers(source: str, lang: str) -> dict:
 
     text = sys.stdin.read() if source == "-" else Path(source).read_text("utf-8")
     try:
-        data = yaml.safe_load(text)
+        data = yamlsafe.load(text)
     except yaml.YAMLError as error:
         raise HeronError(
             code="E039", message=Msg("edit_answers_yaml", problem=str(error).splitlines()[0])

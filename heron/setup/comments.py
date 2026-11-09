@@ -15,6 +15,8 @@ from typing import Any
 
 import yaml
 
+from heron.core import yamlsafe
+
 _KEY = re.compile(
     r"""^(?:"[^"]*"|'[^']*'|[^\s#'"\-\[\]{},&*!|>%@`][^:#]*?|-[^\s:][^:]*?):(?:\s|$)"""
 )
@@ -144,7 +146,7 @@ def _shift(lines: list[str], delta: int) -> list[str]:
 
 def _same(old: list[str], new: list[str]) -> bool:
     try:
-        return yaml.safe_load("\n".join(old) + "\n") == yaml.safe_load("\n".join(new) + "\n")
+        return yamlsafe.load("\n".join(old) + "\n") == yamlsafe.load("\n".join(new) + "\n")
     except yaml.YAMLError:
         return False
 
@@ -159,7 +161,7 @@ def _orphan_lead(lead: list[str]) -> list[str]:
 
 def _item_data(node: _Node) -> Any:
     try:
-        loaded = yaml.safe_load("\n".join(node.span) + "\n")
+        loaded = yamlsafe.load("\n".join(node.span) + "\n")
     except yaml.YAMLError:
         return None
     return loaded[0] if isinstance(loaded, list) and loaded else None
@@ -306,7 +308,7 @@ def carry(old_text: str, new_body: str, header: str, data: dict[str, Any]) -> tu
         merged, tail = _merge(old_lines[first:], new_body.splitlines(), True)
         lead = "\n".join(head) + "\n" if has_header else header
         text = lead + "\n".join(merged + tail) + "\n"
-        if yaml.safe_load(text) != data:
+        if yamlsafe.load(text) != data:
             return plain, True
         return text, False
     except (ValueError, yaml.YAMLError, IndexError):

@@ -15,15 +15,18 @@ from urllib.parse import unquote
 
 from markdown_it import MarkdownIt
 
+from heron.contracts.frontmatter import SLUG_RE
 from heron.contracts.site import SiteConfig
-from heron.core import notes, paths
+from heron.core import notes, paths, urls
 from heron.core.errors import Collector, HeronError
 from heron.core.models import Page, Site
 from heron.core.parser import blocks, frontmatter, markdown, sections
 from heron.messages import Msg
 
-SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\Z")
+SLUG = SLUG_RE  # одно правило сегмента адреса на всех (20 §2)
 INDEX = "_index.md"
+# Относительная ссылка при `urls.trailing_slash: never` (20 §2).
+RELATIVE = "E046"
 HOME = "index.md"
 NOT_FOUND = "404.md"
 IGNORED = {"readme.md", "changelog.md", "license.md", "contributing.md"}
@@ -35,11 +38,9 @@ def _slug_of(name: str) -> str:
     return name[: -len(".md")] if name.endswith(".md") else name
 
 
-def url_for(lang: str, default_lang: str, parts: list[str]) -> str:
-    """Собрать канонический адрес: всегда со слешем на конце."""
-    prefix = [] if lang == default_lang else [lang]
-    path = "/".join([*prefix, *parts])
-    return f"/{path}/" if path else "/"
+def url_for(lang: str, default_lang: str, parts: list[str], slash: bool = True) -> str:
+    """Собрать канонический адрес: со слешем на конце или без (`urls.trailing_slash`)."""
+    return urls.page_url(lang, default_lang, parts, slash)
 
 
 def _read_index(path: Path) -> dict | None:
@@ -138,6 +139,46 @@ def _links(md, body: str, offset: int) -> list[tuple[int, str]]:
             elif child.type == "html_inline":
                 for match in HTML_HREF.finditer(child.content):
                     out.append((line_of(match.group(1), start, end), match.group(1)))
+    return out
+
+
+def _relative(md, body: str, offset: int) -> list[tuple[int, str]]:
+    """Относительные ссылки текста: (строка, адрес), как их написал автор (20 §2).
+
+    `media/x.png` в картинке и ссылке markdown не считается: движок сам
+    пишет его от корня (`markdown._media_paths`). В сыром HTML переписывать
+    некому - там относительным считается всё, что не от корня.
+    """
+    lines = markdown.split_lines(body)
+
+    def line_of(value: str, start: int, end: int) -> int:
+        for index in range(start, min(end, len(lines))):
+            if value in lines[index]:
+                return offset + index
+        for index, text in enumerate(lines):  # ссылка через определение
+            if "]:" in text and value in text:
+                return offset + index
+        return offset + start
+
+    out: list[tuple[int, str]] = []
+    for token in md.parse(body, {}):
+        start, end = token.map or (0, 0)
+        if token.type == "html_block":
+            for _, value in urls.attr_urls(token.content):
+                if urls.relative(value):
+                    out.append((line_of(value, start, end), value))
+            continue
+        if token.type != "inline":
+            continue
+        for child in token.children or []:
+            if child.type in ("link_open", "image"):
+                value = str(child.attrGet("href" if child.type == "link_open" else "src") or "")
+                if urls.relative(value) and not markdown.MEDIA_PATH.match(value):
+                    out.append((line_of(unquote(value), start, end), unquote(value)))
+            elif child.type == "html_inline":
+                for _, value in urls.attr_urls(child.content):
+                    if urls.relative(value):
+                        out.append((line_of(value, start, end), value))
     return out
 
 
@@ -320,6 +361,18 @@ def scan(
                 )
                 continue
 
+            # Адрес без слеша: относительная ссылка уходит от папки страницы,
+            # а не от неё самой (`pic.jpg` на /ru/cases/x - /ru/cases/pic.jpg).
+            if not config.urls.slash:
+                for line, value in _relative(md, clean, body_line):
+                    collector.error(
+                        RELATIVE,
+                        Msg("tree_relative_link", href=value),
+                        path=rel,
+                        line=line,
+                        hint=Msg("tree_relative_link_hint"),
+                    )
+
             page = Page(
                 lang=lang,
                 source=rel,
@@ -327,7 +380,7 @@ def scan(
                 meta=meta,
                 sections=found,
                 intro=intro,
-                url=url_for(lang, config.site.default_lang, url_parts),
+                url=url_for(lang, config.site.default_lang, url_parts, config.urls.slash),
                 type=page_type,
                 links=_links(md, clean, body_line),
             )

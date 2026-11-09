@@ -32,7 +32,7 @@ from jinja2.exceptions import TemplateNotFound, TemplateSyntaxError
 from jinja2.sandbox import modifies_known_mutable
 
 from heron.contracts.site import SiteConfig
-from heron.core import paths
+from heron.core import paths, urls
 from heron.core.errors import Collector, HeronError
 from heron.core.render import env as envmod
 from heron.messages import Msg
@@ -441,4 +441,49 @@ def asset_paths(theme_dir: Path, site_root: Path | None, collector: Collector) -
                 path=_shown(theme_dir, rel, root),
                 line=line,
                 kind="контент",
+            )
+
+
+# Код шаблона (`{{ page.url }}`, `{% set href = … %}`): каким станет значение
+# атрибута, известно только после рендера. Код заменяется меткой той же длины
+# (переводы строк остаются - номера строк не сдвигаются), и значение с меткой
+# не проверяется, а `href = …` внутри `{% set %}` атрибутом не считается.
+_JINJA = re.compile(r"\{\{.*?\}\}|\{%.*?%\}", re.S)
+_MARK = "\x00"
+RELATIVE = "E046"
+
+
+def _masked(match: re.Match[str]) -> str:
+    return "".join(char if char == "\n" else _MARK for char in match.group(0))
+
+
+def relative_links(
+    theme_dir: Path, site_root: Path | None, config: SiteConfig, collector: Collector
+) -> None:
+    """Относительные адреса в шаблонах темы при `urls.trailing_slash: never` - E046 (20 §2).
+
+    На адресе без слеша браузер разрешает `site.css` и `../x` от папки
+    страницы: на `/ru/cases/x` это `/ru/cases/site.css`. Значения, собранные
+    шаблоном, не проверяются - про них знает только рендер.
+    """
+    theme_dir = Path(theme_dir)
+    if config.urls.slash or not theme_dir.is_dir():
+        return
+    root = Path(site_root).resolve() if site_root is not None else None
+    for rel in _candidates(theme_dir):
+        try:
+            text = (theme_dir / rel).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        text = _JINJA.sub(_masked, _COMMENTS.sub(_blank, text))
+        for start, value in urls.attr_urls(text):
+            if _MARK in value or not urls.relative(value):
+                continue
+            line = text.count("\n", 0, start) + 1
+            collector.error(
+                RELATIVE,
+                Msg("tree_relative_link", href=value),
+                path=_shown(theme_dir, rel, root),
+                line=line,
+                hint=Msg("tree_relative_link_hint"),
             )

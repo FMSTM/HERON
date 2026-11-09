@@ -413,6 +413,7 @@ def _cases():
         "gtm_bad": {"analytics": {"gtm": "x"}},
         "metrika_bad": {"analytics": {"metrika": "abc"}},
         "cache_bad": {"cache": {"assets": "1 day"}},
+        "urls_bad": {"urls": {"trailing_slash": "sometimes"}},
         "control_chars": {"publish": {"repo": "a\nb"}},
         "helpers_unknown": {"publish": {"helpers": {"x": True}}},
         "engine_bad": {"publish": {"engine": "latest"}},

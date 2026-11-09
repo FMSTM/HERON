@@ -47,8 +47,13 @@ COLOR = re.compile(r"^(#[0-9a-fA-F]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\))$")
 
 
 def url_for(config: SiteConfig, lang: str) -> str:
-    """Адрес справки на языке: язык по умолчанию - `/_heron/theme/`."""
-    return URL if lang == config.site.default_lang else f"{URL}{lang}/"
+    """Адрес справки на языке: язык по умолчанию - `/_heron/theme/`.
+
+    Форма - как у страниц сайта (`urls.trailing_slash`): просмотр отвечает
+    на форму со слешем редиректом, и справка открывалась бы через лишний 301.
+    """
+    url = URL if lang == config.site.default_lang else f"{URL}{lang}/"
+    return url if config.urls.slash else url.rstrip("/")
 
 
 def file_for(config: SiteConfig, lang: str) -> str:

@@ -21,7 +21,7 @@ The type must be declared in the theme's `types`. The starter theme has only `ho
 
 `heron page add` puts the full SEO block and stubs of **all** sections the theme declared for the type (`types.<type>.uses`). You can also copy a ready file - the result is the same. A sample of a filled-in page - [`templates/page.md`](../templates/page.md).
 
-The file name is the page key: Latin letters, digits, hyphen; **the same in all languages**. A different address for a translation is the `slug` field.
+The file name is the page key: lowercase Latin letters, digits, hyphen (an underscore only to keep an old address); **the same in all languages**. A different address for a translation is the `slug` field.
 
 ## 2. SEO block
 

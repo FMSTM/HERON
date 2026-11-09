@@ -20,7 +20,10 @@ TEXT = {
         "loader_invalid_one": "не проходит проверку:\n    {lines}",
         "loader_invalid_many": "не проходит проверку ({n}):\n    {lines}",
         "loader_fm_blank": "поле не может быть пустым",
-        "loader_fm_slug": "слаг - латиница, цифры и дефис, без слешей и подчёркиваний",
+        "loader_fm_slug": (
+            "слаг - строчная латиница, цифры, дефис и подчёркивание, первый знак - "
+            "буква или цифра, без слешей"
+        ),
         "loader_fm_old_url": "{url} - ожидается путь от корня, например /services/old/",
         "loader_fm_translation": (
             "translation: {value} - знает одно значение, pending (перевод не готов); "
@@ -52,7 +55,10 @@ TEXT = {
         "loader_invalid_one": "failed validation:\n    {lines}",
         "loader_invalid_many": "failed validation ({n}):\n    {lines}",
         "loader_fm_blank": "the field must not be empty",
-        "loader_fm_slug": "a slug is Latin letters, digits and hyphens, without slashes or underscores",
+        "loader_fm_slug": (
+            "a slug is lowercase Latin letters, digits, hyphens and underscores, starting "
+            "with a letter or a digit, without slashes"
+        ),
         "loader_fm_old_url": "{url} - a path from the root is expected, for example /services/old/",
         "loader_fm_translation": (
             "translation: {value} - it knows one value, pending (the translation is not ready); "

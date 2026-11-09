@@ -64,9 +64,14 @@ TEXT: dict[str, dict[str, str]] = {
         "edit_section_missing": "нет обязательной секции {section!r}",
         "edit_unknown_type": "тип {value!r} - в теме есть только: {known}",
         "edit_bad_key": (
-            "ключ {key!r}: части через /, в каждой латиница в нижнем регистре, цифры и дефис"
+            "ключ {key!r}: части через /, в каждой строчная латиница, цифры, дефис и "
+            "подчёркивание, первый знак - буква или цифра"
         ),
         "edit_bad_key_hint": "например about-agency или services/roofing",
+        "edit_underscore_hint": (
+            "подсказка: в {key!r} есть подчёркивание. Так можно - например, чтобы сохранить "
+            "адрес старого сайта, - но для новых адресов лучше дефис: about-agency"
+        ),
         "edit_type_hint": "без --type - тип страниц категории; все типы темы - `heron describe`",
         "edit_key_is_category": "под ключом {key} уже категория (папка с _index.md), а не страница",
         "edit_key_is_page": "под ключом {key} уже страница ({key}.md), а не категория",
@@ -297,9 +302,14 @@ TEXT: dict[str, dict[str, str]] = {
         "edit_section_missing": "the required section {section!r} is missing",
         "edit_unknown_type": "the type {value!r} - the theme has only: {known}",
         "edit_bad_key": (
-            "key {key!r}: parts separated by /, each of lowercase Latin letters, digits and hyphens"
+            "key {key!r}: parts separated by /, each of lowercase Latin letters, digits, "
+            "hyphens and underscores, starting with a letter or a digit"
         ),
         "edit_bad_key_hint": "for example about-agency or services/roofing",
+        "edit_underscore_hint": (
+            "hint: {key!r} has an underscore. That is allowed - for example to keep an "
+            "address of the old site - but a hyphen is better for new addresses: about-agency"
+        ),
         "edit_type_hint": (
             "without --type - the page type of the category; all types of the theme - "
             "`heron describe`"

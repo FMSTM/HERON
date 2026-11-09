@@ -71,6 +71,12 @@ COMMENTS = {
         ),
         "health": "Проверка живости для healthcheck: отвечает без обращения к файлам.",
         "exact": "301 и 410: точные адреса, регистр важен",
+        "noslash": (
+            "Адреса без слеша (urls.trailing_slash: never): /x отдаётся из x/index.html.\n"
+            "Не $uri/ - он дал бы 301 на /x/. Форма со слешем - 301 на форму без него,\n"
+            "параметры запроса сохраняются."
+        ),
+        "langhome": "Главная языка без слеша: /{lang} отдаётся из {lang}/index.html.",
     },
     "en": {
         "built": "Built by the engine together with the site. Edits here survive one build.",
@@ -116,6 +122,12 @@ COMMENTS = {
         ),
         "health": "Liveness check for healthcheck: answers without touching files.",
         "exact": "301 and 410: exact addresses, case matters",
+        "noslash": (
+            "Addresses without a slash (urls.trailing_slash: never): /x is served from\n"
+            "x/index.html. Not $uri/ - it would give a 301 to /x/. The form with a slash\n"
+            "gets a 301 to the form without it, the query string is kept."
+        ),
+        "langhome": "The language home without a slash: /{lang} is served from {lang}/index.html.",
     },
 }
 MARK = re.compile(r"^( *)#@([a-z]+)\n", re.M)
@@ -258,6 +270,43 @@ LANG = """
         location = /{lang}/404/index.html {{ internal; }}
         try_files $uri $uri/ =404;
     }}
+"""
+
+# Адреса без слеша (`urls.trailing_slash: never`, 20 §2). `/x` отдаётся из
+# `x/index.html` через `$uri/index.html`, а не `$uri/`: `$uri/` - это проверка
+# папки, и nginx ответил бы на неё своим 301 на `/x/`. Форма со слешем -
+# 301 на форму без него: `rewrite … permanent` дописывает параметры запроса сам.
+LANG_NEVER = """
+    #@langhome
+    location = /{lang} {{
+        error_page 404 /{lang}/404/index.html;
+        try_files /{lang}/index.html =404;
+    }}
+    location ^~ /{lang}/ {{
+        location ~ /\\. {{ return 404; }}
+        location ~ ^(.+)/$ {{ rewrite ^(.+)/$ $1 permanent; }}
+        error_page 404 /{lang}/404/index.html;
+        location = /{lang}/404/index.html {{ internal; }}
+        try_files $uri $uri/index.html =404;
+    }}
+"""
+
+TAIL_NEVER = """
+    #@hidden
+    location ^~ /.well-known/ { try_files $uri =404; }
+    location ~ /\\.           { return 404; }
+
+    #@root
+    error_page 404 /404.html;
+    location = /404.html { internal; }
+
+    #@noslash
+    location / {
+        location ~ /\\. { return 404; }
+        location ~ ^(.+)/$ { rewrite ^(.+)/$ $1 permanent; }
+        try_files $uri $uri/index.html =404;
+    }
+}
 """
 
 TAIL = """
@@ -426,10 +475,12 @@ def generate(config: SiteConfig, plan: Plan | None = None) -> dict[str, str]:
         "    absolute_redirect off;\n" + checks + _locations(plan, notes),
     )
     parts = [maps + "\n" if maps else "", head]
+    slash = config.urls.slash
     for lang in config.site.languages:
         if lang != default:
-            parts.append(LANG.format(lang=lang))
-    parts.append(_comments(TAIL, notes))
+            block = LANG.format(lang=lang) if slash else _comments(LANG_NEVER, notes)
+            parts.append(block if slash else block.format(lang=lang))
+    parts.append(_comments(TAIL if slash else TAIL_NEVER, notes))
     return {NAME: "".join(parts)}
 
 

@@ -157,7 +157,8 @@ def test_config_does_not_depend_on_the_environment(tmp_path, monkeypatch):
 
 def test_comment_tables_match():
     assert set(nginx.COMMENTS["ru"]) == set(nginx.COMMENTS["en"])
-    used = set(nginx.MARK.findall(nginx.HEAD + nginx.VERSIONED + nginx.TAIL)) | {("    ", "exact")}
+    templates = nginx.HEAD + nginx.VERSIONED + nginx.TAIL + nginx.LANG_NEVER + nginx.TAIL_NEVER
+    used = set(nginx.MARK.findall(templates)) | {("    ", "exact")}
     assert {key for _, key in used} == set(nginx.COMMENTS["en"])
 
 

@@ -27,7 +27,9 @@ def test_blank_required_field_rejected():
         PageMeta.model_validate({**MIN, "h1": "   "})
 
 
-@pytest.mark.parametrize("slug", ["Плохой", "with_underscore", "two//slashes", "ТРЕШ"])
+@pytest.mark.parametrize(
+    "slug", ["Плохой", "_leading", "two//slashes", "ТРЕШ", "With_Upper", "a.b"]
+)
 def test_bad_slug_rejected(slug):
     with pytest.raises(ValidationError):
         PageMeta.model_validate({**MIN, "slug": slug})

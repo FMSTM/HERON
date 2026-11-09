@@ -329,6 +329,18 @@ class Site:
     def of_lang(self, lang: str) -> list[Page]:
         return [p for p in self.pages if p.lang == lang]
 
+    def at(self, path: str) -> Page | None:
+        """Страница по адресу в любой форме: `/x/` и `/x` - один адрес.
+
+        Адреса сайта - в одной форме (`urls.trailing_slash`), а путь, по
+        которому ищут, часто собран в другой: родитель из адреса ребёнка,
+        ссылка из текста. Нашлась одна форма - другой у сайта нет.
+        """
+        found = self.by_url.get(path)
+        if found is not None or not path or path == "/":
+            return found
+        return self.by_url.get(path[:-1] if path.endswith("/") else path + "/")
+
     def page(self, key: str, lang: str) -> Page | None:
         """Страница по ключу на языке.
 

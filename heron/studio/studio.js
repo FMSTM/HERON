@@ -5,6 +5,9 @@
 // Ключ доступа - TOKEN из адреса (setup.js); язык интерфейса - L (setup.js).
 (() => {
   const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+  // имя страницы и категории - сегмент адреса: подчёркивание можно (20 §2), якорь секции - нет
+  const NAME = /^[a-z0-9][a-z0-9_-]*$/;
+  const underscored = (key) => String(key || "").split("/").at(-1).includes("_");
   const SPECIAL = ["home", "404"];  // типы главной и 404: не тип страниц внутри категории
   const TT = {
     ru: {
@@ -48,12 +51,13 @@
       sec_first: "Первый пункт - по нему движок узнает форму блока:", sec_suggested: "Блоки типа, которых нет на странице:",
       cancel: "Отмена", create: "Создать", ok: "Готово",
       d_page: "Новая страница", d_category: "Новая категория",
-      d_name: "Имя (латиница, цифры, дефисы)", d_name_h: "Имя файла и часть адреса: about-agency → /about-agency/. Потом его можно переименовать.",
+      d_name: "Имя (латиница, цифры, дефисы)",
+      d_underscore: "В имени подчёркивание. Так можно - например, чтобы сохранить адрес старого сайта, - но для новых адресов лучше дефис: about-agency.", d_name_h: "Имя файла и часть адреса: about-agency → /about-agency/. Потом его можно переименовать.",
       d_category_in: "Категория", d_category_in_h: "Папка, в которой будет страница. Нет нужной - создайте категорию.",
       d_parent: "Внутри категории", d_type: "Тип страницы", d_type_h: "Каким шаблоном темы страница рисуется и какие блоки у неё есть.",
       d_children: "Тип страниц внутри", d_children_h: "Какой тип получат новые страницы в этой категории.",
       d_view: "Вид списка страниц", d_title: "Заголовок (можно потом)", d_title_h: "title страницы: строка в выдаче поисковика и на вкладке браузера.",
-      d_bad_name: "Имя - латиница, цифры и дефисы: about-agency.",
+      d_bad_name: "Имя - строчная латиница, цифры, дефисы (и подчёркивание - для старых адресов), первый знак - буква или цифра: about-agency.",
       exists: "Уже есть - открыта на правку.", created_draft: "Заготовка открыта: файлы появятся после «Сохранить».",
       saved: "Сохранено", nothing: "Ничего не изменилось.", created: "Создано", written: "Записано", moved: "Перенесено",
       redirects: "301", site_yaml: "site.yaml: меню", pending_files: "перевод не готов", cats: "Создана категория",
@@ -110,12 +114,13 @@
       sec_first: "The first item - the engine recognises the block form by it:", sec_suggested: "Blocks of the type that the page lacks:",
       cancel: "Cancel", create: "Create", ok: "Done",
       d_page: "New page", d_category: "New category",
-      d_name: "Name (latin letters, digits, hyphens)", d_name_h: "The file name and part of the address: about-agency → /about-agency/. You can rename it later.",
+      d_name: "Name (latin letters, digits, hyphens)",
+      d_underscore: "The name has an underscore. That is allowed - for example to keep an address of the old site - but a hyphen is better for new addresses: about-agency.", d_name_h: "The file name and part of the address: about-agency → /about-agency/. You can rename it later.",
       d_category_in: "Category", d_category_in_h: "The folder the page goes into. No fitting one - create a category.",
       d_parent: "Inside the category", d_type: "Page type", d_type_h: "Which theme template draws the page and which blocks it has.",
       d_children: "Type of the pages inside", d_children_h: "The type new pages in this category get.",
       d_view: "How the pages are listed", d_title: "Title (can wait)", d_title_h: "The page title: the line in search results and on the browser tab.",
-      d_bad_name: "The name is latin letters, digits and hyphens: about-agency.",
+      d_bad_name: "The name is lowercase latin letters, digits, hyphens (and an underscore - for old addresses), starting with a letter or a digit: about-agency.",
       exists: "Already exists - opened for editing.", created_draft: "A draft is open: the files appear after “Save”.",
       saved: "Saved", nothing: "Nothing changed.", created: "Created", written: "Written", moved: "Moved",
       redirects: "301", site_yaml: "site.yaml: menu", pending_files: "translation not ready", cats: "Category created",
@@ -715,7 +720,7 @@
     if (!j) return null;
     if (!j.ok) { lock(false); return errLines(j).join(" "); }
     S.state = j.state; S.target = { ...target, key: j.state.target.key }; S.edit = j.state.default_lang;
-    note("ok", j.state.new ? tr("created_draft") : tr("exists"), []);
+    note("ok", j.state.new ? tr("created_draft") : tr("exists"), j.state.new && underscored(j.state.target.key) ? [tr("d_underscore")] : []);
     renderPages();
     lock(false);
     return null;
@@ -748,7 +753,7 @@
     body[0].append(row(tr("d_title"), tr("d_title_h"), title));
     dialog(kind === "page" ? tr("d_page") : tr("d_category"), body, async () => {
       const parts = name.value.trim().replace(/^\/+|\/+$/g, "").split("/");
-      if (!parts.every((p) => SLUG.test(p))) return tr("d_bad_name");
+      if (!parts.every((p) => NAME.test(p))) return tr("d_bad_name");
       const key = (cat.value ? cat.value + "/" : "") + parts.join("/");
       const target = { kind, key, type: type.value || null, title: title.value.trim() || null };
       if (kind === "category") { target.children_type = children.value || null; target.view = view.value || null; }
@@ -814,11 +819,12 @@
     const cur = S.key !== null ? S.key : S.state.target.key;
     const name = prompt(tr("rename_q"), cur.split("/").at(-1));
     if (name === null) return;
-    if (!SLUG.test(name.trim())) { note("bad", tr("error"), [tr("d_bad_name")]); return; }
+    if (!NAME.test(name.trim())) { note("bad", tr("error"), [tr("d_bad_name")]); return; }
     const parent = cur.includes("/") ? cur.slice(0, cur.lastIndexOf("/")) + "/" : "";
     S.key = parent + name.trim();
     if (S.key === S.state.key) S.key = null;
     changed();
+    if (S.key !== null && underscored(S.key)) note("ok", tr("d_underscore"), []);
   }
 
   // --- проверка сайта, просмотр, справка темы ---------------------------------------------------

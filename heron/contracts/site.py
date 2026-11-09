@@ -47,6 +47,7 @@ RESERVED = {
     "analytics",
     "gone",
     "nginx",
+    "urls",
     "schema_exceptions",
 }
 
@@ -356,6 +357,24 @@ class NginxBlock(Strict):
     cache: CacheBlock = Field(default_factory=CacheBlock)
 
 
+class UrlsBlock(Strict):
+    """Форма адресов страниц (20 §2).
+
+    `trailing_slash: always` - адрес страницы со слешем на конце
+    (`/ru/cases/x/`), так было всегда. `never` - без слеша (`/ru/cases/x`,
+    главная языка `/ru`): для сайта, который переезжает со старой системы и
+    сохраняет её адреса без 301 на каждой странице. Корень сайта - `/` в обоих
+    режимах; папки сборки одинаковы (`…/x/index.html`).
+    """
+
+    trailing_slash: Literal["always", "never"] = "always"
+
+    @property
+    def slash(self) -> bool:
+        """Адрес страницы кончается слешем."""
+        return self.trailing_slash != "never"
+
+
 class FormSpec(Strict):
     """Описание формы. Движок её не принимает - принимает heron-relay.
 
@@ -447,6 +466,7 @@ class SiteConfig(BaseModel):
     build: BuildBlock = Field(default_factory=BuildBlock)
     analytics: AnalyticsBlock = Field(default_factory=AnalyticsBlock)
     nginx: NginxBlock = Field(default_factory=NginxBlock)
+    urls: UrlsBlock = Field(default_factory=UrlsBlock)
     plugins: list[str] = Field(default_factory=list)
     forms: dict[str, FormSpec] = Field(default_factory=dict)
     sinks: dict[str, dict[str, Any]] = Field(default_factory=dict)

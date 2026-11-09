@@ -530,7 +530,7 @@ def test_console_creates_with_help_validation_and_skipped_translation(site):
     text = script.text
     assert "Поиск: заголовок и описание" in text
     assert "Крупный заголовок вверху страницы" in text  # справка h1 по ?
-    assert "слаг - латиница" in text  # проверка на лету
+    assert "слаг - строчная латиница" in text  # проверка на лету
     assert "перевод не готов" in text
     saved = ops.save(entity)
     assert "content/de/services/about-agency.md" in saved.pending

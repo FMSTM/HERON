@@ -13,10 +13,11 @@ from __future__ import annotations
 import json
 import re
 
+from heron.contracts.frontmatter import SLUG_RE
 from heron.contracts.theme import ThemeConfig
 from heron.scaffold import _TYPE_HINTS, seo_block
 
-SLUG = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\Z")
+SLUG = SLUG_RE  # одно правило сегмента адреса на всех (20 §2)
 
 # Подсказки заготовки на языке пояснений сайта (build.notes, HERON_NOTES).
 # TODO — метка, по которой автор находит недописанное, она не переводится.

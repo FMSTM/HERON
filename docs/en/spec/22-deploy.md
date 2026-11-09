@@ -153,7 +153,7 @@ The minimum the config must have:
 - static files: HTML with `Cache-Control: no-cache`; copies of `assets/` and `media/` files with the content hash in the name (`site.0123456789.css`) - `public, max-age=31536000, immutable`; the same files under their plain names - `public, max-age=86400`. The times are the `nginx.cache` keys in `site.yaml` (`20` §5). Pages always get `no-cache`, and this is not configurable: the new names of theme files arrive together with the page, and caching the page would delay the whole update
 - gzip compression for text, styles, scripts, svg, maps and markup; the config does not enable brotli
 - 301 from `redirect_from` and 410 from `gone` are served without touching files. The maps are already written into the config the engine builds together with the site (`dist/.heron-nginx.conf`); `redirects.map` and, if `gone` is set, `gone.map` in `dist/` are human-readable copies
-- `try_files` with a trailing slash, one canonical URL form
+- one canonical URL form by `urls.trailing_slash` (`20` §2): `always` - `try_files $uri $uri/ =404`, an address without the slash gets a 301 to the address with it; `never` - `try_files $uri $uri/index.html =404` (the page `/x` from `x/index.html`, without a 301 to `/x/`), the form with the slash gets a 301 to the form without it keeping the query string, the language home is `location = /<lang>`. `/media/`, `/assets/`, `/.well-known/` and real files (`/robots.txt`, `/sitemap.xml`, hashed copies) are served the same way in both modes
 - `/healthz` for the healthcheck
 - headers: `X-Content-Type-Options`, `Referrer-Policy`, `Content-Security-Policy`, HSTS
 - **no execution of anything**: the site is static, PHP and any handler are absent as a class

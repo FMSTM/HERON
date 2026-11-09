@@ -82,7 +82,7 @@ Common errors:
 |---|---|---|
 | `E002` | no `title`/`h1`/`description`, or a field of the wrong type | add it; dates are `YYYY-MM-DD` |
 | `E004` | two files give the same address | different `slug` |
-| `E005` | the file name or `slug` is not Latin letters, digits and hyphens | rename |
+| `E005` | the file name or `slug` is not lowercase Latin letters, digits, hyphens and underscores, or does not start with a letter or a digit | rename |
 | `E006` | a relation to a page that does not exist | the file name without the extension, not an address |
 | `E007` | a file from `media/` is not on disk | the path from the site root |
 | `E008` | a type has no template or the theme does not know the type | an entry in the theme's `types` and `theme/templates/<type>.html` |

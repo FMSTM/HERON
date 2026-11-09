@@ -20,12 +20,14 @@ spec.loader.exec_module(smoke)
 PAGE = "---\ntitle: {t}\nh1: {t} page\ndescription: D\n{extra}---\n\nText.\n"
 
 
-def site(tmp_path: Path) -> Path:
+def site(tmp_path: Path, slash: str | None = None) -> Path:
     root = tmp_path / "site"
     root.mkdir()
     create(root, name="demo", languages=["en", "ru"])
     data = yaml.safe_load((root / "site.yaml").read_text(encoding="utf-8"))
     data["gone"] = ["/old-archive/"]
+    if slash:
+        data["urls"] = {"trailing_slash": slash}
     (root / "site.yaml").write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
     (root / "content/en/about.md").write_text(
         PAGE.format(t="About", extra="redirect_from: [/about-us/, /старая/]\n"), encoding="utf-8"
@@ -53,6 +55,18 @@ def test_green_on_a_correct_build(tmp_path):
     code, check = run(tmp_path, dist)
     assert code == 0 and check.failed == 0
     assert smoke.Smoke("http://x", dist).languages() == ["ru"]
+
+
+@needs_nginx
+def test_green_on_a_build_without_trailing_slash(tmp_path):
+    """urls.trailing_slash: never - главная языка /ru, /ru/ - 301 на неё."""
+    dist = site(tmp_path, "never")
+    assert "/about-us/  /about;" in (dist / "redirects.map").read_text(encoding="utf-8")
+    code, check = run(tmp_path, dist)
+    assert code == 0 and check.failed == 0
+    assert check.no_slash()
+    (tmp_path / "b").mkdir()
+    assert not smoke.Smoke("http://x", site(tmp_path / "b")).no_slash()
 
 
 @needs_nginx

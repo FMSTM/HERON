@@ -13,6 +13,7 @@ import socketserver
 import tempfile
 import threading
 import time
+import urllib.parse
 from pathlib import Path
 
 import click
@@ -162,6 +163,50 @@ def not_found(dist: Path, path: str) -> Path | None:
     return None
 
 
+_SLASH: dict[str, tuple[float, bool]] = {}
+
+
+def trailing_slash(root: Path) -> bool:
+    """Режим адресов сайта (`urls.trailing_slash`): True - со слешем.
+
+    Просмотр обязан отвечать так же, как nginx прода, иначе страница, которая
+    открывается локально, на проде уходит в редирект. Файл читается заново,
+    только когда он изменился; не читается - режим по умолчанию.
+    """
+    from heron.contracts.site import load_site
+
+    path = Path(root) / "site.yaml"
+    try:
+        stamp = path.stat().st_mtime
+    except OSError:
+        return True
+    cached = _SLASH.get(str(path))
+    if cached is not None and cached[0] == stamp:
+        return cached[1]
+    try:
+        slash = load_site(path).urls.slash
+    except (HeronError, OSError, ValueError):
+        slash = True
+    _SLASH[str(path)] = (stamp, slash)
+    return slash
+
+
+def no_slash_route(dist: Path, route: str) -> tuple[str, str] | None:
+    """Адрес при `urls.trailing_slash: never`, как его отдаёт nginx (23 §5).
+
+    `("redirect", адрес)` - форма со слешем, 301 на форму без него;
+    `("file", путь)` - `/x` из `x/index.html`, без редиректа на `/x/`;
+    None - отдавать как обычно (файл, корень, чего нет).
+    """
+    if route != "/" and route.endswith("/"):
+        return "redirect", route.rstrip("/") or "/"
+    target = dist / route.lstrip("/")
+    index = target / "index.html"
+    if route != "/" and target.is_dir() and index.is_file():
+        return "file", route + "/index.html"
+    return None
+
+
 def _send_404(handler: http.server.SimpleHTTPRequestHandler, dist: Path) -> bool:
     page = not_found(dist, handler.path)
     if page is None:
@@ -174,6 +219,55 @@ def _send_404(handler: http.server.SimpleHTTPRequestHandler, dist: Path) -> bool
     if handler.command != "HEAD":
         handler.wfile.write(body)
     return True
+
+
+def handler_for(root: Path, dist: Path) -> type[http.server.SimpleHTTPRequestHandler]:
+    """Обработчик просмотра: файлы `dist`, своя 404 и форма адресов сайта."""
+
+    def routed(self) -> bool:
+        """Адреса без слеша: 301 со слеша или `x/index.html` вместо 301 на `/x/`."""
+        if trailing_slash(root):
+            return False
+        path, mark, query = self.path.partition("?")
+        found = no_slash_route(dist, urllib.parse.unquote(path))
+        if found is None:
+            return False
+        kind, where = found
+        if kind == "file":
+            self.path = urllib.parse.quote(where) + mark + query
+            return False
+        self.send_response(301)
+        self.send_header("Location", urllib.parse.quote(where) + mark + query)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+        return True
+
+    def do_get(self) -> None:
+        if not routed(self):
+            http.server.SimpleHTTPRequestHandler.do_GET(self)
+
+    def do_head(self) -> None:
+        if not routed(self):
+            http.server.SimpleHTTPRequestHandler.do_HEAD(self)
+
+    return type(
+        "Handler",
+        (http.server.SimpleHTTPRequestHandler,),
+        {
+            "do_GET": do_get,
+            "do_HEAD": do_head,
+            "directory_root": str(dist),
+            "__init__": lambda self, *a, **kw: http.server.SimpleHTTPRequestHandler.__init__(
+                self, *a, directory=str(dist), **kw
+            ),
+            "log_message": _noop,
+            "send_error": lambda self, code, message=None, explain=None: (
+                None
+                if code == 404 and _send_404(self, dist)
+                else http.server.SimpleHTTPRequestHandler.send_error(self, code, message, explain)
+            ),
+        },
+    )
 
 
 def serve(
@@ -191,22 +285,7 @@ def serve(
     once(root, drafts, dist, lang, workers)
     click.secho(say(lang, "serve_dist", dist=dist), fg="cyan")
 
-    handler = type(
-        "Handler",
-        (http.server.SimpleHTTPRequestHandler,),
-        {
-            "directory_root": str(dist),
-            "__init__": lambda self, *a, **kw: http.server.SimpleHTTPRequestHandler.__init__(
-                self, *a, directory=str(dist), **kw
-            ),
-            "log_message": _noop,
-            "send_error": lambda self, code, message=None, explain=None: (
-                None
-                if code == 404 and _send_404(self, dist)
-                else http.server.SimpleHTTPRequestHandler.send_error(self, code, message, explain)
-            ),
-        },
-    )
+    handler = handler_for(root, dist)
 
     server_class = _Server6 if ":" in host else _Server
     try:

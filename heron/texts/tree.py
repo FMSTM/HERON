@@ -8,13 +8,25 @@ TEXT: dict[str, dict[str, str]] = {
         "tree_symlink_escape": "символическая ссылка ведёт за пределы content/",
         "tree_symlink_escape_hint": "положите сам файл в content/ вместо ссылки на него",
         "tree_bad_file_name": "недопустимое имя файла {name!r}",
-        "tree_bad_file_name_hint": "слаг - латиница, цифры и дефис: getting-started.md",
+        "tree_bad_file_name_hint": (
+            "имя - строчная латиница, цифры, дефис и подчёркивание, первый знак - буква "
+            "или цифра: getting-started.md"
+        ),
         "tree_bad_url_segment": "недопустимый сегмент адреса {segment!r} (имя папки или slug раздела)",
         "tree_bad_url_segment_hint": (
-            "папки - латиница, цифры и дефис; или задайте slug в _index.md раздела"
+            "папки - строчная латиница, цифры, дефис и подчёркивание, первый знак - буква "
+            "или цифра; или задайте slug в _index.md раздела"
         ),
         "tree_url_taken": "адрес {url} уже занят файлом {source}",
         "tree_url_taken_hint": "переименуйте файл или задайте другой slug во фронтматтере",
+        "tree_relative_link": (
+            "относительная ссылка {href} при urls.trailing_slash: never - браузер "
+            "разрешит её от папки страницы, а не от самой страницы"
+        ),
+        "tree_relative_link_hint": (
+            "пишите путь от корня: /media/… для файла, /раздел/страница для страницы "
+            "(или pages.<ключ> в подстановках); media/x.png в markdown движок пишет от корня сам"
+        ),
         "tree_key_taken": "ключ страницы {page_key!r} ({lang}) уже у файла {source}",
         "tree_key_taken_hint": (
             "у страницы и раздела одного уровня не может быть одного имени; переименуйте файл"
@@ -52,13 +64,26 @@ TEXT: dict[str, dict[str, str]] = {
         "tree_symlink_escape": "the symbolic link points outside content/",
         "tree_symlink_escape_hint": "put the file itself into content/ instead of a link to it",
         "tree_bad_file_name": "invalid file name {name!r}",
-        "tree_bad_file_name_hint": "a slug is Latin letters, digits and hyphens: getting-started.md",
+        "tree_bad_file_name_hint": (
+            "a name is lowercase Latin letters, digits, hyphens and underscores, starting "
+            "with a letter or a digit: getting-started.md"
+        ),
         "tree_bad_url_segment": "invalid address segment {segment!r} (a folder name or a section slug)",
         "tree_bad_url_segment_hint": (
-            "folders are Latin letters, digits and hyphens; or set slug in the section's _index.md"
+            "folders are lowercase Latin letters, digits, hyphens and underscores, starting "
+            "with a letter or a digit; or set slug in the section's _index.md"
         ),
         "tree_url_taken": "address {url} is already taken by file {source}",
         "tree_url_taken_hint": "rename the file or set a different slug in the front matter",
+        "tree_relative_link": (
+            "relative link {href} with urls.trailing_slash: never - the browser resolves "
+            "it against the folder of the page, not the page itself"
+        ),
+        "tree_relative_link_hint": (
+            "write a path from the root: /media/… for a file, /section/page for a page "
+            "(or pages.<key> in substitutions); media/x.png in markdown the engine writes "
+            "from the root itself"
+        ),
         "tree_key_taken": "page key {page_key!r} ({lang}) already belongs to file {source}",
         "tree_key_taken_hint": (
             "a page and a section on the same level cannot share a name; rename the file"

@@ -53,6 +53,8 @@ docker run --rm -it -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/
 
 After `page add` come the page **key** (`about`; if the page lies in a section folder, the key is the folder plus the name, for example `services/roof`) and the site folder. The command has one rule: no page - it is created in all languages of the site at once, the page exists - it opens for editing. The file gets a full SEO block and drafts of every section the theme expects for this type: each already in its form (a list, steps, questions) with sample text from the theme, the section heading is the marker `TODO heading`. You can build and look at the draft at once, but the production build (`--env prod`) does not release a page with `TODO` markers and placeholder text: error `E040` names the file and the field. You can also do without the command: copy a ready file under a new name into every language folder.
 
+**The name of a page or a section is part of the address:** lowercase Latin letters, digits, hyphens and underscores, starting with a letter or a digit (`about-agency`, `services/roof`). The underscore is needed when a site moves and keeps old addresses like `/ru/cases/landing_page`; for new addresses a hyphen is better, and `page add`, `category add` and the studio give this hint if a new name contains `_` - a hint, not an error. A name that starts with `_` does not become a page: `_index.md` is the page of a section, `_draft.md` is a draft. Capital letters, a space, a dot, `$` are error `E005`.
+
 ### How to answer the questions <a id="questions"></a>
 
 `-it` in the command is needed so that the engine can ask questions. It asks field after field, and every field has the same rules:
@@ -236,6 +238,8 @@ In both languages you write the same thing - the key, and the engine puts in the
 - external addresses, links to `/media/…` and anchors are left alone.
 
 More - [`20` §2, "Links inside content"](../spec/20-data-contract.md#links-relative-to-language).
+
+**Addresses without a slash at the end.** A site that moves and keeps the addresses of the old system like `/ru/cases/landing_page` sets `urls.trailing_slash: never` in `site.yaml`. Then all page addresses are without the slash (the language home is `/ru`), and links in the text are written **only from the root**: `[case](/cases/landing_page)`, `![plan](/media/plan.png)`. A relative link (`plan.png`, `../cases/x`) on an address without the slash leads elsewhere, and `check` and the build stop with error `E046`, naming the file and the line. `media/plan.png` without the leading slash the engine writes from the root anyway. More - [`20` §2, "A slash at the end of the address"](../spec/20-data-contract.md#trailing-slash).
 
 ## Relations between pages
 

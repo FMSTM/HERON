@@ -1,7 +1,8 @@
 <header class="site-header">
   <div class="wrap">
     {% set logo = site.get_path('organization.logo') %}
-    <a class="logo" href="{{ '/' if lang == site.site.default_lang else '/' ~ lang ~ '/' }}">
+    {% set home = page_of('/') %}
+    <a class="logo" href="{{ home.url if home else '/' }}">
       {% if logo %}<img src="{{ media_url(logo) }}" alt="" width="32" height="32">{% else %}{% include "partials/mark.html" %}{% endif %}
       <span>{{ site.site.name or site.site.domain }}</span>
     </a>

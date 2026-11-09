@@ -2209,6 +2209,16 @@ def _page_key(ctx, key: str, category: str | None, lang: str) -> tuple[str, str 
     return existing or key, None
 
 
+def _underscore_hint(lang: str, key: str, new: bool) -> None:
+    """Новый адрес с подчёркиванием: можно, но для новых адресов лучше дефис (20 §2).
+
+    Не ошибка и не вопрос: подчёркивание нужно сайту, который переезжает со
+    старыми адресами. Сказать стоит только про новое имя - старое уже живёт.
+    """
+    if new and "_" in key.rsplit("/", 1)[-1]:
+        click.secho(say(lang, "edit_underscore_hint", key=key), fg="yellow", err=True)
+
+
 @main.group(cls=PageGroup, help="help_page", invoke_without_command=False)
 @NOTES_OPTION
 def page(notes: str | None) -> None:
@@ -2245,6 +2255,7 @@ def page_add(
     ctx = ops.context(path, lang)
     target, move_to = _page_key(ctx, key, category, lang)
     entity = ops.open_entity(ctx, target, False, page_type=page_type)
+    _underscore_hint(lang, move_to or target, entity.new or move_to is not None)
 
     def preset() -> None:
         if move_to is not None:
@@ -2387,6 +2398,7 @@ def category_add(
     entity = ops.open_entity(
         ctx, key, True, page_type=page_type, children_type=children_type, view=view
     )
+    _underscore_hint(lang, ops.norm_key(key), entity.new)
 
     def preset() -> None:
         if entity.new:

@@ -95,7 +95,10 @@ def test_frontmatter_validator_messages_keep_ru_and_translate(tmp_path):
     msg = caught.value.message
     ru = msg.text("ru")
     assert "title: Value error, поле не может быть пустым" in ru
-    assert "slug: Value error, слаг - латиница, цифры и дефис, без слешей и подчёркиваний" in ru
+    assert (
+        "slug: Value error, слаг - строчная латиница, цифры, дефис и подчёркивание, первый "
+        "знак - буква или цифра, без слешей" in ru
+    )
     assert (
         "redirect_from: Value error, 'x' - ожидается путь от корня, например /services/old/" in ru
     )

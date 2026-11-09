@@ -26,6 +26,7 @@ from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core import links as links_module
 from heron.core import media, notes
+from heron.core import urls as urls_module
 from heron.core.errors import Collector, HeronError, Warning_
 from heron.core.models import Site
 from heron.messages import Msg, rendered
@@ -474,14 +475,18 @@ def build(
                 # markdown-it процентно кодирует нелатинские адреса,
                 # а человеку в отчёте нужно видеть то, что он написал
                 href = unquote(raw)
-                target = href if href.endswith("/") else href + "/"
-                if target in site.by_url:
-                    linked.add(target)
+                found = site.at(href)
+                if found is not None:
+                    linked.add(found.url)
 
     for page in site.pages:
         # Главная языка — не сирота: на неё ведёт переключатель языков,
         # а он живёт в теме, а не в тексте страниц.
-        if page.url in ("/", f"/{page.lang}/") or page.parent is not None or page.url in linked:
+        if (
+            page.url in ("/", urls_module.home_url(config, page.lang))
+            or page.parent is not None
+            or page.url in linked
+        ):
             continue
         in_nav = any(page in group for groups in site.nav.values() for group in groups.values())
         if not in_nav:

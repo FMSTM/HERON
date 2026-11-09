@@ -17,7 +17,7 @@ from heron.contracts.frontmatter import PageMeta
 from heron.contracts.site import SiteConfig
 from heron.core.errors import Collector
 from heron.core.models import Page, Site
-from heron.core.urls import home_url
+from heron.core.urls import page_url
 from heron.messages import Msg
 
 TYPE = "404"
@@ -25,7 +25,7 @@ KEY = "404"
 
 
 def url_of(config: SiteConfig, lang: str) -> str:
-    return f"{home_url(config, lang)}404/"
+    return page_url(lang, config.site.default_lang, [KEY], config.urls.slash)
 
 
 def ensure(site: Site, config: SiteConfig, theme_dir: Path, collector: Collector) -> None:

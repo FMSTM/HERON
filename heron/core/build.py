@@ -212,7 +212,7 @@ def _homes(outputs: output.Outputs, config: SiteConfig) -> dict[str, str]:
     """
     homes: dict[str, str] = {}
     for lang in config.site.languages:
-        rel = urls.home_url(config, lang).lstrip("/") + "index.html"
+        rel = _page_path(urls.home_url(config, lang))
         try:
             html = outputs.text_of(rel)
         except HeronError:
@@ -263,6 +263,8 @@ def run(
     rooted(site_root, theme_dir)
     strict = strict or config.build.fail_on_warning
     for_env(config, env)
+    # адрес без слеша: относительная ссылка шаблона уходит от папки страницы (E046)
+    templates_check.relative_links(theme_dir, site_root, config, collector)
     say.done("done_config", theme=config.site.theme, langs=len(config.site.languages))
 
     say.step("step_content")
@@ -387,7 +389,7 @@ def run(
             outputs.add(
                 _page_path(url), output.Entry(owner=owner, kind="page", text=text), collector
             )
-        not_found = html.get("/404/")
+        not_found = html.get(notfound.url_of(config, config.site.default_lang))
         if not_found:
             claim({"404.html": not_found}, "page", Msg("build_owner_page_404"))
         claim(
@@ -1240,6 +1242,7 @@ def check(
     templates_check.missing_templates(site, theme, theme_dir, config, collector, hooks)
     templates_check.inline_scripts(theme_dir, site_root, collector)
     templates_check.asset_paths(theme_dir, site_root, collector)
+    templates_check.relative_links(theme_dir, site_root, config, collector)
     svg_files(site_root, theme_dir, collector)
     implicit_folders(site, site_root, config.site.languages, collector, config.site.default_lang)
     shared_mismatch(site, theme, config.site.default_lang, collector)

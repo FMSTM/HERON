@@ -20,7 +20,8 @@ Rules:
 - A language you do not translate yet: `<lang>: pending` in the answers - it keeps `translation: pending` and stays out of production until translated; `docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:beta page list . --json` shows what is pending.
 - The old form `page <type> <name>` is gone (`E038`). Keep the SEO block whole, comments included.
 - `title` (search result, up to 60 characters) differs from `h1` (the page heading); `description` up to 155.
-- Links to own pages by key from the root: `[About](/about/)`, without a language prefix.
+- A key is lowercase Latin letters, digits and hyphens; an underscore only to keep an address of the old site (`page add` hints at it, not an error).
+- Links to own pages by key from the root: `[About](/about/)`, without a language prefix. With `urls.trailing_slash: never` in `site.yaml` every link and image is from the root (`/media/plan.png`, `/cases/x`): a relative one (`plan.png`, `../x`) is `E046`.
 - No material for a section — no section. Never invent facts.
 - Images go to `media/`, every image has alt text. The cover (`image`, `og_image`) is per language: a language file without `image` uses the main language's cover; give a language its own `image` (and `image_alt`) when the picture has text on it, clear it to follow the main one again.
 

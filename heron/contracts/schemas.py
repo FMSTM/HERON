@@ -81,6 +81,15 @@ EN: dict[str, tuple[str, str]] = {
         "The key is accepted so that existing site.yaml files build without changes.\n\n"
         "`cache` - browser cache times for theme files and resources.",
     ),
+    "site.schema.json#/$defs/UrlsBlock/description": (
+        "936323fa91",
+        "The form of page addresses (20 §2).\n\n"
+        "`trailing_slash: always` - a page address with a slash at the end\n"
+        "(`/ru/cases/x/`), as it always was. `never` - without the slash (`/ru/cases/x`,\n"
+        "the language home `/ru`): for a site that moves from an old system and\n"
+        "keeps its addresses without a 301 on every page. The site root is `/` in both\n"
+        "modes; the build folders are the same (`…/x/index.html`).",
+    ),
     "site.schema.json#/$defs/CacheBlock/description": (
         "ef38a53998",
         "Browser cache times for theme files and resources (22 §5).\n\n"
@@ -237,6 +246,10 @@ EN: dict[str, tuple[str, str]] = {
         "translation: only `pending` - the translation is not ready: a draft build shows "
         "the page with a banner, a production build does not publish it in this language; "
         "when the translation is ready, there is no key.",
+    ),
+    "setup.schema.json#/$defs/UrlsAnswers/description": (
+        "421fc4b8ea",
+        "The form of page addresses - the urls.trailing_slash key in site.yaml (20 §2).",
     ),
     "setup.schema.json#/$defs/CacheAnswers/description": (
         "55582526c1",

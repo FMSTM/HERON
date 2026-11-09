@@ -21,7 +21,7 @@ from heron.contracts.theme import ThemeConfig
 from heron.core.errors import Collector
 from heron.core.models import Linked, Page, Pair, Site
 from heron.core.parser import blocks
-from heron.core.urls import canonical_path
+from heron.core.urls import canonical_path, home_url
 from heron.messages import Msg
 
 
@@ -38,8 +38,7 @@ def _sort_key(page: Page) -> tuple[int, str]:
 
 
 def _home_of(site: Site, lang: str, config: SiteConfig) -> Page | None:
-    url = "/" if lang == config.site.default_lang else f"/{lang}/"
-    return site.by_url.get(url)
+    return site.at(home_url(config, lang))
 
 
 TAGS = re.compile(r"<[^>]+>")
@@ -143,7 +142,7 @@ def target(site: Site, config: SiteConfig, lang: str, href: str) -> tuple[Page |
             return found, True
 
     prefixed = path if lang == default else f"/{lang}{path}"
-    found = site.by_url.get(prefixed) or site.by_url.get(path)
+    found = site.at(prefixed) or site.at(path)
     if found is None:
         return None, False
     if found.lang == lang:
@@ -288,7 +287,7 @@ def localize(site: Site, config: SiteConfig, collector: Collector) -> None:
 def _families(site: Site) -> None:
     for page in site.pages:
         parent_url = _parent_url(page.url)
-        parent = site.by_url.get(parent_url) if parent_url else None
+        parent = site.at(parent_url) if parent_url else None
         # Корень языка родителя не имеет: над /ru/ лежит не украинская
         # главная, а ничего. Иначе крошки уводят читателя в другой язык
         if parent is not None and parent.lang != page.lang:
@@ -585,5 +584,5 @@ def suggest_target(url: str, site: Site, config: SiteConfig) -> Page:
             return candidates[found[0]]
     home = _home_of(site, lang, config)
     if home is None:
-        home = site.by_url.get("/") or site.pages[0]
+        home = site.at("/") or site.pages[0]
     return home

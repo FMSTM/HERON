@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import unicodedata
 from urllib.parse import quote, unquote_to_bytes
 
@@ -12,8 +13,40 @@ def absolute(config: SiteConfig, url: str) -> str:
     return f"https://{config.site.domain}{url}"
 
 
+def slash(config: SiteConfig) -> bool:
+    """Адреса страниц со слешем на конце (`urls.trailing_slash`, 20 §2)."""
+    return config.urls.slash
+
+
+def page_url(lang: str, default_lang: str, parts: list[str], slash: bool = True) -> str:
+    """Адрес страницы из сегментов: со слешем или без, по режиму сайта.
+
+    Корень сайта - `/` в обоих режимах: адреса короче не бывает.
+    """
+    prefix = [] if lang == default_lang else [lang]
+    path = "/".join([*prefix, *parts])
+    if not path:
+        return "/"
+    return f"/{path}/" if slash else f"/{path}"
+
+
+def shape(path: str, slash: bool) -> str:
+    """Путь страницы в форме режима сайта: `/x/` или `/x`; `/` - как есть."""
+    stem = path.rstrip("/")
+    if not stem:
+        return "/"
+    return stem + "/" if slash else stem
+
+
+def twin(path: str) -> str:
+    """Тот же путь в другой форме: `/x/` - `/x`, `/x` - `/x/`; `/` - `/`."""
+    if path == "/" or not path:
+        return "/"
+    return path[:-1] if path.endswith("/") else path + "/"
+
+
 def home_url(config: SiteConfig, lang: str) -> str:
-    return "/" if lang == config.site.default_lang else f"/{lang}/"
+    return page_url(lang, config.site.default_lang, [], slash(config))
 
 
 def _file_like(path: str) -> bool:
@@ -54,3 +87,46 @@ def canonical_path(path: str, slash: bool = True) -> tuple[str, bool]:
     if slash and not text.endswith("/") and not _file_like(text):
         text += "/"
     return text, ok
+
+
+# Адрес со своей схемой (`https:`, `mailto:`, `tel:`, `data:`) или без схемы,
+# но с хостом (`//cdn…`): от адреса страницы он не зависит.
+_SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:|^//")
+
+
+def relative(value: str) -> bool:
+    """Ссылка, которую браузер разрешает от папки страницы: `pic.jpg`, `./x/`, `../y`.
+
+    На адресе без слеша (`/ru/cases/x`) папка страницы - `/ru/cases/`, и
+    `pic.jpg` ведёт на `/ru/cases/pic.jpg`, а не на файл рядом со страницей
+    (20 §2, `urls.trailing_slash: never`). Не относительны: путь от корня
+    (`/…`), адрес со схемой или хостом, `#якорь`, `?параметры`, пустая строка.
+    """
+    text = value.strip()
+    if not text or text.startswith(("/", "#", "?")):
+        return False
+    return not _SCHEME.match(text)
+
+
+# Атрибуты HTML с адресом: в них относительная ссылка уходит от папки страницы.
+URL_ATTRS = ("href", "src", "srcset", "poster", "action", "data", "formaction")
+_ATTR = re.compile(
+    r"""(?<![\w:-])(href|src|srcset|poster|action|data|formaction)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))""",
+    re.I,
+)
+
+
+def attr_urls(html: str) -> list[tuple[int, str]]:
+    """Адреса из атрибутов HTML: (смещение в тексте, значение). srcset - по кандидатам."""
+    out: list[tuple[int, str]] = []
+    for match in _ATTR.finditer(html):
+        group = next(g for g in (2, 3, 4) if match.group(g) is not None)
+        value = match.group(group)
+        if match.group(1).lower() == "srcset":
+            for candidate in value.split(","):
+                parts = candidate.strip().split()
+                if parts:
+                    out.append((match.start(), parts[0]))
+        else:
+            out.append((match.start(), value))
+    return out

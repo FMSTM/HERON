@@ -190,8 +190,8 @@ Rules:
 - a folder name is a URL segment, a file name without the extension is the slug
 - `_index.md` is the page of the folder itself: this makes the folder a category (a section). A category of any depth is created and edited by `heron category add services/roofing` - in all languages at once, with the page `_index.md`, the view of the list of pages (theme `views`) and the type of pages inside (`children_type`); moving a category moves its folder in all languages and sets a 301 from the old addresses of all its pages (`21` §10)
 - the default language (`default_lang` from `site.yaml`) is served from the root, the others with a prefix
-- all URLs end with a slash, the canonical form has the slash
-- a slug is only Latin letters, digits and hyphens. A file with another name fails the build (`E005`)
+- all URLs end with a slash, the canonical form has the slash; a site that moves and keeps its addresses without the slash sets `urls.trailing_slash: never` (below, "A slash at the end of the address")
+- a slug is lowercase Latin letters, digits, hyphens and underscores, starting with a letter or a digit. A file with another name fails the build (`E005`)
 - the slug can be overridden with the `slug` field in the frontmatter, but usually there is no need
 - these are not treated as pages and are not checked: `README.md`, `CHANGELOG.md`, `LICENSE.md`, `CONTRIBUTING.md` (in any case), `heron-readme.md`, files whose name starts with a dot, and files with an underscore at the start, except `_index.md` (`_draft.md` is a draft outside the build)
 - a link-file that leads outside `content/` is `E024`: content is taken only from inside
@@ -205,7 +205,7 @@ Two different things that coincide by default:
   theme finds it by it through `page_of('<key>')`. The home page key is `/`
 - **`slug`** is the address segment the visitor sees
 
-Each address segment - from a file name, a folder name or `slug` - is lowercase Latin letters, digits and hyphens. An invalid file or folder name is `E005`, an invalid value of the `slug` field is `E002`. A folder with another name (`Services/`, `a$b/`) is allowed only if its `_index.md` sets a valid `slug`. Otherwise nginx would read `$` in the address as a variable, and a space or a leading dot would give an address the server does not serve.
+Each address segment - from a file name, a folder name or `slug` - follows one rule: `[a-z0-9][a-z0-9_-]*` - lowercase Latin letters, digits, hyphens and underscores, starting with a letter or a digit. The underscore is allowed for a migration: old addresses like `/ru/cases/landing_page` are kept as they are; for new addresses a hyphen is better, and `heron page add`, `heron category add` and the studio give a soft hint when a new name contains `_` (not an error and no extra question). A name that starts with `_` is never a page: `_index.md` is the page of a section, `_draft.md` is a draft outside the build. Capital letters are still `E005`: `/About` and `/about` are different addresses. An invalid file or folder name is `E005`, an invalid value of the `slug` field is `E002`. A folder with another name (`Services/`, `a$b/`) is allowed only if its `_index.md` sets a valid `slug`. Otherwise nginx would read `$` in the address as a variable, and a space or a leading dot would give an address the server does not serve.
 
 ```yaml
 # content/ru/services/_index.md
@@ -230,7 +230,7 @@ section lives at `/services/`, the Russian one at `/ru/uslugi/`, and this is
 still one page in two languages, because their file has the same
 name: the key of both is `services`.
 
-The slug follows the same rules as the file name: Latin letters, digits and hyphens,
+The slug follows the same rules as the file name: Latin letters, digits, hyphens and underscores,
 one segment, no slashes. An invalid value is a build error `E002`, not a silent
 fallback to the file name: substituting silently means giving the page an address
 the author does not expect, and the author learns about it from the search results.
@@ -243,6 +243,20 @@ Two files with one key are error `E029`: a page `a.md` and a section `a/_index.m
 
 The old address after a rename is closed with `redirect_from` - it is
 not relative to the language and is written in full.
+
+### A slash at the end of the address: `urls.trailing_slash` <a id="trailing-slash"></a>
+
+```yaml
+urls:
+  trailing_slash: always   # always (the default) | never
+```
+
+- **`always`** - as always: a page address has the slash (`/ru/cases/x/`), the language home is `/ru/`, an address without the slash gets a 301 to the address with it;
+- **`never`** - for a site that moves from Nuxt, Next or WordPress and keeps its addresses without the slash: the canonical page address is `/ru/cases/x`, the language home is `/ru`, the site root is `/`. The form with the slash (`/ru/cases/x/`, `/ru/`) gets a 301 to the form without it, the query string is kept.
+
+Everything that writes an address writes the form of the mode: `<link rel="canonical">`, hreflang, `og:url`, sitemaps, schema.org markup, `page.url` in templates, links from markdown and `pages.<key>`, breadcrumbs, menus, lists of children, the feed, `llms.txt` and `llms-full.txt`, 301 targets, 404. The build folders are the same in both modes: `…/x/index.html`. `redirect_from` and `gone` match both forms, as before; the 301 target is in the form of the mode. The preview (`heron serve`, the studio) answers the same way as the production nginx. An unknown value or a typo in the key is `E011`.
+
+**Relative links with `never` are error `E046`.** On an address without the slash the browser resolves a relative link against the folder of the page, not the page itself: `pic.jpg` on `/ru/cases/x` is `/ru/cases/pic.jpg`. So the engine writes all internal links from the root, and `heron check` and the build stop on a relative link or file address in markdown text (`[a](pic.jpg)`, `./x/`, `../y`, `<img src="x.png">` in raw HTML) and in theme templates (`href="site.css"`), with the file and the line. Fine are a path from the root (`/media/x.png`, `/services/design`), an address with a scheme or a host (`https://…`, `//cdn…`), `#anchor`, `?parameter`, `mailto:` and `tel:`. `media/x.png` and `./media/x.png` in a markdown image or link the engine writes from the root anyway. A value built by the template (`{{ page.url }}`) is not checked. With `always` relative links behave as before and are not an error.
 
 ### Links inside content are relative to the language <a id="links-relative-to-language"></a>
 
@@ -296,7 +310,7 @@ Normalization rules:
 - percent-encoding is decoded, the case of hex digits does not matter (`%D0` = `%d0`);
 - the text is brought to Unicode NFC: this is how browsers encode addresses, while an editor may have saved "й" as two characters;
 - **letter case is kept**: `/About/` and `/about/` are different addresses;
-- **trailing slash:** an entry without a slash gets one (`/новости` = `/новости/`), except addresses that look like a file (`/index.php`, `/page.html`). The server answers 301 or 410 both to the variant without the slash and with it. A `gone` prefix (`/wp-*`) does not get a slash;
+- **trailing slash:** an entry without a slash gets one (`/новости` = `/новости/`), except addresses that look like a file (`/index.php`, `/page.html`). The server answers 301 or 410 both to the variant without the slash and with it - with any `urls.trailing_slash`. A `gone` prefix (`/wp-*`) does not get a slash;
 - a slug cut by the old system in the middle of a letter (`/%d0%ba%d1%80%d0/` - the last byte has no pair) is not text after decoding. Such an entry stays in percent form, and the server matches it against the raw request address, ignoring the case of `%xx`. It must be written exactly in percent form - as it came from the old sitemap;
 - duplicates, a match with a page address (`E009`) and overlaps with `gone` (`E022`) are checked on the normalized form: `/кредит/` and its percent form are one and the same address.
 
@@ -447,7 +461,7 @@ The "core" column says what the engine does with the field: **yes** - it reads a
 | `title` | string | - **required** | yes; longer than 60 - a warning | 1 | `<title>` |
 | `h1` | string | - **required** | yes; the same as `title` - a warning | 1 | the heading on the page, `name` in the markup |
 | `description` | string | - **required** | yes; longer than 155 - a warning | 1 | `meta description`, the description in `llms.txt` and in the markup |
-| `slug` | string | file name | yes: Latin letters, digits, hyphen, otherwise `E002` | 1 | the last address segment; does not change the key (section 2) |
+| `slug` | string | file name | yes: lowercase Latin letters, digits, hyphen, underscore, starting with a letter or a digit, otherwise `E002` | 1 | the last address segment; does not change the key (section 2) |
 | `canonical` | string | own address | theme | 1 | the core does not read the field. The `heron new` stub always outputs the page's own address and does not use this field; a custom theme reads it itself: `page.meta.get('canonical')` |
 | `robots` | string | - | theme | 1 | the stub does not use the field and outputs `robots_meta` (section 9); the core decides indexing by `noindex` |
 | `og_title` | string | `title` | yes: type only; the template substitutes `title` (`page.meta.og_title or page.title`) | 3 | the title in social networks |
@@ -1081,7 +1095,7 @@ nginx:
     media: 1d        # media/ resources without a hash
 ```
 
-A core key, validated (`E011`). `hash_sizes` is left over from the string maps for 301/410; now these are exact `location` blocks, map hash tables are not built, and there is no reason to set their sizes. Details - `23-distribution.md`, "The 404 page and serving", and `../guide/06-deploy.md`, "Your own nginx on the server".
+A core key, validated (`E011`). The form of page addresses is a separate block `urls` (section 2, "A slash at the end of the address"). `hash_sizes` is left over from the string maps for 301/410; now these are exact `location` blocks, map hash tables are not built, and there is no reason to set their sizes. Details - `23-distribution.md`, "The 404 page and serving", and `../guide/06-deploy.md`, "Your own nginx on the server".
 
 `cache` - the `Cache-Control: max-age` times in the inner nginx (`22` §5): a number of seconds (`3600`) or a number with a unit `s`, `m`, `h`, `d`, `w`, `y` (`30m`, `12h`, `7d`, `1y`); any other value or an unknown key is `E011` with examples. The defaults are as in the sample. `versioned` - copies of files with the content hash in the name (`21` §4, "Versions of theme files and resources"), the response also gets `immutable`; `assets` and `media` - the same files under their plain names. Pages are not in the block: they always get `no-cache` - the new names of theme files arrive with the page, and caching the page would delay the whole update. The configurator writes the keys too (`heron setup`, the Site tab, the Browser cache box): only those that differ from what is written.
 
@@ -1111,7 +1125,7 @@ The `gone` field on a page is deprecated: an address that no longer exists canno
 
 ### What the core checks and what it passes through
 
-The core strictly validates its own keys: `heron`, `site`, `seo`, `build`, `analytics`, `nginx`, `plugins`, `forms`, `gone`, `schema_exceptions`. A typo inside them is a stop with `E011`. `nav` allows any groups (`main` and your own), `sinks` any keys: they are read by heron-relay. The names `heron site seo nav build plugins forms sinks analytics gone nginx schema_exceptions` are taken by the core and are not used as your own blocks.
+The core strictly validates its own keys: `heron`, `site`, `seo`, `build`, `analytics`, `nginx`, `urls`, `plugins`, `forms`, `gone`, `schema_exceptions`. A typo inside them is a stop with `E011`. `nav` allows any groups (`main` and your own), `sinks` any keys: they are read by heron-relay. The names `heron site seo nav build plugins forms sinks analytics gone nginx urls schema_exceptions` are taken by the core and are not used as your own blocks.
 
 Blocks the engine does not know - `contact`, `organization`, any of your own - **pass through** and reach the templates as they are. The core does not go into their meaning: otherwise it would start knowing the subject area of each site separately, and the boundary everything was started for would disappear.
 

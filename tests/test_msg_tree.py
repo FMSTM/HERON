@@ -42,12 +42,20 @@ def test_scan_errors_ru_and_en(tmp_path):
     name = [e for e in by_code["E005"] if "имя файла" in e.message][0]
     assert name.message.text("en") == "invalid file name 'Bad_Name.md'"
     _check(name.message, "недопустимое имя файла 'Bad_Name.md'")
-    _check(name.hint, "слаг - латиница, цифры и дефис: getting-started.md")
+    _check(
+        name.hint,
+        "имя - строчная латиница, цифры, дефис и подчёркивание, первый знак - буква или цифра: "
+        "getting-started.md",
+    )
     assert not CYR.search(name.hint.text("en"))
 
     segment = [e for e in by_code["E005"] if "сегмент" in e.message][0]
     _check(segment.message, "недопустимый сегмент адреса 'Bad Dir' (имя папки или slug раздела)")
-    _check(segment.hint, "папки - латиница, цифры и дефис; или задайте slug в _index.md раздела")
+    _check(
+        segment.hint,
+        "папки - строчная латиница, цифры, дефис и подчёркивание, первый знак - буква или "
+        "цифра; или задайте slug в _index.md раздела",
+    )
 
     clash = by_code["E004"][0]
     assert clash.message.text("en").startswith("address /same/ is already taken by file")

@@ -44,6 +44,9 @@ const T = {
     bot: "Нужна помощь или есть вопросы?", bot_off: "Скоро здесь будет связь с нами.",
     dir: "Сфера деятельности", dir_none: "- сфера деятельности -", spec_none: "- специализация (необязательно) -", kind_none: "- вид (необязательно) -",
     sep: "Разделитель", suffix_text: "Текст после разделителя",
+    urls_t: "Адреса страниц", urls_about: "Слеш на конце адреса страницы. Ключ urls.trailing_slash в site.yaml.",
+    urls_always: "Со слешем: /services/design/", urls_always_s: "Как всегда, по умолчанию. Адрес без слеша получает 301 на адрес со слешем.",
+    urls_never: "Без слеша: /services/design", urls_never_s: "Для переезда со старого сайта (Nuxt, Next, WordPress), где адреса были без слеша: они сохраняются как есть, без 301 на каждой странице. Главная языка - /ru, адрес со слешем получает 301 на адрес без него. Ссылки в тексте и в теме - только от корня (/media/x.png, /services/design): относительные (x.png, ../y) ведут не туда, сборка и check остановятся с E046.",
     cache_t: "Кэш браузера", cache_about: "Сколько браузер посетителя держит файлы темы и картинки, не спрашивая сервер. Страницы не кэшируются никогда: правка текста видна сразу. Срок - число секунд или 30m, 12h, 1d, 7d, 1y. Ключи nginx.cache в site.yaml.",
     cache_v: "Файлы с версией", cache_v_h: "Копии с хешем содержимого в имени (site.0123456789.css) - на них ссылаются страницы. Под таким именем файл не меняется никогда, поэтому срок долгий. По умолчанию 1y. Менять почти незачем: новая версия файла - новое имя.",
     cache_a: "Файлы темы без версии", cache_a_h: "Те же стили, скрипты и шрифты под прежним именем: на них ссылаются старые страницы в кэше и чужие сайты. По умолчанию 1d. Короче - если тема меняется несколько раз в день и на файлы ссылаются снаружи.",
@@ -108,6 +111,9 @@ const T = {
     bot: "Need help or have questions?", bot_off: "A way to reach us will be here soon.",
     dir: "Field of work", dir_none: "- field of work -", spec_none: "- specialization (optional) -", kind_none: "- kind (optional) -",
     sep: "Separator", suffix_text: "Text after the separator",
+    urls_t: "Page addresses", urls_about: "A slash at the end of a page address. The urls.trailing_slash key in site.yaml.",
+    urls_always: "With a slash: /services/design/", urls_always_s: "As always, the default. An address without the slash gets a 301 to the address with it.",
+    urls_never: "Without a slash: /services/design", urls_never_s: "For a move from an old site (Nuxt, Next, WordPress) whose addresses had no slash: they stay as they were, without a 301 on every page. The language home is /ru, an address with a slash gets a 301 to the one without it. Links in the text and in the theme are from the root only (/media/x.png, /services/design): relative ones (x.png, ../y) lead elsewhere, the build and check stop with E046.",
     cache_t: "Browser cache", cache_about: "How long the visitor's browser keeps theme files and images without asking the server. Pages are never cached: an edit of the text shows at once. A time is a number of seconds or 30m, 12h, 1d, 7d, 1y. The nginx.cache keys in site.yaml.",
     cache_v: "Versioned files", cache_v_h: "Copies with the content hash in the name (site.0123456789.css) - pages link to them. Under such a name the file never changes, so the time is long. Default 1y. There is hardly a reason to change it: a new version of a file is a new name.",
     cache_a: "Theme files without a version", cache_a_h: "The same styles, scripts and fonts under the plain name: old pages in a cache and other sites link to them. Default 1d. Shorter if the theme changes several times a day and files are linked from outside.",
@@ -269,7 +275,14 @@ function gSite() {
     h("div", { class: "grid" },
       field(t("name"), "site.name", t("name_h")),
       field(t("domain"), "site.domain", t("domain_h"), "text", { placeholder: "example.com", inputmode: "url" }),
-      field(t("preview"), "site.preview_domain", t("preview_h"), "text", { placeholder: "dev.example.com", inputmode: "url" }, false, [docsUrl(), t("preview_link")])));
+      field(t("preview"), "site.preview_domain", t("preview_h"), "text", { placeholder: "dev.example.com", inputmode: "url" }, false, [docsUrl(), t("preview_link")])),
+    gUrls());
+}
+function gUrls() {
+  A.urls = A.urls || {};
+  if (!A.urls.trailing_slash) A.urls.trailing_slash = "always";
+  return h("div", { class: "subbox", id: "urls", style: "margin-top:1rem" }, h("h3", {}, t("urls_t")), h("p", { class: "hint", style: "margin:0 0 .8rem" }, t("urls_about")),
+    choices("urls.trailing_slash", [["always", t("urls_always"), t("urls_always_s")], ["never", t("urls_never"), t("urls_never_s")]]));
 }
 function gLang() {
   const chosen = A.site.languages || [];

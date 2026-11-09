@@ -325,6 +325,28 @@ docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmst
 
 A 0.2 theme is worth moving to the 0.3 contract too - a separate list in [07 · "Moving a theme from 0.2 to 0.3"](07-theme-author.md#migrate-0-3).
 
+## Moving from a live site: addresses as they were <a id="keep-old-urls"></a>
+
+A site that moves from Nuxt, Next or WordPress can keep its addresses entirely - without a 301 on every page. This way the search engine does not rebuild its index, and external links keep leading to the same place.
+
+1. **Names as in the old addresses.** An address segment is a file name, a folder name or `slug`: lowercase Latin letters, digits, hyphens and underscores. The address `/ru/cases/landing_page` is the file `content/ru/cases/landing_page.md` (or any name with `slug: landing_page`). The engine takes the underscore without warnings; `page add` only hints that a hyphen is better for new addresses.
+2. **The slash - as on the old site.** If the old addresses have no slash at the end (`/ru/cases/shop`, and the same in canonical, hreflang and sitemap), set in `site.yaml`:
+
+   ```yaml
+   urls:
+     trailing_slash: never
+   ```
+
+   Then the canonical page address is without the slash, the language home is `/ru`, and `/ru/cases/shop/` answers with a 301 to `/ru/cases/shop` (the query string is kept). The configurator sets the same key: `heron setup`, the Site tab, the Page addresses box. Links in the text and in the theme are then written only from the root: a relative one (`plan.png`, `../x`) is error `E046` with the file and the line ([`20` §2](../spec/20-data-contract.md#trailing-slash)).
+3. **Check against the list of old addresses.** Export the addresses of the old site (Search Console, the old `sitemap.xml`) into `old-urls.txt` and check:
+
+   ```bash
+   docker run --rm -v "$PWD:/site" -w /site --user "$(id -u):$(id -g)" ghcr.io/fmstm/heron:prod check my-site --old-urls old-urls.txt
+   ```
+
+   An address without the slash that matches a page is found; with and without the slash is one address. A warning stays only for an address that does not exist: give it `redirect_from` on the page that replaces it, or `gone`. The work is done when the summary says "without a path: 0". Details - [05 · "Moving from an old site"](05-seo.md#migrate-from-old-site).
+4. **Check on the image.** `smoke` starts the built image: the root and the home of every language answer 200 (with `never` - `/ru`, and `/ru/` gets a 301 to it), all 301 and 410 are as declared. `heron serve` answers the same way: with `never` a page opens without the slash, an address with the slash goes to a 301.
+
 ## Checklist before deploying
 
 1. `site.yaml` sets the domain, languages, `heron:` with a version range and the counters.

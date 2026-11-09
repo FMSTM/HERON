@@ -32,7 +32,7 @@ from pydantic import (
     model_validator,
 )
 
-from heron.contracts.site import LANG_RE, NAME_RE, CacheBlock
+from heron.contracts.site import LANG_RE, NAME_RE, CacheBlock, UrlsBlock
 from heron.contracts.site import domain as clean_domain
 from heron.contracts.site import duration as cache_duration
 from heron.setup.reasons import Reason
@@ -445,6 +445,22 @@ class CacheAnswers(Model):
         return text
 
 
+class UrlsAnswers(Model):
+    """Форма адресов страниц - ключ urls.trailing_slash в site.yaml (20 §2)."""
+
+    trailing_slash: str = UrlsBlock.model_fields["trailing_slash"].default
+
+    @field_validator("trailing_slash", mode="before")
+    @classmethod
+    def _mode(cls, value: Any) -> str:
+        text = "" if value is None else str(value).strip().lower()
+        if not text:
+            return UrlsBlock.model_fields["trailing_slash"].default
+        if text not in ("always", "never"):
+            raise Reason("urls_bad", value=repr(value))
+        return text
+
+
 class PublishAnswers(Model):
     way: Literal["github", "dockerhub", "static", "none"] = "none"
     # GitHub: собирать и публиковать образ самому GitHub на каждый push.
@@ -541,6 +557,7 @@ class Answers(Model):
     analytics: AnalyticsAnswers = Field(default_factory=AnalyticsAnswers)
     publish: PublishAnswers = Field(default_factory=PublishAnswers)
     cache: CacheAnswers = Field(default_factory=CacheAnswers)
+    urls: UrlsAnswers = Field(default_factory=UrlsAnswers)
     # решение по находкам разметки из файла ответов (ключ schema); в site.yaml не пишется
     _schema: dict[str, Any] | None = PrivateAttr(default=None)
 
@@ -663,13 +680,16 @@ def read(data: dict[str, Any]) -> Answers:
     cache = _get(data, "nginx.cache")
     if isinstance(cache, dict):
         out["cache"] = {k: v for k, v in cache.items() if k in CacheAnswers.model_fields}
+    urls = data.get("urls")
+    if isinstance(urls, dict):
+        out["urls"] = {k: v for k, v in urls.items() if k in UrlsAnswers.model_fields}
     try:
         return Answers.model_validate(out, context=_STALE)
     except ValueError:
         # Сырой конфиг не повод отказать в конфигураторе: он и нужен, чтобы
         # конфиг поправить. Берём то, что проходит по отдельности.
         answers = Answers()
-        for block in ("site", "about", "search", "analytics", "publish", "cache"):
+        for block in ("site", "about", "search", "analytics", "publish", "cache", "urls"):
             with contextlib.suppress(ValueError):
                 setattr(
                     answers,
@@ -1284,6 +1304,7 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
         out["publish"] = block
 
     _merge_cache(out, answers.cache)
+    _merge_urls(out, answers.urls)
     if not NAME_RE.match(str(site.get("theme"))):
         site["theme"] = "main"
     return out
@@ -1311,6 +1332,21 @@ def _merge_cache(out: dict[str, Any], cache: CacheAnswers) -> None:
     nginx = dict(nginx or {})
     nginx["cache"] = changed
     out["nginx"] = nginx
+
+
+def _merge_urls(out: dict[str, Any], urls: UrlsAnswers) -> None:
+    """Форма адресов в urls.trailing_slash: пишется, только если человек её поменял.
+
+    Ответ совпал с записанным (или с умолчанием, когда ключа нет) - файл не
+    трогается: умолчание не появляется в каждом site.yaml после сохранения.
+    """
+    block = out.get("urls") if isinstance(out.get("urls"), dict) else {}
+    written = block.get("trailing_slash")
+    current = str(written).strip().lower() if written not in (None, "") else None
+    default = UrlsAnswers.model_fields["trailing_slash"].default
+    if urls.trailing_slash == (current or default):
+        return
+    out["urls"] = {**block, "trailing_slash": urls.trailing_slash}
 
 
 LANG_TAIL = re.compile(r"^(?P<key>.+?)_(?P<lang>[a-z]{2}(?:-[a-z]{2})?)$")

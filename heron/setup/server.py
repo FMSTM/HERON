@@ -383,7 +383,7 @@ def run(
                 else:
                     self._file(found, extra=extra)
                 return
-            self._preview(route, extra)
+            self._preview(route, extra, parsed.query)
 
         def _file(self, path: Path, code: int = 200, extra=()) -> None:
             kind = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
@@ -394,13 +394,21 @@ def run(
                 kind += "; charset=utf-8"
             self._send(code, body, kind, extra)
 
-        def _preview(self, route: str, extra) -> None:
+        def _preview(self, route: str, extra, query: str = "") -> None:
             from heron.core import paths
-            from heron.core.watch import not_found
+            from heron.core.watch import no_slash_route, not_found, trailing_slash
 
             if not built.is_set():
                 self._json(404, {"error": say(lang, "srv_not_found")})
                 return
+            # адреса без слеша (urls.trailing_slash: never) - как у nginx прода
+            found = None if trailing_slash(root) else no_slash_route(dist, route)
+            if found is not None and found[0] == "redirect":
+                where = urllib.parse.quote(found[1]) + (f"?{query}" if query else "")
+                self._send(301, b"", "text/plain; charset=utf-8", [*extra, ("Location", where)])
+                return
+            if found is not None:
+                route = found[1]
             target = dist / route.lstrip("/")
             if route.endswith("/") or target.is_dir():
                 target = target / "index.html"

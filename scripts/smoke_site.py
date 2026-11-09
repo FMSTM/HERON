@@ -10,6 +10,8 @@ workflow образа сайта на голом раннере.
 Проверяет, по-настоящему отправляя запросы:
 
 - корень, robots.txt и главная каждого языка из конфига сборки - 200;
+  при адресах без слеша (`urls.trailing_slash: never`) главная языка - `/<язык>`,
+  а `/<язык>/` - 301 на неё;
 - несуществующий адрес в корне и под каждым языком - 404;
 - скрытые файлы - 404 в корне, под каждым языком, в media/ и assets/,
   включая настоящие служебные файлы сборки (.heron-nginx.conf и манифест);
@@ -69,6 +71,12 @@ class Smoke:
         text = conf.read_text(encoding="utf-8") if conf.is_file() else ""
         return sorted(set(LANG.findall(text)))
 
+    def no_slash(self) -> bool:
+        """Сборка с `urls.trailing_slash: never`: адреса страниц без слеша."""
+        conf = self.out / ".heron-nginx.conf"
+        text = conf.read_text(encoding="utf-8") if conf.is_file() else ""
+        return "$uri/index.html" in text
+
     def final(self, start: str) -> tuple[int, list[str]]:
         """Пройти редиректы от адреса: последний код и цепочка адресов."""
         chain = [start]
@@ -84,12 +92,19 @@ class Smoke:
 
     def run(self) -> int:
         langs = self.languages()
+        tail = "" if self.no_slash() else "/"
         self.expect("/", 200)
         self.expect("/robots.txt", 200)
-        self.expect("/heron-smoke-нет-такой-страницы/", 404)
+        self.expect(f"/heron-smoke-нет-такой-страницы{tail}", 404)
         for lang in langs:
-            self.expect(f"/{lang}/", 200)
-            self.expect(f"/{lang}/heron-smoke-нет-такой/", 404)
+            self.expect(f"/{lang}{tail}", 200)
+            self.expect(f"/{lang}/heron-smoke-нет-такой{tail}", 404)
+            if not tail:
+                status, location = self.get(f"/{lang}/")
+                self.result(
+                    status == 301 and location == f"/{lang}",
+                    f"/{lang}/ → {status} {location}, ждали 301 на /{lang}",
+                )
 
         hidden = ["/.heron-nginx.conf", "/.heron-manifest.json", "/.heron-smoke", "/.git/config"]
         for prefix in ["/media", "/assets", *(f"/{lang}" for lang in langs)]:

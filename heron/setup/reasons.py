@@ -53,6 +53,11 @@ TEXT: dict[str, dict[str, str]] = {
             "nginx.cache.{field} {value}: число секунд или число с единицей s, m, h, d, w, y - "
             "например 3600, 12h, 1d, 7d, 1y"
         ),
+        # адреса
+        "urls_bad": (
+            "urls.trailing_slash {value}: ожидается 'always' (со слешем, как было) "
+            "или 'never' (без слеша)"
+        ),
         # публикация
         "control_chars": "{field}: служебные символы (перевод строки, NUL, ...) недопустимы",
         "helpers_unknown": "helpers: неизвестные {names}",
@@ -153,6 +158,10 @@ TEXT: dict[str, dict[str, str]] = {
         "cache_bad": (
             "nginx.cache.{field} {value}: a number of seconds or a number with a unit "
             "s, m, h, d, w, y - for example 3600, 12h, 1d, 7d, 1y"
+        ),
+        "urls_bad": (
+            "urls.trailing_slash {value}: expected 'always' (with a slash, as before) "
+            "or 'never' (without)"
         ),
         "control_chars": "{field}: control characters (newline, NUL, ...) are not allowed",
         "helpers_unknown": "helpers: unknown {names}",

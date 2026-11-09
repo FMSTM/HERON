@@ -22,7 +22,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from heron.core.errors import Warning_
 from heron.messages import Msg, MsgError
 
-SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\Z")
+# Сегмент адреса: имя файла, имя папки, `slug`. Строчная латиница, цифры,
+# дефис и подчёркивание, первый знак - буква или цифра (20 §2). Подчёркивание
+# разрешено ради переезда: старые адреса вида /cases/landing_page
+# сохраняются как есть. Имя на `_` страницей не бывает (`_index.md`, `_draft`).
+# `$`, пробел, точка, кавычки и скобки в сегмент не попадают: nginx прочёл бы
+# их как переменную или конец директивы.
+SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*\Z")
 URL_PATH_RE = re.compile(r"^/[^\s?#]*\Z")
 
 # Единственное значение пометки перевода; перевод готов - ключа нет.

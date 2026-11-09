@@ -26,6 +26,11 @@ TEXT: dict[str, dict[str, str]] = {
         "media_path_escapes_hint": (
             "ресурсы берутся только из папки media/; уберите `..` и символические ссылки наружу"
         ),
+        "media_path_escapes_static_hint": (
+            "картинку соцсетей движок ищет в media/, а путь вне media/ - ещё и в static/ "
+            "(как в 0.1); файла нет ни там, ни там, или путь уходит наружу через `..` "
+            "или символическую ссылку"
+        ),
         "media_cache_is_link": "кэш - ссылка, а не папка: {folder}",
         "media_cache_is_link_hint": "удалите эту ссылку - папка кэша пересоздастся при сборке",
         "media_cache_escapes": "кэш нарезок ведёт за свои пределы через ссылку: {folder}",
@@ -69,6 +74,11 @@ TEXT: dict[str, dict[str, str]] = {
         "media_path_escapes": "path {src!r} goes outside {media}/",
         "media_path_escapes_hint": (
             "assets are read only from the media/ folder; remove `..` and symlinks pointing outside"
+        ),
+        "media_path_escapes_static_hint": (
+            "the engine looks for a social image in media/, and for a path outside media/ also "
+            "in static/ (as 0.1 did); the file is in neither, or the path leads outside "
+            "through `..` or a symlink"
         ),
         "media_cache_is_link": "the cache is a link, not a folder: {folder}",
         "media_cache_is_link_hint": "delete this link: the cache folder is recreated on build",

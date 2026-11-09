@@ -276,7 +276,8 @@ def media_url(
     def render(src: str, ratio: str = "", width: int = 0, format: str = "") -> str:
         clean = paths.normalize(src)
         if not ratio and not width and not format:
-            return f"/{clean}"
+            # картинка соцсетей из static/ отдаётся по адресу своего файла
+            return f"/{manifest.static.get(clean, clean)}"
 
         rendition = manifest.get(clean, ratio or "1:1")
         if rendition is None:
@@ -318,6 +319,9 @@ def _cover_variant(
     Из пропорций берётся ближайшая к карточке ссылки, из ширин — самая узкая
     из подходящих: крупнее нужного краулер всё равно ужмёт.
     """
+    if src in manifest.static:
+        # из static/ (совместимость с 0.1): нарезок нет, адрес - сам файл
+        return manifest.static[src], None, None
     origin = PurePath(src).suffix.lstrip(".").lower()
     found: list[tuple[float, int, str, int]] = []
     for rendition in manifest.items.get(src, {}).values():
@@ -341,7 +345,12 @@ def _cover_variant(
 
 def _known(manifest: Manifest, src: str) -> bool:
     """Мастер есть в плане сборки. Нет — его нет на диске (E007 от media.verify)."""
-    return src in manifest.items or src in manifest.raw or src in manifest.copies
+    return (
+        src in manifest.items
+        or src in manifest.raw
+        or src in manifest.copies
+        or src in manifest.static
+    )
 
 
 def cover_of(manifest: Manifest, config: SiteConfig) -> Any:

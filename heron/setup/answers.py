@@ -35,6 +35,7 @@ from pydantic import (
 from heron.contracts.site import LANG_RE, NAME_RE, CacheBlock, UrlsBlock
 from heron.contracts.site import domain as clean_domain
 from heron.contracts.site import duration as cache_duration
+from heron.core import paths
 from heron.setup.reasons import Reason
 
 HERE = Path(__file__).parent
@@ -1253,7 +1254,12 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
     else:
         seo.pop("llms_note", None)
     if s.og_image:
-        seo["og_default_image"] = s.og_image.strip().removeprefix("./").removeprefix("/")
+        given = s.og_image.strip().removeprefix("./").removeprefix("/")
+        before = seo.get("og_default_image")
+        # Тот же путь, записанный иначе (`/og/x.png` сайта 0.1), сохранение
+        # не переписывает: конфигуратор меняет только то, что поменял человек.
+        same = isinstance(before, str) and paths.normalize(before) == paths.normalize(given)
+        seo["og_default_image"] = before if same else given
     else:
         seo.pop("og_default_image", None)
     if s.allow_prices:

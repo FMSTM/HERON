@@ -14,6 +14,7 @@ from __future__ import annotations
 import csv
 import re
 from collections import Counter, defaultdict
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -207,6 +208,8 @@ class Report:
     pending: list[tuple[str, str, bool]] = field(default_factory=list)
     unused_media: list[str] = field(default_factory=list)
     static_media: list[str] = field(default_factory=list)
+    # картинка соцсетей из static/ (совместимость с 0.1): (кто, ключ, путь, куда перенести)
+    static_social: list[tuple[str, str, str, str]] = field(default_factory=list)
     notes_missing: list[str] = field(default_factory=list)
     uneven_keys: list[tuple[str, str, str, int, int]] = field(default_factory=list)
     schema_nodes: Counter = field(default_factory=Counter)
@@ -345,6 +348,24 @@ class Report:
             lines.append(say(lang, "report_static_media"))
             for path in self.static_media[:20]:
                 lines.append(f"  {path}")
+
+        if self.static_social:
+            # Сведение, не предупреждение: сайт 0.1 собирается как есть, и
+            # --strict из-за него не падает.
+            lines.append("")
+            lines.append(say(lang, "report_static_social"))
+            for owner, key, src, suggested in self.static_social:
+                lines.append(
+                    say(
+                        lang,
+                        "report_static_social_line",
+                        owner=owner,
+                        key=key,
+                        src=src,
+                        suggested=suggested,
+                    )
+                )
+            lines.append(say(lang, "report_static_social_fix"))
 
         if self.uneven_keys:
             lines.append("")
@@ -504,7 +525,11 @@ def build(
         if theme_dir is not None:
             used |= versions.template_media(theme_dir)
         report.unused_media = media.unused(site, site_root, config, used)
-        report.static_media = _content_in_static(site_root)
+        social = media.social_in_static(site, site_root, config)
+        report.static_social = [(item.owner, item.key, item.src, item.suggested) for item in social]
+        report.static_media = _content_in_static(
+            site_root, skip={f"static/{item.public}" for item in social}
+        )
         report.notes_missing = _without_notes(site_root)
 
     return report
@@ -646,7 +671,7 @@ def _without_notes(site_root) -> list[str]:
     return missing
 
 
-def _content_in_static(site_root) -> list[str]:
+def _content_in_static(site_root, skip: Collection[str] = ()) -> list[str]:
     """Картинки и видео в static/ — почти всегда обход обработки.
 
     Класть файл мимо контента быстрее, чем объявить его, поэтому static/
@@ -663,6 +688,7 @@ def _content_in_static(site_root) -> list[str]:
         if path.is_file()
         and path.suffix.lower() in suffixes
         and not _belongs_in_static(path.relative_to(root))
+        and path.relative_to(site_root).as_posix() not in skip
     ]
     return found
 

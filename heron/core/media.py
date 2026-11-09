@@ -23,6 +23,7 @@ import shutil
 import stat
 import urllib.parse
 import uuid
+from collections.abc import Collection
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass, field
@@ -43,6 +44,7 @@ from heron.messages import Msg
 MEDIA = "media"
 LEGACY = "img"
 FOLDERS = (MEDIA, LEGACY)
+STATIC = "static"
 
 # Путь к файлу в произвольном поле фронтматтера: тема вправе объявить своё
 # поле (вторая фотография, обложка, ролик, памятка), и такой файл тоже должен
@@ -150,6 +152,9 @@ class Manifest:
     raw: set[str] = field(default_factory=set)
     # файлы, которые движок не режет и кладёт как есть: видео, pdf, as_is
     copies: dict[str, Path] = field(default_factory=dict)
+    # картинка соцсетей из static/ (совместимость с 0.1): путь из сайта -> адрес
+    # в сборке; файл туда везёт обычное копирование static/, нарезок нет
+    static: dict[str, str] = field(default_factory=dict)
 
     def get(self, src: str, ratio: str) -> Rendition | None:
         return self.items.get(paths.normalize(src), {}).get(ratio)
@@ -390,6 +395,86 @@ def _schema_media(value, found: set[str], data=None, config=None, depth: int = 0
             _schema_media(item, found, data, config, depth + 1)
 
 
+@dataclass(frozen=True, slots=True)
+class StaticSocial:
+    """Картинка соцсетей, объявленная путём вне media/: где, каким ключом, что."""
+
+    owner: str  # site.yaml или файл страницы
+    key: str  # og_default_image, og_default_image_ru, og_image
+    src: str  # нормализованный путь из сайта
+
+    @property
+    def public(self) -> str:
+        return static_public(self.src)
+
+    @property
+    def suggested(self) -> str:
+        """Куда её перенести: тот же путь внутри media/."""
+        return f"{MEDIA}/{self.public}"
+
+
+def static_public(src: str) -> str:
+    """Путь файла внутри static/, он же адрес в сборке: static/ копируется в корень.
+
+    `og/x.png` и `static/og/x.png` - один и тот же файл `static/og/x.png`;
+    0.1 принимал обе записи.
+    """
+    head, _, rest = src.partition("/")
+    return rest if head == STATIC and rest else src
+
+
+def social_outside_media(site: Site | None, config=None) -> list[StaticSocial]:
+    """Картинки соцсетей, записанные путём вне media/ (совместимость с 0.1).
+
+    Сайты 0.1 клали картинку по умолчанию в `static/og/…` и писали в site.yaml
+    `og/…`: static/ копируется в корень, и адрес выходил верный. С 0.2 картинки
+    берутся только из media/, и такие сайты перестали собираться. Для полей,
+    которые служат только адресом (og:image, twitter:image), движок ищет файл и
+    в static/: `seo.og_default_image` всех языков, `og_image` и `twitter_image`
+    страницы. Внешние адреса и пути в media/ (img/) сюда не попадают.
+    """
+    found: list[StaticSocial] = []
+
+    def add(value, owner: str, key: str) -> None:
+        if not isinstance(value, str) or not value.strip() or EXTERNAL.match(value.strip()):
+            return
+        src = paths.normalize(value)
+        if src and src.split("/", 1)[0] not in FOLDERS:
+            found.append(StaticSocial(owner, key, src))
+
+    if config is not None:
+        seo = config.seo.model_dump()
+        add(seo.get("og_default_image"), "site.yaml", "og_default_image")
+        for lang, value in sorted((seo.get("i18n", {}).get("og_default_image") or {}).items()):
+            add(value, "site.yaml", f"og_default_image_{lang}")
+    for page in site.pages if site is not None else ():
+        inherited = getattr(page, "inherited", ())
+        for key, value in (
+            ("og_image", page.meta.og_image),
+            ("twitter_image", page.meta.extra.get("twitter_image")),
+        ):
+            if key not in inherited:
+                add(value, page.source, key)
+    return found
+
+
+def in_static(site_root: Path, src: str) -> Path:
+    """Файл картинки соцсетей в static/ - или E024, если путь уходит из static/."""
+    return paths.source(site_root / STATIC, static_public(src))
+
+
+def social_in_static(site: Site | None, site_root: Path, config=None) -> list[StaticSocial]:
+    """Картинки соцсетей вне media/, файл которых действительно лежит в static/."""
+    out = []
+    for item in social_outside_media(site, config):
+        try:
+            if in_static(site_root, item.src).is_file():
+                out.append(item)
+        except HeronError:
+            continue
+    return out
+
+
 def references(site: Site, config=None) -> set[str]:
     """Все файлы, которые объявил сайт: страницы, data/ и site.yaml."""
     return set(declared_by(site, config))
@@ -552,8 +637,14 @@ def verify(site: Site, site_root: Path, collector: Collector, config=None) -> No
     for src in sorted(schema_references(site, config)):
         if src not in declared and paths.source(site_root, src).is_file():
             declared[src] = ["site.yaml (schema)"]
+    # Картинка соцсетей вне media/ ищется и в static/ (как в 0.1): нет её и
+    # там - тот же E024, что у сборки.
+    static = set()
+    for item in social_outside_media(site, config):
+        static.add(item.src)
+        declared.setdefault(item.src, [item.owner])
     for src in sorted(declared):
-        source = locate(site_root, src, declared, collector)
+        source = locate(site_root, src, declared, collector, static)
         if source is None:
             continue
         if not source.is_file():
@@ -604,10 +695,11 @@ def verify_covers(
     Ничего не кодирует и не пишет в кэш: только читает размер мастера.
     """
     declared = declared_by(site, config)
+    static = {item.src for item in social_outside_media(site, config)}
     for src in sorted(cover_sources(site, config)):
         if Path(src).suffix.lower() not in KEEP or any(src.startswith(r) for r in spec.as_is):
             continue
-        source = locate(site_root, src, declared, Collector())
+        source = locate(site_root, src, declared, Collector(), static)
         if source is None or not source.is_file():
             continue
         try:
@@ -624,7 +716,11 @@ def verify_covers(
 
 
 def locate(
-    site_root: Path, src: str, declared: dict[str, list[str]], collector: Collector
+    site_root: Path,
+    src: str,
+    declared: dict[str, list[str]],
+    collector: Collector,
+    static: Collection[str] = (),
 ) -> Path | None:
     """Файл ресурса на диске — только внутри папки ресурсов сайта.
 
@@ -632,8 +728,26 @@ def locate(
     `media/../../x` раньше читался с диска и копировался в сборку как есть.
     Теперь путь нормализуется и разрешается со всеми ссылками; выход за
     `media/` (или старую `img/`) — E024 с именем страницы, где он объявлен.
+
+    `static` - пути картинок соцсетей вне media/ (`social_outside_media`):
+    их файл ищется ещё и в static/, как в 0.1. Нашёлся - возвращается он;
+    нет ни там, ни там, или путь уходит из static/ - тот же E024.
     """
     head = src.split("/", 1)[0]
+    if head not in FOLDERS and src in static:
+        try:
+            found = in_static(site_root, src)
+            if found.is_file():
+                return found
+        except HeronError:
+            pass
+        collector.error(
+            paths.CODE,
+            Msg("media_path_escapes", src=src, media=MEDIA),
+            path=_owner(declared, src),
+            hint=Msg("media_path_escapes_static_hint"),
+        )
+        return None
     try:
         if head not in FOLDERS:
             raise HeronError(code=paths.CODE, message="")
@@ -646,6 +760,35 @@ def locate(
             hint=Msg("media_path_escapes_hint"),
         )
         return None
+
+
+def _static_social(
+    src: str,
+    source: Path,
+    covers: set[str],
+    declared: dict[str, list[str]],
+    collector: Collector,
+    spec: ImagesSpec,
+) -> None:
+    """Проверки картинки соцсетей из static/: читается ли и не мелкая ли.
+
+    Правила media/ (нарезки, метка ?v=, as_is) к ней не относятся: файл едет
+    в сборку обычным копированием static/ и отдаётся по своему адресу.
+    """
+    _weigh(source, src, declared, collector)
+    if source.suffix.lower() not in KEEP:
+        return
+    try:
+        width = shape_of(source).width
+    except BAD_MASTER as exc:
+        _bad_master(collector, declared, src, exc)
+        return
+    if src in covers and width < spec.cover_width:
+        collector.warn(
+            small_cover(spec.cover_width, src),
+            path=_owner(declared, src),
+            kind="картинки",
+        )
 
 
 def _options(fmt: str) -> dict[str, object]:
@@ -1045,9 +1188,16 @@ def plan(
     # не виден declared_by: его всё равно нужно найти, проверить и довезти целиком.
     for src in manifest.raw:
         declared.setdefault(src, ["site.yaml"])
+    # Картинка соцсетей вне media/ - из static/, как в 0.1: адрес её файла в
+    # сборке, без нарезок и метки; файл везёт копирование static/.
+    static = {item.src for item in social_outside_media(site, config)}
     for src in sorted(declared):
-        source = locate(site_root, src, declared, collector)
+        source = locate(site_root, src, declared, collector, static)
         if source is None:
+            continue
+        if src in static and src.split("/", 1)[0] not in FOLDERS:
+            manifest.static[src] = static_public(src)
+            _static_social(src, source, covers, declared, collector, spec)
             continue
         if not source.is_file():
             if strict:

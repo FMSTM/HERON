@@ -1076,6 +1076,15 @@ TEXT["ru"].update(
         "report_schema": "Разметка schema.org - {by_kind}",
         "report_unused_media": "Файлы в media, которых никто не ждёт - {count}:",
         "report_static_media": "В static лежит контент - его место в media:",
+        "report_static_social": (
+            "Картинка соцсетей лежит в static/ (это не ошибка): так писали сайты 0.1, "
+            "и движок её принимает"
+        ),
+        "report_static_social_line": "  {owner}: {key}: {src} - лучше {suggested}",
+        "report_static_social_fix": (
+            "  как перенести: переложите файл в media/ по этому пути и впишите его в то же "
+            "поле; там картинку проверяют те же правила, что и остальные картинки сайта"
+        ),
         "report_uneven": "Поле есть не у всех элементов списка (шаблон обязан это учесть):",
         "report_uneven_line": "  {owner}: {where} - {field} у {have} из {total}",
         "report_list": "список",
@@ -1118,6 +1127,15 @@ TEXT["en"].update(
         "report_schema": "schema.org markup - {by_kind}",
         "report_unused_media": "Files in media nothing expects - {count}:",
         "report_static_media": "Content sits in static - it belongs in media:",
+        "report_static_social": (
+            "A social image sits in static/ (not an error): 0.1 sites were written so, "
+            "and the engine accepts it"
+        ),
+        "report_static_social_line": "  {owner}: {key}: {src} - better {suggested}",
+        "report_static_social_fix": (
+            "  how to move it: put the file into media/ at this path and write that path "
+            "into the same field; there the same rules check it as every other picture of the site"
+        ),
         "report_uneven": "A field only some list items have (the template must allow for it):",
         "report_uneven_line": "  {owner}: {where} - {field} in {have} of {total}",
         "report_list": "list",

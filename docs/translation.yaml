@@ -22,16 +22,16 @@ files:
     ru_sha256: "a82f4eef881fde7be1cd41f9c5c408d02f3f5591f8c437a7ce0ddb1714fe22cc"
     en_status: current
   - path: guide/04-theme.md
-    ru_sha256: "d5d2918287614be24992e100d1bda8cfaa6b44bef005b80607b256e7fe130789"
+    ru_sha256: "3882a10da157848823beea27f1b6ee32a1d6eed8881c42d664ba2304184838b9"
     en_status: current
   - path: guide/05-seo.md
     ru_sha256: "8fe293df854d7a768f3b8ff1ad7c6fc077ec1d489979530cc58293e1bc663d1b"
     en_status: current
   - path: guide/06-deploy.md
-    ru_sha256: "6bff09371be6475a4001c899dcc319c08b3fc3a578ce82528ce5e7a499293b81"
+    ru_sha256: "d3b83cac1ba61b471339f6f61ce2b1924241b324b641f02bba049af1242f0b4b"
     en_status: current
   - path: guide/07-theme-author.md
-    ru_sha256: "c83fd1b38ee26ea821128e7a79b44a75ba90bf8cb1d75522add35dd65b327177"
+    ru_sha256: "abd43df429b4d8009759c2ba41bcd9cde46179f756167ad55fe451b74bb944e5"
     en_status: current
   - path: roles/architect.md
     ru_sha256: "357ccd262a83d03b911520e0effc32427904e786d1a691946673e2e0774cf2da"
@@ -49,16 +49,16 @@ files:
     ru_sha256: "7162aa68a2b3471191225c6303d0d77ae320ded9f7d5c104e5c8bd79274ba31f"
     en_status: current
   - path: spec/20-data-contract.md
-    ru_sha256: "8b6a52e2ec0e087a9eccf5c91a3f179df216e8646c03071f01060ad58ec26d6c"
+    ru_sha256: "a5ae1ac002f182e423361324c3cb65ab0d17b2a3edafe7dfde07e139ea775362"
     en_status: current
   - path: spec/21-engine.md
-    ru_sha256: "b74030dd77df6d855757adfcde4ce84852ca46e9763bda8b7386531b0d979767"
+    ru_sha256: "66a0ad12673d6492757e61474e82eed2618854be79f2018e715b2c5e5253f2eb"
     en_status: current
   - path: spec/22-deploy.md
-    ru_sha256: "812c2154aab26ffdc58b4436821ddff02967a789abf376e6096c4c44d9eadef3"
+    ru_sha256: "f642c65a351a3faae6e5c6128cb5957b2d2cc76b0765ba33cbd2aebdca28167d"
     en_status: current
   - path: spec/23-distribution.md
-    ru_sha256: "5bc14d838c34712bd7cc9283bca182aacf1738a5a41fc8455d9415650a8dbb55"
+    ru_sha256: "33af1fcd8d886821c88141a880ad85e3610a0667765fd03d7bf3cce9ab603611"
     en_status: current
   - path: templates/page.md
     ru_sha256: "c45fa56cdf289625f2bcb0b274e454d8e400508977cc4af958edc825ec393c07"

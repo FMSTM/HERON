@@ -4,7 +4,9 @@
 // `heron page add` и `heron category add`: здесь только форма и запросы к /api/studio/*.
 // Ключ доступа - TOKEN из адреса (setup.js); язык интерфейса - L (setup.js).
 (() => {
-  const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+  // якорь секции {#id} - как SECTION_ID ядра (core/parser/sections.py): без подчёркивания,
+  // это ключ контракта темы, а не адрес старого сайта
+  const ANCHOR = /^[a-z0-9]+(-[a-z0-9]+)*$/;
   // имя страницы и категории - сегмент адреса: подчёркивание можно (20 §2), якорь секции - нет
   const NAME = /^[a-z0-9][a-z0-9_-]*$/;
   const underscored = (key) => String(key || "").split("/").at(-1).includes("_");
@@ -58,6 +60,7 @@
       d_children: "Тип страниц внутри", d_children_h: "Какой тип получат новые страницы в этой категории.",
       d_view: "Вид списка страниц", d_title: "Заголовок (можно потом)", d_title_h: "title страницы: строка в выдаче поисковика и на вкладке браузера.",
       d_bad_name: "Имя - строчная латиница, цифры, дефисы (и подчёркивание - для старых адресов), первый знак - буква или цифра: about-agency.",
+      d_bad_anchor: "Якорь - строчная латиница, цифры и одиночные дефисы, без подчёркивания: faq, how-it-works.",
       exists: "Уже есть - открыта на правку.", created_draft: "Заготовка открыта: файлы появятся после «Сохранить».",
       saved: "Сохранено", nothing: "Ничего не изменилось.", created: "Создано", written: "Записано", moved: "Перенесено",
       redirects: "301", site_yaml: "site.yaml: меню", pending_files: "перевод не готов", cats: "Создана категория",
@@ -121,6 +124,7 @@
       d_children: "Type of the pages inside", d_children_h: "The type new pages in this category get.",
       d_view: "How the pages are listed", d_title: "Title (can wait)", d_title_h: "The page title: the line in search results and on the browser tab.",
       d_bad_name: "The name is lowercase latin letters, digits, hyphens (and an underscore - for old addresses), starting with a letter or a digit: about-agency.",
+      d_bad_anchor: "The anchor is lowercase latin letters, digits and single hyphens, no underscore: faq, how-it-works.",
       exists: "Already exists - opened for editing.", created_draft: "A draft is open: the files appear after “Save”.",
       saved: "Saved", nothing: "Nothing changed.", created: "Created", written: "Written", moved: "Moved",
       redirects: "301", site_yaml: "site.yaml: menu", pending_files: "translation not ready", cats: "Category created",
@@ -795,7 +799,7 @@
     fill();
     dialog(tr("add_section"), [suggested, h("div", { class: "st-fields" }, row(tr("sec_anchor"), tr("sec_anchor_h"), anchor), row(tr("sec_heading"), tr("sec_heading_h"), heading), row(tr("sec_kind"), tr("sec_kind_h"), kind), help), extra], async () => {
       const a = anchor.value.trim();
-      if (!SLUG.test(a)) return tr("d_bad_name");
+      if (!ANCHOR.test(a)) return tr("d_bad_anchor");
       const clean = {};
       for (const [k, v] of Object.entries(values)) {
         if (Array.isArray(v)) { const items = v.filter((x) => (typeof x === "object" && x ? Object.values(x).join("").trim() : String(x).trim())); if (items.length) clean[k] = items; }

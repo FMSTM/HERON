@@ -196,14 +196,29 @@ def no_slash_route(dist: Path, route: str) -> tuple[str, str] | None:
 
     `("redirect", адрес)` - форма со слешем, 301 на форму без него;
     `("file", путь)` - `/x` из `x/index.html`, без редиректа на `/x/`;
+    `("missing", адрес)` - 404: папка без страницы (`/assets/`, `/media/demo/`
+    и `/media/demo`) или форма со слешем у того, что не страница и не файл.
+    Свой 301 на папку со слешем просмотр в этом режиме не делает никогда:
+    вместе с 301 на форму без слеша он давал петлю;
     None - отдавать как обычно (файл, корень, чего нет).
+
+    `/media/` и `/assets/` nginx отдаёт как файлы, без 301: форма со слешем
+    там - 404 сразу.
     """
-    if route != "/" and route.endswith("/"):
-        return "redirect", route.rstrip("/") or "/"
-    target = dist / route.lstrip("/")
-    index = target / "index.html"
-    if route != "/" and target.is_dir() and index.is_file():
+    if route == "/" or not route:
+        return None
+    stem = route.rstrip("/")
+    target = dist / stem.lstrip("/")
+    page = target.is_dir() and (target / "index.html").is_file()
+    if route.endswith("/"):
+        files = stem.startswith(("/media/", "/assets/")) or stem in ("/media", "/assets")
+        if stem and not files and (page or target.is_file()):
+            return "redirect", stem
+        return "missing", route
+    if page:
         return "file", route + "/index.html"
+    if target.is_dir():
+        return "missing", route
     return None
 
 
@@ -225,7 +240,7 @@ def handler_for(root: Path, dist: Path) -> type[http.server.SimpleHTTPRequestHan
     """Обработчик просмотра: файлы `dist`, своя 404 и форма адресов сайта."""
 
     def routed(self) -> bool:
-        """Адреса без слеша: 301 со слеша или `x/index.html` вместо 301 на `/x/`."""
+        """Адреса без слеша: 301 со слеша, `x/index.html` вместо 301 на `/x/`, 404."""
         if trailing_slash(root):
             return False
         path, mark, query = self.path.partition("?")
@@ -236,6 +251,9 @@ def handler_for(root: Path, dist: Path) -> type[http.server.SimpleHTTPRequestHan
         if kind == "file":
             self.path = urllib.parse.quote(where) + mark + query
             return False
+        if kind == "missing":
+            self.send_error(404)
+            return True
         self.send_response(301)
         self.send_header("Location", urllib.parse.quote(where) + mark + query)
         self.send_header("Content-Length", "0")

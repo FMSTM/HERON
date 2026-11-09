@@ -312,7 +312,7 @@ A HERON site is served with the browser security rule `script-src 'self'`. A the
 
 ## How to include theme files: `asset()` <a id="asset"></a>
 
-Styles, scripts, fonts and pictures of the theme go through `asset('site.css')`, not `/assets/site.css`: the address gets the content hash in the name, after a theme update the browser does not keep yesterday's file, and a typo in the name is build error `E045`. Links inside `.css` (`url(…)`, `@import`) the engine rewrites itself. Inside `.js` it does not: pass an address for a script from the template in a `data-*` attribute with the value `{{ asset('…') }}`. Details and examples - [04 · Theme and design](04-theme.md#asset).
+Styles, scripts, fonts and pictures of the theme go through `asset('site.css')`, not `/assets/site.css`: the address gets the content hash in the name, after a theme update the browser does not keep yesterday's file, and a typo in the name is build error `E045`. A site resource is `asset('media/logo.svg')`, its version is `?v=` at the end of the address. Links inside `.css` (`url(…)`, `@import`) the engine rewrites itself. Inside `.js` and `<script>` it does not: pass an address for a script from the template in a `data-*` attribute with the value `{{ asset('…') }}`. Details and examples - [04 · Theme and design](04-theme.md#asset).
 
 ## Checking <a id="check"></a>
 

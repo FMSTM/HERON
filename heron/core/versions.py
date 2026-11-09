@@ -1,27 +1,34 @@
-"""Версии файлов темы и ресурсов: хеш содержимого в имени файла.
+"""Версии файлов темы и ресурсов по хешу содержимого.
 
 Файлы `/assets/` и `/media/` браузер держит сутки, а имена у них не меняются.
 После обновления темы посетитель, заходивший вчера, получал новую страницу со
-старым `site.css` - вёрстка разъезжалась на сутки. Поэтому у каждого такого
-файла в сборке есть копия с хешем содержимого в имени:
+старым `site.css` - вёрстка разъезжалась на сутки. Поэтому ссылка на файл
+несёт его версию - первые 10 знаков hex от sha256 итоговых байтов:
 
-    assets/site.css  ->  assets/site.0123456789.css
+    /assets/site.css   ->  /assets/site.0123456789.css   (копия с хешем в имени)
+    /media/photo.jpg   ->  /media/photo.jpg?v=0123456789  (метка в параметре)
 
-`0123456789` - первые 10 знаков hex от sha256 итоговых байтов: стили уже с
-переписанными ссылками внутри (ниже). Другие байты - другое имя, поэтому
-nginx отдаёт такие имена на год с `immutable` (22 §5). Файл под прежним
-именем остаётся рядом: на него ссылаются старые страницы в чужом кэше и
-внешние ссылки.
+Другие байты - другой адрес, поэтому nginx отдаёт версию на год с
+`immutable` (22 §5), а адрес без версии - на срок `nginx.cache.assets` или
+`nginx.cache.media`.
+
+Почему по-разному. Файлы темы маленькие, а устаревший стиль ломает вёрстку:
+им - копия с хешем в имени, она работает на любом кэше и CDN. Ресурсы
+тяжёлые (фото, нарезки, видео), копия удвоила бы сборку и образ: Docker
+COPY жёстких ссылок не сохраняет. Ресурсу - метка `?v=` на прежнем имени:
+сборка не растёт, адрес открывается на любом хостинге (сервер параметр просто
+не читает). Цена: часть CDN и прокси кэширует без учёта параметров, но
+ресурс на месте меняют редко (обычно кладут новый файл).
 
 Порядок в сборке:
 
 1. до рендера - хеши файлов темы (`plan`): шаблону `asset('site.css')` нужно
    готовое имя. Стили переписываются раньше, чем считается их хеш: `url()` и
-   `@import` ведут на имена с хешем, поэтому новый шрифт меняет и имя стилей;
-2. после нарезки - копии с хешем всех файлов `assets/` и `media/` сборки
+   `@import` ведут на версии, поэтому новый шрифт меняет и имя стилей;
+2. после нарезки - копии с хешем файлов `assets/`, хеши файлов `media/`
    (`finish`) и ссылки в HTML (`rewrite_html`): `src`, `srcset`, `<link>`,
-   `poster`, `style` и `<style>`. Тема с ручными `/assets/...` получает версии
-   без правки.
+   `poster`, `style` и `<style>`. Тема с ручными `/assets/...` и `/media/...`
+   получает версии без правки.
 
 Не трогаются:
 
@@ -31,9 +38,12 @@ nginx отдаёт такие имена на год с `immutable` (22 §5). Ф
   поисковиков ключуются адресом, стабильный адрес им полезнее свежего;
 - `<script>` целиком и файлы `.js`: адрес в коде движок не находит надёжно
   (`heron check` предупреждает о строке `/assets/` в скрипте темы);
-- файлы без расширения, скрытые, тяжелее `media.HEAVY` (видео не удваивает
-  образ), и файлы, имя которых уже выглядит как имя с хешем (`x.0123456789.css`
-  от сборщика темы): у такого nginx и так держит год, вторая копия не нужна.
+- в `assets/` - файлы без расширения, скрытые, тяжелее `HEAVY` и файлы, имя
+  которых уже выглядит как имя с хешем (`x.0123456789.css` от сборщика темы):
+  у такого nginx и так держит год, вторая копия не нужна. В `media/` имя
+  ничего не значит: метку получает любой файл, даже `banner.1699999999.jpg`;
+- параметр `v` в ссылке на `/media/`, написанный руками (`?v=2`), заменяется
+  хешем: версия одна, и её знает сборка.
 
 Спецификация: docs/spec/21-engine.md, «Версии файлов темы и ресурсов».
 """
@@ -54,13 +64,18 @@ from heron.core.errors import Collector, HeronError
 from heron.messages import Msg
 
 LENGTH = 10
-PREFIXES = ("assets/", "media/")
+ASSETS = "assets/"
+MEDIA = "media/"
+PREFIXES = (ASSETS, MEDIA)
 CODE = "E045"
-# Имя с хешем: `<имя>.<10 hex>.<расширение>`. Та же регулярка в конфиге nginx.
+# Имя с хешем: `<имя>.<10 hex>.<расширение>`. Та же регулярка в конфиге nginx
+# (только /assets/).
 HASHED = re.compile(r"\.[0-9a-f]{10}\.[A-Za-z0-9]+\Z")
 SUFFIX = re.compile(r"\.[A-Za-z0-9]+\Z")
-# Тяжёлый файл (видео) не удваивается в сборке: его копия ничего не даёт,
-# кроме веса образа. Порог тот же, что у предупреждения о весе.
+# Метка ресурса: `?v=<10 hex>`. Та же регулярка в конфиге nginx (`map $arg_v`).
+STAMP = re.compile(r"\A[0-9a-f]{10}\Z")
+# Тяжёлый файл темы не удваивается в сборке: копия ничего не даёт, кроме
+# веса образа. Порог тот же, что у предупреждения о весе ресурса.
 HEAVY = 10 * 1024 * 1024
 
 
@@ -83,8 +98,8 @@ def hashed_name(rel: str, digest: str) -> str:
 
 
 def versioned(rel: str, size: int | None = None) -> bool:
-    """Получает ли файл сборки копию с хешем в имени."""
-    if not rel.startswith(PREFIXES):
+    """Получает ли файл темы (`assets/`) копию с хешем в имени."""
+    if not rel.startswith(ASSETS):
         return False
     name = rel.rsplit("/", 1)[-1]
     if name.startswith(".") or notes.skip(name) or not SUFFIX.search(name):
@@ -92,6 +107,19 @@ def versioned(rel: str, size: int | None = None) -> bool:
     if HASHED.search(name):
         return False
     return size is None or size <= HEAVY
+
+
+def stamped(rel: str) -> bool:
+    """Получает ли ссылка на ресурс (`media/`) метку `?v=`: любой видимый файл."""
+    if not rel.startswith(MEDIA):
+        return False
+    name = rel.rsplit("/", 1)[-1]
+    return bool(name) and not name.startswith(".") and not notes.skip(name)
+
+
+def known(rel: str, size: int | None = None) -> bool:
+    """Есть ли у файла сборки версия: копия с хешем или метка."""
+    return versioned(rel, size) or stamped(rel)
 
 
 def looks_hashed(rel: str) -> bool:
@@ -185,6 +213,37 @@ def swap(ref: Ref, digest: str) -> str | None:
     return f"{ref.head}{ref.path[: -len(ext)]}.{digest}{ext}{ref.tail}"
 
 
+# Параметр `v` в строке запроса: после `?` или `&` (в HTML - `&amp;`).
+_V_PARAM = re.compile(r"(?:(?<=\?)|(?<=&)|(?<=&amp;))v=[^&#]*")
+
+
+def stamp(tail: str, digest: str, escaped: bool = False) -> str:
+    """`?…#…` с меткой `v=<хеш>`: параметры и якорь остаются.
+
+    Нет параметров - `?v=…`; есть - `&v=…` в конец (в HTML - `&amp;v=…`);
+    уже есть `v` - его значение заменяется: повторный проход даёт то же самое.
+    """
+    body = tail.rstrip()
+    space = tail[len(body) :]
+    cut = body.find("#")
+    query, fragment = (body, "") if cut == -1 else (body[:cut], body[cut:])
+    mark = f"v={digest}"
+    if not query or query == "?":
+        query = f"?{mark}"
+    elif _V_PARAM.search(query):
+        query = _V_PARAM.sub(mark, query, count=1)
+    else:
+        query = f"{query}{'&amp;' if escaped else '&'}{mark}"
+    return f"{query}{fragment}{space}"
+
+
+def version(ref: Ref, digest: str, escaped: bool = False) -> str | None:
+    """Адрес с версией: ресурс - метка `?v=`, файл темы - хеш в имени."""
+    if ref.rel.startswith(MEDIA):
+        return f"{ref.head}{ref.path}{stamp(ref.tail, digest, escaped)}"
+    return swap(ref, digest)
+
+
 def rewrite_css(
     text: str,
     lookup: Callable[[str], str | None],
@@ -192,14 +251,14 @@ def rewrite_css(
     base: str | None = None,
     escaped: bool = False,
 ) -> str:
-    """Ссылки url() и @import - на имена с хешем. `lookup(rel)` - хеш или None."""
+    """Ссылки url() и @import - на версии. `lookup(rel)` - хеш или None."""
     edits: list[tuple[int, int, str]] = []
     for start, end, raw in css_refs(text):
         ref = parse_ref(raw, origins, base, escaped)
         if ref is None:
             continue
         digest = lookup(ref.rel)
-        new = swap(ref, digest) if digest else None
+        new = version(ref, digest, escaped) if digest else None
         if new is not None:
             edits.append((start, end, new))
     return _replace(text, edits) if edits else text
@@ -215,7 +274,7 @@ class Versions:
     `media` - как узнать хеш файла `media/…` до рендера: исходник в папке
     сайта (кладётся в сборку байт в байт) или нарезка, закодированная
     сейчас (`media.ensure`). None - asset() для `media/` отвечает адресом без
-    хеша (проверка темы, демо: ресурсов сайта там нет).
+    метки (проверка темы, демо: ресурсов сайта там нет).
     """
 
     digests: dict[str, str] = field(default_factory=dict)  # rel -> хеш (известные заранее)
@@ -231,19 +290,18 @@ class Versions:
         if self.media is None:
             return None
         found = self.media(rel)
-        if found is None or not found.is_file():
-            return None
-        if not versioned(rel, found.stat().st_size):
+        if found is None or not found.is_file() or not stamped(rel):
             return None
         digest = digest_file(found)
         self.digests[rel] = digest
         return digest
 
     def asset(self, path: str) -> str:
-        """Адрес файла темы или ресурса с хешем в имени - для шаблона.
+        """Адрес файла темы или ресурса с версией - для шаблона.
 
-        `asset('site.css')`, `asset('css/print.css')` - файлы `assets/` темы;
-        `asset('media/logo.svg')` - ресурс сайта. Нет такого файла - E045.
+        `asset('site.css')`, `asset('css/print.css')` - файлы `assets/` темы,
+        хеш в имени; `asset('media/logo.svg')` - ресурс сайта, метка
+        `?v=<хеш>`. Нет такого файла - E045.
         """
         if not isinstance(path, str) or not path.strip():
             raise HeronError(code=CODE, message=Msg("asset_unknown", path=repr(path)))
@@ -282,6 +340,7 @@ class Versions:
                 )
             self.issued.add(rel)
             digest = self.media_digest(rel)
+            return f"/{rel}{stamp(tail, digest) if digest else tail}"
         return f"/{hashed_name(rel, digest) if digest else rel}{tail}"
 
 
@@ -358,15 +417,44 @@ def plan(
     return versions
 
 
-# --- после нарезки: копии с хешем и ссылки в HTML ---------------------------------
+# Вызов `asset('media/…')` со строкой в шаблоне: для отчёта о ненужных ресурсах.
+_ASSET_MEDIA = re.compile(r"""\basset\(\s*(["'])/?(media/[^"'?#]+)[^"']*\1\s*\)""")
+
+
+def template_media(theme_dir: Path) -> set[str]:
+    """Ресурсы, которые тема называет через `asset('media/…')` строкой в шаблоне.
+
+    Такой файл нужен сайту, хотя ни одна страница его не объявляет: `heron
+    check` и отчёт сборки не должны звать его ненужным. Имя, собранное
+    шаблоном из переменных, видно только при рендере (`Versions.issued`).
+    """
+    found: set[str] = set()
+    theme_dir = Path(theme_dir)
+    if not theme_dir.is_dir():
+        return found
+    for path in sorted(theme_dir.rglob("*.html")):
+        if not paths.inside(theme_dir, path):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for match in _ASSET_MEDIA.finditer(text):
+            rel = posixpath.normpath(urllib.parse.unquote(match.group(2)))
+            if rel.startswith(MEDIA):
+                found.add(rel)
+    return found
+
+
+# --- после нарезки: копии с хешем, метки и ссылки в HTML --------------------------
 
 
 def finish(outputs, versions: Versions, origins: tuple[str, ...], collector: Collector) -> None:
-    """Копии с хешем для `assets/` и `media/` сборки, затем ссылки в HTML.
+    """Копии с хешем для `assets/`, хеши для меток `media/`, затем ссылки в HTML.
 
-    Хеш считается по тому, что ляжет в сборку. Имя, выданное шаблону до
-    рендера (`asset()`, стили), обязано совпасть с ним - иначе страница
-    ссылалась бы на файл, которого нет: E045.
+    Хеш считается по тому, что ляжет в сборку. Версия, выданная шаблону до
+    рендера (`asset()`, стили), обязана совпасть с ним - иначе страница
+    ссылалась бы на файл, которого нет, или на чужую версию: E045.
     """
     from heron.core import output
 
@@ -379,21 +467,21 @@ def finish(outputs, versions: Versions, origins: tuple[str, ...], collector: Col
             entry.text = versions.texts[rel]
             entry.source = None
             entry.link = False
-        if HASHED.search(rel.rsplit("/", 1)[-1]):
-            if rel.startswith(PREFIXES) and entry.kind != "versioned":
+        if rel.startswith(ASSETS) and HASHED.search(rel.rsplit("/", 1)[-1]):
+            if entry.kind != "versioned":
                 collector.warn(Msg("asset_hash_like_name", rel=rel), path=entry.owner)
             continue
         if entry.text is not None:
             data = entry.text.encode("utf-8")
             size, digest = len(data), None
-            if versioned(rel, size):
+            if known(rel, size):
                 digest = digest_bytes(data)
         elif entry.source is not None:
             try:
                 size = entry.source.stat().st_size
             except OSError:
                 continue
-            digest = digest_file(entry.source) if versioned(rel, size) else None
+            digest = digest_file(entry.source) if known(rel, size) else None
         else:
             continue
         if digest is None:
@@ -409,7 +497,11 @@ def finish(outputs, versions: Versions, origins: tuple[str, ...], collector: Col
             continue
         table[rel] = digest
 
+    # Копия с хешем - только у файлов темы: ресурс получает метку `?v=` и
+    # лежит в сборке один раз.
     for rel, digest in sorted(table.items()):
+        if not rel.startswith(ASSETS):
+            continue
         entry = outputs.entries[rel]
         twin = hashed_name(rel, digest)
         held = outputs.entries.get(twin)
@@ -478,7 +570,7 @@ def _srcset(value: str, change: Callable[[str], str | None]) -> str:
 
 
 def rewrite_html(text: str, lookup: Callable[[str], str | None], origins=()) -> str:
-    """Свои ссылки на `/assets/` и `/media/` - на имена с хешем.
+    """Свои ссылки на `/assets/` и `/media/` - на версии: имя с хешем или `?v=`.
 
     Разбор по тегам и атрибутам, а не регуляркой по всему документу: текст
     страницы, комментарии и `<script>` не трогаются, а `<style>` и атрибут
@@ -490,7 +582,7 @@ def rewrite_html(text: str, lookup: Callable[[str], str | None], origins=()) -> 
         if ref is None or not ref.rel.startswith(PREFIXES):
             return None
         digest = lookup(ref.rel)
-        return swap(ref, digest) if digest else None
+        return version(ref, digest, escaped=True) if digest else None
 
     def css(raw: str, escaped: bool) -> str:
         return rewrite_css(raw, lookup, origins, escaped=escaped)

@@ -49,10 +49,19 @@ COMMENTS = {
             "сразу. Ответ «не изменилось» (ETag, Last-Modified) почти бесплатен."
         ),
         "assets": (
-            "Картинки, стили и скрипты под прежними именами — сутки (nginx.cache.assets\n"
-            "и nginx.cache.media): имя не меняется при замене содержимого, поэтому\n"
-            "«навсегда» здесь значило бы показывать старое тем, кто уже заходил.\n"
-            "Страницы ссылаются на копии с хешем в имени, эти имена — запасные."
+            "Стили, скрипты и шрифты темы под прежними именами — сутки (nginx.cache.assets):\n"
+            "имя не меняется при замене содержимого, поэтому «навсегда» здесь значило бы\n"
+            "показывать старое тем, кто уже заходил. Страницы ссылаются на копии\n"
+            "с хешем в имени, эти имена — запасные."
+        ),
+        "media": (
+            "Ресурсы сайта лежат один раз, версия — в параметре: /media/x.jpg?v=0123456789.\n"
+            "С меткой из 10 знаков hex — долгий срок и immutable (nginx.cache.versioned),\n"
+            "без неё или с чужой — nginx.cache.media. Срок выбирает карта перед server."
+        ),
+        "mediamap": (
+            "Срок кэша ресурса по метке ?v= (/media/). Имя переменной несёт оба срока:\n"
+            "два сайта в одном http с разными сроками не перепишут карту друг друга."
         ),
         "versioned": (
             "Копия с хешем содержимого в имени (site.0123456789.css): под этим\n"
@@ -100,10 +109,19 @@ COMMENTS = {
             'A "not modified" answer (ETag, Last-Modified) costs almost nothing.'
         ),
         "assets": (
-            "Images, styles and scripts under their plain names: one day (nginx.cache.assets\n"
-            "and nginx.cache.media). The name does not change when the content is replaced,\n"
+            "Theme styles, scripts and fonts under their plain names: one day\n"
+            "(nginx.cache.assets). The name does not change when the content is replaced,\n"
             '"forever" here would mean showing the old file to those who visited before.\n'
             "Pages link to the copies with a hash in the name; plain names are the fallback."
+        ),
+        "media": (
+            "Site resources lie once, the version is in a parameter: /media/x.jpg?v=0123456789.\n"
+            "With a mark of 10 hex characters: a long time and immutable (nginx.cache.versioned);\n"
+            "without it or with another one: nginx.cache.media. The map before server chooses."
+        ),
+        "mediamap": (
+            "Cache time of a resource by its ?v= mark (/media/). The variable name carries\n"
+            "both times: two sites in one http with different times do not overwrite the map."
         ),
         "versioned": (
             "A copy with the content hash in the name (site.0123456789.css): under this\n"
@@ -190,8 +208,7 @@ def _security(indent: int, analytics: AnalyticsBlock) -> str:
     return "".join(f"{pad}{line}\n" for line in lines)
 
 
-HEAD = """#@built
-server {
+HEAD = """server {
     listen       8080;
     server_name  _;
 
@@ -233,14 +250,14 @@ server {
     #@pages
     add_header Cache-Control "no-cache" always;
 
-    #@assets
+    #@media
     location ^~ /media/ {
-        add_header Cache-Control "public, max-age=@MEDIA@" always;
+        add_header Cache-Control $@MEDIAVAR@ always;
 @SECURITY8@
         location ~ /\\. { return 404; }
-@VERSIONED@
         try_files $uri =404;
     }
+    #@assets
     location ^~ /assets/ {
         add_header Cache-Control "public, max-age=@ASSETS@" always;
 @SECURITY8@
@@ -250,8 +267,11 @@ server {
     }
 """
 
-# Имя с хешем содержимого: `<имя>.<10 знаков hex>.<расширение>` (heron/core/versions.py).
-# Регулярка вложена в префиксные location: `^~` отключает регулярки уровня server.
+# Имя с хешем содержимого: `<имя>.<10 знаков hex>.<расширение>` (heron/core/versions.py),
+# только у файлов темы. Регулярка вложена в префиксный location: `^~` отключает
+# регулярки уровня server. В /media/ её нет: имя ресурса ничего не значит, его
+# версия - параметр `?v=` (карта MEDIA_MAP), и файл `x.0123456789.jpg` без метки
+# кэшируется как любой другой.
 VERSIONED = """        #@versioned
         location ~ "\\.[0-9a-f]{10}\\.[A-Za-z0-9]+$" {
             add_header Cache-Control "public, max-age=@AGE@, immutable" always;
@@ -259,6 +279,18 @@ VERSIONED = """        #@versioned
             try_files $uri =404;
         }
 """
+
+# Срок кэша ресурса по метке `?v=<10 hex>` (heron/core/versions.py, STAMP).
+# Карта, а не `if` в location: `if` в location не наследует try_files, а
+# add_header внутри него заменил бы заголовки безопасности. Карта стоит в
+# контексте http, как и сам конфиг (23 §5); `$arg_v` - первый параметр `v`.
+MEDIA_MAP = """#@mediamap
+map $arg_v $@MEDIAVAR@ {
+    "~^[0-9a-f]{10}$" "public, max-age=@AGE@, immutable";
+    default           "public, max-age=@MEDIA@";
+}
+"""
+
 
 # Язык в своей папке: и страница 404, и всё остальное лежат под префиксом.
 # `^~` отключает регулярные location уровня server — поэтому запрет скрытых
@@ -443,6 +475,16 @@ def _maps(plan: Plan) -> tuple[str, str]:
     return "".join(maps), "".join(checks)
 
 
+def media_variable(age: int, media: int) -> str:
+    """Имя переменной карты сроков `/media/`: с обоими сроками внутри.
+
+    Карта живёт в общем http; две одинаковые карты nginx принимает молча,
+    и побеждает последняя. Сайты с одинаковыми сроками делят одну карту
+    без вреда, с разными - получают разные имена.
+    """
+    return f"heron_media_cache_{age}_{media}"
+
+
 def generate(config: SiteConfig, plan: Plan | None = None) -> dict[str, str]:
     """Конфиг под языки этого сайта. Основной язык в корень, прочие — в папки.
 
@@ -457,24 +499,32 @@ def generate(config: SiteConfig, plan: Plan | None = None) -> dict[str, str]:
     # адресов: строка сайта меткой не станет.
     notes = config.build.notes
     cache = config.nginx.cache
+    age, media = cache.seconds("versioned"), cache.seconds("media")
+    variable = media_variable(age, media)
     versioned = (
         _comments(VERSIONED, notes)
         .replace("@SECURITY12@\n", _security(12, config.analytics))
-        .replace("@AGE@", str(cache.seconds("versioned")))
+        .replace("@AGE@", str(age))
+    )
+    media_map = (
+        _comments(MEDIA_MAP, notes)
+        .replace("@MEDIAVAR@", variable)
+        .replace("@AGE@", str(age))
+        .replace("@MEDIA@", str(media))
     )
     head = (
         _comments(HEAD, notes)
         .replace("@VERSIONED@\n", versioned)
         .replace("@SECURITY8@\n", _security(8, config.analytics))
         .replace("@SECURITY@\n", _security(4, config.analytics))
-        .replace("@MEDIA@", str(cache.seconds("media")))
+        .replace("@MEDIAVAR@", variable)
         .replace("@ASSETS@", str(cache.seconds("assets")))
     )
     head = head.replace(
         "    absolute_redirect off;\n",
         "    absolute_redirect off;\n" + checks + _locations(plan, notes),
     )
-    parts = [maps + "\n" if maps else "", head]
+    parts = [_comments("#@built\n", notes) + "\n", maps, media_map + "\n", head]
     slash = config.urls.slash
     for lang in config.site.languages:
         if lang != default:

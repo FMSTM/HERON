@@ -194,21 +194,23 @@ The certificate of the mirrors must cover their names too (one certificate for a
 
 ### Browser cache and file versions <a id="browser-cache"></a>
 
-**After a theme update the cache does not get in the way.** Pages link to theme files and pictures by names with the content hash: `/assets/site.0123456789.css`. A new version of the styles is a new name, and the very first page load takes the new file, however long the old one sits in the browser cache. That is why hashed files are served for a year with `immutable`, files under their plain names (`/assets/site.css` - old pages in a cache and other sites link to them) for a day, and pages with `no-cache`: an edit of the text shows at once.
+**After a theme update the cache does not get in the way.** Every link of a page to a theme file or a picture carries a version - a short fingerprint of the file content (a hash). For theme files it is in the name: `/assets/site.0123456789.css`. For pictures and other files from `media/` it is at the end of the address: `/media/photo.jpg?v=0123456789`. A new version of a file is a new address, and the very first page load takes the new file, however long the old one sits in the browser cache. That is why addresses with a version are served for a year with `immutable`, addresses without one (`/assets/site.css`, `/media/photo.jpg` - old pages in a cache and other sites link to them) for a day, and pages with `no-cache`: an edit of the text shows at once.
+
+Why pictures carry the version in the address and not in the name. Pictures are heavy: a second copy of each under a new name would double the build folder and the site image. An address with `?v=…` opens on any hosting - the server simply does not read this addition and serves the same file. One caveat: some CDNs and proxies cache without everything after `?`. There a picture replaced under the same name updates not at once. If that matters, put a new picture under a new name - that is what people do most of the time anyway.
 
 The times are changed in `site.yaml` or in the configurator (the Site tab, the Browser cache box):
 
 ```yaml
 nginx:
   cache:
-    versioned: 1y   # files with a hash in the name, plus immutable
+    versioned: 1y   # addresses with a version (a hash in the name or ?v=), plus immutable
     assets: 1d      # theme files without a hash
-    media: 1d       # media/ without a hash
+    media: 1d       # media/ without ?v=
 ```
 
 A time is a number of seconds or a number with a unit: `30m`, `12h`, `1d`, `7d`, `1y`. Pages get no time: the new file names arrive with them, and caching a page would delay the whole update. The keys - [`20` §5](../spec/20-data-contract.md), the serving rules - [`22` §5](../spec/22-deploy.md).
 
-If your site appended `?v=…` to the addresses of styles and scripts itself (for example, with a Dockerfile step after `heron build`), remove that step: the engine versions the files itself, and `?v=` adds nothing to a hashed name. Inside `.js` addresses are not rewritten - how to pass them to a script is in [04 · "How to include theme files"](04-theme.md#asset).
+If your site appended `?v=…` to the addresses of styles and scripts itself (for example, with a Dockerfile step after `heron build`), remove that step: the engine versions the files itself - it gives theme files a hashed name and appends `?v=` to `media/` files (a `v` written by hand it replaces with the hash). Inside `.js` addresses are not rewritten - how to pass them to a script is in [04 · "How to include theme files"](04-theme.md#asset).
 
 ## Several sites: `scripts/site.sh`
 

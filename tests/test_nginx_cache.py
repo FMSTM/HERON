@@ -1,4 +1,7 @@
-"""Кэш браузера во внутреннем nginx: копии с хешем на год, прочее по nginx.cache (22 §5)."""
+"""Кэш браузера во внутреннем nginx: версии на год, прочее по nginx.cache (22 §5).
+
+Файлы темы - копии с хешем в имени, ресурсы - метка `?v=<10 hex>` (карта `$arg_v`).
+"""
 
 from __future__ import annotations
 
@@ -76,26 +79,53 @@ def _location(conf: str, prefix: str) -> str:
 
 def test_default_headers_in_config():
     conf = nginx.generate(config())[nginx.NAME]
-    for prefix in ("/assets/", "/media/"):
-        block = _location(conf, prefix)
-        assert 'add_header Cache-Control "public, max-age=86400" always;' in block
-        assert 'location ~ "\\.[0-9a-f]{10}\\.[A-Za-z0-9]+$" {' in block
-        inner = block[block.index('location ~ "') :]
-        assert 'add_header Cache-Control "public, max-age=31536000, immutable" always;' in inner
-        # add_header во вложенном location заменяет внешние: безопасность повторена
-        assert inner.count("Content-Security-Policy") == 1
-        assert inner.count("Strict-Transport-Security") == 1
-        assert "X-Content-Type-Options" in inner and "Referrer-Policy" in inner
-        # запрет скрытых файлов стоит раньше версии: регулярки проверяются по порядку
-        assert block.index("location ~ /\\.") < block.index('location ~ "')
+    block = _location(conf, "/assets/")
+    assert 'add_header Cache-Control "public, max-age=86400" always;' in block
+    assert 'location ~ "\\.[0-9a-f]{10}\\.[A-Za-z0-9]+$" {' in block
+    inner = block[block.index('location ~ "') :]
+    assert 'add_header Cache-Control "public, max-age=31536000, immutable" always;' in inner
+    # add_header во вложенном location заменяет внешние: безопасность повторена
+    assert inner.count("Content-Security-Policy") == 1
+    assert inner.count("Strict-Transport-Security") == 1
+    assert "X-Content-Type-Options" in inner and "Referrer-Policy" in inner
+    # запрет скрытых файлов стоит раньше версии: регулярки проверяются по порядку
+    assert block.index("location ~ /\\.") < block.index('location ~ "')
+    # /media/: имя ничего не значит, срок - по метке ?v= через карту в http
+    media = _location(conf, "/media/")
+    assert 'location ~ "' not in media
+    assert "add_header Cache-Control $heron_media_cache_31536000_86400 always;" in media
+    assert media.count("Content-Security-Policy") == 1
+    assert "if (" not in media
+    head = conf[: conf.index("server {")]
+    assert "map $arg_v $heron_media_cache_31536000_86400 {" in head
+    assert '"~^[0-9a-f]{10}$" "public, max-age=31536000, immutable";' in head
+    assert 'default           "public, max-age=86400";' in head
     assert 'add_header Cache-Control "no-cache" always;' in conf
 
 
 def test_configured_times_in_config():
     conf = nginx.generate(config(versioned="30d", assets="2h", media="7d"))[nginx.NAME]
     assert 'max-age=7200" always;' in _location(conf, "/assets/")
-    assert 'max-age=604800" always;' in _location(conf, "/media/")
+    assert "$heron_media_cache_2592000_604800 always;" in _location(conf, "/media/")
+    assert 'default           "public, max-age=604800";' in conf
     assert conf.count('"public, max-age=2592000, immutable"') == 2
+
+
+def test_media_map_name_differs_by_times():
+    one = nginx.generate(config())[nginx.NAME]
+    two = nginx.generate(config(media="1h"))[nginx.NAME]
+    assert nginx.media_variable(31536000, 86400) in one
+    assert nginx.media_variable(31536000, 3600) in two
+    assert nginx.media_variable(31536000, 86400) not in two
+
+
+@needs_nginx
+def test_two_sites_with_different_times_share_one_http(tmp_path):
+    """Два сайта в одном http (sites-enabled): у каждого свой срок ресурсов."""
+    a = nginx.generate(config())[nginx.NAME]
+    b = nginx.generate(config(media="1h"))[nginx.NAME]
+    result = nginx.check(a + "\n" + b.replace("listen       8080;", "listen       8081;"))
+    assert result is not None and result[0], result
 
 
 @needs_nginx
@@ -130,19 +160,38 @@ def test_real_nginx_cache_headers(tmp_path):
     dist = root / "dist"
     page = (dist / "index.html").read_text(encoding="utf-8")
     css = re.search(r'href="(/assets/site\.[0-9a-f]{10}\.css)"', page).group(1)
-    media = next(p for p in (dist / "media").iterdir() if re.search(r"\.[0-9a-f]{10}\.", p.name))
+    # у ресурсов копий с хешем нет
+    assert not [p for p in (dist / "media").rglob("*") if re.search(r"\.[0-9a-f]{10}\.", p.name)]
+    media = next(p for p in (dist / "media").iterdir() if p.is_file())
+    stamp = f"/media/{media.name}?v=0123456789"
     work = tmp_path / "work"
+    security = (
+        "content-security-policy",
+        "strict-transport-security",
+        "x-content-type-options",
+        "referrer-policy",
+    )
     with serve(dist, work):
         port = int(re.search(r"listen\s+127\.0\.0\.1:(\d+)", (work / "nginx.conf").read_text())[1])
-        for path in (css, f"/media/{media.name}"):
+        for path in (css, stamp, f"/media/{media.name}?a=1&v=abcdef0123#x"):
             got = _head(port, path)
             assert got["cache-control"] == ["public, max-age=31536000, immutable"], path
-            assert got["content-security-policy"] and got["strict-transport-security"]
+            for name in security:
+                assert len(got[name]) == 1, (path, name)
             assert got["x-content-type-options"] == ["nosniff"]
-        for path in ("/assets/site.css", "/media/cover.png"):
+        for path in (
+            "/assets/site.css",
+            f"/media/{media.name}",
+            f"/media/{media.name}?v=xyz",
+            f"/media/{media.name}?v=0123456789a",
+            f"/media/{media.name}?v=ABCDEF0123",
+            f"/media/{media.name}?w=0123456789",
+            f"/media/{media.name}?v=&x=1",
+        ):
             got = _head(port, path)
             assert got["cache-control"] == ["public, max-age=86400"], path
-            assert got["content-security-policy"]
+            for name in security:
+                assert len(got[name]) == 1, (path, name)
         got = _head(port, "/")
         assert got["cache-control"] == ["no-cache"]
         assert got["content-security-policy"]

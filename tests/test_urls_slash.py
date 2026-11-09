@@ -259,9 +259,9 @@ def test_never_writes_no_slash_everywhere(tmp_path):
     ]
     # служебная справка темы и 404 - там же, где всегда
     assert (dist / "ru" / "404" / "index.html").is_file() and (dist / "404.html").is_file()
-    # копии с хешем на месте, ссылки на них переписаны, адреса страниц не тронуты
+    # копии с хешем и метки на месте, адреса страниц не тронуты
     assert re.search(r'href="/assets/site\.[0-9a-f]{10}\.css"', page)
-    assert re.search(r'src="/media/cover\.[0-9a-f]{10}\.png"', page)
+    assert re.search(r'src="/media/cover\.png\?v=[0-9a-f]{10}"', page)
 
 
 def test_always_is_unchanged(tmp_path):
@@ -283,7 +283,7 @@ def test_versions_rewriter_ignores_no_slash_page_addresses():
         '<img src="/media/a.png"><a href="/assets/x.css">x</a>'
     )
     out = versions.rewrite_html(html, lambda rel: "0123456789" if rel == "media/a.png" else None)
-    assert out == html.replace("/media/a.png", "/media/a.0123456789.png")
+    assert out == html.replace("/media/a.png", "/media/a.png?v=0123456789")
 
 
 def test_never_nginx_config_text():
@@ -318,7 +318,8 @@ def test_never_on_real_nginx(tmp_path):
     css = re.search(
         r'href="(/assets/site\.[0-9a-f]{10}\.css)"', (dist / "index.html").read_text("utf-8")
     ).group(1)
-    hashed = next(p for p in (dist / "media").iterdir() if re.search(r"\.[0-9a-f]{10}\.", p.name))
+    landing = (dist / "cases" / "landing_page" / "index.html").read_text("utf-8")
+    stamped = re.search(r'src="(/media/cover\.png\?v=[0-9a-f]{10})"', landing).group(1)
     work = tmp_path / "nginx"
     with serve(dist, work) as get:
         assert get("/")[0] == 200
@@ -349,9 +350,12 @@ def test_never_on_real_nginx(tmp_path):
         # служебные адреса и файлы - как всегда
         assert get("/sitemap.xml")[0] == 200 and get("/robots.txt")[0] == 200
         assert get("/media/cover.png")[0] == 200
-        assert get(f"/media/{hashed.name}")[0] == 200
+        assert get(stamped)[0] == 200
+        # папка ресурсов и темы без страницы - 404 без 301 (heron serve повторяет)
+        for path in ("/assets/", "/media/"):
+            assert get(path)[0] in (403, 404), path
         port = int(re.search(r"listen\s+127\.0\.0\.1:(\d+)", (work / "nginx.conf").read_text())[1])
-        for path in (css, f"/media/{hashed.name}"):
+        for path in (css, stamped):
             got = _head(port, path)
             assert got["cache-control"] == ["public, max-age=31536000, immutable"], path
 
@@ -411,6 +415,49 @@ def test_relative_links_are_e046_under_never(tmp_path):
         assert any(p == "theme/base.html" for p, _, _ in found)
         assert result.failed
         assert not [t for _, _, t in found if "media/cover.png" in t.split(" - ")[0]]
+
+
+def test_relative_css_urls_are_e046_and_scripts_are_skipped(tmp_path):
+    """url() в style и <style> - тоже адреса; содержимое <script> - код, не ссылки."""
+    root = tmp_path / "site"
+    create(root, name="demo", languages=["en"])
+    conf = yaml.safe_load((root / "site.yaml").read_text(encoding="utf-8"))
+    conf["urls"] = {"trailing_slash": "never"}
+    conf.setdefault("build", {})["allow_raw_html"] = True
+    (root / "site.yaml").write_text(yaml.safe_dump(conf, allow_unicode=True), "utf-8")
+    body = (
+        'Raw: <span style="background:url(bg.png)">x</span>\n\n'
+        "<style>.q{background:url('img/q.png')} .r{background:url(/media/ok.png)}</style>\n"
+    )
+    _write(root, "en/x.md", "X", body=body)
+    base = root / "theme" / "base.html"
+    base.write_text(
+        base.read_text("utf-8").replace(
+            "<body",
+            '<div style="background:url(&quot;t-bg.png&quot;)"></div>\n'
+            "<style>@import 't.css'; .z{background:url(data:image/png;base64,AA)}</style>\n"
+            '<script>/* el.src = "loader.gif" */ const a = "<img src=x.gif>";</script>\n<body',
+            1,
+        ),
+        encoding="utf-8",
+    )
+    for result in (pipeline.check(root), pipeline.run(root)):
+        found = _e046(result)
+        texts = " ".join(text for _, _, text in found)
+        for bad in ("bg.png", "img/q.png", "t-bg.png", "t.css"):
+            assert bad in texts, (bad, found)
+        for fine in ("loader.gif", "x.gif", "data:image", "/media/ok.png"):
+            assert fine not in texts, (fine, found)
+        assert {p for p, _, _ in found} == {"en/x.md", "theme/base.html"}
+
+
+def test_attr_urls_unit():
+    html = (
+        '<a href="a.html"><i style="background:url(b.png)"></i>'
+        "<style>.x{background:url('c.png')}</style>"
+        '<script>var s = "<img src=d.png>"; // url(e.png)\n</script><img src="f.png">'
+    )
+    assert [v for _, v in urls.attr_urls(html)] == ["a.html", "b.png", "c.png", "f.png"]
 
 
 def test_relative_links_are_fine_under_always(tmp_path):
@@ -506,6 +553,16 @@ def test_preview_routes_follow_the_mode(tmp_path):
     )
     assert no_slash_route(dist, "/") is None
     assert no_slash_route(dist, "/sitemap.xml") is None
+    # папка без страницы - 404, а не 301 туда-обратно
+    (dist / "media" / "demo").mkdir(parents=True, exist_ok=True)
+    (dist / "media" / "demo" / "x.txt").write_text("x", encoding="utf-8")
+    assert no_slash_route(dist, "/assets/") == ("missing", "/assets/")
+    assert no_slash_route(dist, "/assets") == ("missing", "/assets")
+    assert no_slash_route(dist, "/media/demo/") == ("missing", "/media/demo/")
+    assert no_slash_route(dist, "/media/demo") == ("missing", "/media/demo")
+    assert no_slash_route(dist, "/media/demo/x.txt/") == ("missing", "/media/demo/x.txt/")
+    assert no_slash_route(dist, "/ru/nope/") == ("missing", "/ru/nope/")
+    assert no_slash_route(dist, "/sitemap.xml/") == ("redirect", "/sitemap.xml")
     path = root / "site.yaml"
     path.write_text(path.read_text("utf-8").replace("never", "always"), encoding="utf-8")
     assert trailing_slash(root) is True
@@ -539,9 +596,62 @@ def test_serve_answers_like_nginx(tmp_path):
         assert get("/ru/cases/landing_page/?a=1") == (301, "/ru/cases/landing_page?a=1")
         assert get("/")[0] == 200 and get("/sitemap.xml")[0] == 200
         assert get("/ru/nope")[0] == 404
+        # папка без страницы: 404 сразу, без 301 - ни своего, ни на папку (петля)
+        (dist / "media" / "demo").mkdir(parents=True, exist_ok=True)
+        (dist / "media" / "demo" / "x.txt").write_text("x", encoding="utf-8")
+        for path in ("/assets/", "/assets", "/media/demo/", "/media/demo", "/media/", "/ru/nope/"):
+            assert get(path) == (404, ""), path
+        assert get("/media/demo/x.txt")[0] == 200
         path = root / "site.yaml"
         path.write_text(path.read_text("utf-8").replace("never", "always"), encoding="utf-8")
         assert get("/ru")[0] == 301  # обычный каталог без слеша - как раньше
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_llms_full_links_follow_mode_and_language(tmp_path):
+    """llms-full: ссылки текста - адресом страницы на языке файла и в форме режима."""
+    root = _site(tmp_path, "never")
+    for lang in ("en", "ru"):
+        body = (
+            "See [the case](/cases/landing_page/#top), [ref][r] and "
+            "[home](/?a=1), `[code](/cases/)`, [file](/media/cover.png), [nope](/nope/).\n\n"
+            "```\n[fenced](/cases/)\n```\n\n[r]: /cases/\n"
+        )
+        _write(root, f"{lang}/cases/landing_page.md", "Landing", "", body)
+    conf = yaml.safe_load((root / "site.yaml").read_text(encoding="utf-8"))
+    conf.setdefault("seo", {})["llms_txt"] = True
+    (root / "site.yaml").write_text(yaml.safe_dump(conf, allow_unicode=True), "utf-8")
+    _built(root)
+    dist = root / "dist"
+    en = (dist / "llms-full-en.txt").read_text("utf-8")
+    ru = (dist / "llms-full-ru.txt").read_text("utf-8")
+    assert "[the case](/cases/landing_page#top)" in en
+    assert "[the case](/ru/cases/landing_page#top)" in ru
+    assert "[r]: /cases\n" in en and "[r]: /ru/cases\n" in ru
+    assert "[home](/?a=1)" in en and "[home](/ru?a=1)" in ru
+    for text in (en, ru):
+        # код, файлы и ссылки в никуда - как написаны
+        assert "`[code](/cases/)`" in text and "[fenced](/cases/)" in text
+        assert "[file](/media/cover.png)" in text and "[nope](/nope/)" in text
+        assert "/cases/landing_page/" not in text
+
+
+def test_llms_full_links_always_mode_keep_slash(tmp_path):
+    root = _site(tmp_path, None)
+    conf = yaml.safe_load((root / "site.yaml").read_text(encoding="utf-8"))
+    conf.setdefault("seo", {})["llms_txt"] = True
+    (root / "site.yaml").write_text(yaml.safe_dump(conf, allow_unicode=True), "utf-8")
+    _built(root)
+    ru = (root / "dist" / "llms-full-ru.txt").read_text("utf-8")
+    assert "[the case](/ru/cases/landing_page/)" in ru
+
+
+def test_e009_shows_the_address_in_the_mode_form(tmp_path):
+    root = _site(tmp_path, "never")
+    _write(root, "en/other.md", "Other", "redirect_from: [/cases/]\n")
+    result = pipeline.run(root)
+    [error] = [e for e in result.collector.errors if e.code == "E009"]
+    text = error.render("en")
+    assert "existing address /cases" in text and "existing address /cases/" not in text

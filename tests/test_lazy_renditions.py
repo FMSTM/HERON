@@ -70,13 +70,13 @@ def site(tmp_path) -> Path:
     return root
 
 
-# Копия с хешем содержимого в имени (core/versions.py) - тот же файл, что и
-# под прежним именем: здесь считаются только файлы.
-HASHED = re.compile(r"\.[0-9a-f]{10}(\.[A-Za-z0-9]+)(?=$|[\s\"')?#,])")
+# Метка версии ?v=<хеш> (core/versions.py) - тот же файл: здесь считаются
+# только файлы.
+STAMP = re.compile(r"\?v=[0-9a-f]{10}")
 
 
 def unhash(text: str) -> str:
-    return HASHED.sub(r"\1", text)
+    return STAMP.sub("", text)
 
 
 def built(root: Path) -> set[str]:

@@ -91,12 +91,13 @@ EN: dict[str, tuple[str, str]] = {
         "modes; the build folders are the same (`…/x/index.html`).",
     ),
     "site.schema.json#/$defs/CacheBlock/description": (
-        "ef38a53998",
+        "43f8ba1105",
         "Browser cache times for theme files and resources (22 §5).\n\n"
-        "`versioned` - files with the content hash in the name (`site.0123abcdef.css`):\n"
-        "under such a name the content never changes, so the time is long and\n"
-        "comes with `immutable`. `assets` and `media` - the same files under their plain\n"
-        "names, without a hash: kept for old pages in a cache and for external links.\n\n"
+        "`versioned` - addresses with a version: theme files with the content hash in the name\n"
+        "(`site.0123abcdef.css`) and `media/` resources with the mark `?v=0123abcdef`;\n"
+        "under such an address the content never changes, so the time is long and\n"
+        "comes with `immutable`. `assets` - theme files under their plain names, `media` -\n"
+        "resources without the mark: kept for old pages in a cache and for external links.\n\n"
         "Pages are not here: they always get `no-cache`, otherwise an edit of the text and\n"
         "the new names of theme files would reach the visitor late.",
     ),

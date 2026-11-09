@@ -116,8 +116,44 @@ _ATTR = re.compile(
 )
 
 
+# Содержимое `<script>`: код, а не разметка. Адреса в нём не ищутся (как и
+# версии файлов не подставляются, 21 §4): строка в комментарии или в коде
+# - не ссылка страницы.
+_SCRIPT_BODY = re.compile(r"(<script\b[^>]*>)(.*?)(</script\s*>|\Z)", re.I | re.S)
+_STYLE_ATTR = re.compile(r"""(?<![\w:-])style\s*=\s*(?:"([^"]*)"|'([^']*)')""", re.I)
+_STYLE_BODY = re.compile(r"<style\b[^>]*>(.*?)(?:</style\s*>|\Z)", re.I | re.S)
+# url() в стилях: в кавычках, в сущностях (атрибут style) или без них; @import "…".
+_CSS_URL = re.compile(
+    r"""url\(\s*(?:"([^"]*)"|'([^']*)'|&quot;(.*?)&quot;|&\#39;(.*?)&\#39;|([^"'()\s]+))\s*\)""",
+    re.I | re.S,
+)
+_CSS_IMPORT = re.compile(r"""@import\s+(["'])([^"'\n]+)\1""", re.I)
+
+
+def _blank(match: re.Match[str]) -> str:
+    """Тело скрипта - пробелами той же длины: смещения и строки не сдвигаются."""
+    body = "".join(char if char == "\n" else " " for char in match.group(2))
+    return match.group(1) + body + match.group(3)
+
+
+def css_urls(css: str, offset: int = 0) -> list[tuple[int, str]]:
+    """Адреса `url(…)` и `@import "…"` в стилях: (смещение, значение)."""
+    out: list[tuple[int, str]] = []
+    for match in _CSS_URL.finditer(css):
+        value = next(g for g in match.groups() if g is not None)
+        out.append((offset + match.start(), value))
+    for match in _CSS_IMPORT.finditer(css):
+        out.append((offset + match.start(), match.group(2)))
+    return out
+
+
 def attr_urls(html: str) -> list[tuple[int, str]]:
-    """Адреса из атрибутов HTML: (смещение в тексте, значение). srcset - по кандидатам."""
+    """Адреса из HTML: (смещение в тексте, значение).
+
+    Атрибуты с адресом (srcset - по кандидатам), `url()` в атрибуте `style`
+    и в `<style>`. Содержимое `<script>` пропускается: это код.
+    """
+    html = _SCRIPT_BODY.sub(_blank, html)
     out: list[tuple[int, str]] = []
     for match in _ATTR.finditer(html):
         group = next(g for g in (2, 3, 4) if match.group(g) is not None)
@@ -129,4 +165,9 @@ def attr_urls(html: str) -> list[tuple[int, str]]:
                     out.append((match.start(), parts[0]))
         else:
             out.append((match.start(), value))
-    return out
+    for match in _STYLE_ATTR.finditer(html):
+        group = 1 if match.group(1) is not None else 2
+        out += css_urls(match.group(group), match.start(group))
+    for match in _STYLE_BODY.finditer(html):
+        out += css_urls(match.group(1), match.start(1))
+    return sorted(out)

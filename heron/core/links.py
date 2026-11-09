@@ -109,6 +109,11 @@ def _not_a_page(href: str) -> bool:
     return "." in last
 
 
+def not_a_page(href: str) -> bool:
+    """Ссылка не на страницу (`_not_a_page`): для модулей вне ядра ссылок."""
+    return _not_a_page(href)
+
+
 def target(site: Site, config: SiteConfig, lang: str, href: str) -> tuple[Page | None, bool]:
     """Страница, на которую ведёт ссылка из текста страницы языка `lang`.
 

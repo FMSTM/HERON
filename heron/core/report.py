@@ -25,7 +25,7 @@ import heron
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core import links as links_module
-from heron.core import media, notes
+from heron.core import media, notes, versions
 from heron.core import urls as urls_module
 from heron.core.errors import Collector, HeronError, Warning_
 from heron.core.models import Site
@@ -393,11 +393,14 @@ def build(
     theme_dir=None,
     site_root=None,
     lang: str | None = None,
+    used_media=frozenset(),
 ) -> Report:
     """Собрать отчёт по обойдённому сайту.
 
     `lang` - язык запуска от вызывающего. Без него (прямой вызов мимо CLI) отчёт
     помнит язык сайта только как умолчание для `render()` и `kit_line()`.
+    `used_media` - ресурсы, выданные шаблону через `asset('media/…')` при
+    рендере; литералы `asset('media/…')` в шаблонах темы находятся и без него.
     """
     report = Report()
     report.notes_lang = lang or config.build.notes
@@ -497,7 +500,10 @@ def build(
         report.unused_modules = unused_modules(theme_dir)
 
     if site_root is not None:
-        report.unused_media = media.unused(site, site_root, config)
+        used = set(used_media)
+        if theme_dir is not None:
+            used |= versions.template_media(theme_dir)
+        report.unused_media = media.unused(site, site_root, config, used)
         report.static_media = _content_in_static(site_root)
         report.notes_missing = _without_notes(site_root)
 

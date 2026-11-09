@@ -62,7 +62,8 @@ def collect(site: Site, collector: Collector, config: SiteConfig | None = None) 
     """Собрать карту 301 и список 410, проверив их друг против друга и против сайта."""
     plan = Plan()
     owner: dict[str, str] = {}
-    pages = {_stem(url) for url in site.by_url}
+    # адрес страницы в форме режима сайта (urls.trailing_slash) - для сообщений
+    pages = {_stem(url): url for url in site.by_url}
     moved_stems: dict[str, str] = {}
 
     for page in site.pages:
@@ -79,9 +80,10 @@ def collect(site: Site, collector: Collector, config: SiteConfig | None = None) 
             if not ok:
                 plan.raw.add(old)
             if old in site.by_url or _stem(old) in pages:
+                shown = old if old in site.by_url else pages[_stem(old)]
                 collector.error(
                     "E009",
-                    Msg("redirects_from_exists", written=written, old=old),
+                    Msg("redirects_from_exists", written=written, old=shown),
                     path=page.source,
                     hint=Msg("redirects_from_exists_hint"),
                 )

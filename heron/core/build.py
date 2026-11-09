@@ -479,7 +479,13 @@ def run(
         # Всё, что может забраковать сборку, — до записи: отчёт, разметка,
         # nginx -t. Строгая сборка с предупреждением не трогает прошлую версию.
         result.report = report.build(
-            site, config, theme, theme_dir=theme_dir, site_root=site_root, lang=notes_lang
+            site,
+            config,
+            theme,
+            theme_dir=theme_dir,
+            site_root=site_root,
+            lang=notes_lang,
+            used_media=assets.issued,
         )
         collector.warnings.extend(report.nav_empty(site, config))
         collector.warnings.extend(report.duplicate_titles(site, config))

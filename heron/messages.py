@@ -947,6 +947,12 @@ TEXT["ru"].update(
             "хешем, но asset('…') проверяется - опечатка в имени станет ошибкой E045, а не "
             "битой ссылкой. См. heron docs theme, «Как подключать файлы темы: asset()»"
         ),
+        "theme_asset_in_script": (
+            "строка {line}: адрес /assets/ внутри <script> - там сборка ничего не "
+            "переписывает, файл останется без версии и кэшируется на срок "
+            "nginx.cache.assets; передайте адрес из разметки атрибутом "
+            "data-…=\"{{{{ asset('…') }}}}\" и читайте его в скрипте"
+        ),
         "theme_js_asset_path": (
             "строка {line}: путь {path} в скрипте темы - внутри .js движок имена с хешем не "
             "подставляет, и файл по этому адресу кэшируется на срок nginx.cache.assets; "
@@ -991,6 +997,12 @@ TEXT["en"].update(
             "hashed name anyway, but asset('…') is checked - a typo in the name becomes error"
             ' E045 instead of a broken link. See heron docs theme, "How to include theme '
             'files: asset()"'
+        ),
+        "theme_asset_in_script": (
+            "line {line}: the /assets/ address is inside <script> - the build rewrites "
+            "nothing there, the file stays without a version and is cached for "
+            "nginx.cache.assets; pass the address from the markup in an attribute "
+            "data-…=\"{{{{ asset('…') }}}}\" and read it in the script"
         ),
         "theme_js_asset_path": (
             "line {line}: the path {path} in a theme script - inside .js the engine does not "

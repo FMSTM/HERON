@@ -393,11 +393,25 @@ _JS_BLOCK = re.compile(r"/\*.*?\*/", re.S)
 JS_SUFFIXES = {".js", ".mjs"}
 
 
+_SCRIPT_CLOSE = re.compile(r"</script[\s/>]", re.I)
+
+
+def _script_bodies(text: str) -> list[tuple[int, int]]:
+    """Содержимое `<script>…</script>` шаблона: (начало, конец) в тексте."""
+    spans: list[tuple[int, int]] = []
+    for tag in _SCRIPT.finditer(text):
+        close = _SCRIPT_CLOSE.search(text, tag.end())
+        spans.append((tag.end(), close.start() if close else len(text)))
+    return spans
+
+
 def asset_paths(theme_dir: Path, site_root: Path | None, collector: Collector) -> None:
     """Предупредить о ручных адресах файлов темы (21 §7, «Версии файлов»).
 
-    В шаблоне `/assets/…` сборка и так перепишет на имя с хешем, но
-    `asset('…')` проверяется: опечатка - ошибка E045, а не битая ссылка.
+    В разметке шаблона `/assets/…` сборка и так перепишет на имя с хешем,
+    но `asset('…')` проверяется: опечатка - ошибка E045, а не битая ссылка.
+    Внутри `<script>` сборка не переписывает ничего: там адрес остаётся без
+    версии - отдельное предупреждение с советом про атрибут data-….
     В скрипте темы (`.js`) имена не переписываются вовсе: такой файл
     кэшируется на срок без версии, и после обновления темы посетитель
     может получить вчерашний.
@@ -412,10 +426,15 @@ def asset_paths(theme_dir: Path, site_root: Path | None, collector: Collector) -
         except (OSError, UnicodeDecodeError):
             continue
         text = _COMMENTS.sub(_blank, text)
-        lines = sorted({text.count("\n", 0, m.start()) + 1 for m in _HARDCODED.finditer(text)})
-        for line in lines:
+        scripts = _script_bodies(text)
+        found: set[tuple[int, str]] = set()
+        for match in _HARDCODED.finditer(text):
+            inside = any(a <= match.start() < b for a, b in scripts)
+            key = "theme_asset_in_script" if inside else "theme_asset_hardcoded"
+            found.add((text.count("\n", 0, match.start()) + 1, key))
+        for line, key in sorted(found):
             collector.warn(
-                Msg("theme_asset_hardcoded", line=line),
+                Msg(key, line=line),
                 path=_shown(theme_dir, rel, root),
                 line=line,
                 kind="контент",

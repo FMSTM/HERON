@@ -511,17 +511,18 @@ def check_video(site: Site, collector: Collector) -> None:
         )
 
 
-def unused(site: Site, site_root: Path, config=None) -> list[str]:
+def unused(site: Site, site_root: Path, config=None, used=frozenset()) -> list[str]:
     """Файлы в папке ресурсов, которых не ждёт ни одна страница.
 
     Не ошибка и не предупреждение сборки: мастер часто кладут раньше, чем
     пишут страницу. Но в отчёте это видеть надо — иначе папка за полгода
     зарастает старыми версиями, и никто не решается ничего удалить.
+    `used` - пути, которые ждёт тема: `asset('media/…')` в шаблонах.
     """
     root = site_root / (LEGACY if (site_root / LEGACY).is_dir() else MEDIA)
     if not root.is_dir():
         return []
-    known = set(declared_by(site, config))
+    known = set(declared_by(site, config)) | set(used)
     rest = []
     for path in sorted(root.rglob("*")):
         if not path.is_file() or path.name.startswith("."):

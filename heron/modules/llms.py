@@ -8,7 +8,10 @@
 
 from __future__ import annotations
 
+import re
+
 from heron.contracts.site import SiteConfig
+from heron.core import links
 from heron.core.models import Page, Site
 from heron.core.urls import absolute, home_url
 from heron.modules.sitemap import indexable
@@ -18,14 +21,85 @@ def _line(page: Page, config: SiteConfig) -> str:
     return f"- [{page.h1}]({absolute(config, page.url)}): {page.meta.description}"
 
 
-def _body(page: Page) -> str:
+# Адрес ссылки markdown: `[текст](/x/ "заголовок")`, `[текст](</x y/>)` и
+# определение `[метка]: /x/`. Код (блоки ``` и `строки`) не трогается.
+_INLINE = re.compile(r"\]\(\s*(?:<(?P<a>[^<>\n]*)>|(?P<b>[^\s()<>]+))")
+_DEFINITION = re.compile(r"^[ ]{0,3}\[[^\]\n]+\]:[ \t]*(?:<(?P<a>[^<>\n]*)>|(?P<b>\S+))", re.M)
+_FENCE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})")
+_CODE_SPAN = re.compile(r"(`+)(?:(?!\1).)+?\1", re.S)
+
+
+def _code_mask(text: str) -> list[tuple[int, int]]:
+    """Куски текста с кодом: блоки ``` / ~~~ и `строки`. Ссылки в них - пример."""
+    spans: list[tuple[int, int]] = []
+    offset, start, fence = 0, None, ""
+    for line in text.splitlines(keepends=True):
+        mark = _FENCE.match(line)
+        if start is None and mark:
+            start, fence = offset, mark.group(1)
+        elif (
+            start is not None
+            and mark
+            and mark.group(1)[0] == fence[0]
+            and len(mark.group(1)) >= len(fence)
+        ):
+            spans.append((start, offset + len(line)))
+            start = None
+        offset += len(line)
+    if start is not None:
+        spans.append((start, len(text)))
+    for match in _CODE_SPAN.finditer(text):
+        if not any(a <= match.start() < b for a, b in spans):
+            spans.append(match.span())
+    return spans
+
+
+def localize(text: str, page: Page, site: Site, config: SiteConfig) -> str:
+    """Ссылки на страницы в markdown - адресом страницы на языке файла.
+
+    Тем же разбором, что и HTML (`links.target`): ключ или адрес, версия
+    языка `page.lang`, форма адреса режима сайта (`urls.trailing_slash`).
+    Автор пишет `/services/x/` один раз; в `llms-full-ru.txt` это русский
+    адрес, при `never` - без слеша. Не страница (`/media/`, файл, чужой
+    адрес) и ссылка в никуда - как написаны, якорь и параметры остаются.
+    """
+    code = _code_mask(text)
+    edits: list[tuple[int, int, str]] = []
+    for pattern in (_INLINE, _DEFINITION):
+        for match in pattern.finditer(text):
+            group = "a" if match.group("a") is not None else "b"
+            start, end = match.span(group)
+            if any(a <= start < b for a, b in code):
+                continue
+            href = match.group(group)
+            if not href.startswith("/") or links.not_a_page(href):
+                continue
+            path, sep, fragment = href.partition("#")
+            path, mark, query = path.partition("?")
+            if not path:
+                continue
+            found, _ = links.target(site, config, page.lang, href)
+            if found is None:
+                continue
+            edits.append((start, end, f"{found.url}{mark}{query}{sep}{fragment}"))
+    out, last = [], 0
+    for start, end, new in sorted(edits):
+        if start < last:
+            continue
+        out += [text[last:start], new]
+        last = end
+    out.append(text[last:])
+    return "".join(out)
+
+
+def _body(page: Page, site: Site, config: SiteConfig) -> str:
     parts: list[str] = []
     if page.intro is not None and page.intro.raw:
         parts.append(page.intro.raw)
     for section in page.sections.values():
         title = f"## {section.title}" if section.title else ""
         parts.append("\n\n".join(x for x in (title, section.raw) if x))
-    return "\n\n".join(parts)
+    return localize("\n\n".join(parts), page, site, config)
 
 
 # Как назвать язык в блоке «другие языки». Нейронке всё равно, человеку —
@@ -229,7 +303,8 @@ def _for_lang(site: Site, config: SiteConfig, lang: str, langs: list[str]) -> di
     if config.seo.llms_txt:
         full = [f"# {title}", "", *_note(config, lang)]
         for page in sorted(pages, key=lambda p: p.url):
-            full += [f"# {page.h1}", "", f"URL: {absolute(config, page.url)}", "", _body(page), ""]
+            body = _body(page, site, config)
+            full += [f"# {page.h1}", "", f"URL: {absolute(config, page.url)}", "", body, ""]
         full = _others(config, lang, langs, full=True) + full
         files[_name(lang, full=True, single=single).lstrip("/")] = "\n".join(full).rstrip() + "\n"
 

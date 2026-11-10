@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 
-from heron.contracts.site import AnalyticsBlock, SiteConfig
+from heron.contracts.site import AnalyticsBlock, SiteConfig, permission_header
 from heron.core.errors import HeronError
 from heron.messages import Msg
 from heron.modules.redirects import Plan
@@ -43,7 +43,9 @@ COMMENTS = {
         ),
         "gzip": (
             "Сжатие: текст, стили, скрипты, svg, карты и разметка. Картинки и видео\n"
-            "уже сжаты, второй раз их жать — только тратить процессор."
+            "уже сжаты, второй раз их жать — только тратить процессор.\n"
+            "Готовый .gz рядом с файлом движок кладёт при сборке (gzip_static),\n"
+            "остальное жмётся на лету."
         ),
         "pages": (
             "Страницы — всегда спрашивать сервер: правка текста должна быть видна\n"
@@ -77,8 +79,27 @@ COMMENTS = {
         "root": "Корень — основной язык сайта, его 404 лежит рядом с index.html.",
         "security": (
             "Безопасность: версия nginx не показывается, заголовки ставит образ сайта.\n"
-            "add_header в location заменяет заголовки server, поэтому там они повторены."
+            "add_header в location заменяет заголовки server, поэтому там они повторены.\n"
+            "Allow - только у ответа 405: у остальных значение карты пустое, а\n"
+            "пустой заголовок nginx не отправляет."
         ),
+        "methods": (
+            "Сайт - статика: только GET и HEAD, остальное - 405 (карта перед server).\n"
+            "Проверка до поиска location, поэтому ответ несёт заголовки уровня server."
+        ),
+        "realip": (
+            "Адрес посетителя от внешнего прокси (X-Forwarded-For), если запрос пришёл\n"
+            "с петли или из частной сети. Справа налево до первого чужого адреса."
+        ),
+        "log": (
+            "Журнал - в stdout образа (/var/log/nginx/access.log). Адрес посетителя\n"
+            "по nginx.log_ip: masked, full или off. Формат и карта - перед server."
+        ),
+        "logformat": (
+            "Журнал: адрес посетителя по nginx.log_ip ({mode}). Имя формата несёт режим\n"
+            "и отпечаток конфига: два сайта в одном http не столкнутся именами."
+        ),
+        "files": "Дескрипторы и метаданные часто запрашиваемых файлов держатся в памяти.",
         "health": "Проверка живости для healthcheck: отвечает без обращения к файлам.",
         "exact": "301 и 410: точные адреса, регистр важен",
         "noslash": (
@@ -103,7 +124,9 @@ COMMENTS = {
         ),
         "gzip": (
             "Compression: text, styles, scripts, svg, maps and markup. Images and video\n"
-            "are already compressed; compressing them again only wastes the processor."
+            "are already compressed; compressing them again only wastes the processor.\n"
+            "The engine puts a ready .gz next to a file at build time (gzip_static),\n"
+            "the rest is compressed on the fly."
         ),
         "pages": (
             "Pages: always ask the server, an edit of the text must show at once.\n"
@@ -137,8 +160,27 @@ COMMENTS = {
         "root": "The root is the main language of the site, its 404 lies next to index.html.",
         "security": (
             "Security: the nginx version is hidden, the site image sets the headers.\n"
-            "add_header in a location replaces the server ones, so they are repeated there."
+            "add_header in a location replaces the server ones, so they are repeated there.\n"
+            "Allow goes only with a 405: for other answers the map value is empty,\n"
+            "and nginx does not send an empty header."
         ),
+        "methods": (
+            "The site is static: only GET and HEAD, the rest gets 405 (the map before server).\n"
+            "The check runs before a location is chosen, so the answer has the server headers."
+        ),
+        "realip": (
+            "The visitor address from the outer proxy (X-Forwarded-For) when the request\n"
+            "came from loopback or a private network. Right to left up to the first foreign one."
+        ),
+        "log": (
+            "The log goes to the image stdout (/var/log/nginx/access.log). The visitor\n"
+            "address by nginx.log_ip: masked, full or off. Format and map: before server."
+        ),
+        "logformat": (
+            "Log: the visitor address by nginx.log_ip ({mode}). The format name carries the\n"
+            "mode and a fingerprint of the config: two sites in one http do not clash by name."
+        ),
+        "files": "Descriptors and metadata of often requested files are kept in memory.",
         "health": "Liveness check for healthcheck: answers without touching files.",
         "exact": "301 and 410: exact addresses, case matters",
         "noslash": (
@@ -197,16 +239,104 @@ def _csp(analytics: AnalyticsBlock) -> str:
 
 
 # Заголовки безопасности (спецификация 22, раздел 5). HSTS на http-ответе браузер
-# игнорирует, а за TLS-прокси он нужен, поэтому ставится всегда.
-def _security(indent: int, analytics: AnalyticsBlock) -> str:
+# игнорирует, а за TLS-прокси он нужен, поэтому ставится всегда (nginx.hsts;
+# срок 0 - заголовка нет). X-Frame-Options повторяет `frame-ancestors 'self'` для
+# браузеров без CSP 2. Cross-Origin-Resource-Policy и COEP не ставятся: первый
+# закрыл бы картинки сайта для чужих страниц и почтовых клиентов, второй -
+# встраивание всего чужого без CORP.
+def _security(indent: int, config: SiteConfig) -> str:
     pad = " " * indent
-    lines = (
+    hsts = config.nginx.hsts.header()
+    lines = [
         'add_header X-Content-Type-Options "nosniff" always;',
         'add_header Referrer-Policy "strict-origin-when-cross-origin" always;',
-        f'add_header Content-Security-Policy "{_csp(analytics)}" always;',
-        'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;',
-    )
+        f'add_header Content-Security-Policy "{_csp(config.analytics)}" always;',
+    ]
+    if hsts is not None:
+        lines.append(f'add_header Strict-Transport-Security "{hsts}" always;')
+    policy = quote(permission_header(config.nginx.permissions))
+    lines += [
+        f"add_header Permissions-Policy {policy} always;",
+        'add_header X-Frame-Options "SAMEORIGIN" always;',
+        'add_header Cross-Origin-Opener-Policy "same-origin" always;',
+    ]
     return "".join(f"{pad}{line}\n" for line in lines)
+
+
+# Только GET и HEAD (22 §5). Карта, а не `limit_except`: тот отвечает 403, а не
+# 405, и его пришлось бы повторять в каждом location. Проверка - `if` с одним
+# `return` на уровне server: она идёт до поиска location, и ответ несёт заголовки
+# уровня server. TRACE nginx отклоняет сам ещё раньше, с теми же заголовками.
+# Ключ - регулярка: строковые ключи карты регистр не различают. Allow - по коду
+# ответа: 405 бывает только здесь, а у 400 на испорченный запрос метода нет.
+METHOD_MAP = """map $request_method $heron_method_denied {
+    "~^(?:GET|HEAD)$" "";
+    default           1;
+}
+map $status $heron_allow {
+    "~^405$" "GET, HEAD";
+    default  "";
+}
+"""
+METHOD_CHECK = """    #@methods
+    if ($heron_method_denied) { return 405; }
+"""
+
+# Адрес посетителя за внешним прокси (ngx_http_realip_module, есть в образе
+# nginx-unprivileged и в пакетах nginx.org). Доверяем только петле и частным
+# сетям: внешний nginx на той же машине или в сети docker.
+REAL_IP_FROM = ("127.0.0.1", "::1", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7")
+REAL_IP = (
+    "    #@realip\n"
+    + "".join(f"    set_real_ip_from {net};\n" for net in REAL_IP_FROM)
+    + "    real_ip_header X-Forwarded-For;\n    real_ip_recursive on;\n\n"
+)
+
+# Журнал образа: nginx-unprivileged связывает этот путь с stdout контейнера.
+ACCESS_LOG = "/var/log/nginx/access.log"
+# Адрес в журнале при log_ip: masked - IPv4 без последнего октета, IPv6 до /48
+# (три первые группы; «::» раньше третьей - короче, нули не пишутся). Адрес
+# $remote_addr nginx пишет сам, в нижнем регистре и сжатым.
+MASK_MAP = """map $remote_addr $heron_log_ip_masked {
+    "~^(\\d+\\.\\d+\\.\\d+)\\.\\d+$"         "$1.0";
+    "~^::ffff:(\\d+\\.\\d+\\.\\d+)\\.\\d+$"  "::ffff:$1.0";
+    "~^([0-9a-f]{1,4}:[0-9a-f]{1,4}:[0-9a-f]{1,4}):"  "$1::";
+    "~^([0-9a-f]{0,4}(?::[0-9a-f]{1,4}){0,2})::"     "$1::";
+    default                                          "-";
+}
+"""
+LOG_IP_FIELD = {"masked": "$heron_log_ip_masked", "full": "$remote_addr", "off": "-"}
+
+
+LOG_FORMAT_MARK = "@LOGFORMAT@"
+
+
+def log_format_name(mode: str, text: str) -> str:
+    """Имя формата журнала: режим и отпечаток остального конфига.
+
+    Два формата с одним именем в http - ошибка nginx (в отличие от карт). Два
+    сайта в одном http (sites-enabled) различаются конфигом, а с ним и именем;
+    одни и те же исходники дают одно и то же имя на любом языке комментариев.
+    """
+    import hashlib
+
+    # только директивы: язык комментариев (build.notes) имени не меняет
+    directives = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
+    return f"heron_{mode}_{hashlib.sha256(directives.encode('utf-8')).hexdigest()[:10]}"
+
+
+def _log(config: SiteConfig, notes: str) -> str:
+    """Формат журнала (и карта маски) - в контексте http, перед server."""
+    mode = config.nginx.log_ip
+    head = MASK_MAP if mode == "masked" else ""
+    text = _comments("#@logformat\n", notes).replace("{mode}", mode)
+    return (
+        text
+        + head
+        + f"log_format {LOG_FORMAT_MARK} '{LOG_IP_FIELD[mode]} - $remote_user "
+        + "[$time_local] "
+        + '"$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"\';\n'
+    )
 
 
 HEAD = """server {
@@ -222,6 +352,18 @@ HEAD = """server {
 
     #@security
 @SECURITY@
+    add_header Allow $heron_allow always;
+
+@REALIP@
+    #@log
+    access_log @ACCESSLOG@ @LOGFORMAT@;
+
+    #@files
+    open_file_cache          max=10000 inactive=60s;
+    open_file_cache_valid    60s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors   on;
+
     #@health
     location = /healthz {
         access_log off;
@@ -242,11 +384,13 @@ HEAD = """server {
 
     #@gzip
     gzip on;
+    gzip_static on;
     gzip_vary on;
     gzip_min_length 1024;
-    gzip_types text/plain text/css text/xml application/javascript application/json
-               application/xml application/rss+xml application/atom+xml
-               application/manifest+json image/svg+xml text/markdown application/yaml;
+    gzip_types text/plain text/css text/xml application/javascript text/javascript
+               application/json application/xml application/rss+xml application/atom+xml
+               application/manifest+json image/svg+xml text/markdown application/yaml
+               font/ttf font/otf application/vnd.ms-fontobject;
 
     #@pages
     add_header Cache-Control "no-cache" always;
@@ -519,7 +663,7 @@ def generate(config: SiteConfig, plan: Plan | None = None) -> dict[str, str]:
     variable = media_variable(age, media)
     versioned = (
         _comments(VERSIONED, notes)
-        .replace("@SECURITY12@\n", _security(12, config.analytics))
+        .replace("@SECURITY12@\n", _security(12, config))
         .replace("@AGE@", str(age))
     )
     media_map = (
@@ -531,23 +675,45 @@ def generate(config: SiteConfig, plan: Plan | None = None) -> dict[str, str]:
     head = (
         _comments(HEAD, notes)
         .replace("@VERSIONED@\n", versioned)
-        .replace("@SECURITY8@\n", _security(8, config.analytics))
-        .replace("@SECURITY@\n", _security(4, config.analytics))
+        .replace("@SECURITY8@\n", _security(8, config))
+        .replace("@SECURITY@\n", _security(4, config))
+        .replace("@REALIP@\n", _comments(REAL_IP, notes))
+        .replace("@ACCESSLOG@", ACCESS_LOG)
         .replace("@MEDIAVAR@", variable)
         .replace("@ASSETS@", str(cache.seconds("assets")))
     )
     head = head.replace(
         "    absolute_redirect off;\n",
-        "    absolute_redirect off;\n" + checks + _locations(plan, notes),
+        "    absolute_redirect off;\n"
+        + _comments(METHOD_CHECK, notes)
+        + checks
+        + _locations(plan, notes),
     )
-    parts = [_comments("#@built\n", notes) + "\n", maps, media_map + "\n", head]
+    parts = [
+        _comments("#@built\n", notes) + "\n",
+        maps,
+        media_map + "\n",
+        METHOD_MAP + "\n",
+        _log(config, notes) + "\n",
+        head,
+    ]
     slash = config.urls.slash
     for lang in config.site.languages:
         if lang != default:
             block = LANG.format(lang=lang) if slash else _comments(LANG_NEVER, notes)
             parts.append(block if slash else block.format(lang=lang))
     parts.append(_comments(TAIL if slash else TAIL_NEVER, notes))
-    return {NAME: "".join(parts)}
+    text = "".join(parts)
+    # Метка заменяется только целыми строками формата и журнала: адрес сайта
+    # в кавычках перевода строки не содержит (quote) и такой строкой не станет.
+    name = log_format_name(config.nginx.log_ip, text)
+    for line in (
+        f"\nlog_format {LOG_FORMAT_MARK} '",
+        f"\n    access_log {ACCESS_LOG} {LOG_FORMAT_MARK};\n",
+    ):
+        assert text.count(line) == 1, line
+        text = text.replace(line, line.replace(LOG_FORMAT_MARK, name))
+    return {NAME: text}
 
 
 MIME_INCLUDE = "include /etc/nginx/mime.types;"
@@ -602,7 +768,12 @@ def check(conf: str | None, collector=None) -> tuple[bool, str] | None:
         if mime is None:
             mime = str(root / "mime.types")
             (root / "mime.types").write_text(MIME_STUB, encoding="utf-8")
-        (root / "site.conf").write_text(conf.replace(MIME_INCLUDE, f"include {mime};"), "utf-8")
+        # Журнал образа (/var/log/nginx) на машине сборки может не существовать
+        # или быть закрыт на запись: nginx -t открывает его и упал бы не по делу.
+        text = conf.replace(MIME_INCLUDE, f"include {mime};").replace(
+            f"access_log {ACCESS_LOG} ", f"access_log {root}/access.log "
+        )
+        (root / "site.conf").write_text(text, "utf-8")
         temp = "\n".join(
             f"  {name} {root}/{name};"
             for name in (

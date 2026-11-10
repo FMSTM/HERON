@@ -14,6 +14,20 @@ TEXT = {
             "например 3600, 30m, 12h, 1d, 7d, 1y"
         ),
         "site_duration_big": "срок кэша {value}: больше 68 лет (2^31-1 секунд) не бывает",
+        "site_hsts_preload": (
+            "nginx.hsts: preload {max_age} - по правилам hstspreload.org для списка предзагрузки "
+            "нужны max_age не меньше 1y и subdomains: true"
+        ),
+        "site_permission_shape": "nginx.permissions - словарь «возможность: значение»",
+        "site_permission_unknown": (
+            "nginx.permissions: возможности {name} нет в списке известных браузеру; "
+            "похожие: {close}"
+        ),
+        "site_permission_value": (
+            "nginx.permissions.{name}: значение {value} - ожидается none, self, * или источники "
+            "https://example.com (можно вместе с self)"
+        ),
+        "site_log_ip": "nginx.log_ip: {value} - ожидается masked, full или off",
         "site_form_no_fields": "у формы нет ни одного поля",
         "site_field_name": "имя поля {name} - латиница, цифры, дефис и подчёркивание",
         "site_gone_root": "gone: {entry} - ожидается путь от корня, например /old-page/",
@@ -94,6 +108,20 @@ TEXT = {
             "for example 3600, 30m, 12h, 1d, 7d, 1y"
         ),
         "site_duration_big": "cache time {value}: more than 68 years (2^31-1 seconds) is not allowed",
+        "site_hsts_preload": (
+            "nginx.hsts: preload {max_age} - by the hstspreload.org rules the preload list "
+            "needs max_age of at least 1y and subdomains: true"
+        ),
+        "site_permission_shape": "nginx.permissions is a mapping of feature: value",
+        "site_permission_unknown": (
+            "nginx.permissions: the feature {name} is not among those browsers know; "
+            "similar: {close}"
+        ),
+        "site_permission_value": (
+            "nginx.permissions.{name}: the value {value} - expected none, self, * or origins "
+            "https://example.com (self may go with them)"
+        ),
+        "site_log_ip": "nginx.log_ip: {value} - expected masked, full or off",
         "site_form_no_fields": "the form has no fields",
         "site_field_name": "the field name {name} must be Latin letters, digits, hyphen and underscore",
         "site_gone_root": "gone: {entry} - expected a path from the root, for example /old-page/",

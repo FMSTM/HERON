@@ -55,10 +55,11 @@ class Entry:
     """Один выходной файл: кто его заявил и откуда взять содержимое."""
 
     owner: str  # человеку: «страница en/a.md», «static/robots.txt»
-    kind: str  # page, generator, static, asset, media, plugin
+    kind: str  # page, generator, static, asset, media, plugin, gzip
     text: str | None = None
     source: Path | None = None
     link: bool = False  # можно ставить жёсткой ссылкой (файл кэша)
+    data: bytes | None = None  # готовые байты (сжатый .gz, core/precompress.py)
 
 
 # Кто может подменить чужой файл по `build.overrides`: только статика и
@@ -201,8 +202,8 @@ def _same(out: Path, entry: Entry) -> bool:
     if not out.is_file() or out.is_symlink():
         return False
     try:
-        if entry.text is not None:
-            data = entry.text.encode("utf-8")
+        if entry.text is not None or entry.data is not None:
+            data = entry.data if entry.data is not None else entry.text.encode("utf-8")  # type: ignore[union-attr]
             return out.stat().st_size == len(data) and out.read_bytes() == data
         assert entry.source is not None
         if entry.link and os.path.samefile(out, entry.source):
@@ -215,6 +216,10 @@ def _same(out: Path, entry: Entry) -> bool:
 def _prepare(staging: Path, entry: Entry) -> Path:
     """Готовый файл во временной папке. Общий с кэшем inode не трогается."""
     temp = staging / uuid.uuid4().hex
+    if entry.data is not None:
+        temp.write_bytes(entry.data)
+        temp.chmod(0o644)
+        return temp
     if entry.text is not None:
         temp.write_text(entry.text, encoding="utf-8")
         temp.chmod(0o644)

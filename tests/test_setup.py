@@ -358,6 +358,7 @@ RU_TOKENS = {
     "Google", "Analytics", "Tag", "Manager", "Docker", "Hub", "NUL", "engine", "prod", "beta",
     "helpers", "user", "host", "main", "release", "heron", "new", "true", "false", "https",
     "digest", "sha", "you", "site", "example", "com", "pt", "br", "en", "de", "AT",
+    "none", "self", "masked", "full", "off", "preload",
 }  # fmt: skip
 
 
@@ -414,6 +415,11 @@ def _cases():
         "metrika_bad": {"analytics": {"metrika": "abc"}},
         "cache_bad": {"cache": {"assets": "1 day"}},
         "urls_bad": {"urls": {"trailing_slash": "sometimes"}},
+        "hsts_bad": {"hsts": {"max_age": "1 year"}},
+        "hsts_preload": {"hsts": {"max_age": "180d", "preload": True}},
+        "permission_unknown": {"permissions": {"geolocaton": "self"}},
+        "permission_bad": {"permissions": {"camera": "self none"}},
+        "log_ip_bad": {"log_ip": "half"},
         "control_chars": {"publish": {"repo": "a\nb"}},
         "helpers_unknown": {"publish": {"helpers": {"x": True}}},
         "engine_bad": {"publish": {"engine": "latest"}},

@@ -31,9 +31,19 @@ from pydantic import (
     model_validator,
 )
 
-from heron.contracts.site import LANG_RE, NAME_RE, CacheBlock, UrlsBlock
+from heron.contracts.site import (
+    LANG_RE,
+    NAME_RE,
+    PERMISSION_DEFAULTS,
+    PERMISSION_FEATURES,
+    CacheBlock,
+    HstsBlock,
+    UrlsBlock,
+    allowlist,
+)
 from heron.contracts.site import domain as clean_domain
 from heron.contracts.site import duration as cache_duration
+from heron.contracts.site import log_ip as clean_log_ip
 from heron.core import paths, yamlsafe
 from heron.setup.reasons import Reason
 
@@ -445,6 +455,59 @@ class CacheAnswers(Model):
         return text
 
 
+class HstsAnswers(Model):
+    """HTTPS навсегда - ключи nginx.hsts в site.yaml (22 §5)."""
+
+    max_age: str = HstsBlock.model_fields["max_age"].default
+    subdomains: bool = HstsBlock.model_fields["subdomains"].default
+    preload: bool = HstsBlock.model_fields["preload"].default
+
+    @field_validator("max_age", mode="before")
+    @classmethod
+    def _duration(cls, value: Any) -> str:
+        text = "" if value is None else str(value).strip().lower()
+        if not text:
+            return HstsBlock.model_fields["max_age"].default
+        try:
+            cache_duration(text)
+        except ValueError:
+            raise Reason("hsts_bad", value=repr(value)) from None
+        return text
+
+    @model_validator(mode="after")
+    def _preload(self) -> HstsAnswers:
+        try:
+            HstsBlock.model_validate(self.model_dump())
+        except ValueError:
+            raise Reason("hsts_preload", value=self.max_age) from None
+        return self
+
+
+def _permissions(value: Any) -> dict[str, str]:
+    """Возможности браузера - nginx.permissions: имя из известных, значение - allowlist."""
+    import difflib
+
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise Reason("permission_bad", name="permissions", value=repr(value))
+    out: dict[str, str] = {}
+    for name, item in value.items():
+        key = str(name).strip().lower()
+        if key not in PERMISSION_FEATURES:
+            close = difflib.get_close_matches(key, PERMISSION_FEATURES, n=3, cutoff=0.6)
+            raise Reason(
+                "permission_unknown", name=repr(name), close=", ".join(map(repr, close)) or "-"
+            )
+        if item is None or (isinstance(item, str) and not item.strip()):
+            continue  # пусто - умолчание
+        try:
+            out[key] = allowlist(item)
+        except ValueError:
+            raise Reason("permission_bad", name=key, value=repr(item)) from None
+    return out
+
+
 class UrlsAnswers(Model):
     """Форма адресов страниц - ключ urls.trailing_slash в site.yaml (20 §2)."""
 
@@ -558,8 +621,27 @@ class Answers(Model):
     publish: PublishAnswers = Field(default_factory=PublishAnswers)
     cache: CacheAnswers = Field(default_factory=CacheAnswers)
     urls: UrlsAnswers = Field(default_factory=UrlsAnswers)
+    hsts: HstsAnswers = Field(default_factory=HstsAnswers)
+    # возможности браузера поверх умолчания: только то, что сайт меняет
+    permissions: dict[str, str] = Field(default_factory=dict)
+    log_ip: str = "masked"
     # решение по находкам разметки из файла ответов (ключ schema); в site.yaml не пишется
     _schema: dict[str, Any] | None = PrivateAttr(default=None)
+
+    @field_validator("permissions", mode="before")
+    @classmethod
+    def _permissions(cls, value: Any) -> dict[str, str]:
+        return _permissions(value)
+
+    @field_validator("log_ip", mode="before")
+    @classmethod
+    def _log_ip(cls, value: Any) -> str:
+        if value is None or value == "":
+            return "masked"
+        try:
+            return clean_log_ip(value)
+        except ValueError:
+            raise Reason("log_ip_bad", value=repr(value)) from None
 
     @model_validator(mode="after")
     def _languages_of_notes(self) -> Answers:
@@ -683,13 +765,22 @@ def read(data: dict[str, Any]) -> Answers:
     urls = data.get("urls")
     if isinstance(urls, dict):
         out["urls"] = {k: v for k, v in urls.items() if k in UrlsAnswers.model_fields}
+    hsts = _get(data, "nginx.hsts")
+    if isinstance(hsts, dict):
+        out["hsts"] = {k: v for k, v in hsts.items() if k in HstsAnswers.model_fields}
+    permissions = _get(data, "nginx.permissions")
+    if isinstance(permissions, dict):
+        out["permissions"] = permissions
+    written_ip = _get(data, "nginx.log_ip")
+    if written_ip is not None:
+        out["log_ip"] = written_ip
     try:
         return Answers.model_validate(out, context=_STALE)
     except ValueError:
         # Сырой конфиг не повод отказать в конфигураторе: он и нужен, чтобы
         # конфиг поправить. Берём то, что проходит по отдельности.
         answers = Answers()
-        for block in ("site", "about", "search", "analytics", "publish", "cache", "urls"):
+        for block in ("site", "about", "search", "analytics", "publish", "cache", "urls", "hsts"):
             with contextlib.suppress(ValueError):
                 setattr(
                     answers,
@@ -698,6 +789,10 @@ def read(data: dict[str, Any]) -> Answers:
                         out.get(block) or {}, context=_STALE
                     ),
                 )
+        with contextlib.suppress(ValueError):
+            answers.permissions = _permissions(out.get("permissions"))
+        with contextlib.suppress(ValueError):
+            answers.log_ip = clean_log_ip(out.get("log_ip", "masked"))
         return answers
 
 
@@ -1310,6 +1405,9 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
 
     _merge_cache(out, answers.cache)
     _merge_urls(out, answers.urls)
+    _merge_hsts(out, answers.hsts)
+    _merge_permissions(out, answers.permissions)
+    _merge_log_ip(out, answers.log_ip)
     if not NAME_RE.match(str(site.get("theme"))):
         site["theme"] = "main"
     return out
@@ -1337,6 +1435,78 @@ def _merge_cache(out: dict[str, Any], cache: CacheAnswers) -> None:
     nginx = dict(nginx or {})
     nginx["cache"] = changed
     out["nginx"] = nginx
+
+
+def _nginx_put(out: dict[str, Any], key: str, value: Any) -> None:
+    """Ключ блока nginx: значение или `_MISSING` - убрать; пустой блок исчезает."""
+    nginx = dict(out["nginx"]) if isinstance(out.get("nginx"), dict) else {}
+    if value is _MISSING:
+        nginx.pop(key, None)
+    else:
+        nginx[key] = value
+    if nginx:
+        out["nginx"] = nginx
+    else:
+        out.pop("nginx", None)
+
+
+def _merge_hsts(out: dict[str, Any], hsts: HstsAnswers) -> None:
+    """HSTS в nginx.hsts: как nginx.cache - пишется только то, что человек поменял."""
+    block = _get(out, "nginx.hsts")
+    block = block if isinstance(block, dict) else {}
+    changed = dict(block)
+    for key, field in HstsAnswers.model_fields.items():
+        answer = getattr(hsts, key)
+        written = block.get(key)
+        if key == "max_age":
+            current = str(written).strip().lower() if written not in (None, "") else None
+        else:
+            current = written if isinstance(written, bool) else None
+        if answer == (field.default if current is None else current):
+            continue
+        changed[key] = answer
+    if changed != block:
+        _nginx_put(out, "hsts", changed)
+
+
+def _merge_permissions(out: dict[str, Any], answers: dict[str, str]) -> None:
+    """Возможности в nginx.permissions: ответ - полный набор изменений к умолчанию.
+
+    Совпало с записанным (в любой форме: `self` и `[self]`) или, когда ключа нет,
+    с умолчанием - ключ не трогается. Ответ вернулся к умолчанию - ключ убирается.
+    Ключа, записанного в файле, в ответах нет - тоже: значит, его сняли.
+    """
+    block = _get(out, "nginx.permissions")
+    block = block if isinstance(block, dict) else {}
+    changed: dict[str, Any] = {}
+    for name, written in block.items():
+        key = str(name).strip().lower()
+        try:
+            current = allowlist(written)
+        except ValueError:
+            current = None
+        answer = answers.get(key)
+        if answer is None or answer == PERMISSION_DEFAULTS.get(key, "none") and answer != current:
+            continue  # сняли или вернули умолчание
+        changed[name] = written if answer == current else answer
+    known = {str(n).strip().lower() for n in block}
+    for key, answer in answers.items():
+        if key not in known and answer != PERMISSION_DEFAULTS.get(key, "none"):
+            changed[key] = answer
+    if changed != block:
+        _nginx_put(out, "permissions", changed or _MISSING)
+
+
+def _merge_log_ip(out: dict[str, Any], value: str) -> None:
+    """Адрес в журнале - nginx.log_ip: пишется, только если человек его поменял."""
+    written = _get(out, "nginx.log_ip")
+    try:
+        current = clean_log_ip(written) if written is not None else None
+    except ValueError:
+        current = None
+    if value == (current or "masked"):
+        return
+    _nginx_put(out, "log_ip", value)
 
 
 def _merge_urls(out: dict[str, Any], urls: UrlsAnswers) -> None:

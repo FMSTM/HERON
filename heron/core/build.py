@@ -38,6 +38,7 @@ from heron.core import (
     notfound,
     output,
     paths,
+    precompress,
     report,
     resolver,
     tree,
@@ -474,6 +475,8 @@ def run(
         # Копии с хешем в имени и ссылки на них в HTML (core/versions.py)
         domain = config.site.domain
         versions.finish(outputs, assets, (f"https://{domain}", f"http://{domain}"), collector)
+        # Готовые .gz для gzip_static - после всех правок текста (core/precompress.py)
+        precompress.add(outputs, dist)
         outputs.check_tree(collector)
         outputs.check_overrides(collector)
 

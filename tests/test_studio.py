@@ -382,6 +382,8 @@ def test_page_has_no_inline_scripts_and_strict_csp(served):
     csp = headers["Content-Security-Policy"]
     assert "script-src 'self';" in csp and "unsafe-inline" not in csp.split("script-src")[1][:20]
     assert "frame-ancestors 'none'" in csp
+    assert headers["X-Frame-Options"] == "DENY"
+    assert headers["Cross-Origin-Opener-Policy"] == "same-origin"
     for asset in ("/_studio/setup.js", "/_studio/studio.js", "/_studio/studio.css"):
         status, body, headers = _req(base, asset)
         assert status == 200 and body, asset
@@ -452,6 +454,8 @@ def test_preview_media_and_ref_live_on_their_own_port(served):
     assert status == 200 and b"<h1>" in body
     # в рамку - только студии; сама студия пускает рамки и картинки только с порта просмотра
     assert f"frame-ancestors http://localhost:{port}" in headers["Content-Security-Policy"]
+    # просмотр встаёт в рамку студии с другого порта: X-Frame-Options его бы закрыл
+    assert "X-Frame-Options" not in headers and "Cross-Origin-Opener-Policy" not in headers
     studio_csp = _req(base, "/")[2]["Content-Security-Policy"]
     assert f"frame-src http://localhost:{info['port']};" in studio_csp
     assert "frame-src 'self'" not in studio_csp

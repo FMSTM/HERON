@@ -38,7 +38,7 @@ def test_config_declares_types_over_stock_list(tmp_path):
     assert nginx.MIME_INCLUDE in conf
     assert "text/markdown    md;" in conf
     assert "application/yaml yaml yml;" in conf
-    assert "text/markdown application/yaml;" in conf
+    assert re.search(r"gzip_types[^;]*text/markdown application/yaml[^;]*;", conf)
     # text/html nginx включает в charset_types сам, повтор даёт [warn]
     charset_line = re.search(r"charset_types[^;]*;", conf).group(0)
     assert "text/html" not in charset_line

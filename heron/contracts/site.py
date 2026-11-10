@@ -343,6 +343,206 @@ class CacheBlock(Strict):
         return duration(getattr(self, key))
 
 
+HSTS_PRELOAD_MIN = DURATION_UNITS["y"]
+
+
+class HstsBlock(Strict):
+    """Заголовок Strict-Transport-Security (22 §5).
+
+    `max_age` - срок, как у nginx.cache; `0` - заголовка нет. `subdomains` -
+    `includeSubDomains`, `preload` - просьба внести домен в список предзагрузки
+    браузеров (hstspreload.org): для неё нужны срок не меньше года и поддомены.
+    """
+
+    max_age: str = "1y"
+    subdomains: bool = True
+    preload: bool = False
+
+    @field_validator("max_age", mode="before")
+    @classmethod
+    def _duration(cls, value: Any) -> str:
+        duration(value)
+        return str(value).strip().lower()
+
+    @model_validator(mode="after")
+    def _preload(self) -> HstsBlock:
+        if self.preload and (self.seconds < HSTS_PRELOAD_MIN or not self.subdomains):
+            raise MsgError("site_hsts_preload", max_age=self.max_age)
+        return self
+
+    @property
+    def seconds(self) -> int:
+        """Срок в секундах - для max-age."""
+        return duration(self.max_age)
+
+    def header(self) -> str | None:
+        """Значение заголовка; срок 0 - None, заголовка нет."""
+        if not self.seconds:
+            return None
+        parts = [f"max-age={self.seconds}"]
+        if self.subdomains:
+            parts.append("includeSubDomains")
+        if self.preload:
+            parts.append("preload")
+        return "; ".join(parts)
+
+
+# Возможности браузера для Permissions-Policy: перечень MDN плюс то, что знает
+# Chromium (главный исполнитель заголовка). Незнакомое имя Chromium пишет в
+# консоль ошибкой, поэтому неизвестное - E011, а не тихий пропуск.
+# `interest-cohort` (FLoC) из Chromium убран и как раз даёт такую ошибку.
+PERMISSION_FEATURES = (
+    "accelerometer",
+    "ambient-light-sensor",
+    "attribution-reporting",
+    "autoplay",
+    "bluetooth",
+    "browsing-topics",
+    "camera",
+    "captured-surface-control",
+    "ch-ua-high-entropy-values",
+    "clipboard-read",
+    "clipboard-write",
+    "compute-pressure",
+    "cross-origin-isolated",
+    "deferred-fetch",
+    "deferred-fetch-minimal",
+    "display-capture",
+    "encrypted-media",
+    "fullscreen",
+    "gamepad",
+    "geolocation",
+    "gyroscope",
+    "hid",
+    "identity-credentials-get",
+    "idle-detection",
+    "keyboard-map",
+    "language-detector",
+    "local-fonts",
+    "magnetometer",
+    "microphone",
+    "midi",
+    "otp-credentials",
+    "payment",
+    "picture-in-picture",
+    "private-state-token-issuance",
+    "private-state-token-redemption",
+    "publickey-credentials-create",
+    "publickey-credentials-get",
+    "screen-wake-lock",
+    "serial",
+    "speaker-selection",
+    "storage-access",
+    "summarizer",
+    "sync-xhr",
+    "translator",
+    "unload",
+    "usb",
+    "web-share",
+    "window-management",
+    "xr-spatial-tracking",
+)
+# Строгое умолчание: всё перечисленное выключено, полноэкранный режим - только
+# своим страницам (кнопка «во весь экран» у своего <video>).
+PERMISSION_DEFAULTS: dict[str, str] = {
+    "accelerometer": "none",
+    "autoplay": "none",
+    "camera": "none",
+    "display-capture": "none",
+    "encrypted-media": "none",
+    "fullscreen": "self",
+    "geolocation": "none",
+    "gyroscope": "none",
+    "magnetometer": "none",
+    "microphone": "none",
+    "midi": "none",
+    "payment": "none",
+    "picture-in-picture": "none",
+    "publickey-credentials-get": "none",
+    "screen-wake-lock": "none",
+    "sync-xhr": "none",
+    "usb": "none",
+    "xr-spatial-tracking": "none",
+}
+# Источник в списке: https://имя[:порт], имя может начинаться с `*.`.
+ORIGIN_RE = re.compile(rf"^https://(?:\*\.)?{LABEL}(?:\.{LABEL})*(?::\d{{1,5}})?\Z")
+
+
+def allowlist(value: Any) -> str:
+    """Значение возможности в каноническом виде: `none`, `self`, `*`, `self https://a.example`.
+
+    Принимается строка (через пробел или запятую) или список строк. Негодное -
+    `ValueError`; объяснение с именем возможности даёт вызывающий.
+    """
+    if isinstance(value, (list, tuple)):
+        raw = (
+            [x for x in value if isinstance(x, str)]
+            if all(isinstance(x, str) for x in value)
+            else []
+        )
+    elif isinstance(value, str):
+        raw = value.replace(",", " ").split()
+    else:
+        raw = []
+    tokens = [t.strip().lower().rstrip("/") for t in raw if t.strip()]
+    good = tokens and all(t in ("none", "self", "*") or ORIGIN_RE.match(t) for t in tokens)
+    if not good or (("none" in tokens or "*" in tokens) and len(set(tokens)) > 1):
+        raise ValueError(f"permissions value {value!r}")
+    return " ".join(dict.fromkeys(tokens))
+
+
+def permission_header(overrides: dict[str, str]) -> str:
+    """Permissions-Policy: умолчания, поверх - ключи сайта; новые имена - по алфавиту."""
+    merged = {**PERMISSION_DEFAULTS, **overrides}
+    order = [*PERMISSION_DEFAULTS, *sorted(set(overrides) - set(PERMISSION_DEFAULTS))]
+    parts = []
+    for name in order:
+        value = merged[name]
+        if value == "*":
+            parts.append(f"{name}=*")
+            continue
+        items = [] if value == "none" else value.split()
+        inner = " ".join(t if t == "self" else f'"{t}"' for t in items)
+        parts.append(f"{name}=({inner})")
+    return ", ".join(parts)
+
+
+def check_permissions(value: Any) -> dict[str, str]:
+    """Ключи nginx.permissions: имена из PERMISSION_FEATURES, значения - `allowlist`."""
+    import difflib
+
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise MsgError("site_permission_shape")
+    out: dict[str, str] = {}
+    for name, item in value.items():
+        key = str(name).strip().lower()
+        if key not in PERMISSION_FEATURES:
+            close = difflib.get_close_matches(key, PERMISSION_FEATURES, n=3, cutoff=0.6)
+            raise MsgError(
+                "site_permission_unknown", name=repr(name), close=", ".join(map(repr, close)) or "-"
+            )
+        try:
+            out[key] = allowlist(item)
+        except ValueError:
+            raise MsgError("site_permission_value", name=key, value=repr(item)) from None
+    return out
+
+
+LOG_IP = ("masked", "full", "off")
+
+
+def log_ip(value: Any) -> str:
+    """Режим адреса в журнале. `off` без кавычек YAML читает как false - это тоже off."""
+    if value is False:
+        return "off"
+    text = str(value).strip().lower() if isinstance(value, str) else ""
+    if text not in LOG_IP:
+        raise MsgError("site_log_ip", value=repr(value))
+    return text
+
+
 class NginxBlock(Strict):
     """Конфиг nginx, который движок собирает вместе с сайтом.
 
@@ -351,11 +551,28 @@ class NginxBlock(Strict):
     map_hash_bucket_size и map_hash_max_size, больше не строятся. Ключ
     принимается, чтобы существующие site.yaml собирались без правки.
 
-    `cache` - сроки кэша браузера для файлов темы и ресурсов.
+    `cache` - сроки кэша браузера для файлов темы и ресурсов. `hsts` -
+    заголовок Strict-Transport-Security. `permissions` - возможности браузера
+    поверх строгого умолчания Permissions-Policy: `имя: none | self | * |
+    https://источник`. `log_ip` - адрес посетителя в журнале сервера:
+    `masked` (IPv4 без последнего октета, IPv6 до /48), `full` или `off`.
     """
 
     hash_sizes: Literal["auto", "off"] = "auto"
     cache: CacheBlock = Field(default_factory=CacheBlock)
+    hsts: HstsBlock = Field(default_factory=HstsBlock)
+    permissions: dict[str, str] = Field(default_factory=dict)
+    log_ip: Literal["masked", "full", "off"] = "masked"
+
+    @field_validator("permissions", mode="before")
+    @classmethod
+    def _permissions(cls, value: Any) -> dict[str, str]:
+        return check_permissions(value)
+
+    @field_validator("log_ip", mode="before")
+    @classmethod
+    def _log_ip(cls, value: Any) -> str:
+        return log_ip(value)
 
 
 class UrlsBlock(Strict):

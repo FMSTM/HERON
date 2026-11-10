@@ -73,13 +73,24 @@ EN: dict[str, tuple[str, str]] = {
         "The menu. Its content is free: the theme invents the names of the groups.",
     ),
     "site.schema.json#/$defs/NginxBlock/description": (
-        "592e4fb59e",
+        "6ce8142e2d",
         "The nginx config that the engine builds together with the site.\n\n"
         "`hash_sizes` is obsolete and does nothing. 301 and 410 are now exact\n"
         "locations, not string maps: the hash tables of the maps that\n"
         "map_hash_bucket_size and map_hash_max_size were sized for are no longer built.\n"
         "The key is accepted so that existing site.yaml files build without changes.\n\n"
-        "`cache` - browser cache times for theme files and resources.",
+        "`cache` - browser cache times for theme files and resources. `hsts` -\n"
+        "the Strict-Transport-Security header. `permissions` - browser features\n"
+        "on top of the strict default of Permissions-Policy: `name: none | self | * |\n"
+        "https://origin`. `log_ip` - the visitor address in the server log:\n"
+        "`masked` (IPv4 without the last octet, IPv6 down to /48), `full` or `off`.",
+    ),
+    "site.schema.json#/$defs/HstsBlock/description": (
+        "f214fca616",
+        "The Strict-Transport-Security header (22 §5).\n\n"
+        "`max_age` - a time, as in nginx.cache; `0` - no header. `subdomains` -\n"
+        "`includeSubDomains`, `preload` - a request to put the domain into the browser\n"
+        "preload list (hstspreload.org): it needs a time of at least a year and subdomains.",
     ),
     "site.schema.json#/$defs/UrlsBlock/description": (
         "936323fa91",
@@ -251,6 +262,10 @@ EN: dict[str, tuple[str, str]] = {
     "setup.schema.json#/$defs/UrlsAnswers/description": (
         "421fc4b8ea",
         "The form of page addresses - the urls.trailing_slash key in site.yaml (20 §2).",
+    ),
+    "setup.schema.json#/$defs/HstsAnswers/description": (
+        "1259130322",
+        "https for good - the nginx.hsts keys in site.yaml (22 §5).",
     ),
     "setup.schema.json#/$defs/CacheAnswers/description": (
         "55582526c1",

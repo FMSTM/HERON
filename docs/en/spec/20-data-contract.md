@@ -1093,11 +1093,26 @@ nginx:
     versioned: 1y    # versions: theme files with a hash in the name and media/ with ?v=, plus immutable
     assets: 1d       # theme files without a hash
     media: 1d        # media/ resources without the ?v= mark
+  hsts:              # the Strict-Transport-Security header
+    max_age: 1y      # a time, as in cache; 0 - no header
+    subdomains: true # includeSubDomains
+    preload: false   # the browser preload list (hstspreload.org)
+  permissions:       # Permissions-Policy on top of the strict default
+    geolocation: self
+  log_ip: masked     # the visitor address in the log: masked | full | off
 ```
 
 A core key, validated (`E011`). The form of page addresses is a separate block `urls` (section 2, "A slash at the end of the address"). `hash_sizes` is left over from the string maps for 301/410; now these are exact `location` blocks, map hash tables are not built, and there is no reason to set their sizes. Details - `23-distribution.md`, "The 404 page and serving", and `../guide/06-deploy.md`, "Your own nginx on the server".
 
 `cache` - the `Cache-Control: max-age` times in the inner nginx (`22` §5): a number of seconds (`3600`) or a number with a unit `s`, `m`, `h`, `d`, `w`, `y` (`30m`, `12h`, `7d`, `1y`); any other value or an unknown key is `E011` with examples. The defaults are as in the sample. `versioned` - versions of files (`21` §4, "Versions of theme files and resources"): copies of theme files with the content hash in the name and `media/` resources with the mark `?v=<10 hex chars>`, the response also gets `immutable`; `assets` - theme files under their plain names, `media` - resources without the mark. Pages are not in the block: they always get `no-cache` - the new names of theme files arrive with the page, and caching the page would delay the whole update. The configurator writes the keys too (`heron setup`, the Site tab, the Browser cache box): only those that differ from what is written.
+
+`hsts` - the `Strict-Transport-Security` header (`22` §5). The defaults give the old header `max-age=31536000; includeSubDomains`. `max_age` - a time in the same form as in `cache`; `0` - the header is not sent. `subdomains` - `includeSubDomains`, `preload` - `preload`: a request to put the domain into the list built into browsers. By the hstspreload.org rules it needs `max_age` of at least `1y` and `subdomains: true`; otherwise - `E011` with this explanation. The mark itself does not add the domain to the list, and removal from the list takes months ([`guide/06`](../guide/06-deploy.md#security-headers)).
+
+`permissions` - the `Permissions-Policy` header: which browser features the pages of the site may ask for. The default is strict: `accelerometer`, `autoplay`, `camera`, `display-capture`, `encrypted-media`, `geolocation`, `gyroscope`, `magnetometer`, `microphone`, `midi`, `payment`, `picture-in-picture`, `publickey-credentials-get`, `screen-wake-lock`, `sync-xhr`, `usb`, `xr-spatial-tracking` are off (`()`), `fullscreen` - only for its own pages (`(self)`). A key of the block is a feature name, the value is `none`, `self`, `*` or origins `https://name` (self may go with them, as a string separated by spaces or as a list): `geolocation: self`, `fullscreen: "*"`, `autoplay: [self, "https://player.example.com"]`. What is written replaces the default of this feature; a feature that is not in the default is added at the end of the header. The name comes from the list that Chromium knows and MDN describes; an unknown name (a typo, the obsolete `interest-cohort`) is `E011` with similar names, a bad value is `E011`.
+
+`log_ip` - the visitor address in the log of the inner nginx: `masked` (the default) - IPv4 with the last octet zeroed, IPv6 down to `/48`; `full` - the whole address; `off` - `-` instead of the address. Any other value is `E011`. The address comes from the outer proxy in `X-Forwarded-For` (`22` §5). YAML reads `off` without quotes as `false` - the engine understands that too.
+
+The configurator writes the `hsts`, `permissions` and `log_ip` keys too (the Site tab, the boxes "https only", "Browser features" and "Server log"): only the changed ones.
 
 ### The `gone` block: 410 for what no longer exists
 

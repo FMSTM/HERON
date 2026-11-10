@@ -51,6 +51,21 @@ const T = {
     cache_v: "Файлы с версией", cache_v_h: "Адреса с версией: файлы темы с хешем содержимого в имени (site.0123456789.css) и файлы media/ с ?v=0123456789 в конце - на них ссылаются страницы. Под таким адресом файл не меняется никогда, поэтому срок долгий. По умолчанию 1y. Менять почти незачем: новая версия файла - новый адрес.",
     cache_a: "Файлы темы без версии", cache_a_h: "Те же стили, скрипты и шрифты под прежним именем: на них ссылаются старые страницы в кэше и чужие сайты. По умолчанию 1d. Короче - если тема меняется несколько раз в день и на файлы ссылаются снаружи.",
     cache_m: "Картинки и файлы без версии", cache_m_h: "Файлы media/ без ?v= в адресе, например ссылка на памятку или скан. По умолчанию 1d. Длиннее - если файлы почти не меняются; короче - если заменяете их под тем же именем.",
+    hsts_t: "Только https (HSTS)", hsts_about: "Браузер, однажды открывший сайт по https, дальше сам ходит на него только по https - даже по ссылке http:// и в общественном Wi-Fi, где адрес могут подменить. Ключи nginx.hsts в site.yaml.",
+    hsts_age: "Сколько браузер это помнит", hsts_age_h: "Срок - как у кэша: 180d, 1y. По умолчанию 1y. 0 - правило не отправляется; но браузеры, которые его уже получили, помнят его до конца прежнего срока.",
+    hsts_sub: "Вместе с поддоменами", hsts_sub_s: "Правило действует и на blog.example.com, shop.example.com. Выключите, если под доменом есть поддомены без https. По умолчанию включено.",
+    hsts_pre: "Список предзагрузки браузеров (preload)", hsts_pre_s: "Разрешение внести домен в список, встроенный в Chrome, Firefox и Safari (hstspreload.org): сайт открывается только по https даже при самом первом заходе. Отменить это трудно: исключение из списка занимает месяцы, всё это время домен и все его поддомены обязаны работать по https. Нужны срок не меньше 1y и поддомены. Сама отметка домен в список не вносит - заявку подают на hstspreload.org. По умолчанию выключено.",
+    perm_t: "Возможности браузера", perm_about: "Что страницам сайта разрешено просить у браузера. По умолчанию почти всё выключено: даже если на страницу попадёт чужой скрипт, он не включит камеру и не узнает, где посетитель. Здесь - то, что сайту нужно чаще всего; остальное - ключи nginx.permissions в site.yaml.",
+    perm_default: "по умолчанию", perm_none: "выключено", perm_self: "только страницы сайта", perm_all: "любые сайты, в том числе встроенные",
+    perm_fullscreen: "Во весь экран", perm_fullscreen_h: "Кнопка «во весь экран» у видео и галерей. По умолчанию - только страницы сайта.",
+    perm_autoplay: "Автозапуск видео и звука", perm_autoplay_h: "Видео, которое начинается само (например, фон первого экрана). Без разрешения браузер ждёт нажатия. По умолчанию выключено.",
+    "perm_picture-in-picture": "Картинка в картинке", "perm_picture-in-picture_h": "Видео в маленьком окне поверх других окон. По умолчанию выключено.",
+    perm_geolocation: "Местоположение", perm_geolocation_h: "Карта «как добраться от меня», поиск ближайшего филиала. Браузер всё равно спросит посетителя. По умолчанию выключено.",
+    perm_camera: "Камера", perm_camera_h: "Видеозвонок или съёмка прямо со страницы. Браузер всё равно спросит посетителя. По умолчанию выключено.",
+    perm_microphone: "Микрофон", perm_microphone_h: "Звонок или голосовое сообщение со страницы. Браузер всё равно спросит посетителя. По умолчанию выключено.",
+    perm_payment: "Оплата через браузер", perm_payment_h: "Оплата сохранённой в браузере картой, Apple Pay или Google Pay прямо на странице. По умолчанию выключено.",
+    log_t: "Журнал сервера", log_ip: "IP посетителей в журнале", log_ip_h: "IP посетителей в журнале сервера - персональные данные; при `full` упомяните это в политике конфиденциальности. По умолчанию последний октет обнулён.",
+    log_masked: "без последней части (masked)", log_full: "полностью (full)", log_off: "не записывать (off)",
     helpers_t: "Помощники для вашего удобства", helpers_about: "site.yaml записывается всегда - это настройки сайта. Остальное - по желанию: скрипты лягут в скрытую папку .heron/ и в сборку сайта не попадут.",
     h_build: "Скрипт сборки", h_build_s: ".heron/scripts/build.sh - итоговая сборка одной командой",
     h_publish: "Скрипт публикации", h_publish_s: ".heron/scripts/publish.sh - публикует выбранным способом",
@@ -118,6 +133,21 @@ const T = {
     cache_v: "Versioned files", cache_v_h: "Addresses with a version: theme files with the content hash in the name (site.0123456789.css) and media/ files with ?v=0123456789 at the end - pages link to them. Under such an address the file never changes, so the time is long. Default 1y. There is hardly a reason to change it: a new version of a file is a new address.",
     cache_a: "Theme files without a version", cache_a_h: "The same styles, scripts and fonts under the plain name: old pages in a cache and other sites link to them. Default 1d. Shorter if the theme changes several times a day and files are linked from outside.",
     cache_m: "Images and files without a version", cache_m_h: "media/ files without ?v= in the address, for example a link to a leaflet or a scan. Default 1d. Longer if the files hardly change; shorter if you replace them under the same name.",
+    hsts_t: "https only (HSTS)", hsts_about: "A browser that once opened the site over https then goes to it only over https by itself - even by an http:// link and on public Wi-Fi, where the address can be forged. The nginx.hsts keys in site.yaml.",
+    hsts_age: "How long the browser remembers it", hsts_age_h: "A time, as for the cache: 180d, 1y. Default 1y. 0 - the rule is not sent; but browsers that already got it remember it until the old time runs out.",
+    hsts_sub: "Together with subdomains", hsts_sub_s: "The rule also covers blog.example.com, shop.example.com. Turn it off if the domain has subdomains without https. On by default.",
+    hsts_pre: "Browser preload list (preload)", hsts_pre_s: "Permission to put the domain into the list built into Chrome, Firefox and Safari (hstspreload.org): the site opens only over https even on the very first visit. This is hard to undo: removal from the list takes months, and all that time the domain and all its subdomains must work over https. It needs a time of at least 1y and subdomains. The mark itself does not add the domain to the list - the request is filed at hstspreload.org. Off by default.",
+    perm_t: "Browser features", perm_about: "What the pages of the site may ask the browser for. By default almost everything is off: even if a foreign script gets onto a page, it cannot turn on the camera or learn where the visitor is. Here are the features a site needs most often; the rest are the nginx.permissions keys in site.yaml.",
+    perm_default: "default", perm_none: "off", perm_self: "only the pages of the site", perm_all: "any sites, embedded ones too",
+    perm_fullscreen: "Full screen", perm_fullscreen_h: "The full screen button of videos and galleries. Default: only the pages of the site.",
+    perm_autoplay: "Video and sound autoplay", perm_autoplay_h: "A video that starts by itself (for example, the background of the first screen). Without permission the browser waits for a click. Off by default.",
+    "perm_picture-in-picture": "Picture in picture", "perm_picture-in-picture_h": "Video in a small window above other windows. Off by default.",
+    perm_geolocation: "Location", perm_geolocation_h: "A \"how to get here from me\" map, finding the nearest branch. The browser still asks the visitor. Off by default.",
+    perm_camera: "Camera", perm_camera_h: "A video call or a photo straight from the page. The browser still asks the visitor. Off by default.",
+    perm_microphone: "Microphone", perm_microphone_h: "A call or a voice message from the page. The browser still asks the visitor. Off by default.",
+    perm_payment: "Payment through the browser", perm_payment_h: "Paying with a card saved in the browser, Apple Pay or Google Pay right on the page. Off by default.",
+    log_t: "Server log", log_ip: "Visitor IP in the log", log_ip_h: "Visitor IP addresses in the server log are personal data; with `full`, mention it in the privacy policy. By default the last octet is zeroed.",
+    log_masked: "without the last part (masked)", log_full: "in full (full)", log_off: "do not record (off)",
     helpers_t: "Helpers for your convenience", helpers_about: "site.yaml is always written: it is the settings of the site. The rest is up to you: scripts go to the hidden .heron/ folder and never into the build of the site.",
     h_build: "Build script", h_build_s: ".heron/scripts/build.sh - the final build in one command",
     h_publish: "Publish script", h_publish_s: ".heron/scripts/publish.sh - publishes the way you chose",
@@ -733,7 +763,43 @@ function gPublish() {
       field(t("cache_v"), "cache.versioned", t("cache_v_h"), "text", { placeholder: "1y" }),
       field(t("cache_a"), "cache.assets", t("cache_a_h"), "text", { placeholder: "1d" }),
       field(t("cache_m"), "cache.media", t("cache_m_h"), "text", { placeholder: "1d" }))));
+  body.push(gHsts(), gPermissions(), gLog());
   return group("pub", "7", t("g_pub"), t("g_pub_about"), null, ...body);
+}
+// Заголовки безопасности и журнал - ключи nginx.hsts, nginx.permissions, nginx.log_ip.
+function gHsts() {
+  A.hsts = Object.assign({ max_age: "1y", subdomains: true, preload: false }, A.hsts || {});
+  const flag = (key, title, sub) => h("div", {}, toggle("hsts." + key, A.hsts[key], title, sub, (v) => { A.hsts[key] = v; refresh(); }), track("hsts." + key));
+  return h("div", { class: "subbox", id: "hsts", style: "margin-top:1rem" }, h("h3", {}, t("hsts_t")), h("p", { class: "hint", style: "margin:0 0 .8rem" }, t("hsts_about")),
+    h("div", { class: "grid" },
+      field(t("hsts_age"), "hsts.max_age", t("hsts_age_h"), "text", { placeholder: "1y" }),
+      flag("subdomains", t("hsts_sub"), t("hsts_sub_s")),
+      flag("preload", t("hsts_pre"), t("hsts_pre_s"))));
+}
+// Умолчания этих семи возможностей - те же, что PERMISSION_DEFAULTS движка (тест сверяет).
+const PERMISSIONS = { fullscreen: "self", autoplay: "none", "picture-in-picture": "none", geolocation: "none", camera: "none", microphone: "none", payment: "none" };
+function gPermissions() {
+  A.permissions = A.permissions || {};
+  const names = { none: t("perm_none"), self: t("perm_self"), "*": t("perm_all") };
+  const rows = Object.entries(PERMISSIONS).map(([name, base]) => {
+    const path = "permissions." + name, now = A.permissions[name] || "";
+    const values = ["", "none", "self", "*"];
+    if (now && !values.includes(now)) values.push(now);  // источники из site.yaml - как есть
+    const sel = h("select", { id: path }, ...values.map((v) => h("option", { value: v, selected: v === now },
+      v === "" ? t("perm_default") + ": " + names[base] : names[v] || v)));
+    sel.addEventListener("change", () => { set(path, sel.value || undefined); });
+    return h("div", { class: "field" }, h("label", { for: path }, t("perm_" + name)), sel, hint(t("perm_" + name + "_h")), track(path, names));
+  });
+  return h("div", { class: "subbox", id: "permissions", style: "margin-top:1rem" }, h("h3", {}, t("perm_t")), h("p", { class: "hint", style: "margin:0 0 .8rem" }, t("perm_about")),
+    h("div", { class: "grid" }, ...rows));
+}
+function gLog() {
+  if (!A.log_ip) A.log_ip = "masked";
+  const names = { masked: t("log_masked"), full: t("log_full"), off: t("log_off") };
+  const sel = h("select", { id: "log_ip" }, ...Object.entries(names).map(([v, title]) => h("option", { value: v, selected: v === A.log_ip }, title)));
+  sel.addEventListener("change", () => set("log_ip", sel.value));
+  return h("div", { class: "subbox", id: "log", style: "margin-top:1rem" }, h("h3", {}, t("log_t")),
+    h("div", { class: "grid" }, h("div", { class: "field" }, h("label", { for: "log_ip" }, t("log_ip")), sel, hint(t("log_ip_h")), track("log_ip", names))));
 }
 function gKeys() { return group("keys", "8", t("g_keys"), t("g_keys_about"), "dev"); }
 function gTheme() {

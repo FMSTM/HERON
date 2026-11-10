@@ -90,7 +90,7 @@ There is no need to set `map_hash_bucket_size` or the `nginx.hash_sizes` key in 
 
 **Hidden files** (`/.git/…`, `/ru/.env`, `/media/.x`) answer 404 in the root, under every language, in `media/` and `assets/`. Only the `/.well-known/` folder is available.
 
-The config turns on HSTS for a year including subdomains (the `Strict-Transport-Security` header) and the service address `/healthz` for checking that the server is alive. If the domain does not work over https yet or has subdomains without https, remove all `add_header Strict-Transport-Security` lines - the config has several, one per `location` block. Details - in [`22`](../spec/22-deploy.md).
+The config turns on security headers, HSTS for a year including subdomains (the `Strict-Transport-Security` header) and the service address `/healthz` for checking that the server is alive. If the domain does not work over https yet or has subdomains without https, set `nginx.hsts` in `site.yaml` and rebuild the site - ["Security headers, methods and the log"](#security-headers). The config writes the log to `/var/log/nginx/access.log` in its own format; on a server without this folder, fix the path in the `access_log` line. Details - in [`22`](../spec/22-deploy.md).
 
 If nginx is installed on the machine where the build runs, the engine runs `nginx -t` on the built config itself and writes the result to the report. If it fails, it is a warning, and with `--strict` an error.
 
@@ -190,7 +190,49 @@ server {
 
 The certificate of the mirrors must cover their names too (one certificate for all domains or one of their own each). If the certificate is issued over http (certbot with `--webroot`), add `location /.well-known/acme-challenge/` with the `root` of the certbot folder to the port 80 block, and move `return` into `location /`.
 
-**The outer nginx adds no headers of its own and does not cache.** No `add_header Cache-Control`, `expires`, `Content-Security-Policy`, `Strict-Transport-Security` or `proxy_cache` in these blocks: the site image sets the headers, and a second set from the outer nginx would double them or override them, while a cache on the proxy would serve an old page after a deployment. The inner config, in turn, knows nothing about domains: mirrors and https live only here.
+**The outer nginx adds no headers of its own and does not cache.** No `add_header Cache-Control`, `expires`, `Content-Security-Policy`, `Strict-Transport-Security`, `Permissions-Policy`, `X-Frame-Options`, `Cross-Origin-Opener-Policy`, `X-Content-Type-Options`, `Referrer-Policy` or `proxy_cache` in these blocks, and no `gzip` for them either: the site image gives the headers and the compression, and a second set from the outer nginx would double them or override them, while a cache on the proxy would serve an old page after a deployment. The `proxy_set_header` lines of the sample are needed: by `X-Forwarded-For` the image learns the visitor address for its log. The inner config, in turn, knows nothing about domains: mirrors and https live only here.
+
+### Security headers, methods and the log <a id="security-headers"></a>
+
+Every response of the site image - a page, 301, 404, 410, 405, a theme file, an image, `/healthz` - carries the same set of headers, each exactly once:
+
+| Header | Default value | What it does | Where it changes |
+|---|---|---|---|
+| `Content-Security-Policy` | scripts, styles, fonts and images only from the site (plus the enabled counters) | a foreign script on a page does not run | does not change; counters - `analytics` |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` | the browser goes to the site only over https | `nginx.hsts` |
+| `Permissions-Policy` | camera, microphone, location, payment, autoplay and the rest are off, full screen - only for own pages | a page cannot ask the browser for too much | `nginx.permissions` |
+| `X-Frame-Options` | `SAMEORIGIN` | another site cannot show yours in a frame | does not change |
+| `Cross-Origin-Opener-Policy` | `same-origin` | a window opened from another site cannot reach yours | does not change |
+| `X-Content-Type-Options` | `nosniff` | the browser does not guess the file type | does not change |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | other sites get only the domain, without the page address | does not change |
+
+The keys are in [`20` §5](../spec/20-data-contract.md), the configurator writes them too (the Site tab, the boxes "https only", "Browser features" and "Server log"):
+
+```yaml
+nginx:
+  hsts:
+    max_age: 1y        # 0 - the header is not sent
+    subdomains: true   # subdomains too
+    preload: false     # the browser preload list
+  permissions:
+    geolocation: self  # a "how to get here from me" map
+    autoplay: self     # a video in the background of the first screen
+  log_ip: masked       # masked | full | off
+```
+
+**HSTS.** If the domain does not work over https yet or has subdomains without https, set `subdomains: false` or `max_age: 0`. A browser that already got the header remembers it until the old time runs out - turning it off does not act at once.
+
+**Preload (`preload`) is a decision that is hard to undo.** The mark allows putting the domain into the list built into Chrome, Firefox and Safari: the site opens only over https even on the very first visit. The list itself is extended by a request at hstspreload.org, the mark in `site.yaml` does not file it. Removal from the list takes months - until new browser versions come out, and all that time the domain **and all its subdomains** must work over https. That is why the engine requires `max_age` of at least `1y` and `subdomains: true` (the hstspreload.org rules), otherwise the build stops with `E011`.
+
+**Browser features.** The value is `none` (off), `self` (only the pages of the site), `*` (any sites, those embedded in a frame too) or `https://…` addresses together with `self`. The feature name comes from the list browsers know; a typo is `E011` with a hint. A video of the site with the `autoplay` attribute (the background of the first screen) does not start by itself without `autoplay: self`, and its picture in picture button appears only with `picture-in-picture: self`.
+
+**Videos from other sites** (YouTube, Vimeo) are not embedded in a frame by the engine: the CSP allows frames only from its own address, and this is not configurable. The engine has no separate embedding module. `Cross-Origin-Opener-Policy` does not concern frames - only windows: if the site opens a payment or sign-in window through another site and waits for an answer from it through `window.opener`, this link breaks.
+
+**Read only.** The site is static, so the server accepts only `GET` and `HEAD`. `POST`, `PUT`, `DELETE`, `OPTIONS`, `PATCH`, `TRACE` get `405` with the header `Allow: GET, HEAD`. Forms are sent not to the site but to a separate service (`heron-relay`).
+
+**Compression.** Next to every page, style, script, sitemap and svg the build puts a ready compressed `.gz` copy, and nginx serves it without work for the processor; images, video and woff2 fonts are already compressed. The build folder grows by 2-17 % from this - the copies are small.
+
+**The server log and personal data.** The inner nginx writes the request log to the output of the container (`docker logs`). It takes the visitor address from the `X-Forwarded-For` header that the outer nginx sets (the block above) and trusts it only when the request came from the same machine or a private network. Visitor IP addresses in the server log are personal data. By default (`log_ip: masked`) the last octet of an IPv4 address is zeroed (`203.0.113.0`), an IPv6 address is cut to its first three groups (`/48`): the log shows the network and the city, but not the person. `log_ip: off` - the address is not written at all; `log_ip: full` - it is written in full: then mention it in the privacy policy (what is written, why and for how long it is kept). The outer nginx itself keeps its own log with full addresses - it is set up on the server separately.
 
 ### Browser cache and file versions <a id="browser-cache"></a>
 

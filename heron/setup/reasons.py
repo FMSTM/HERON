@@ -53,6 +53,24 @@ TEXT: dict[str, dict[str, str]] = {
             "nginx.cache.{field} {value}: число секунд или число с единицей s, m, h, d, w, y - "
             "например 3600, 12h, 1d, 7d, 1y"
         ),
+        # заголовки и журнал сервера
+        "hsts_bad": (
+            "nginx.hsts.max_age {value}: число секунд или число с единицей s, m, h, d, w, y - "
+            "например 180d, 1y; 0 - заголовок выключен"
+        ),
+        "hsts_preload": (
+            "nginx.hsts: предзагрузка (preload) при сроке {value} - по правилам hstspreload.org "
+            "нужны срок не меньше 1y и поддомены (subdomains: true)"
+        ),
+        "permission_unknown": (
+            "nginx.permissions: возможности {name} нет в списке известных браузеру; "
+            "похожие: {close}"
+        ),
+        "permission_bad": (
+            "nginx.permissions.{name} {value}: ожидается none, self, * или источники "
+            "https://example.com (можно вместе с self)"
+        ),
+        "log_ip_bad": "nginx.log_ip {value}: ожидается masked, full или off",
         # адреса
         "urls_bad": (
             "urls.trailing_slash {value}: ожидается 'always' (со слешем, как было) "
@@ -159,6 +177,23 @@ TEXT: dict[str, dict[str, str]] = {
             "nginx.cache.{field} {value}: a number of seconds or a number with a unit "
             "s, m, h, d, w, y - for example 3600, 12h, 1d, 7d, 1y"
         ),
+        "hsts_bad": (
+            "nginx.hsts.max_age {value}: a number of seconds or a number with a unit "
+            "s, m, h, d, w, y - for example 180d, 1y; 0 turns the header off"
+        ),
+        "hsts_preload": (
+            "nginx.hsts: preload with the time {value} - by the hstspreload.org rules it needs "
+            "a time of at least 1y and subdomains (subdomains: true)"
+        ),
+        "permission_unknown": (
+            "nginx.permissions: the feature {name} is not among those browsers know; "
+            "similar: {close}"
+        ),
+        "permission_bad": (
+            "nginx.permissions.{name} {value}: expected none, self, * or origins "
+            "https://example.com (self may go with them)"
+        ),
+        "log_ip_bad": "nginx.log_ip {value}: expected masked, full or off",
         "urls_bad": (
             "urls.trailing_slash {value}: expected 'always' (with a slash, as before) "
             "or 'never' (without)"

@@ -537,6 +537,13 @@ def _write(handler, code: int, body: bytes, kind: str, policy: str, extra=()) ->
     handler.send_header("X-Content-Type-Options", "nosniff")
     handler.send_header("Referrer-Policy", "no-referrer")
     handler.send_header("Content-Security-Policy", policy)
+    # Порт студии в рамку не встаёт вовсе (frame-ancestors 'none') - то же для
+    # браузеров без CSP 2, и окна, открытые со страницы, её не видят. Порт
+    # просмотра этого не получает: его рамка - на другом источнике, в студии,
+    # а X-Frame-Options чужой источник разрешить не умеет.
+    if "frame-ancestors 'none'" in policy:
+        handler.send_header("X-Frame-Options", "DENY")
+        handler.send_header("Cross-Origin-Opener-Policy", "same-origin")
     for name, value in extra:
         handler.send_header(name, value)
     handler.end_headers()

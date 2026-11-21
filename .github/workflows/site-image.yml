@@ -258,7 +258,12 @@ jobs:
           load: true
           push: false
           tags: ${{ steps.names.outputs.image }}
-          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          # Своя метка версии сборки сайта (dev.<номер запуска>, prod.<номер>): без неё образ наследует метку
+          # базового nginx (1.27.5-alpine), и агент Heron показывает в боте версию nginx вместо версии сайта.
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ inputs.env }}.${{ github.run_number }}
+            org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=heron-site
           cache-to: type=gha,mode=max,scope=heron-site
 

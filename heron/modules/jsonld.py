@@ -25,6 +25,7 @@ import json
 import re
 from typing import Any
 
+from heron.contracts.frontmatter import PAGE_KEY
 from heron.contracts.site import SiteConfig
 from heron.contracts.theme import ThemeConfig
 from heron.core import paths
@@ -33,8 +34,13 @@ from heron.core.urls import absolute
 from heron.messages import Msg
 
 # Подстановка целиком в значении: {{ contact.city }}. Внутри строки тоже
-# работает, но тогда результат всегда строка.
-HOLE = re.compile(r"\{\{\s*([a-zA-Z0-9_.*]+)\s*\}\}")
+# работает, но тогда результат всегда строка. Звенья пути - через точку;
+# после `pages.` идёт ключ страницы по тому же правилу, что ключи и имена
+# файлов (`PAGE_KEY`: сегменты с `-` и `_` через `/`), поэтому
+# `{{ pages.about-us.url }}` и `{{ pages.services/roofing.url }}` - тоже
+# подстановки. Раньше `-` и `/` не проходили, и значение молча пропадало.
+_PART = r"[a-zA-Z0-9_.*]+"
+HOLE = re.compile(rf"\{{\{{\s*(pages\.{PAGE_KEY}(?:\.{_PART})?|{_PART})\s*\}}\}}")
 
 # Деньги в разметке этого движка не бывает по требованию сайта: цена не
 # публикуется. Список — не забывчивость в данных, а запрет, поэтому

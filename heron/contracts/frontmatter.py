@@ -28,7 +28,10 @@ from heron.messages import Msg, MsgError
 # сохраняются как есть. Имя на `_` страницей не бывает (`_index.md`, `_draft`).
 # `$`, пробел, точка, кавычки и скобки в сегмент не попадают: nginx прочёл бы
 # их как переменную или конец директивы.
-SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*\Z")
+SEGMENT = r"[a-z0-9][a-z0-9_-]*"
+SLUG_RE = re.compile(rf"^{SEGMENT}\Z")
+# Ключ страницы - путь файла без `.md`: сегменты через `/` (`services/roofing`).
+PAGE_KEY = rf"{SEGMENT}(?:/{SEGMENT})*"
 URL_PATH_RE = re.compile(r"^/[^\s?#]*\Z")
 
 # Единственное значение пометки перевода; перевод готов - ключа нет.

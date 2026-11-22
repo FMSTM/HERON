@@ -470,7 +470,7 @@ The "core" column says what the engine does with the field: **yes** - it reads a
 | `og_type` | string | - | theme | 3 | the stub does not use the field and always outputs `website`; a custom theme reads it itself |
 | `og_image_alt` | string | `image_alt` | yes: the cover caption (`page.cover.alt`) | 3 | a language without its own `og_image` and caption gets the caption of the main language |
 | `twitter_title`, `twitter_description` | string | from `og_*`, then `title` and `description` | theme | 4 | filled only if they must differ |
-| `twitter_card`, `twitter_image` | string | `seo.twitter_card`; the page cover | theme; `twitter_image` is a path in `media/`, the master goes into the build whole, a missing file is `E007` in a strict build (`--strict`, `build.fail_on_warning`), otherwise a warning | 4 | the stub does not output them: its card type comes from `seo.twitter_card`, and `twitter:image` is always the cover |
+| `twitter_card`, `twitter_image` | string | `seo.twitter_card`; the page cover | theme; `twitter_image` is a path in `media/`, the master goes into the build whole if the built site links to it, a missing file is `E007` in a strict build (`--strict`, `build.fail_on_warning`), otherwise a warning | 4 | the stub does not output them: its card type comes from `seo.twitter_card`, and `twitter:image` is always the cover |
 | `schema` | map | - | yes: merged into JSON-LD on top of `site.yaml` | 5 | markup refinements of the page (section 5) |
 | `image` | path in `media/` | - | yes: a missing file is `E007` in a strict build (`--strict`, `build.fail_on_warning`), otherwise a warning | 6 | the preview in the catalog and in relation cards; second in the page cover choice, if there is no `og_image`; every language has its own, without its own - as in the main language (the "Page cover" paragraph below) |
 | `image_alt` | string | - | yes: a warning if a language has a cover `image` (its own or of the main language) without a caption | 6 | translated; a language without its own `image` and caption gets the caption of the main language |
@@ -503,7 +503,7 @@ A page has one cover, and it feeds `og:image`, `twitter:image`, the images in th
 
 What the cover turns into: `page.cover` in the template (`src`, `url`, `width`, `height`, `alt`), `og:image` and `twitter:image` through `cover_url(page)`, the `primaryImageOfPage` node on the page (`WebPage` and its derivatives; only if the theme declared `WebPage` or a derived type for the page type in `types.<type>.jsonld`, the starter theme does not) and the first `<image:image>` entry in the `sitemap` (`21` §9). If the site set `primaryImageOfPage` itself in the `schema` block, its value wins: the engine substitutes its own only when the key is absent. A summary of covers and navigation is in the `heron check` report, `21` §12.
 
-**The cover master always goes into the build whole**, even if no template asked for it in `picture()`: the address from `og:image` must not lead to a 404. This also covers `seo.og_default_image` with all its language values.
+**The cover master goes into the build whole if the built site links to it** (0.3.2): `og:image` points to the master when there is no variant `images.cover_width` wide - then the master is in the build, and the address from `og:image` does not lead to a 404. Usually `og:image` is the crawler variant, and the master stays only in the repository (the report names such sources in a note). This also covers `seo.og_default_image` with all its language values.
 
 Edge cases:
 
@@ -1236,7 +1236,7 @@ images:
   widths: [400, 800, 1200, 1600]
   ratios: ["1:1", "16:9", "4:3"]   # what templates may ask for; only what is asked for is cut
   formats: [avif, webp]
-  fallback_width: 800              # fallback PNG/JPEG for <img src> - one width
+  fallback_width: 800              # fallback JPG/WebP for <img src> - one width
   cover_width: 1200                # width of the JPEG/PNG cover variant for crawlers (1200 by default)
   crop: []                         # crop even with transparency: [media/bio/] (7.6)
   as_is: []                        # copy without cutting: scans, documents (7.3)
@@ -1337,8 +1337,8 @@ as before.
 - the path must stay inside `media/`: `media/../x` and a symlink from `media/` outward are `E024`. Files for pages are taken only from `media/` (or the old `img/`), not from other site folders
 - `alt` is required. An image without `alt` is a build warning
 - the engine itself makes variants for breakpoints, converts to WebP and AVIF, sets `width`, `height`, `srcset`, `loading="lazy"` except for the LCP image. Originals are not touched
-- **only what is linked gets into the build.** The ratios from `images.ratios` are what the theme *may* ask for; what is cut is what the templates asked for through `picture()` and `media_url()`. A fallback file in the original format - one per ratio, `images.fallback_width` wide (800 by default). The whole master goes into the build if it is linked (`media_url(src)`, og:image, an image from the page text) - otherwise it is not there
-- the cover master goes into the build whole, and for the crawler a JPEG or PNG of width `images.cover_width` is cut from it (section 7.9); AVIF and WebP are not given to the crawler. The 1200×630 size is a recommendation for the master
+- **only what is linked gets into the build.** The ratios from `images.ratios` are what the theme *may* ask for; what is cut is what the templates asked for through `picture()` and `media_url()`. A fallback file - one per ratio, `images.fallback_width` wide (800 by default): for JPG and WebP in its own format, for PNG (0.3.2) - WebP with alpha if the image has transparency, otherwise JPG (with a master `x.jpg` of the same name next to it - PNG). The whole master and files the engine does not cut (pdf, video, svg, `as_is`) go into the build only if the built site links to them (`media_url(src)`, og:image, a link or image from the page text, markup, styles) - otherwise they are not there, and the build report names them in a note
+- for the crawler a JPEG or PNG of width `images.cover_width` is cut from the cover master (section 7.9): JPEG for an opaque image, PNG for a transparent one; AVIF and WebP are not given to the crawler. The master goes into the build only if it is linked. The 1200×630 size is a recommendation for the master
 
 ### 7.1 The resource folder is called media
 
@@ -1485,7 +1485,7 @@ The rule does not rest on a promise: `heron check` names a file with an image or
 
 Crawlers of social networks, messengers and search engines understand not everything browsers do: not all of them read AVIF and WebP, and Google recommends a cover width of 1200 px or more. So a `<picture>` with AVIF/WebP does not fit a cover, and the engine gives the crawler a separate variant:
 
-- for a cover master a JPEG or PNG (the master format) `images.cover_width` wide (1200 by default), but not wider than the frame, is added to the fallback files. Other images are not cut to this width;
+- for a cover master a variant `images.cover_width` wide (1200 by default), but not wider than the frame, is added to the fallback files: in the fallback format, and for a transparent PNG whose fallback is WebP - a separate PNG for crawlers. Other images are not cut to this width;
 - `cover_url(page, min_width=1200)` returns the address of a JPEG/PNG variant not narrower than `min_width`; if there is none - the address of the master;
 - a master narrower than `cover_width` is served whole, and the build and `heron check` print a note (not a warning, `--strict` does not count it): "cover is smaller than 1200 px: <path>";
 - a variant only in AVIF or WebP does not fit: some crawlers will not show the picture, and the preview stays empty. That is why there is no "cover only in a modern format" mode;

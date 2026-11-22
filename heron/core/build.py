@@ -491,6 +491,8 @@ def run(
             lang=notes_lang,
             used_media=assets.issued,
         )
+        if with_media:
+            result.report.withheld_media = list(manifest.withheld)
         collector.warnings.extend(report.nav_empty(site, config))
         collector.warnings.extend(report.duplicate_titles(site, config))
         collector.warnings.extend(report.nav_in_html(_homes(outputs, config), site, config))

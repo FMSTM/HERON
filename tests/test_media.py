@@ -90,12 +90,13 @@ def test_original_stays_untouched(prepared):
     assert (root / "img" / "bio" / "portrait.png").read_bytes() == before
 
 
-def test_fallback_in_original_format(prepared):
+def test_fallback_of_a_transparent_png_is_webp(prepared):
     site, root, collector = prepared
     spec = ImagesSpec(widths=[400], ratios=["1:1"], formats=["webp"])
     manifest = media.build(site, root, root / "dist", spec, collector)
     rendition = manifest.get("img/bio/portrait.png", "1:1")
-    assert rendition.fallback.endswith(".png")
+    # 0.3.2: прозрачный PNG - запасной файл WebP с альфой, не PNG
+    assert rendition.fallback.endswith(".webp")
     assert (root / "dist" / rendition.fallback).is_file()
 
 

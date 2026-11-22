@@ -205,6 +205,9 @@ class Report:
     # перевод не готов (translation: pending): (язык, файл, опубликована ли в этой сборке)
     pending: list[tuple[str, str, bool]] = field(default_factory=list)
     unused_media: list[str] = field(default_factory=list)
+    # исходники media/, которые есть в плане, но в сборку не поехали: на них
+    # нет ссылок (0.3.2) - сведение, не предупреждение
+    withheld_media: list[str] = field(default_factory=list)
     static_media: list[str] = field(default_factory=list)
     # картинка соцсетей из static/ (совместимость с 0.1): (кто, ключ, путь, куда перенести)
     static_social: list[tuple[str, str, str, str]] = field(default_factory=list)
@@ -342,6 +345,14 @@ class Report:
             lines.append(say(lang, "report_unused_media", count=len(self.unused_media)))
             for path in self.unused_media[:20]:
                 lines.append(f"  {path}")
+
+        if self.withheld_media:
+            lines.append("")
+            lines.append(say(lang, "report_withheld_media", count=len(self.withheld_media)))
+            for path in self.withheld_media[:10]:
+                lines.append(f"  {path}")
+            if len(self.withheld_media) > 10:
+                lines.append(say(lang, "summary_more", count=len(self.withheld_media) - 10))
 
         if self.static_media:
             lines.append("")

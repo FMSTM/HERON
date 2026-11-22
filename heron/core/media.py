@@ -156,6 +156,8 @@ class Manifest:
     # картинка соцсетей из static/ (совместимость с 0.1): путь из сайта -> адрес
     # в сборке; файл туда везёт обычное копирование static/, нарезок нет
     static: dict[str, str] = field(default_factory=dict)
+    # исходники media/, которые сборка не повезла: на них нет ссылок (`finish`)
+    withheld: list[str] = field(default_factory=list)
 
     def get(self, src: str, ratio: str) -> Rendition | None:
         return self.items.get(paths.normalize(src), {}).get(ratio)
@@ -927,6 +929,36 @@ def variant(fits: bool, ratio: str, width: int, ext: str) -> str:
     return f"{'fit' if fits else 'crop'}-{_label(ratio)}-{width}.{ext}"
 
 
+# Форматы, которые понимают краулеры соцсетей и мессенджеров (og:image):
+# avif и webp - не все. Обложка для них - в одном из этих форматов.
+CRAWLER_EXT = ("jpg", "jpeg", "png")
+
+
+def fallback_ext(source: Path, shape: Shape) -> str:
+    """Формат запасного файла нарезки (`<img src>`): 0.3.2 - PNG больше не идёт.
+
+    Прозрачный PNG (хоть один не непрозрачный пиксель) - WebP с альфой: его
+    понимают все современные браузеры, прозрачность сохраняется, а весит он
+    в разы меньше PNG. Непрозрачный PNG - JPG, как фотография. Если рядом
+    лежит мастер с тем же именем в JPG (`x.png` и `x.jpg`), их JPG-нарезки
+    назывались бы одинаково - тогда PNG остаётся PNG. Остальные форматы -
+    как раньше, в своём.
+    """
+    origin = source.suffix.lstrip(".").lower()
+    if origin != "png":
+        return origin
+    if shape.alpha:
+        return "webp"
+    if source.with_suffix(".jpg").exists() or source.with_suffix(".JPG").exists():
+        return "png"
+    return "jpg"
+
+
+def ext_of(rel: str) -> str:
+    """Формат нарезки по её имени: `x-4x3-800.webp` - webp."""
+    return Path(rel).suffix.lstrip(".").lower()
+
+
 def plan_master(
     src: str,
     source: Path,
@@ -941,7 +973,7 @@ def plan_master(
     """
     shape = shape or shape_of(source)
     stem = Path(src)
-    origin = stem.suffix.lstrip(".").lower()
+    origin = fallback_ext(source, shape)
     fits = _fits(src, shape, spec)
 
     def named(ratio: str, fmt: str, size: int) -> str:
@@ -968,6 +1000,12 @@ def plan_master(
         origin_widths = sorted({*widths, *extra})
         rendition.sources["origin"] = [(w, named(ratio, origin, w)) for w in origin_widths]
         rendition.fallback = named(ratio, origin, fallback)
+        if cover and origin not in CRAWLER_EXT:
+            # Прозрачная обложка: запасной файл - WebP, а краулеру соцсетей
+            # нужен PNG. Одна ширина, и режется, только если на неё сослались
+            # (og:image); прозрачность сохраняется и здесь.
+            width = min(max(spec.fallback_width, spec.cover_width), frame_w)
+            rendition.sources["cover"] = [(width, named(ratio, "png", width))]
         out[ratio] = rendition
     return out
 
@@ -999,7 +1037,7 @@ def slice_master(
         frame = frames[ratio]
         height = round(width * frame.height / frame.width)
         resized = frame.resize((width, height), Image.LANCZOS)
-        real = origin if fmt == "origin" else fmt
+        real = kept.suffix.lstrip(".").lower() or (origin if fmt == "origin" else fmt)
         if real in ("jpg", "jpeg") and resized.mode == "RGBA":
             resized = resized.convert("RGB")
         kept.parent.mkdir(parents=True, exist_ok=True)
@@ -1309,7 +1347,6 @@ def plan(
                 kind="картинки",
             )
         fits = _fits(src, shape, spec)
-        origin = Path(src).suffix.lstrip(".").lower()
         clash = [
             rel
             for r in renditions.values()
@@ -1328,10 +1365,9 @@ def plan(
             continue
         manifest.add(src, renditions)
         for r in renditions.values():
-            for fmt, variants in r.sources.items():
-                ext = origin if fmt == "origin" else fmt
+            for _fmt, variants in r.sources.items():
                 for width, rel in variants:
-                    manifest.cached[rel] = entry / variant(fits, r.ratio, width, ext)
+                    manifest.cached[rel] = entry / variant(fits, r.ratio, width, ext_of(rel))
     return manifest
 
 
@@ -1417,6 +1453,10 @@ def used_in(texts) -> set[str]:
                 for candidate in (variant, urllib.parse.unquote(variant)):
                     found.add(candidate)
                     found.add(candidate.rstrip(".;:!?"))
+                    # метка версии (`?v=…`) и якорь - не часть имени файла
+                    bare = re.split(r"[?#]", candidate, maxsplit=1)[0]
+                    found.add(bare)
+                    found.add(bare.rstrip(".;:!?"))
     return found
 
 
@@ -1442,14 +1482,26 @@ def finish(
 
     `used` — пути, на которые ссылается собранный сайт. Кодируется только
     их пересечение с планом; мастер кладётся целиком, только если на него
-    самого есть ссылка (og:image, ссылка из текста, разметка). `used=None` —
-    всё, что есть в плане.
+    самого есть ссылка в собранном сайте (og:image, ссылка из текста,
+    разметка). Так же - файлы, которые движок не режет (pdf, видео, svg,
+    `as_is`): без ссылки они в сборку не едут (0.3.2; раньше мастер,
+    объявленный страницей, ехал всегда, даже если тема выводила только его
+    нарезки). Что осталось в репозитории без ссылки - `manifest.withheld`.
+    `used=None` — всё, что есть в плане.
 
     Нарезка, байты которой уже лежат в записи кэша, не кодируется заново —
     ни этим сайтом, ни соседним с тем же мастером.
     """
     wanted = set(manifest.planned) if used is None else set(manifest.planned) & used
-    masters = set(manifest.masters) if used is None else manifest.masters & (used | manifest.raw)
+    masters = set(manifest.masters) if used is None else manifest.masters & used
+    copies = (
+        dict(manifest.copies)
+        if used is None
+        else {src: path for src, path in manifest.copies.items() if src in used}
+    )
+    manifest.withheld = sorted(
+        (set(manifest.masters) - masters) | (set(manifest.copies) - set(copies))
+    )
 
     jobs: dict[str, list[tuple[str, str, int, Path]]] = {}
     for rel in sorted(wanted):
@@ -1487,7 +1539,7 @@ def finish(
     ]
     placed += [
         Placed(src, source, False, Msg("media_placed_file", src=src))
-        for src, source in sorted(manifest.copies.items())
+        for src, source in sorted(copies.items())
     ]
     return placed
 

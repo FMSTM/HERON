@@ -322,15 +322,15 @@ def _cover_variant(
     if src in manifest.static:
         # из static/ (совместимость с 0.1): нарезок нет, адрес - сам файл
         return manifest.static[src], None, None
-    origin = PurePath(src).suffix.lstrip(".").lower()
     found: list[tuple[float, int, str, int]] = []
     for rendition in manifest.items.get(src, {}).values():
         if not rendition.width or not rendition.height:
             continue
-        for fmt, variants in rendition.sources.items():
-            if (origin if fmt == "origin" else fmt.lower()) not in CRAWLER_FORMATS:
-                continue
-            wide = [(w, rel) for w, rel in variants if w >= min_width]
+        for _fmt, variants in rendition.sources.items():
+            # формат - по имени файла: запасной файл прозрачного PNG теперь
+            # WebP, а для краулера рядом лежит PNG («cover», 0.3.2)
+            ok = [(w, rel) for w, rel in variants if _ext(rel) in CRAWLER_FORMATS]
+            wide = [(w, rel) for w, rel in ok if w >= min_width]
             if not wide:
                 continue
             width, rel = min(wide)
@@ -341,6 +341,10 @@ def _cover_variant(
         return src, None, None
     _, width, rel, height = min(found)
     return rel, width, height
+
+
+def _ext(rel: str) -> str:
+    return PurePath(rel).suffix.lstrip(".").lower()
 
 
 def _known(manifest: Manifest, src: str) -> bool:
@@ -427,7 +431,7 @@ def picture(
         # сайта: кавычка в имени мастера иначе разрывала бы атрибут src.
         parts: list[str] = ["<picture>"]
         for fmt, variants in rendition.sources.items():
-            if fmt == "origin":
+            if fmt in ("origin", "cover"):
                 continue
             srcset = ", ".join(f"/{escape(path)} {width}w" for width, path in variants)
             parts.append(f'<source type="image/{fmt}" srcset="{srcset}" sizes="{escape(sizes)}">')

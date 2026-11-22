@@ -64,6 +64,17 @@ def test_any_file_lands_in_dist_as_is(tmp_path):
     result = pipeline.run(root)
     assert not result.failed, [str(e) for e in result.collector.errors]
     copied = root / "dist" / "media" / "video" / "x.mp4"
+    # 0.3.2: стартовая тема ролик не выводит - на файл нет ссылки, он не едет
+    # в сборку и назван в отчёте
+    assert not copied.exists()
+    assert "media/video/x.mp4" in result.report.withheld_media
+    # есть ссылка из текста - едет как есть
+    page = root / "content" / "uk" / "index.md"
+    page.write_text(
+        page.read_text(encoding="utf-8") + "\n[Ролик](media/video/x.mp4)\n", encoding="utf-8"
+    )
+    result = pipeline.run(root)
+    assert not result.failed, [str(e) for e in result.collector.errors]
     assert copied.is_file()
     assert copied.read_bytes() == source.read_bytes()
 

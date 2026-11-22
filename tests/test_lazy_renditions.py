@@ -24,7 +24,7 @@ LINK = re.compile(r"""(?<=[/"'\s(,=])(media/[^\s"'<>()\\,]+)""")
 
 
 def illustration(path: Path, size: int = 1600) -> None:
-    """Рисунок на прозрачном фоне: его вписывают, а запасной формат — PNG."""
+    """Рисунок на прозрачном фоне: его вписывают, запасной файл - WebP с альфой (0.3.2)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     image.paste(
@@ -106,15 +106,23 @@ def cover_variants(root: Path, src: str, fallback_width: int = 800) -> set[str]:
     data = yaml.safe_load((root / "theme" / "theme.yaml").read_text(encoding="utf-8"))
     spec = ImagesSpec(**{**data["images"], "fallback_width": fallback_width})
     plan = media.plan_master(src, root / src, spec, cover=True)
-    return {f"{path}" for r in plan.values() for _, path in r.sources["origin"]}
+    return {
+        f"{path}"
+        for r in plan.values()
+        for key in ("origin", "cover")
+        for _, path in r.sources.get(key, [])
+    }
 
 
 def test_only_the_requested_ratio_lands_in_the_build(site):
     result = pipeline.run(site)
     assert not result.failed, [str(e) for e in result.collector.errors]
     files = built(site)
-    # card.md - обложка страницы /card/: мастер едет в сборку целиком (E16.S1.T2)
-    assert "media/card.png" in files
+    # card.md - обложка страницы /card/. До 0.3.2 мастер ехал в сборку целиком
+    # (E16.S1.T2); теперь - только если на него есть ссылка, иначе он в отчёте
+    assert ("media/card.png" in files) == ("media/card.png" in links(site))
+    if "media/card.png" not in files:
+        assert "media/card.png" in result.report.withheld_media
     # прочее: либо запрошенное шаблоном 16:9, либо вариант обложки (E16.S2.T3)
     cover = cover_variants(site, "media/card.png") & {n for n in files if n.endswith(".png")}
     # media/cover.png - обложка по умолчанию заготовки (E18.S1.T11) и её варианты
@@ -127,19 +135,18 @@ def test_only_the_requested_ratio_lands_in_the_build(site):
 
 def test_one_fallback_per_ratio_and_not_wider_than_fallback_width(site):
     pipeline.run(site)
-    pngs = {name for name in built(site) if name.endswith(".png")}
-    assert "media/card-16x9-800.png" in pngs
-    # кроме запасного файла в <img> - мастер обложки и её вариант шириной cover_width
-    assert pngs == {
-        "media/card.png",
-        "media/card-16x9-800.png",
-        "media/card-16x9-1200.png",
-        "media/cover.png",  # обложка по умолчанию заготовки (E18.S1.T11)
-    }, pngs
+    files = built(site)
+    pngs = {name for name in files if name.endswith(".png")}
+    # 0.3.2: запасной файл прозрачного PNG - WebP; PNG остаётся один - вариант
+    # обложки для краулеров шириной cover_width (og:image), если на него сослались
+    assert "media/card-16x9-800.webp" in files
+    assert "media/card-16x9-800.png" not in pngs
+    assert pngs <= {"media/card-16x9-1200.png", "media/cover.png"}, pngs
     html = unhash((site / "dist" / "card" / "index.html").read_text(encoding="utf-8"))
-    assert 'src="/media/card-16x9-800.png"' in html
-    with Image.open(site / "dist" / "media" / "card-16x9-800.png") as out:
+    assert 'src="/media/card-16x9-800.webp"' in html
+    with Image.open(site / "dist" / "media" / "card-16x9-800.webp") as out:
         assert out.width == 800
+        assert out.mode == "RGBA"  # прозрачность пережила
 
 
 def test_html_and_media_folder_agree_both_ways(site):
@@ -155,16 +162,13 @@ def test_fallback_width_comes_from_the_theme(site):
     data["images"]["fallback_width"] = 400
     theme.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
     pipeline.run(site)
-    pngs = {n for n in built(site) if n.endswith(".png")}
+    files = built(site)
+    pngs = {n for n in files if n.endswith(".png")}
     html = unhash((site / "dist" / "card" / "index.html").read_text(encoding="utf-8"))
-    assert 'src="/media/card-16x9-400.png"' in html
-    # прочие .png - мастер обложки и её вариант шириной max(fallback_width, cover_width)
-    assert pngs == {
-        "media/card.png",
-        "media/card-16x9-400.png",
-        "media/card-16x9-1200.png",
-        "media/cover.png",  # обложка по умолчанию заготовки (E18.S1.T11)
-    }, pngs
+    assert 'src="/media/card-16x9-400.webp"' in html
+    assert "media/card-16x9-400.webp" in files
+    # .png - только вариант обложки шириной max(fallback_width, cover_width)
+    assert pngs <= {"media/card-16x9-1200.png", "media/cover.png"}, pngs
 
 
 def test_fallback_width_defaults_to_800():
@@ -195,10 +199,14 @@ def test_raw_references_bring_the_master(site):
         "![Picture](media/inline.jpg)\n",
         encoding="utf-8",
     )
-    pipeline.run(site)
+    result = pipeline.run(site)
     files = built(site)
     assert "media/inline.jpg" in files
-    assert "media/og.jpg" in files
+    # 0.3.2: мастер обложки для соцсетей - в сборке, только если на него есть
+    # ссылка; og:image ведёт на вариант шириной cover_width
+    assert ("media/og.jpg" in files) == ("media/og.jpg" in links(site))
+    if "media/og.jpg" not in files:
+        assert "media/og.jpg" in result.report.withheld_media
     # inline.jpg не обложка и шаблон его не режет; у og.jpg (обложка /inline/)
     # допустим только вариант шириной cover_width
     assert not any(name.startswith("media/inline-") for name in files)
@@ -241,4 +249,6 @@ def test_build_without_templates_still_cuts_everything(tmp_path):
     spec = ImagesSpec(widths=[400, 800], ratios=["1:1"], formats=["webp"])
     media.build(site_model, tmp_path, tmp_path / "dist", spec, Collector())
     names = {p.name for p in (tmp_path / "dist" / "media").iterdir()}
-    assert {"a-1x1-400.webp", "a-1x1-800.webp", "a-1x1-800.png", "a.png"} <= names
+    # прозрачный PNG: запасной файл - тот же WebP (0.3.2), PNG-нарезок нет
+    assert {"a-1x1-400.webp", "a-1x1-800.webp", "a.png"} <= names
+    assert "a-1x1-800.png" not in names

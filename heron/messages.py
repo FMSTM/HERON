@@ -1075,6 +1075,10 @@ TEXT["ru"].update(
         "report_orphans": "На эти страницы никто не ссылается: {urls}",
         "report_schema": "Разметка schema.org - {by_kind}",
         "report_unused_media": "Файлы в media, которых никто не ждёт - {count}:",
+        "report_withheld_media": (
+            "Исходники media/ не поехали в сборку - на них нет ссылок, в сайте только "
+            "их нарезки (это не ошибка) - {count}:"
+        ),
         "report_static_media": "В static лежит контент - его место в media:",
         "report_static_social": (
             "Картинка соцсетей лежит в static/ (это не ошибка): так писали сайты 0.1, "
@@ -1138,6 +1142,10 @@ TEXT["en"].update(
         "report_orphans": "No page links to these: {urls}",
         "report_schema": "schema.org markup - {by_kind}",
         "report_unused_media": "Files in media nothing expects - {count}:",
+        "report_withheld_media": (
+            "media/ sources not shipped in the build - nothing links to them, the site "
+            "uses only their renditions (not an error) - {count}:"
+        ),
         "report_static_media": "Content sits in static - it belongs in media:",
         "report_static_social": (
             "A social image sits in static/ (not an error): 0.1 sites were written so, "
@@ -1900,40 +1908,59 @@ RECIPE_EN: tuple[tuple[str, str], ...] = (
         "# checking https://nginx.org/en/security_advisories.html.\n",
     ),
     (
-        "# Конфиг nginx приезжает вместе со статикой: движок собирает его под языки\n"
-        "# этого сайта. Руками написанный список языков разошёлся бы с содержимым\n"
-        "# папки в первый же раз, когда сменят основной язык.\n"
-        "#\n"
-        "# Зачем он вообще: у образа по умолчанию не задан error_page, поэтому на\n"
-        "# несуществующий адрес отдаётся встроенная страница nginx, а нарисованную\n"
-        "# темой 404 не видит никто. Код ответа остаётся 404: заглушка с кодом 200\n"
-        "# попадает в индекс и плодит дубли.\n",
-        "# The nginx config comes together with the static files: the engine builds\n"
-        "# it for this site's languages. A hand-written list of languages would drift\n"
-        "# from the folder the first time the main language changes.\n"
-        "#\n"
-        "# Why it is needed at all: the image has no error_page by default, so a\n"
-        "# missing address gets the built-in nginx page and nobody sees the 404 drawn\n"
-        "# by the theme. The response code stays 404: a stub with code 200 gets into\n"
-        "# the index and breeds duplicates.\n",
+        "# Два этапа ради одного слоя со статикой. `COPY` и следом `RUN chmod -R` в\n"
+        "# том же этапе кладут файлы в образ дважды: chmod трогает файл нижнего\n"
+        "# слоя, overlayfs копирует его наверх, и слой RUN несёт копию папки (образ -\n"
+        "# два dist плюс nginx). Здесь дерево готовится в отдельном этапе, а в\n"
+        "# итоговый образ приезжает одним COPY - уже с правами.\n",
+        "# Two stages for a single layer of static files. `COPY` followed by\n"
+        "# `RUN chmod -R` in the same stage puts the files into the image twice:\n"
+        "# chmod touches a file of the lower layer, overlayfs copies it up, and the\n"
+        "# RUN layer carries a copy of the folder (the image is two dists plus\n"
+        "# nginx). Here the tree is prepared in a separate stage and comes into the\n"
+        "# final image with one COPY - permissions already set.\n",
     ),
     (
+        "# Конфиг nginx приезжает вместе со статикой: движок собирает его под языки\n"
+        "# этого сайта. Руками написанный список языков разошёлся бы с содержимым\n"
+        "# папки в первый же раз, когда сменят основной язык. Из папки сайта он\n"
+        "# уходит: в html ему не место.\n"
+        "#\n"
         "# Права приезжают вместе с файлами, а nginx работает не под root: папка,\n"
         "# закрытая от чужих на машине сборки, внутри образа превращается в 403 на\n"
         "# весь сайт. Поэтому читаемость выставляем здесь, а не надеемся на умаск\n"
-        "# того, кто собирал.\n"
+        "# того, кто собирал.\n",
+        "# The nginx config comes together with the static files: the engine builds\n"
+        "# it for this site's languages. A hand-written list of languages would drift\n"
+        "# from the folder the first time the main language changes. It leaves the\n"
+        "# site folder: it does not belong in html.\n"
         "#\n"
-        "# Владельца конфига меняем не для красоты: стартовый скрипт образа правит\n"
-        "# default.conf на месте (ipv6, резолверы), и от чужого файла он получает\n"
-        "# отказ в правах - контейнер падает сразу после старта.\n",
         "# Permissions come with the files, and nginx does not run as root: a folder\n"
         "# closed to others on the build machine turns into a 403 for the whole site\n"
         "# inside the image. So readability is set here instead of relying on the\n"
-        "# umask of whoever built it.\n"
+        "# umask of whoever built it.\n",
+    ),
+    (
+        "# Зачем конфиг вообще: у образа по умолчанию не задан error_page, поэтому на\n"
+        "# несуществующий адрес отдаётся встроенная страница nginx, а нарисованную\n"
+        "# темой 404 не видит никто. Код ответа остаётся 404: заглушка с кодом 200\n"
+        "# попадает в индекс и плодит дубли.\n"
         "#\n"
-        "# The config owner is changed for a reason: the image start script edits\n"
+        "# Владелец конфига - nginx не для красоты: стартовый скрипт образа правит\n"
+        "# default.conf на месте (ipv6, резолверы), и от чужого файла он получает\n"
+        "# отказ в правах - контейнер падает сразу после старта.\n",
+        "# Why the config is needed at all: the image has no error_page by default, so\n"
+        "# a missing address gets the built-in nginx page and nobody sees the 404\n"
+        "# drawn by the theme. The response code stays 404: a stub with code 200 gets\n"
+        "# into the index and breeds duplicates.\n"
+        "#\n"
+        "# The config is owned by nginx for a reason: the image start script edits\n"
         "# default.conf in place (ipv6, resolvers) and gets a permission error on a\n"
         "# file it does not own - the container dies right after the start.\n",
+    ),
+    (
+        "# Статика - один слой, права уже выставлены на этапе tree.\n",
+        "# The static files are one layer, permissions were set in the tree stage.\n",
     ),
     (
         'echo "нет $conf - пересоберите сайт движком 0.1.0 или новее"',

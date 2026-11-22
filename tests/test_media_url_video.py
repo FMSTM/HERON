@@ -135,8 +135,15 @@ def test_video_and_poster_land_in_the_build(tmp_path):
     (root / "media" / "video" / "x.mp4").write_bytes(b"film")
     master(root / "media" / "video" / "x-poster.jpg", size=600)
 
+    page = root / "content" / "uk" / "index.md"
+    page.write_text(
+        page.read_text(encoding="utf-8")
+        + "\n[Ролик](media/video/x.mp4) ![Кадр](media/video/x-poster.jpg)\n",
+        encoding="utf-8",
+    )
     result = pipeline.run(root)
     assert not result.collector.errors
+    # 0.3.2: в сборку едет то, на что есть ссылка в собранном сайте
     assert (root / "dist" / "media" / "video" / "x.mp4").is_file()
     assert (root / "dist" / "media" / "video" / "x-poster.jpg").is_file()
 

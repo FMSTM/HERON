@@ -516,14 +516,14 @@ The names `cover_url` and `robots_meta` are reserved: the engine counts these na
 For each image the content links to:
 
 - width variants: 400, 800, 1200, 1600 - but not larger than the source
-- formats: AVIF and WebP at all widths; the source format is the fallback for `<img src>` (for a WebP master the fallback file is WebP too; the extension comes from the master), in one width `images.fallback_width` (800), not larger than the frame width. Other widths of the source format are cut only if they are requested via `media_url(src, ratio, width)`
+- formats: AVIF and WebP at all widths; the fallback for `<img src>` is one width `images.fallback_width` (800), not larger than the frame width: for JPG and WebP - the master format, for PNG (0.3.2) - WebP with alpha if at least one pixel is not opaque, otherwise JPG (with a master `x.jpg` next to it - PNG, so the names do not clash). There are no PNG renditions except the crawler cover variant of a transparent PNG; SVG goes as is. AVIF and WebP names do not change. Other widths of the fallback format are cut only if they are requested via `media_url(src, ratio, width)`
 - only what the built site links to is cut: an aspect ratio no template asked for does not get into the build
 - `srcset` and `sizes` are set by the module
 - `width` and `height` are mandatory in the markup - otherwise the layout jumps and CLS grows
 - `loading="lazy"` on everything except the image of the first screen
 - renditions are stored in the cache and get into the build as a hard link
 
-The page cover (`20` §4.2) is cut specially: the master always goes into the build whole, and a JPEG/PNG `max(images.fallback_width, images.cover_width)` wide, but not wider than the frame, is added to the fallback files (`images.cover_width` is 1200 by default). A master narrower than `cover_width` is served whole, and `heron check` warns.
+The page cover (`20` §4.2) is cut specially: a JPEG/PNG `max(images.fallback_width, images.cover_width)` wide, but not wider than the frame, is added to the fallback files (`images.cover_width` is 1200 by default) - JPEG for an opaque one, PNG for a transparent one. The master goes into the build only if the built site links to it (0.3.2); a master narrower than `cover_width` is served whole (`og:image` points to it), and the build and `heron check` print a note. Sources the build did not ship are named by the report in a note ("media/ sources not shipped in the build").
 
 An image that something links to but that is not on disk: in strict mode (`--strict` or `build.fail_on_warning`) - error `E007` and the build stops; in a normal build - the warning "no file <path>" (kind "images"), and the build goes on. `heron check` is stricter than a normal build: it counts a missing image as error `E007` even without `--strict`. A broken image in production costs more than a failed build, so enable `--strict` for CI.
 

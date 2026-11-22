@@ -22,7 +22,7 @@ files:
     ru_sha256: "a82f4eef881fde7be1cd41f9c5c408d02f3f5591f8c437a7ce0ddb1714fe22cc"
     en_status: current
   - path: guide/04-theme.md
-    ru_sha256: "3882a10da157848823beea27f1b6ee32a1d6eed8881c42d664ba2304184838b9"
+    ru_sha256: "cacd50a1fd7421c6f14c0781b324e8afdc9e31796f1a37a7c3c2373b58dfbff1"
     en_status: current
   - path: guide/05-seo.md
     ru_sha256: "61fb3fcd9a14560ab4276e2e849e77eded79beaf14e706e959ff3b5a3a177a66"
@@ -49,16 +49,16 @@ files:
     ru_sha256: "7162aa68a2b3471191225c6303d0d77ae320ded9f7d5c104e5c8bd79274ba31f"
     en_status: current
   - path: spec/20-data-contract.md
-    ru_sha256: "effd4975e9a78c83c1a676caa700b86f63201fdf29ac588c6821f6e4cbd60422"
+    ru_sha256: "da052f876fce84ad77412bd0a1b3066f3ffa34ef4f6ac7f3dcedc8452cb70aa3"
     en_status: current
   - path: spec/21-engine.md
-    ru_sha256: "0c05b269d568c58a0525a613ae5e93c5c3b1e0c9755f40aa6326b5faf0b4a527"
+    ru_sha256: "09604219f47c211f6715d55b3e3e6dd400abe7a0e412b8af0c6105cc6dd23389"
     en_status: current
   - path: spec/22-deploy.md
     ru_sha256: "7d67981c9090ba3625857f1a73a7d627ebdc63d32e82e30ec35c421a0f17e2ed"
     en_status: current
   - path: spec/23-distribution.md
-    ru_sha256: "bc43dec6dfe5656da43ee923125783607d2361ff5cab9c6868d6bbbb0e77eafa"
+    ru_sha256: "b6256b4f214f3fff3b465b06c1b1f629f8b1c0fa9e4d29a79a476e4c675bf783"
     en_status: current
   - path: templates/page.md
     ru_sha256: "c45fa56cdf289625f2bcb0b274e454d8e400508977cc4af958edc825ec393c07"

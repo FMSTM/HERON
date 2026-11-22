@@ -96,6 +96,25 @@ class Vocab:
         meta = self.properties.get(short(prop))
         return list(meta.get("range", [])) if meta else []
 
+    def year_as_date(self, prop: str, value: Any) -> bool:
+        """Год целым числом там, где свойство ждёт дату (Date/DateTime), но не число.
+
+        `organization.since: 2011` в YAML - целое, и подстановка
+        `"{{ organization.since }}"` отдаёт его числом. Для свойства-даты это
+        тот же год, что строка "2011" (ISO 8601): валидатор его принимает,
+        разметка выводит строкой. Только 1000-9999 и только если в диапазоне
+        нет числового типа - иначе число законно само по себе.
+        """
+        if isinstance(value, bool) or not isinstance(value, int) or not 1000 <= value <= 9999:
+            return False
+        ranges = self.ranges(prop)
+        data = [r for r in ranges if self.is_datatype(r)]
+        if not any(self.is_subtype(r, "Date") or self.is_subtype(r, "DateTime") for r in data):
+            return False
+        return not any(self.is_subtype(r, "Number") for r in data) and (
+            "QuantitativeValue" not in ranges
+        )
+
     def is_enum(self, name: str) -> bool:
         return short(name) in self.enums
 

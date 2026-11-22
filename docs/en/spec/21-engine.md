@@ -1004,7 +1004,7 @@ The detail and hint of an error and the text of a warning are in the language of
 | `SCH001` | the schema.org type is not in the vocabulary. `prod` - an error, otherwise a warning; exception - `schema_exceptions` or `--allow-schema` |
 | `SCH002` | the property does not belong to this type. `prod` - an error, otherwise a warning; exception - `schema_exceptions` or `--allow-schema` |
 | `SCH003` | the value is not from the enumeration. `prod` - an error, otherwise a warning; exception - `schema_exceptions` or `--allow-schema` |
-| `SCH004` | the value type does not fit the property. `prod` - an error, otherwise a warning; exception - `schema_exceptions` or `--allow-schema` |
+| `SCH004` | the value type does not fit the property; a year as an integer 1000-9999 in a date property (range `Date`/`DateTime` without a numeric type) fits and is written as a string (`20` §5, "The `schema` block"). `prod` - an error, otherwise a warning; exception - `schema_exceptions` or `--allow-schema` |
 | `SCH005` | a deprecated type or property. `prod` - an error, otherwise a warning; exception - `schema_exceptions` or `--allow-schema` |
 | `SCH006` | the image from the markup is not in the build. `prod` - an error, otherwise a warning; exception - `schema_exceptions` or `--allow-schema` |
 

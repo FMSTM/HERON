@@ -1006,6 +1006,8 @@ schema:
 
 **The language is substituted by itself.** On a Russian page `{{ contact.address }}` is `address_ru`, on an English one `address_en`; if there is no language key, the key without the tail is taken. One block works for all languages.
 
+**A year as a number in a date property.** `organization.since: 2011` in YAML is an integer, and `foundingDate: "{{ organization.since }}"` substitutes a number. In a property whose range in the schema.org vocabulary includes `Date` or `DateTime` and no numeric type (`foundingDate`, `birthDate`, `datePublished`, `startDate` and others), a four-digit year as an integer (1000-9999) is accepted and written into the markup as a string: `"foundingDate": "2011"`. The same holds for a year written as a number directly (`foundingDate: 2011`). Any other number in such a property (`5`, `20111`, `2011.5`) is `SCH004`; the string `"2011"` passes as before; other numeric properties stay numbers.
+
 **Lists are expanded with an asterisk.** `{{ contact.social.*.href }}` is a list of addresses from a list of maps `{href, name}`. Otherwise social networks get copied into the markup by hand and are forgotten when updating.
 
 **Page addresses and the base address** are available to substitutions: `{{ site.base }}` - the site root, `{{ pages.<key>.url }}` - the address of the page with that key in the language of the current page, `{{ pages.<key>.image }}` - its image, `{{ pages.<key>.h1 }}`, `.title`, `.description`. There is no need to type a page address by hand: it changes together with the slug, and nobody rereads the markup after a rename. In substitutions the home page is called `home` (elsewhere its key is `/`, see 4.2).

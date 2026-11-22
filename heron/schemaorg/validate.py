@@ -158,6 +158,10 @@ class _Validator:
             if "Boolean" not in ranges:
                 self.add("SCH004", path, str(value), prop=prop, got="boolean", expected=rstr)
         elif isinstance(value, (int, float)):
+            # Год числом в свойстве-дате (`since: 2011` сайта 0.1): разметка
+            # выводит его строкой "2011", это допустимая дата ISO 8601.
+            if v.year_as_date(prop, value):
+                return
             numeric = self._kind_in(ranges, _NUMBERLIKE + ("Text",))
             if not (numeric or "QuantitativeValue" in ranges):
                 self.add(

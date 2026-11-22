@@ -130,13 +130,32 @@ def _fill(value: Any, data: dict[str, Any], lang: str) -> Any:
         for key, item in value.items():
             filled = _fill(item, data, lang)
             if filled not in (None, "", [], {}):
-                out[key] = filled
+                out[key] = _year(str(key), filled)
         return out or None
     if isinstance(value, list):
         out_list = [_fill(item, data, lang) for item in value]
         out_list = [item for item in out_list if item not in (None, "", [], {})]
         return out_list or None
     return value
+
+
+def _year(prop: str, value: Any) -> Any:
+    """Год числом в свойстве-дате - строкой: 2011 → "2011".
+
+    `since: 2011` в YAML - целое, и `foundingDate: "{{ organization.since }}"`
+    отдаёт число. Дата в JSON-LD - строка ISO 8601, поэтому год выводится
+    строкой. Какие свойства - даты, решает словарь schema.org (диапазон
+    Date/DateTime без числового типа), а не список в коде; прочие числа
+    остаются числами.
+    """
+    if prop.startswith("@"):
+        return value
+    from heron.schemaorg import vocab  # внутри: heron.schemaorg тянет heron.core
+
+    v = vocab()
+    if isinstance(value, list):
+        return [str(item) if v.year_as_date(prop, item) else item for item in value]
+    return str(value) if v.year_as_date(prop, value) else value
 
 
 def _merge(base: dict[str, Any], extra: dict[str, Any]) -> dict[str, Any]:

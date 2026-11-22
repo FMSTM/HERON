@@ -1,0 +1,8 @@
+{
+  "_comment": "Хвост @id предметного узла по умолчанию (heron.modules.jsonld, 21 §9): тип и его подтипы по словарю -> <адрес страницы>#<хвост>. Порядок важен: первый подходящий. Тип вне списка - <тип строчными>.",
+  "suffixes": [
+    ["Service", "service"],
+    ["MedicalCondition", "condition"],
+    ["MedicalProcedure", "procedure"]
+  ]
+}

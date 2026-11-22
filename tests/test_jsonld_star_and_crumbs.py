@@ -3,8 +3,8 @@
 - `{{ organization.same_as.* }}` над списком адресов-строк давал пустой список,
   и `sameAs` молча пропадал: `*` оставлял только карты. Теперь строки и числа
   берутся как есть, карты - как раньше.
-- Ключ, выброшенный из-за пустой подстановки, называется предупреждением
-  (ключ и подстановка); выброшенный литерал - нет.
+- Ключ, выброшенный из-за пустой подстановки, называется сведением (ключ и
+  подстановка; `--strict` его не считает); выброшенный литерал - нет.
 - Имя элемента `BreadcrumbList` - та же подпись, что видит человек в крошках
   стартовой темы (`Page.crumb_name`: `nav_title`, иначе `h1`).
 """
@@ -89,7 +89,9 @@ def _verify(tmp_path, entity, pages=None, **extra):
 
 
 def _markup_warnings(collector):
-    return [w for w in collector.warnings if w.kind == "разметка"]
+    # сведение, не предупреждение: --strict его не считает
+    assert not [w for w in collector.warnings if w.kind == "разметка"]
+    return [w for w in collector.notes if w.kind == "разметка"]
 
 
 def test_strings_same_as_reaches_the_graph(tmp_path):
@@ -228,3 +230,21 @@ def test_starter_demo_visible_crumbs_equal_jsonld_on_every_page(tmp_path, monkey
             assert marked[-2:] == ["Structure", "Cats"], marked
             short = True
     assert checked >= 3 and short
+
+
+def test_empty_placeholder_does_not_fail_a_strict_build(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("SITE_ENV", raising=False)
+    assert CliRunner().invoke(main, ["new", "demo", "--no-agents", "-y"]).exit_code == 0
+    path = tmp_path / "demo" / "site.yaml"
+    path.write_text(
+        path.read_text(encoding="utf-8")
+        + '\nschema:\n  entity:\n    "@type": Organization\n    "@id": "#org"\n'
+        + '    sameAs: "{{ organization.same_as.* }}"\n',
+        encoding="utf-8",
+    )
+    out = str(tmp_path / "dist")
+    args = ["build", "demo", "--env", "prod", "--strict", "--notes", "en", "--out", out]
+    result = CliRunner().invoke(main, args)
+    assert result.exit_code == 0, result.output
+    assert "schema.entity.sameAs" in result.output and "Notes - 1" in result.output

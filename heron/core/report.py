@@ -208,6 +208,8 @@ class Report:
     static_media: list[str] = field(default_factory=list)
     # картинка соцсетей из static/ (совместимость с 0.1): (кто, ключ, путь, куда перенести)
     static_social: list[tuple[str, str, str, str]] = field(default_factory=list)
+    # координаты разметки короче 5 знаков после точки: (путь ключа, значение)
+    geo_short: list[tuple[str, str]] = field(default_factory=list)
     notes_missing: list[str] = field(default_factory=list)
     uneven_keys: list[tuple[str, str, str, int, int]] = field(default_factory=list)
     schema_nodes: Counter = field(default_factory=Counter)
@@ -365,6 +367,15 @@ class Report:
                 )
             lines.append(say(lang, "report_static_social_fix"))
 
+        if self.geo_short:
+            # Сведение, не предупреждение: координаты есть, просто грубые, и
+            # сайт, проходивший --strict, из-за этого не падает.
+            lines.append("")
+            lines.append(say(lang, "report_geo_short"))
+            for key, value in self.geo_short:
+                lines.append(say(lang, "report_geo_short_line", key=key, value=value))
+            lines.append(say(lang, "report_geo_short_fix"))
+
         if self.uneven_keys:
             lines.append("")
             lines.append(say(lang, "report_uneven"))
@@ -518,6 +529,8 @@ def build(
     if theme_dir is not None:
         report.unused_modules = unused_modules(theme_dir)
 
+    report.geo_short = _geo_short(site, config)
+
     if site_root is not None:
         used = set(used_media)
         if theme_dir is not None:
@@ -652,6 +665,60 @@ def _uneven(owner: str, where: str, node) -> list[tuple[str, str, str, int, int]
     ]
 
 
+GEO_KEYS = ("latitude", "longitude")
+GEO_DIGITS = 5
+
+
+def geo_short(value: Any) -> bool:
+    """Широта или долгота с меньше чем 5 знаками после точки (Google просит 5+).
+
+    Число из YAML теряет нулевой хвост (`50.50900` - это 50.509), поэтому
+    5 знаков с нулями на конце пишут строкой. Не число вовсе - не наше дело:
+    про тип скажет валидатор.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return False
+    text = str(value).strip()
+    try:
+        float(text)
+    except ValueError:
+        return False
+    digits = text.split(".", 1)[1] if "." in text else ""
+    return len(digits.rstrip()) < GEO_DIGITS and "e" not in text.lower()
+
+
+def _geo_walk(node: Any, path: str, out: dict[tuple[str, str], None]) -> None:
+    if isinstance(node, dict):
+        for key, value in node.items():
+            sub = f"{path}.{key}" if path else str(key)
+            if key in GEO_KEYS and geo_short(value):
+                out[(sub, str(value))] = None
+            else:
+                _geo_walk(value, sub, out)
+    elif isinstance(node, list):
+        for i, value in enumerate(node):
+            _geo_walk(value, f"{path}.{i}", out)
+
+
+def _geo_short(site: Site, config: SiteConfig) -> list[tuple[str, str]]:
+    """Грубые координаты в узлах site.yaml (`schema.entity` и прочие блоки)."""
+    from heron.modules import jsonld  # внутри: heron.modules тянет heron.core
+
+    shared = config.extras.get("schema", {})
+    shared = shared if isinstance(shared, dict) else {}
+    found: dict[tuple[str, str], None] = {}
+    for lang in config.site.languages:
+        node = jsonld.entity(config, lang, site)
+        if node:
+            _geo_walk(node, "schema.entity", found)
+        for kind, block in shared.items():
+            if kind == "entity" or not isinstance(block, dict):
+                continue
+            filled = jsonld._fill(block, jsonld._data(config, lang, site), lang)
+            _geo_walk(filled, f"schema.{kind}", found)
+    return list(found)
+
+
 def _without_notes(site_root) -> list[str]:
     """Папки сайта без пояснительной записки.
 
@@ -750,6 +817,16 @@ def summary(collector: Collector, full: Path | None = None, lang: str = "en") ->
     lines: list[str] = []
     for error in collector.errors:
         lines.append(_error_text(error, lang))
+    notes = list(getattr(collector, "notes", []) or [])
+    if notes:
+        # Сведения - после ошибок и до предупреждений не прячутся, но и не
+        # считаются: --strict смотрит только на предупреждения.
+        lines.append("")
+        lines.append(say(lang, "summary_notes", count=len(notes)))
+        for note in notes:
+            where = rendered(note.path, lang) or ""
+            where = f"{where}: " if where else ""
+            lines.append(f"    {where}{rendered(note.message, lang)}")
     if not collector.warnings:
         return "\n".join(lines)
 

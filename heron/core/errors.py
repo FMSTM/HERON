@@ -118,12 +118,19 @@ class Collector:
 
     errors: list[HeronError] = field(default_factory=list)
     warnings: list[Warning_] = field(default_factory=list)
+    # Сведения: показываются в сводке, но сборку не останавливают даже со
+    # --strict. Для находок, которые появились в новой версии движка у сайта,
+    # который раньше собирался: такой сайт не должен краснеть от замены образа.
+    notes: list[Warning_] = field(default_factory=list)
 
     def error(self, *args, **kwargs) -> None:
         self.errors.append(HeronError(*args, **kwargs))
 
     def warn(self, *args, **kwargs) -> None:
         self.warnings.append(Warning_(*args, **kwargs))
+
+    def note(self, *args, **kwargs) -> None:
+        self.notes.append(Warning_(*args, **kwargs))
 
     @property
     def failed(self) -> bool:

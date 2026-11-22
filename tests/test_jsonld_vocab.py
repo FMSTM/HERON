@@ -41,7 +41,8 @@ def test_service_has_no_language_or_dates(built):
     for prop in ("inLanguage", "datePublished", "dateModified"):
         assert prop not in node
     assert node["name"] and node["url"] == "https://example.com/bio/"
-    assert "description" in node
+    # 0.3.1: мета-описание страницы предмету не подставляется (оно для выдачи)
+    assert "description" not in node
 
 
 def test_article_keeps_language_and_dates(built):

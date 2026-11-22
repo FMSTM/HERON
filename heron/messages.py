@@ -1081,6 +1081,15 @@ TEXT["ru"].update(
             "и движок её принимает"
         ),
         "report_static_social_line": "  {owner}: {key}: {src} - лучше {suggested}",
+        "report_geo_short": (
+            "Координаты в разметке короче 5 знаков после точки (это не ошибка, "
+            "но Google просит не меньше 5):"
+        ),
+        "report_geo_short_line": "  site.yaml: {key}: {value}",
+        "report_geo_short_fix": (
+            "  как поправить: впишите 5 и больше знаков; с нулями на конце - строкой "
+            '("50.50900"), иначе YAML их потеряет'
+        ),
         "report_static_social_fix": (
             "  как перенести: переложите файл в media/ по этому пути и впишите его в то же "
             "поле; там картинку проверяют те же правила, что и остальные картинки сайта"
@@ -1097,6 +1106,9 @@ TEXT["ru"].update(
         "report_notes_missing": "Без пояснительной записки (это не ошибка): {folders}",
         "report_root": "корень",
         "summary_warnings": "Предупреждений - {count}:",
+        "summary_notes": (
+            "Сведения - {count} (не ошибка и не предупреждение, --strict их не считает):"
+        ),
         "summary_more": "    … и ещё {count}",
         "summary_full": "  полный список: {path}",
         "summary_unknown_file": "<неизвестный файл>",
@@ -1132,6 +1144,15 @@ TEXT["en"].update(
             "and the engine accepts it"
         ),
         "report_static_social_line": "  {owner}: {key}: {src} - better {suggested}",
+        "report_geo_short": (
+            "Coordinates in the markup have fewer than 5 decimals (not an error, "
+            "but Google asks for at least 5):"
+        ),
+        "report_geo_short_line": "  site.yaml: {key}: {value}",
+        "report_geo_short_fix": (
+            "  how to fix: write 5 or more decimals; with trailing zeros - as a string "
+            '("50.50900"), otherwise YAML drops them'
+        ),
         "report_static_social_fix": (
             "  how to move it: put the file into media/ at this path and write that path "
             "into the same field; there the same rules check it as every other picture of the site"
@@ -1148,6 +1169,9 @@ TEXT["en"].update(
         "report_notes_missing": "No explanatory note (not an error): {folders}",
         "report_root": "root",
         "summary_warnings": "Warnings - {count}:",
+        "summary_notes": (
+            "Notes - {count} (not an error or a warning; --strict does not count them):"
+        ),
         "summary_more": "    … and {count} more",
         "summary_full": "  full list: {path}",
         "summary_unknown_file": "<unknown file>",

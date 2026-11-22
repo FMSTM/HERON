@@ -21,8 +21,10 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import re
+from pathlib import Path
 from typing import Any
 
 from heron.contracts.frontmatter import PAGE_KEY
@@ -471,6 +473,80 @@ def declared_kinds(
     return from_theme, declared, own, shared
 
 
+def _kind_class(kind: str) -> str:
+    """Роль узла по словарю: website, page, article, subject или other (тип вне словаря)."""
+    from heron.schemaorg import vocab  # внутри: heron.schemaorg тянет heron.core
+
+    v = vocab()
+    if not v.is_type(kind) or v.is_datatype(kind):
+        return "other"
+    if v.is_subtype(kind, "WebSite"):
+        return "website"
+    if v.is_subtype(kind, "WebPage"):
+        return "page"
+    if v.is_subtype(kind, "Article"):
+        return "article"
+    return "subject"
+
+
+SUFFIXES = Path(__file__).resolve().parents[1] / "schemaorg" / "id-suffixes.json"
+
+
+@functools.cache
+def _suffixes() -> tuple[tuple[str, str], ...]:
+    """Хвосты `@id` предметных узлов - данными словаря, не списком в коде.
+
+    Какие типы schema.org - «предмет» и как их звать, решает таблица рядом
+    со словарём (`heron/schemaorg/id-suffixes.json`): ядро предметной
+    лексики не держит.
+    """
+    raw = json.loads(SUFFIXES.read_text(encoding="utf-8"))
+    return tuple((str(base), str(tail)) for base, tail in raw["suffixes"])
+
+
+def _suffix(kind: str) -> str:
+    """Хвост `@id` предметного узла по таблице `id-suffixes.json`, иначе `<тип строчными>`."""
+    from heron.schemaorg import vocab  # внутри: heron.schemaorg тянет heron.core
+
+    v = vocab()
+    for base, tail in _suffixes():
+        if v.is_subtype(kind, base):
+            return tail
+    return kind.lower()
+
+
+def _site_ref(config: SiteConfig, mark: str) -> str:
+    """`#owner` - абсолютным адресом от корня сайта, как в _absolute_ids."""
+    return absolute(config, "/") + mark if mark.startswith("#") else mark
+
+
+def _website_id(
+    config: SiteConfig, theme: ThemeConfig, shared: dict[str, Any], own: dict[str, Any]
+) -> str | None:
+    """`@id` узла WebSite сайта, если сайт его выводит где-нибудь; иначе None.
+
+    Ссылаться на сайт, которого в разметке нет нигде, незачем. Свой `@id`
+    у WebSite в site.yaml главнее, явное `null` или `""` - ссылок нет.
+    """
+    declared = any(
+        _kind_class(kind) == "website" for spec in theme.types.values() for kind in spec.jsonld
+    ) or any(_kind_class(k) == "website" and isinstance(own.get(k), dict) for k in own)
+    for kind, block in shared.items():
+        if kind != "entity" and isinstance(block, dict) and _kind_class(kind) == "website":
+            declared = True
+            if "@id" in block:
+                mark = block["@id"]
+                if not isinstance(mark, str) or not mark.strip() or "{{" in mark:
+                    return None
+                return _site_ref(config, mark.strip())
+    return absolute(config, "/") + "#website" if declared else None
+
+
+def _ref(node: dict[str, Any]) -> dict[str, str] | None:
+    mark = node.get("@id")
+    return {"@id": mark} if isinstance(mark, str) and mark else None
+
+
 def build(
     page: Page,
     config: SiteConfig,
@@ -482,22 +558,47 @@ def build(
 
     `dropped` собирает ключи, выброшенные из-за пустой подстановки:
     (путь вида `schema.<тип>.<ключ>`, подстановка) - для предупреждения.
+
+    Связи по умолчанию (0.3.1): у узла страницы `@id` - `<адрес>#webpage`, у
+    WebSite - `<корень>#website`, у предметного узла - `<адрес>#service`,
+    `#condition`, `#procedure` или `#<тип>`; страница - `isPartOf` сайта и
+    `mainEntity`/`about` предметных узлов; WebSite и Service - `publisher` и
+    `provider` сквозного узла. Заданное темой, сайтом или страницей главнее,
+    явное `null` или `""` выключает значение по умолчанию.
     """
     _from_theme, declared, own, shared = declared_kinds(page, config, theme)
 
     cover = _cover(page)
+    page_url = absolute(config, page.url)
     graph: list[dict[str, Any]] = []
+    # Ключи, объявленные у узла до подстановок: явное null тоже ключ, и
+    # значение по умолчанию на его место не встаёт.
+    roles: list[tuple[str, str, dict[str, Any], set[str]]] = []
+    used_ids: set[str] = set()
     # WebSite — это сайт, а не страница: его имя — название сайта на языке
     # страницы, а не h1 главной. Иначе поисковик подписывает сайт слоганом.
     site_name = config.for_lang(page.lang).site.name or config.site.domain
     alternate_names = config.for_lang(page.lang).site.alternate_names
+    data = {
+        **_data(config, page.lang, site),
+        "page": {**page.meta.model_dump(), "cover": _cover_data(cover), "url": page_url},
+        "related": _related(page, config),
+    }
+    first_page = True
     for kind in declared:
-        node: dict[str, Any] = {
-            "@type": kind,
-            "name": site_name if kind == "WebSite" else page.h1,
-            "description": page.meta.description,
-            "url": absolute(config, page.url),
-        }
+        role = _kind_class(kind)
+        node: dict[str, Any] = {"@type": kind}
+        if kind == "WebSite":
+            node["name"] = site_name
+        elif role == "subject":
+            # Предмет страницы называется так, как его называет меню и крошки;
+            # мета-описание написано для выдачи, предмету оно не описание.
+            node["name"] = page.crumb_name
+        else:
+            node["name"] = page.h1
+        if role != "subject":
+            node["description"] = page.meta.description
+        node["url"] = page_url
         if _may_have(kind, "inLanguage"):
             node["inLanguage"] = page.lang
         if kind == "WebSite" and alternate_names:
@@ -510,6 +611,23 @@ def build(
         node = _merge(node, own.get(kind, {}) if isinstance(own.get(kind), dict) else {})
         if _is_article(kind):
             _article_defaults(node, page, cover, shared)
+        if "@id" not in node:
+            if role == "website":
+                node["@id"] = absolute(config, "/") + "#website"
+            elif role in ("page", "article", "subject"):
+                tail = "webpage" if role == "page" and first_page else _suffix(kind)
+                mark = f"{page_url}#{tail}"
+                if mark in used_ids:
+                    mark = f"{page_url}#{kind.lower()}"
+                n = 2
+                while mark in used_ids:
+                    mark = f"{page_url}#{kind.lower()}-{n}"
+                    n += 1
+                node["@id"] = mark
+        if role == "page":
+            first_page = False
+        if isinstance(node.get("@id"), str):
+            used_ids.add(node["@id"])
         # Картинка страницы для поисковика — та же обложка, что og:image.
         # Заданное сайтом или темой главнее; пустые размеры выбросит _fill.
         if kind in WEBPAGE_TYPES and cover and "primaryImageOfPage" not in node:
@@ -520,34 +638,76 @@ def build(
                 "height": cover.get("height"),
                 "caption": cover.get("alt"),
             }
-        node = _fill(
-            node,
-            {
-                **_data(config, page.lang, site),
-                "page": {**page.meta.model_dump(), "cover": _cover_data(cover)},
-                "related": _related(page, config),
-            },
-            page.lang,
-            dropped,
-            f"schema.{kind}",
-        )
-        graph.append(_absolute_ids(node or {}, config))
+        keys = set(node)
+        node = _fill(node, data, page.lang, dropped, f"schema.{kind}")
+        node = _absolute_ids(node or {}, config)
+        roles.append((kind, role, node, keys))
+        graph.append(node)
 
+    _link(page, config, theme, shared, own, roles)
+
+    # 404 - не страница сайта для поисковика: ни крошек, ни сквозного узла.
+    lost = page.type == NOT_FOUND
     # Сквозной узел — только там, где его увидит поисковик. На закрытой
     # от индексации странице разметка бессмысленна.
-    if not page.meta.noindex:
+    if not page.meta.noindex and not lost:
         shared_entity = entity(config, page.lang, site, dropped)
         if shared_entity:
             graph.append(shared_entity)
 
-    crumbs = breadcrumbs(page, config)
+    crumbs = None if lost else breadcrumbs(page, config)
     if crumbs:
         graph.append(crumbs)
-    questions = faq(page)
+    questions = None if _faq_off(shared, own) else faq(page)
     if questions:
+        questions["url"] = page_url
+        questions["inLanguage"] = page.lang
+        website = _website_id(config, theme, shared, own)
+        if website:
+            questions["isPartOf"] = {"@id": website}
         graph.append(questions)
 
     return graph
+
+
+NOT_FOUND = "404"
+
+
+def _faq_off(shared: dict[str, Any], own: dict[str, Any]) -> bool:
+    """`schema: {FAQPage: null}` (или `false`) страницы или сайта - без FAQPage из секции."""
+    for block in (own, shared):
+        if "FAQPage" in block and block["FAQPage"] in (None, False, "", {}):
+            return True
+    return False
+
+
+def _link(page, config, theme, shared, own, roles) -> None:
+    """Связать узлы страницы между собой и с сайтом (ссылки `{"@id": …}`)."""
+    website = _website_id(config, theme, shared, own)
+    owner = _publisher_id(shared)
+    owner_ref = {"@id": _site_ref(config, owner)} if owner else None
+    subjects = [_ref(node) for _k, role, node, _ in roles if role == "subject"]
+    subjects = [ref for ref in subjects if ref]
+    from heron.schemaorg import vocab  # внутри: heron.schemaorg тянет heron.core
+
+    v = vocab()
+    for kind, role, node, keys in roles:
+        if not node:
+            continue
+        if role == "page":
+            if website and "isPartOf" not in keys and _may_have(kind, "isPartOf"):
+                node["isPartOf"] = {"@id": website}
+            if subjects and "mainEntity" not in keys and _may_have(kind, "mainEntity"):
+                node["mainEntity"] = subjects[0]
+                rest = subjects[1:]
+                if rest and "about" not in keys and _may_have(kind, "about"):
+                    node["about"] = rest[0] if len(rest) == 1 else rest
+        elif role == "website":
+            if owner_ref and "publisher" not in keys and _may_have(kind, "publisher"):
+                node["publisher"] = dict(owner_ref)
+        elif role == "subject" and v.is_subtype(kind, "Service"):
+            if owner_ref and "provider" not in keys and _may_have(kind, "provider"):
+                node["provider"] = dict(owner_ref)
 
 
 def render(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> str:
@@ -612,7 +772,9 @@ def _warn_dropped(page: Page, collector, dropped: list[tuple[str, str]]) -> None
     `sameAs: "{{ organization.same_as.* }}"` над пустым списком или
     `{{ contact.phone }}` без телефона в site.yaml - ключ молча пропадает
     из разметки, и узнают об этом только из панели вебмастера. Это не
-    ошибка: данных может не быть по делу. Источник - тот, где подстановка
+    ошибка: данных может не быть по делу. И не предупреждение: сведение
+    (`collector.note`), его не считает `--strict` - сайт, который собирался
+    на прежнем движке, от новой находки не краснеет. Источник - тот, где подстановка
     написана: блок страницы или site.yaml; одно и то же из site.yaml
     называется один раз, а не на каждой странице.
     """
@@ -626,9 +788,9 @@ def _warn_dropped(page: Page, collector, dropped: list[tuple[str, str]]) -> None
         in_page = isinstance(declared, str) and declared.strip() == hole
         source = str(page.source) if in_page else "site.yaml"
         message = Msg("markup_placeholder_empty", key=key, hole=hole, lang=page.lang)
-        if any(w.message == message and w.path == source for w in collector.warnings):
+        if any(w.message == message and w.path == source for w in collector.notes):
             continue
-        collector.warn(message, path=source, kind="разметка")
+        collector.note(message, path=source, kind="разметка")
 
 
 def verify(
@@ -663,14 +825,18 @@ def verify(
 
     declared = config.extras.get("schema", {})
     declared = declared.get("entity") if isinstance(declared, dict) else None
-    if isinstance(declared, dict) and declared and not page.meta.noindex:
+    if isinstance(declared, dict) and declared and not page.meta.noindex and page.type != NOT_FOUND:
         mark = str(declared.get("@id", ""))
-        if mark:
+        shared_node = entity(config, page.lang, site)
+        if mark and shared_node is not None:
+            # По равенству со сквозным узлом, а не по хвосту `@id`: у узлов
+            # страницы теперь свои `@id` (`…#service`), и хвост мог бы совпасть.
+            node = next((n for n in graph if n == shared_node), None)
+        elif mark:
             node = next((n for n in graph if str(n.get("@id", "")).endswith(mark)), None)
         else:
             # Без @id узел ищем по равенству со сквозным узлом сайта,
             # а не по пустому суффиксу, которому подходит любой первый узел.
-            shared_node = entity(config, page.lang, site)
             node = next((n for n in graph if shared_node is not None and n == shared_node), None)
         if node is None:
             collector.error("E020", Msg("markup_no_entity"), path=page.source)

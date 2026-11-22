@@ -733,7 +733,11 @@ def _link(page, config, theme, shared, own, roles, site=None) -> None:
     website = _website_id(config, theme, shared, own, site, page)
     owner = _publisher_id(shared)
     owner_ref = {"@id": _site_ref(config, owner)} if owner else None
-    subjects = [_ref(node) for _k, role, node, _ in roles if role == "subject"]
+    # Предмет страницы - любой узел из словаря, который не страница и не сайт:
+    # Service, предметные типы, SoftwareApplication, Product, Event и статья
+    # (Article и подтипы, 0.3.2) - то, о чём страница. Порядок - порядок
+    # объявления: первый - mainEntity, остальные - about.
+    subjects = [_ref(node) for _k, role, node, _ in roles if role in ("subject", "article")]
     subjects = [ref for ref in subjects if ref]
     from heron.schemaorg import vocab  # внутри: heron.schemaorg тянет heron.core
 

@@ -311,3 +311,40 @@ def test_site_without_website_gives_no_is_part_of(tmp_path):
 def test_website_without_id_gives_no_is_part_of(tmp_path):
     graph, *_ = _graph(tmp_path, shared={"WebSite": {"@id": None}}, extra_types=HOME_WEBSITE)
     assert "isPartOf" not in _of(graph, "WebPage")
+
+
+# --- 0.3.2: статья - тоже предмет страницы -------------------------------------------
+
+
+def test_page_and_article_give_main_entity(tmp_path):
+    graph, *_ = _graph(tmp_path, kinds=("MedicalWebPage", "Article"), entity=None)
+    page, article = _of(graph, "MedicalWebPage"), _of(graph, "Article")
+    assert article["@id"] == f"{B}/a/#article"
+    assert page["mainEntity"] == {"@id": f"{B}/a/#article"}
+    assert validate(page).findings == []
+
+
+def test_page_and_blogposting_give_main_entity(tmp_path):
+    graph, *_ = _graph(tmp_path, kinds=("WebPage", "BlogPosting"), entity=None)
+    assert _of(graph, "WebPage")["mainEntity"] == {"@id": f"{B}/a/#blogposting"}
+
+
+def test_explicit_main_entity_to_the_article_is_the_same_output(tmp_path):
+    hand = {"MedicalWebPage": {"mainEntity": {"@id": "{{ page.url }}#article"}}}
+    by_hand, *_ = _graph(tmp_path / "a", kinds=("MedicalWebPage", "Article"), own=hand)
+    auto, *_ = _graph(tmp_path / "b", kinds=("MedicalWebPage", "Article"))
+    assert by_hand == auto
+    assert _of(auto, "MedicalWebPage")["mainEntity"] == {"@id": f"{B}/a/#article"}
+
+
+def test_explicit_main_entity_is_kept(tmp_path):
+    own = {"WebPage": {"mainEntity": {"@id": "#other"}}}
+    graph, *_ = _graph(tmp_path, kinds=("WebPage", "Article"), own=own)
+    assert _of(graph, "WebPage")["mainEntity"] == {"@id": f"{B}/#other"}
+
+
+def test_article_without_page_node_is_unchanged(tmp_path):
+    graph, *_ = _graph(tmp_path, kinds=("Article",), entity=None)
+    article = _of(graph, "Article")
+    assert "mainEntity" not in article and "about" not in article
+    assert article["@id"] == f"{B}/a/#article"

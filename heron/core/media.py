@@ -658,7 +658,13 @@ def verify(site: Site, site_root: Path, collector: Collector, config=None) -> No
 
 
 def small_cover(cover_width: int, src: str) -> Msg:
-    """Текст предупреждения о мелкой обложке: общий для сборки и `heron check`."""
+    """Текст сведения о мелкой обложке: общий для сборки и `heron check`.
+
+    Сведение, не предупреждение (0.3.1): мелкая обложка режется и
+    масштабируется под пропорции темы, как и раньше, просто вариант для
+    краулеров не крупнее мастера. Сборку это не останавливает и под
+    `--strict` - сайт 0.1, где проверки не было, не краснеет от замены образа.
+    """
     return Msg("media_small_cover", width=cover_width, src=src)
 
 
@@ -744,7 +750,7 @@ def _bad_master(
 def verify_covers(
     site: Site, site_root: Path, collector: Collector, spec: ImagesSpec, config=None
 ) -> None:
-    """Предупредить об обложках уже, чем images.cover_width (то же, что media.plan).
+    """Сведение об обложках уже, чем images.cover_width (то же, что media.plan; не предупреждение).
 
     Ничего не кодирует и не пишет в кэш: только читает размер мастера.
     """
@@ -762,7 +768,7 @@ def verify_covers(
             _bad_master(collector, declared, src, exc)
             continue
         if width < spec.cover_width:
-            collector.warn(
+            collector.note(
                 small_cover(spec.cover_width, src),
                 path=_owner(declared, src),
                 kind="картинки",
@@ -838,7 +844,7 @@ def _static_social(
         _bad_master(collector, declared, src, exc)
         return
     if src in covers and width < spec.cover_width:
-        collector.warn(
+        collector.note(
             small_cover(spec.cover_width, src),
             path=_owner(declared, src),
             kind="картинки",
@@ -1297,7 +1303,7 @@ def plan(
         is_cover = src in covers
         renditions = plan_master(src, source, spec, shape, is_cover)
         if is_cover and shape.width < spec.cover_width:
-            collector.warn(
+            collector.note(
                 small_cover(spec.cover_width, src),
                 path=_owner(declared, src),
                 kind="картинки",

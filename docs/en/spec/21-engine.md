@@ -1063,7 +1063,7 @@ The theme expects a section, but the file has none:
 
 The line lists the source paths `page.source`, up to 5, then " …"; without a list the line is not printed.
 
-**The cover and old URLs** (`heron check` warnings, not errors):
+**The cover and old URLs** (`heron check`, not errors; the cover is a note that `--strict` does not count, old URLs are warnings):
 
 - `cover is smaller than <images.cover_width> px: <path>` (kind "images", the actual number is substituted, 1200 by default) - the cover master is narrower than `images.cover_width`; what to do: put a master not narrower than `images.cover_width`, otherwise the crawler gets a small picture;
 - `old URL <url> leads nowhere; probably set a 301 to <target>: redirect_from: [<url>] in the front matter of <file>` (kind "redirects", path `old-urls`) - only with `--old-urls`; what to do: add the address to `redirect_from` of the named page or to `gone`.

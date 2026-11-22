@@ -171,12 +171,15 @@ def test_page_twitter_image_in_static(old, tmp_path):
     )
 
 
-def test_a_small_static_og_image_is_warned_like_a_media_one(old, tmp_path):
+def test_a_small_static_og_image_is_noted_like_a_media_one(old, tmp_path):
     _png(old / "static" / "og" / "s-en.png", width=600, height=315)
     result = pipeline.run(old, dist=tmp_path / "dist", env=BuildEnv.resolve("prod"))
     assert not result.failed
-    texts = [w.message.text("en") for w in result.collector.warnings]
+    # 0.3.1: мелкая обложка - сведение, как и у картинки из media/
+    texts = [w.message.text("en") for w in result.collector.notes]
     assert any("og/s-en.png" in t and "1200" in t for t in texts), texts
+    warned = [w.message.text("en") for w in result.collector.warnings]
+    assert not any("og/s-en.png" in t and "1200" in t for t in warned), warned
 
 
 # --- сведение не считается предупреждением --------------------------------------------

@@ -197,7 +197,10 @@ def test_check_validates_the_width_of_the_own_cover(site):
     path = site / "content" / "ru" / "case.md"
     path.write_text(_md("Keis", image="media/narrow-ru.png", image_alt="x"), encoding="utf-8")
     result = pipeline.check(site, notes_lang="en")
-    assert any("narrow-ru" in t for t in _warnings(result, "ru/case.md"))
+    # 0.3.1: мелкая обложка - сведение (collector.notes), --strict его не считает
+    notes = [w.message.text("en") for w in result.collector.notes if w.path == "ru/case.md"]
+    assert any("narrow-ru" in t for t in notes)
+    assert not any("narrow-ru" in t for t in _warnings(result, "ru/case.md"))
     _no_cover_mismatch(result, "ru/case.md")
 
 

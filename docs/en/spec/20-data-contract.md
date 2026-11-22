@@ -508,7 +508,7 @@ What the cover turns into: `page.cover` in the template (`src`, `url`, `width`, 
 Edge cases:
 
 - **no cover found** (none of the four sources) - `page.cover` is empty, `cover_url(page)` returns an empty string; on an empty string the template outputs no `og:image`, and `primaryImageOfPage` is not added. This is not a build error;
-- **the master is narrower than `images.cover_width`** (1200 px by default) - the whole master is served, and `heron check` warns: "cover is smaller than 1200 px: <path>";
+- **the master is narrower than `images.cover_width`** (1200 px by default) - the whole master is served, and the build and `heron check` print a note: "cover is smaller than 1200 px: <path>" (a note, not a warning: `--strict` and `build.fail_on_warning` do not count it, the cover is cut as usual, just smaller);
 - **a language without its own picture** - a language file without `image` (without `og_image`) gets the value of the main language at build time, together with its caption if the language has no caption of its own (`image_alt`, `og_image_alt`). The substitution is one place of the build, right after the scan: templates (`page.meta.image`, `page.cover`), `og:image`, `twitter:image`, markup, the sitemap and the checks all see it. The own value of a language is its own, even if it equals the main one: a slide with text has its own picture in every language. Own fields of a type with `translatable: true` behave the same way (`21` §7). Video (`video`, `video_poster`) is per file, with no substitution;
 - **an external cover** (a full URL) - used as is, without sizes;
 - **a transparent cover** - the engine adds no backing, the crawler will show it on a black or white background. Make the cover opaque (section 7.9).
@@ -1487,7 +1487,7 @@ Crawlers of social networks, messengers and search engines understand not everyt
 
 - for a cover master a JPEG or PNG (the master format) `images.cover_width` wide (1200 by default), but not wider than the frame, is added to the fallback files. Other images are not cut to this width;
 - `cover_url(page, min_width=1200)` returns the address of a JPEG/PNG variant not narrower than `min_width`; if there is none - the address of the master;
-- a master narrower than `cover_width` is served whole, and `heron check` warns: "cover is smaller than 1200 px: <path>";
+- a master narrower than `cover_width` is served whole, and the build and `heron check` print a note (not a warning, `--strict` does not count it): "cover is smaller than 1200 px: <path>";
 - a variant only in AVIF or WebP does not fit: some crawlers will not show the picture, and the preview stays empty. That is why there is no "cover only in a modern format" mode;
 - **make a transparent cover opaque.** JPEG has no alpha, and transparent areas get a black background, while a crawler puts its own under a PNG. The engine adds no backing (a background color): that is the decision of the picture author. Most sites have nothing there.
 

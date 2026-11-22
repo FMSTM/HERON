@@ -74,7 +74,7 @@ analytics:
 The cover is the image people see in the link card in a messenger and, with luck, in Google search results. Which photo becomes the cover is up to you; the engine does the rest.
 
 - **Where it comes from.** The first one found: the page's `og_image`, then `image`, then the first image in the intro block or in `hero` (the first-screen block), then the site's `seo.og_default_image`. The image caption is `og_image_alt`, otherwise `image_alt`.
-- **Size.** At least 1200 px wide. A smaller image is served as is, and `heron check` warns: "cover smaller than 1200 px".
+- **Size.** At least 1200 px wide. A smaller image is served as is, and the build and `heron check` print the note "cover smaller than 1200 px" - it does not stop a build, `--strict` included.
 - **Composition.** The face or the main subject - in the central third of the frame. Social networks and search results crop previews differently, and the edges go first.
 - **No transparency.** The engine adds no background: a transparent PNG ends up on a black or white background at the search engine.
 - **No cover at all** - the page has no `og:image` and no `primaryImageOfPage` (if the theme declared it), and `heron check` warns. This does not stop the build, but the preview in a messenger will be empty.

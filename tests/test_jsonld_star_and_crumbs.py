@@ -6,7 +6,7 @@
 - Ключ, выброшенный из-за пустой подстановки, называется предупреждением
   (ключ и подстановка); выброшенный литерал - нет.
 - Имя элемента `BreadcrumbList` - та же подпись, что видит человек в крошках
-  стартовой темы (`Page.crumb_name`).
+  стартовой темы (`Page.crumb_name`: `nav_title`, иначе `h1`).
 """
 
 from __future__ import annotations
@@ -166,7 +166,21 @@ def test_breadcrumb_name_is_the_visible_label(tmp_path):
     links.resolve(site, config, sites.theme(), Collector())
     page = next(p for p in site.pages if p.key == "guides/start")
     names = [i["name"] for i in jsonld.breadcrumbs(page, config)["itemListElement"]]
+    assert names == ["Дім", "Посібники", "Початок"]
     assert names == [c.crumb_name for c in [*page.breadcrumbs, page]]
+
+
+def test_crumb_name_falls_back_to_h1(tmp_path):
+    files = {"uk/index.md": sites.page("Головна"), "uk/a.md": sites.page("Довгий заголовок")}
+    content = sites.build(tmp_path, files)
+    config = sites.config()
+    site, _ = tree.scan(content, config)
+    from heron.core import links
+
+    links.resolve(site, config, sites.theme(), Collector())
+    page = next(p for p in site.pages if p.key == "a")
+    names = [i["name"] for i in jsonld.breadcrumbs(page, config)["itemListElement"]]
+    assert names == ["Головна", "Довгий заголовок"]
 
 
 VISIBLE = re.compile(r'<nav class="breadcrumbs"[^>]*>(.*?)</nav>', re.S)
@@ -196,7 +210,7 @@ def test_starter_demo_visible_crumbs_equal_jsonld_on_every_page(tmp_path, monkey
     out = tmp_path / "dist"
     result = CliRunner().invoke(main, ["build", "demo", "--env", "prod", "--out", str(out)])
     assert result.exit_code == 0, result.output
-    checked = 0
+    checked, short = 0, False
     for path in sorted(out.rglob("*.html")):
         page = path.read_text(encoding="utf-8")
         visible = VISIBLE.search(page)
@@ -209,4 +223,8 @@ def test_starter_demo_visible_crumbs_equal_jsonld_on_every_page(tmp_path, monkey
         shown = [html.unescape((a or b).strip()) for a, b in LABEL.findall(visible.group(1))]
         assert marked == shown, path
         checked += 1
-    assert checked >= 3
+        if path.relative_to(out).as_posix() == "structure/categories/index.html":
+            # раздел «Structure» и страница «Cats» - короткие имена, не h1
+            assert marked[-2:] == ["Structure", "Cats"], marked
+            short = True
+    assert checked >= 3 and short

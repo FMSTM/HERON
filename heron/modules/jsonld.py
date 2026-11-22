@@ -520,26 +520,73 @@ def _site_ref(config: SiteConfig, mark: str) -> str:
     return absolute(config, "/") + mark if mark.startswith("#") else mark
 
 
-def _website_id(
-    config: SiteConfig, theme: ThemeConfig, shared: dict[str, Any], own: dict[str, Any]
-) -> str | None:
-    """`@id` узла WebSite сайта, если сайт его выводит где-нибудь; иначе None.
+# Последний вычисленный `@id` сайта: (сайт, конфиг, тема, значение). Сборка
+# спрашивает его для каждой страницы, а ответ один на весь сайт.
+_WEBSITE: list[tuple[Any, Any, Any, str | None]] = []
 
-    Ссылаться на сайт, которого в разметке нет нигде, незачем. Свой `@id`
-    у WebSite в site.yaml главнее, явное `null` или `""` - ссылок нет.
+
+def _website_id(
+    config: SiteConfig,
+    theme: ThemeConfig,
+    shared: dict[str, Any],
+    own: dict[str, Any],
+    site=None,
+    page: Page | None = None,
+) -> str | None:
+    """`@id` узла WebSite, который сайт действительно выводит; нет такого - None.
+
+    Решается по тем же правилам, по которым узлы попадают в граф (тема
+    `types.<тип>.jsonld`, блок `schema` страницы), а `@id` - как у самого
+    узла: блок `schema.WebSite` site.yaml и страницы, подстановки
+    (`'{{ site.base }}#website'`), иначе `<корень>#website`. Страницы
+    перебираются в одном порядке: главные по языкам `site.yaml`, затем
+    остальные, - ответ не зависит от того, какая страница спросила. Явное
+    `null` или `""` у `@id` - у этого узла идентификатора нет, ссылаться не
+    на что. Без сайта (вызов на одной странице) смотрится только она.
     """
-    declared = any(
-        _kind_class(kind) == "website" for spec in theme.types.values() for kind in spec.jsonld
-    ) or any(_kind_class(k) == "website" and isinstance(own.get(k), dict) for k in own)
-    for kind, block in shared.items():
-        if kind != "entity" and isinstance(block, dict) and _kind_class(kind) == "website":
-            declared = True
-            if "@id" in block:
-                mark = block["@id"]
-                if not isinstance(mark, str) or not mark.strip() or "{{" in mark:
-                    return None
+    if site is not None:
+        for got_site, got_config, got_theme, value in _WEBSITE:
+            if got_site is site and got_config is config and got_theme is theme:
+                return value
+        value = _find_website(config, theme, site, _site_order(config, site))
+        _WEBSITE[:] = [(site, config, theme, value)]
+        return value
+    return _find_website(config, theme, None, [page] if page is not None else [])
+
+
+def _site_order(config: SiteConfig, site) -> list[Page]:
+    pages = list(getattr(site, "pages", []) or [])
+    rank = {lang: i for i, lang in enumerate(config.site.languages)}
+    homes = sorted((p for p in pages if p.key == ""), key=lambda p: rank.get(p.lang, len(rank)))
+    return homes + [p for p in pages if p.key != ""]
+
+
+def _find_website(config: SiteConfig, theme: ThemeConfig, site, pages: list[Page]) -> str | None:
+    for candidate in pages:
+        _t, declared, own, shared = declared_kinds(candidate, config, theme)
+        for kind in declared:
+            if _kind_class(kind) != "website":
+                continue
+            block: dict[str, Any] = {}
+            for layer in (shared.get(kind), own.get(kind)):
+                if isinstance(layer, dict):
+                    block = _merge(block, layer)
+            if "@id" not in block:
+                return absolute(config, "/") + "#website"
+            mark = block["@id"]
+            if isinstance(mark, str) and HOLE.search(mark):
+                data = {
+                    **_data(config, candidate.lang, site),
+                    "page": {
+                        **candidate.meta.model_dump(),
+                        "url": absolute(config, candidate.url),
+                    },
+                }
+                mark = _fill(mark, data, candidate.lang)
+            if isinstance(mark, str) and mark.strip():
                 return _site_ref(config, mark.strip())
-    return absolute(config, "/") + "#website" if declared else None
+            # у этого узла идентификатора нет - ищем дальше
+    return None
 
 
 def _ref(node: dict[str, Any]) -> dict[str, str] | None:
@@ -644,7 +691,7 @@ def build(
         roles.append((kind, role, node, keys))
         graph.append(node)
 
-    _link(page, config, theme, shared, own, roles)
+    _link(page, config, theme, shared, own, roles, site)
 
     # 404 - не страница сайта для поисковика: ни крошек, ни сквозного узла.
     lost = page.type == NOT_FOUND
@@ -662,7 +709,7 @@ def build(
     if questions:
         questions["url"] = page_url
         questions["inLanguage"] = page.lang
-        website = _website_id(config, theme, shared, own)
+        website = _website_id(config, theme, shared, own, site, page)
         if website:
             questions["isPartOf"] = {"@id": website}
         graph.append(questions)
@@ -681,9 +728,9 @@ def _faq_off(shared: dict[str, Any], own: dict[str, Any]) -> bool:
     return False
 
 
-def _link(page, config, theme, shared, own, roles) -> None:
+def _link(page, config, theme, shared, own, roles, site=None) -> None:
     """Связать узлы страницы между собой и с сайтом (ссылки `{"@id": …}`)."""
-    website = _website_id(config, theme, shared, own)
+    website = _website_id(config, theme, shared, own, site, page)
     owner = _publisher_id(shared)
     owner_ref = {"@id": _site_ref(config, owner)} if owner else None
     subjects = [_ref(node) for _k, role, node, _ in roles if role == "subject"]

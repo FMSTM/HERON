@@ -189,7 +189,7 @@ def test_subject_name_falls_back_to_h1(tmp_path):
 
 
 def test_faq_node_gets_url_language_and_is_part_of(tmp_path):
-    graph, *_ = _graph(tmp_path, shared={"WebSite": {}}, body=FAQ_BODY)
+    graph, *_ = _graph(tmp_path, own={"WebSite": {}}, body=FAQ_BODY)
     node = _of(graph, "FAQPage")
     assert node["url"] == f"{B}/a/"
     assert node["inLanguage"] == "uk"
@@ -269,3 +269,45 @@ def test_geo_note_is_in_report_and_not_a_warning(tmp_path, monkeypatch):
     assert result.exit_code == 0, result.output
     assert "50.45" in result.output and "latitude" in result.output
     assert "30.52345" not in result.output
+
+
+# --- 0.3.2: WebSite объявлен темой у главной, @id - подстановкой в site.yaml ---------
+
+
+HOME_WEBSITE = {"home": {"uses": [], "jsonld": ["WebSite"]}}
+
+
+def test_famous_style_website_gives_is_part_of(tmp_path):
+    shared = {"WebSite": {"@id": "{{ site.base }}#website", "publisher": {"@id": "#org"}}}
+    graph, page, config, theme, site = _graph(
+        tmp_path, shared=shared, extra_types=HOME_WEBSITE, body=FAQ_BODY
+    )
+    home = next(p for p in site.pages if p.key == "")
+    assert home.type == "home"
+    website = _of(jsonld.build(home, config, theme, site), "WebSite")
+    assert website["@id"] == f"{B}/#website"
+    assert _of(graph, "WebPage")["isPartOf"] == {"@id": f"{B}/#website"}
+    assert _of(graph, "FAQPage")["isPartOf"] == {"@id": f"{B}/#website"}
+
+
+def test_website_with_own_id_is_linked_by_that_id(tmp_path):
+    shared = {"WebSite": {"@id": "#site"}}
+    graph, *_ = _graph(tmp_path, shared=shared, extra_types=HOME_WEBSITE)
+    assert _of(graph, "WebPage")["isPartOf"] == {"@id": f"{B}/#site"}
+
+
+def test_site_block_without_a_rendered_website_gives_no_is_part_of(tmp_path):
+    # блок schema.WebSite в site.yaml есть, но ни тема, ни страница WebSite не выводят
+    graph, *_ = _graph(tmp_path, shared={"WebSite": {"@id": "{{ site.base }}#website"}})
+    assert "isPartOf" not in _of(graph, "WebPage")
+
+
+def test_site_without_website_gives_no_is_part_of(tmp_path):
+    graph, *_ = _graph(tmp_path, body=FAQ_BODY)
+    assert "isPartOf" not in _of(graph, "WebPage")
+    assert "isPartOf" not in _of(graph, "FAQPage")
+
+
+def test_website_without_id_gives_no_is_part_of(tmp_path):
+    graph, *_ = _graph(tmp_path, shared={"WebSite": {"@id": None}}, extra_types=HOME_WEBSITE)
+    assert "isPartOf" not in _of(graph, "WebPage")

@@ -79,7 +79,10 @@ def _at(data: Any, path: str, lang: str) -> Any:
                 # Список карт превращается в список значений: соцсети
                 # объявлены один раз как {href, name}, а в разметку нужен
                 # только href. Иначе их переписывают руками и забывают.
-                node = [item for item in node if isinstance(item, dict)]
+                # Список строк (`same_as: ["https://…"]`) и чисел остаётся
+                # как есть: раньше `*` оставлял только карты, и ключ молча
+                # пропадал из разметки.
+                node = [item for item in node if isinstance(item, dict) or _scalar(item)]
                 continue
             return None
         return None
@@ -88,10 +91,16 @@ def _at(data: Any, path: str, lang: str) -> Any:
     return node
 
 
+def _scalar(item: Any) -> bool:
+    """Строка или число - значение, которое `*` берёт из списка как есть."""
+    return isinstance(item, (str, int, float)) and not isinstance(item, bool)
+
+
 def _pluck(data: Any, path: str, lang: str) -> Any:
     """Значение по пути, где `*` разворачивает список.
 
-    `contact.social.*.href` — список адресов из списка карт.
+    `contact.social.*.href` — список адресов из списка карт. Строка или
+    число в том же списке - уже значение и берётся как есть.
     """
     if ".*." not in path:
         return _at(data, path, lang)
@@ -99,18 +108,32 @@ def _pluck(data: Any, path: str, lang: str) -> Any:
     items = _at(data, head, lang)
     if not isinstance(items, (list, tuple)):
         return None
-    out = [_at(item, tail, lang) for item in items]
+    out = [item if _scalar(item) else _at(item, tail, lang) for item in items]
     out = [item for item in out if item not in (None, "")]
     return out or None
 
 
-def _fill(value: Any, data: dict[str, Any], lang: str) -> Any:
-    """Подставить значения и выбросить то, для чего значений нет."""
+def _fill(
+    value: Any,
+    data: dict[str, Any],
+    lang: str,
+    dropped: list[tuple[str, str]] | None = None,
+    at: str = "",
+) -> Any:
+    """Подставить значения и выбросить то, для чего значений нет.
+
+    `dropped` собирает выброшенные из-за подстановки ключи: (путь ключа,
+    подстановка). Выброшенное литеральное значение туда не попадает -
+    пустое поле, написанное руками, не находка.
+    """
     if isinstance(value, str):
         whole = HOLE.fullmatch(value.strip())
         if whole:
             # Подстановка на всё значение — отдаём как есть, числом или списком.
-            return _pluck(data, whole.group(1), lang)
+            got = _pluck(data, whole.group(1), lang)
+            if got in (None, "", [], {}) and dropped is not None:
+                dropped.append((at, value.strip()))
+            return got
         if HOLE.search(value):
             missing = False
 
@@ -123,17 +146,22 @@ def _fill(value: Any, data: dict[str, Any], lang: str) -> Any:
                 return str(found)
 
             filled = HOLE.sub(one, value)
+            if missing and dropped is not None:
+                dropped.append((at, value.strip()))
             return None if missing else filled
         return value
     if isinstance(value, dict):
         out = {}
         for key, item in value.items():
-            filled = _fill(item, data, lang)
+            filled = _fill(item, data, lang, dropped, f"{at}.{key}" if at else str(key))
             if filled not in (None, "", [], {}):
                 out[key] = _year(str(key), filled)
         return out or None
     if isinstance(value, list):
-        out_list = [_fill(item, data, lang) for item in value]
+        out_list = [
+            _fill(item, data, lang, dropped, f"{at}.{i}" if at else str(i))
+            for i, item in enumerate(value)
+        ]
         out_list = [item for item in out_list if item not in (None, "", [], {})]
         return out_list or None
     return value
@@ -178,7 +206,7 @@ def breadcrumbs(page: Page, config: SiteConfig) -> dict[str, Any] | None:
             {
                 "@type": "ListItem",
                 "position": index,
-                "name": item.h1,
+                "name": item.crumb_name,
                 "item": absolute(config, item.url),
             }
             for index, item in enumerate(items, start=1)
@@ -301,7 +329,9 @@ def _related(page: Page, config: SiteConfig) -> dict[str, Any]:
     return out
 
 
-def entity(config: SiteConfig, lang: str, site=None) -> dict[str, Any] | None:
+def entity(
+    config: SiteConfig, lang: str, site=None, dropped: list[tuple[str, str]] | None = None
+) -> dict[str, Any] | None:
     """Сквозной узел сайта: человек, мастерская, магазин — что объявлено.
 
     Выводится на каждой индексируемой странице целиком, а не ссылкой:
@@ -314,7 +344,7 @@ def entity(config: SiteConfig, lang: str, site=None) -> dict[str, Any] | None:
     declared = shared.get("entity")
     if not isinstance(declared, dict) or not declared:
         return None
-    node = _fill(declared, _data(config, lang, site), lang)
+    node = _fill(declared, _data(config, lang, site), lang, dropped, "schema.entity")
     if not isinstance(node, dict):
         return None
     return _absolute_ids(node, config)
@@ -352,6 +382,63 @@ def _may_have(kind: str, prop: str) -> bool:
     return v.allows(kind, prop) if v.is_type(kind) else True
 
 
+def _is_article(kind: str) -> bool:
+    """Article или его подтип (BlogPosting, NewsArticle, …) - по словарю, не списком."""
+    from heron.schemaorg import vocab  # внутри: heron.schemaorg тянет heron.core
+
+    v = vocab()
+    return v.is_type(kind) and v.is_subtype(kind, "Article")
+
+
+def _publisher_id(shared: dict[str, Any]) -> str | None:
+    """`@id` сквозного узла сайта, если он организация или человек; иначе None.
+
+    Своего `@id` по умолчанию у узла нет: без `@id` в `schema.entity`
+    ссылаться не на что, и `publisher` не выводится.
+    """
+    from heron.schemaorg import vocab  # внутри: heron.schemaorg тянет heron.core
+
+    declared = shared.get("entity")
+    if not isinstance(declared, dict):
+        return None
+    mark = declared.get("@id")
+    if not isinstance(mark, str) or not mark.strip():
+        return None
+    raw = declared.get("@type")
+    types = [t for t in (raw if isinstance(raw, list) else [raw]) if isinstance(t, str)]
+    v = vocab()
+    if not any(
+        v.is_type(t) and (v.is_subtype(t, "Organization") or v.is_subtype(t, "Person"))
+        for t in types
+    ):
+        return None
+    return mark.strip()
+
+
+def _article_defaults(
+    node: dict[str, Any], page: Page, cover: dict[str, Any] | None, shared: dict[str, Any]
+) -> None:
+    """Значения по умолчанию статьи: `headline`, `image`, `publisher`.
+
+    Только то, что движок знает сам: заголовок страницы, её обложка (та же,
+    что og:image) и ссылка на сквозной узел сайта. Автор - содержание, его
+    движок не придумывает. Заданное темой, сайтом или страницей главнее -
+    в том числе явное `null` или `""`: ключ есть, значение пустое, и
+    `_fill` его выбросит (так значение по умолчанию выключают).
+    """
+    if "headline" not in node and page.h1:
+        # Google не ограничивает длину headline (раньше - 110 символов):
+        # заголовок идёт целиком.
+        node["headline"] = page.h1
+    if "image" not in node and cover:
+        node["image"] = cover["url"]
+    if "publisher" not in node:
+        mark = _publisher_id(shared)
+        if mark:
+            # `#owner` станет абсолютным в _absolute_ids, как у самого узла.
+            node["publisher"] = {"@id": mark}
+
+
 def declared_kinds(
     page: Page, config: SiteConfig, theme: ThemeConfig
 ) -> tuple[list[str], list[str], dict[str, Any], dict[str, Any]]:
@@ -378,8 +465,18 @@ def declared_kinds(
     return from_theme, declared, own, shared
 
 
-def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list[dict[str, Any]]:
-    """Собрать граф разметки для страницы."""
+def build(
+    page: Page,
+    config: SiteConfig,
+    theme: ThemeConfig,
+    site=None,
+    dropped: list[tuple[str, str]] | None = None,
+) -> list[dict[str, Any]]:
+    """Собрать граф разметки для страницы.
+
+    `dropped` собирает ключи, выброшенные из-за пустой подстановки:
+    (путь вида `schema.<тип>.<ключ>`, подстановка) - для предупреждения.
+    """
     _from_theme, declared, own, shared = declared_kinds(page, config, theme)
 
     cover = _cover(page)
@@ -405,6 +502,8 @@ def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list
             node["dateModified"] = stamp(page.updated_at)
         node = _merge(node, shared.get(kind, {}) if isinstance(shared.get(kind), dict) else {})
         node = _merge(node, own.get(kind, {}) if isinstance(own.get(kind), dict) else {})
+        if _is_article(kind):
+            _article_defaults(node, page, cover, shared)
         # Картинка страницы для поисковика — та же обложка, что og:image.
         # Заданное сайтом или темой главнее; пустые размеры выбросит _fill.
         if kind in WEBPAGE_TYPES and cover and "primaryImageOfPage" not in node:
@@ -423,13 +522,15 @@ def build(page: Page, config: SiteConfig, theme: ThemeConfig, site=None) -> list
                 "related": _related(page, config),
             },
             page.lang,
+            dropped,
+            f"schema.{kind}",
         )
         graph.append(_absolute_ids(node or {}, config))
 
     # Сквозной узел — только там, где его увидит поисковик. На закрытой
     # от индексации странице разметка бессмысленна.
     if not page.meta.noindex:
-        shared_entity = entity(config, page.lang, site)
+        shared_entity = entity(config, page.lang, site, dropped)
         if shared_entity:
             graph.append(shared_entity)
 
@@ -486,6 +587,44 @@ def _keys(node: Any) -> list[str]:
     return []
 
 
+def _declared_at(block: Any, path: list[str]) -> Any:
+    """Значение блока по пути `a.b.0` (как пишет `_fill`), нет - None."""
+    node = block
+    for part in path:
+        if isinstance(node, dict) and part in node:
+            node = node[part]
+        elif isinstance(node, list) and part.isdigit() and int(part) < len(node):
+            node = node[int(part)]
+        else:
+            return None
+    return node
+
+
+def _warn_dropped(page: Page, collector, dropped: list[tuple[str, str]]) -> None:
+    """Предупредить о ключах разметки, которые выбросила пустая подстановка.
+
+    `sameAs: "{{ organization.same_as.* }}"` над пустым списком или
+    `{{ contact.phone }}` без телефона в site.yaml - ключ молча пропадает
+    из разметки, и узнают об этом только из панели вебмастера. Это не
+    ошибка: данных может не быть по делу. Источник - тот, где подстановка
+    написана: блок страницы или site.yaml; одно и то же из site.yaml
+    называется один раз, а не на каждой странице.
+    """
+    if not dropped:
+        return
+    own = page.meta.extra.get("schema", {})
+    own = own if isinstance(own, dict) else {}
+    for key, hole in dropped:
+        parts = key.split(".")
+        declared = _declared_at(own, parts[1:]) if parts[:1] == ["schema"] else None
+        in_page = isinstance(declared, str) and declared.strip() == hole
+        source = str(page.source) if in_page else "site.yaml"
+        message = Msg("markup_placeholder_empty", key=key, hole=hole, lang=page.lang)
+        if any(w.message == message and w.path == source for w in collector.warnings):
+            continue
+        collector.warn(message, path=source, kind="разметка")
+
+
 def verify(
     page: Page, config: SiteConfig, theme: ThemeConfig, collector, site=None, schema_check=None
 ) -> list[str]:
@@ -495,7 +634,9 @@ def verify(
     об этом из чужой панели вебмастера через месяц. Поэтому проверяется на
     сборке, а не после выката.
     """
-    graph = build(page, config, theme, site)
+    dropped: list[tuple[str, str]] = []
+    graph = build(page, config, theme, site, dropped)
+    _warn_dropped(page, collector, dropped)
     try:
         json.loads(render(page, config, theme, site) or "{}")
     except ValueError as error:

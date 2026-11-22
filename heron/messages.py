@@ -1216,6 +1216,7 @@ KINDS: dict[str, dict[str, str]] = {
         "меню": "menu",
         "переводы": "translations",
         "языки": "languages",
+        "разметка": "markup",
         "прочее": "other",
         "нет перевода": "not translated",
         "даты": "dates",

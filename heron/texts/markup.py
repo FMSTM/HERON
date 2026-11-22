@@ -13,6 +13,7 @@ TEXT: dict[str, dict[str, str]] = {
         "markup_entity_empty": "в сквозном узле объявлены адрес или координаты, а значения пустые",
         "markup_entity_empty_hint": "заполните в site.yaml то, на что ссылается schema.entity: например contact.city и contact.geo",
         "markup_money": "в разметке есть поля про деньги: {fields}",
+        "markup_placeholder_empty": "разметка ({lang}): ключ {key} не выведен - подстановка {hole} пуста; заполните данные в site.yaml или уберите ключ",
         "markup_money_hint": "сайт не публикует цены (seo.allow_prices: false) - уберите эти поля из блока schema или разрешите цены в site.yaml",
     },
     "en": {
@@ -27,6 +28,7 @@ TEXT: dict[str, dict[str, str]] = {
         "markup_entity_empty": "the site-wide node declares an address or coordinates, but the values are empty",
         "markup_entity_empty_hint": "fill in what schema.entity refers to in site.yaml, for example contact.city and contact.geo",
         "markup_money": "the markup has money fields: {fields}",
+        "markup_placeholder_empty": "markup ({lang}): key {key} is not written - the placeholder {hole} is empty; fill in the data in site.yaml or remove the key",
         "markup_money_hint": "the site does not publish prices (seo.allow_prices: false); remove these fields from the schema block or allow prices in site.yaml",
     },
 }

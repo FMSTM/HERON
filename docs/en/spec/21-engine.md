@@ -342,6 +342,7 @@ class Page:
     date_at                        # the same with time
     updated_at                     # update date with time and time zone
     nav_title: str                 # meta.nav_title, otherwise the file name
+    crumb_name: str                # the label in breadcrumbs and in BreadcrumbList: h1
     video: Video | None            # parsed meta.video*
     cover: dict | None             # cover: src, url, width, height, alt; none - None (20 §4.2)
     slug: str                      # last segment of url
@@ -671,7 +672,8 @@ The core builds what it really knows itself:
 | `dateModified` | `updated` or `build.updated_from`; from git - the commit time with its time zone |
 | organization fields and other details | the `schema` block in `site.yaml` |
 | refinements for a specific page | the `schema` block in the frontmatter |
-| `BreadcrumbList` | the built breadcrumbs, always, except the home page |
+| `BreadcrumbList` | the built breadcrumbs, always, except the home page; an item name is the page `crumb_name` (the crumb label, currently `h1`), the same one the starter theme's `breadcrumbs` module draws |
+| `headline`, `image`, `publisher` | only on `Article` and its subtypes per the vocabulary (`BlogPosting`, `NewsArticle`, …), if the theme, the site and the page did not set them: `headline` - the page `h1` in full (Google does not limit its length), `image` - the address of the page cover, the same as `og:image` (no cover - no key), `publisher` - `{"@id": …}` of the site-wide `schema.entity` node, if it has an `@id` and its type is an organization or a person. An explicit `null` or `""` in the site or page `schema` block (`Article: {publisher: null}`) turns the default off. The core does not fill in the author (`author`): that is content |
 | `primaryImageOfPage` | the page cover: an `ImageObject` with `url`, `width`, `height` and `caption` from the cover `alt` (empty `width`/`height` are dropped); added to the types from the fixed list `WEBPAGE_TYPES` (`WebPage`, `AboutPage`, `CheckoutPage`, `CollectionPage`, `MediaGallery`, `ImageGallery`, `VideoGallery`, `ContactPage`, `FAQPage`, `ItemPage`, `MedicalWebPage`, `ProfilePage`, `QAPage`, `RealEstateListing`, `SearchResultsPage`) if the site did not set its own. It appears only on nodes from the theme's `types.<type>.jsonld` and the `schema` block; the starter theme does not declare `WebPage`, and a `FAQPage` node assembled from a section does not get the image |
 | `alternateName` | `site.alternate_names` of the page language, in any `WebSite` node on any page where the theme or the page declared it |
 | `FAQPage` | a section parsed as `faq` |

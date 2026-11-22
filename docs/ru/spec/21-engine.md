@@ -342,6 +342,7 @@ class Page:
     date_at                        # она же с временем
     updated_at                     # дата обновления с временем и поясом
     nav_title: str                 # meta.nav_title, иначе имя файла
+    crumb_name: str                # подпись в крошках и в BreadcrumbList: h1
     video: Video | None            # разобранные meta.video*
     cover: dict | None             # обложка: src, url, width, height, alt; нет - None (20 §4.2)
     slug: str                      # последний сегмент url
@@ -671,7 +672,8 @@ modules:
 | `dateModified` | `updated` или `build.updated_from`; из git - время коммита с поясом |
 | поля организации и прочие реквизиты | блок `schema` в `site.yaml` |
 | уточнения по конкретной странице | блок `schema` во фронтматтере |
-| `BreadcrumbList` | построенные крошки, всегда, кроме главной |
+| `BreadcrumbList` | построенные крошки, всегда, кроме главной; имя элемента - `crumb_name` страницы (подпись крошки, сейчас `h1`), той же, что рисует модуль `breadcrumbs` стартовой темы |
+| `headline`, `image`, `publisher` | только у `Article` и его подтипов по словарю (`BlogPosting`, `NewsArticle`, …), если тема, сайт и страница их не задали: `headline` - `h1` страницы целиком (Google длину не ограничивает), `image` - адрес обложки страницы, тот же, что `og:image` (нет обложки - нет ключа), `publisher` - `{"@id": …}` сквозного узла `schema.entity`, если у него есть `@id` и тип - организация или человек. Явное `null` или `""` в блоке `schema` сайта или страницы (`Article: {publisher: null}`) выключает значение по умолчанию. Автора (`author`) ядро не подставляет: это содержание |
 | `primaryImageOfPage` | обложка страницы: `ImageObject` с `url`, `width`, `height` и `caption` из `alt` обложки (пустые `width`/`height` выбрасываются); добавляется к типам из фиксированного списка `WEBPAGE_TYPES` (`WebPage`, `AboutPage`, `CheckoutPage`, `CollectionPage`, `MediaGallery`, `ImageGallery`, `VideoGallery`, `ContactPage`, `FAQPage`, `ItemPage`, `MedicalWebPage`, `ProfilePage`, `QAPage`, `RealEstateListing`, `SearchResultsPage`), если сайт не задал свой. Появляется только у узлов из `types.<тип>.jsonld` темы и блока `schema`; стартовая тема `WebPage` не объявляет, узел `FAQPage`, собранный из секции, картинку не получает |
 | `alternateName` | `site.alternate_names` языка страницы, в любом узле `WebSite` на любой странице, где его объявила тема или страница |
 | `FAQPage` | секция, разобранная как `faq` |

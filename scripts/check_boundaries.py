@@ -20,7 +20,8 @@
 Локально, вне репозитория, можно держать и регулярные выражения:
 `scripts/boundary-patterns.local.txt` (в .gitignore), по одному на строку.
 
-Без аргументов проверяется всё дерево `git ls-files`, с аргументами -
+Без аргументов проверяется всё дерево `git ls-files` вместе с неотслеживаемыми
+(не игнорируемыми) файлами, с аргументами -
 только названные файлы (так зовёт pre-commit).
 
 Обоснование: docs/ru/spec/23-distribution.md, раздел 9.
@@ -160,7 +161,13 @@ def local_patterns() -> list[re.Pattern[str]]:
 def files_to_check(args: list[str]) -> list[str]:
     if args:
         return args
-    listed = subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True)
+    # Неотслеживаемые (не игнорируемые) файлы тоже: новый файл до коммита.
+    listed = subprocess.run(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
     return [line for line in listed.stdout.splitlines() if line]
 
 

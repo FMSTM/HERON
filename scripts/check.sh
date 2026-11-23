@@ -27,7 +27,9 @@ else
 fi
 
 note "граница ядра"
-git ls-files -z | xargs -0 bash scripts/check-boundaries.sh || die "граница ядра нарушена"
+# Неотслеживаемые (но не игнорируемые) файлы тоже: иначе новый файл до коммита
+# проходит локально и падает в CI, где он уже в индексе.
+git ls-files -z --cached --others --exclude-standard | xargs -0 bash scripts/check-boundaries.sh || die "граница ядра нарушена"
 
 note "сообщения коммитов"
 bash scripts/check_commit_messages.sh || die "сообщения коммитов: атрибуция помощника (spec/23 §9)"

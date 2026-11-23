@@ -48,7 +48,7 @@ def test_props_by_spec_walks_the_graph_once(monkeypatch):
 
 def test_vocab_answers_are_memoised():
     v = vocab()
-    assert v.ancestors("MedicalClinic") is v.ancestors("MedicalClinic")
+    assert v.ancestors("LocalBusiness") is v.ancestors("LocalBusiness")
     assert v.properties_of(["Organization"]) == v.properties_of("Organization")
     assert "name" in v.properties_of("Organization")
 

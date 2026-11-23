@@ -227,13 +227,32 @@ def _counter_domains(analytics: AnalyticsBlock) -> str:
     return "".join(f" {domain}" for domain in dict.fromkeys(enabled))
 
 
-def _csp(analytics: AnalyticsBlock) -> str:
-    """CSP строгий: скрипты только свои, чужие домены — только включённых счётчиков."""
-    extra = _counter_domains(analytics)
-    connect = f"connect-src 'self'{extra}; " if extra else ""
+def _csp(analytics: AnalyticsBlock, services: dict[str, list[str]] | None = None) -> str:
+    """CSP строгий: скрипты только свои, чужие домены - включённых счётчиков и сервисов.
+
+    `services` - origin встраиваемых сервисов этой сборки по директивам
+    (`modules/services.csp`). Ни `*`, ни схем целиком, ни `'unsafe-eval'`:
+    сюда попадают только `https://хост[:порт]`. Директива, которую никто не
+    расширил, в политику не пишется и берёт `default-src 'self'`.
+    """
+    counters = _counter_domains(analytics)
+    more = services or {}
+
+    def joined(directive: str, base: str) -> str:
+        extra = [d for d in base.split() if d] + [
+            o for o in more.get(directive, []) if o not in base.split()
+        ]
+        return "".join(f" {d}" for d in dict.fromkeys(extra))
+
+    script = joined("script-src", counters)
+    connect = joined("connect-src", counters)
+    img = joined("img-src", counters)
+    frame = joined("frame-src", "")
     return (
-        f"default-src 'self'; script-src 'self'{extra}; {connect}"
-        f"style-src 'self' 'unsafe-inline'; img-src 'self' data:{extra}; font-src 'self'; "
+        f"default-src 'self'; script-src 'self'{script}; "
+        + (f"connect-src 'self'{connect}; " if connect else "")
+        + (f"frame-src 'self'{frame}; " if frame else "")
+        + f"style-src 'self' 'unsafe-inline'; img-src 'self' data:{img}; font-src 'self'; "
         "object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
     )
 
@@ -244,13 +263,13 @@ def _csp(analytics: AnalyticsBlock) -> str:
 # браузеров без CSP 2. Cross-Origin-Resource-Policy и COEP не ставятся: первый
 # закрыл бы картинки сайта для чужих страниц и почтовых клиентов, второй -
 # встраивание всего чужого без CORP.
-def _security(indent: int, config: SiteConfig) -> str:
+def _security(indent: int, config: SiteConfig, services: dict[str, list[str]] | None = None) -> str:
     pad = " " * indent
     hsts = config.nginx.hsts.header()
     lines = [
         'add_header X-Content-Type-Options "nosniff" always;',
         'add_header Referrer-Policy "strict-origin-when-cross-origin" always;',
-        f'add_header Content-Security-Policy "{_csp(config.analytics)}" always;',
+        f'add_header Content-Security-Policy "{_csp(config.analytics, services)}" always;',
     ]
     if hsts is not None:
         lines.append(f'add_header Strict-Transport-Security "{hsts}" always;')
@@ -645,13 +664,20 @@ def media_variable(age: int, media: int) -> str:
     return f"heron_media_cache_{age}_{media}"
 
 
-def generate(config: SiteConfig, plan: Plan | None = None) -> dict[str, str]:
+def generate(
+    config: SiteConfig, plan: Plan | None = None, env: str | None = None
+) -> dict[str, str]:
     """Конфиг под языки этого сайта. Основной язык в корень, прочие — в папки.
 
     301 и 410 — точными location в начале server; перед server — карты
     для сырых адресов и параметров, если они есть.
     """
     plan = plan or Plan()
+    # origin встраиваемых сервисов этой сборки (`services:`, 22 §5); без
+    # окружения - как раньше, без сервисов
+    from heron.modules import services as services_module
+
+    extra = services_module.csp(config, env) if env else None
     default = config.site.default_lang
     maps, checks = _maps(plan)
     # Комментарии — по build.notes, без HERON_NOTES: те же исходники дают тот
@@ -663,7 +689,7 @@ def generate(config: SiteConfig, plan: Plan | None = None) -> dict[str, str]:
     variable = media_variable(age, media)
     versioned = (
         _comments(VERSIONED, notes)
-        .replace("@SECURITY12@\n", _security(12, config))
+        .replace("@SECURITY12@\n", _security(12, config, extra))
         .replace("@AGE@", str(age))
     )
     media_map = (
@@ -675,8 +701,8 @@ def generate(config: SiteConfig, plan: Plan | None = None) -> dict[str, str]:
     head = (
         _comments(HEAD, notes)
         .replace("@VERSIONED@\n", versioned)
-        .replace("@SECURITY8@\n", _security(8, config))
-        .replace("@SECURITY@\n", _security(4, config))
+        .replace("@SECURITY8@\n", _security(8, config, extra))
+        .replace("@SECURITY@\n", _security(4, config, extra))
         .replace("@REALIP@\n", _comments(REAL_IP, notes))
         .replace("@ACCESSLOG@", ACCESS_LOG)
         .replace("@MEDIAVAR@", variable)

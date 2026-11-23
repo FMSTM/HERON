@@ -271,6 +271,33 @@ EN: dict[str, tuple[str, str]] = {
         "55582526c1",
         "Browser cache times - the nginx.cache keys in site.yaml (22 §5).",
     ),
+    "site.schema.json#/$defs/ServicesBlock/description": (
+        "6e63673e90",
+        "Embedded HERON services (`services:`, 20 §5).\n\n"
+        "Each service declares what to insert into the page and which origins it needs\n"
+        "in the CSP; the engine builds the policy only from those enabled in this build.\n"
+        "So far there is one service - the chat; `shop` is reserved (E047), the `analytics`\n"
+        "counters stay their own block and will move here by a separate decision.",
+    ),
+    "site.schema.json#/$defs/ChatService/description": (
+        "a8561d1fd6",
+        "HERON Chat - the first embedded HERON service (`services.chat`, 20 §5).\n\n"
+        "The model checks the types and the keys (E011); the widget key format, `host`\n"
+        "and `api` (https, origin only) and the environments - `heron.modules.services`\n"
+        "(E047 with a hint): so the error names the field and what to write into it.",
+    ),
+    "site.schema.json#/$defs/ChatOverride/description": (
+        "8144af0b12",
+        "The chat's own values for one environment: `services.chat.env.prod: {widget: …}`.",
+    ),
+    "setup.schema.json#/$defs/ChatAnswers/description": (
+        "2342dd9cdf",
+        "HERON Chat (`services.chat`): widget key, host, look and environments.\n\n"
+        "An empty key - no chat, the `services.chat` block is removed from site.yaml.\n"
+        "An empty host - the default HERON Chat host. `envs` - in which builds to turn it\n"
+        "on; environments the configurator does not show (stage, prod's own values) are\n"
+        "not lost on saving.",
+    ),
     "setup.schema.json#/$defs/AnalyticsAnswers/description": (
         "b4add0701c",
         "Public counter numbers: visible in the source of a page, they are not secrets.",

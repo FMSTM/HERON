@@ -513,6 +513,7 @@ TITLES: dict[str, dict[str, str]] = {
         "E044": "the theme text has terminal control characters",
         "E045": "asset() names a file that is not in the theme assets/ or in the site media/",
         "E046": "a relative link in the text or in a template with urls.trailing_slash: never",
+        "E047": "an embedded service in services: has a wrong key, address or environment",
     },
 }
 

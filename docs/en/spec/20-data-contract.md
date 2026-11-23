@@ -881,6 +881,33 @@ analytics:
 - in the white starter theme (`heron new`, `theme get starter`) the counters are loaded **only after the visitor's consent**: before the choice the page has an "Accept / Decline" banner and not a single counter script or request; the numbers are passed to the script as data (`tojson`). The choice is stored in the browser `localStorage` (`heron-consent`), changing your mind is a button in the footer. A custom theme must behave the same way if the configurator or the site promises the visitor consent;
 - the starter theme outputs `ga4`, `gtm` and `metrika`: all three are connected by `assets/site.js` after the visitor's consent (the item above).
 
+### The `services` block: embedded HERON services <a id="services"></a>
+
+A HERON service is a script foreign to the site that the engine connects itself (0.3.3): the theme writes nothing, and the browser security policy (CSP) opens exactly for this service and exactly in the builds where it is on. The first service is the HERON Chat chat.
+
+```yaml
+services:
+  chat:
+    widget: hcw_DTTQXXFWX2X8F6XHB1RQXBRN8G   # the key from the HERON Chat dashboard
+    host: https://dev-hub.heron.software      # optional: the widget host, the production one by default
+    api: https://api.example                  # optional: if the API is on another origin
+    ui: full                                  # full - its own button, none - no button
+    env: [dev]                                # in which builds; no key - in all of them
+```
+
+- `widget` is required: `hcw_` and 26 characters (digits and Latin letters without I, L, O, U), as the widget itself checks it. Not a secret: the key is visible in the page code;
+- `host` - where `/chat/l.js` loads from and where the widget goes: `https` only and origin only, no path and no slash. No key - the default HERON Chat host, `https://hub.heron.software` (written in one place - the service description in the engine). The dev hub is `https://dev-hub.heron.software`. `chat.heron.software` is the product site, not the widget host;
+- `api` - only if the API is on an origin other than `host` (the same by default); it goes only into `connect-src`;
+- `ui: none` - the widget without its own button: the theme opens the chat;
+- `env` - a list of environment names (`[dev, prod]`) or a map name → own values (`env: {dev: {}, prod: {widget: hcw_…, host: …}}`; empty or `{}` - as in the block). An environment not in the list - no chat in that build;
+- the check is `E047` in `check` and in the build (key, `host`, `api`, `ui`, environment name), with the field and the environment in the message; an unknown key of the block is `E011`;
+- the engine inserts `<script async src="<host>/chat/l.js" data-widget="…" data-lang="<page language>">` (and `data-api`, `data-ui` if set) before `</body>` of every page of an enabled build, except the 404 page: bots get it too on every missing address. In the nginx CSP of that build `host` is added to `script-src` and `connect-src`, `api` - to `connect-src` (`22` §5); `img-src`, `font-src`, `frame-src` do not change;
+- the theme sees `services.chat.enabled` and `services.chat.ui` in its context - to hide or move its own contact button (the chat button is at the bottom right, `right: 20px; bottom: 20px`);
+- the chat is a **functional service**: it loads right away, without the visitor's consent, like a cart or a language choice. It keeps a visitor id in the browser `localStorage` and `sessionStorage`; mention the chat in the site's privacy policy. The `analytics` counters need consent, the chat does not;
+- the chat hub answers only the addresses from the widget settings in the HERON Chat dashboard (the site domain and the `www.` domain by default, up to 10 addresses), the rest get `403`. Add the dev domain (`site.domains.dev`) there by hand, otherwise the widget does not open; a build with the chat outside `prod` prints a note about it (not a warning);
+- `services.shop` is **reserved** for the shop from the CRM (a site page with an insertion point where the shop script draws the catalogue, and the hosts of product pictures in `img-src`): for now it is `E047`. The `analytics` counters stay their own block for now.
+- in the configurator (`heron setup`, the "Site" tab of the studio) - the "HERON services" group: the key with a live format check, dev and prod switches, the host and the button look in the advanced settings; saving writes `services.chat` and does not touch other environments and the environments' own values.
+
 ### `seo.llms_note` - facts about the site for AI models
 
 The `llms*.txt` files consist of page titles and descriptions. What the reader

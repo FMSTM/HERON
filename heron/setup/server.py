@@ -78,6 +78,44 @@ PREVIEW_CSP = (
     "form-action 'self'; frame-ancestors {studio}"
 )
 STUDIO = ("tree", "open", "check", "save", "site-check", "preview", "start")
+
+
+def preview_policy(studio: str, sources: dict[str, list[str]] | None = None) -> str:
+    """Политика порта просмотра плюс origin встраиваемых сервисов черновой сборки.
+
+    Черновая сборка вставляет тег чата, если он включён для её окружения
+    (`services:`); без его хоста в script-src и connect-src браузер заблокировал
+    бы виджет. Добавляются ровно те origin, что у nginx этой сборки (22 §5).
+    """
+    policy = PREVIEW_CSP.format(studio=studio)
+    if not sources:
+        return policy
+    script = "".join(f" {o}" for o in sources.get("script-src", []))
+    connect = "".join(f" {o}" for o in sources.get("connect-src", []))
+    img = "".join(f" {o}" for o in sources.get("img-src", []))
+    frame = "".join(f" {o}" for o in sources.get("frame-src", []))
+    policy = policy.replace("script-src 'self';", f"script-src 'self'{script};", 1)
+    policy = policy.replace("img-src 'self' data: blob:;", f"img-src 'self' data: blob:{img};", 1)
+    if connect:
+        policy = policy.replace("style-src", f"connect-src 'self'{connect}; style-src", 1)
+    if frame:
+        policy = policy.replace("style-src", f"frame-src 'self'{frame}; style-src", 1)
+    return policy
+
+
+def service_sources(root: Path) -> dict[str, list[str]]:
+    """Origin сервисов для черновой сборки сайта в `root`; конфиг не читается - пусто."""
+    from heron.contracts.site import load_site
+    from heron.core.environment import BuildEnv
+    from heron.modules import services
+
+    try:
+        config = load_site(Path(root) / "site.yaml")
+    except Exception:  # noqa: BLE001 - битый site.yaml покажет сама сборка
+        return {}
+    return services.csp(config, BuildEnv.resolve(None).name)
+
+
 # Скрипт порта просмотра: убирает ключ ?k= из адресной строки страницы (`history.replaceState`).
 PREVIEW_SCRIPT = "/_studio/preview.js"
 # Начало документа до первого содержимого: пробелы, BOM, комментарии, <!doctype>, <?…?>.
@@ -345,7 +383,7 @@ def run(
 
         def _send(self, code: int, body: bytes, kind: str, extra=()) -> None:
             seen = _peer(self.headers.get("Host"), preview_port, port)
-            policy = PREVIEW_CSP.format(studio=seen)
+            policy = preview_policy(seen, service_sources(root))
             _write(self, code, body, kind, policy, extra)
 
         def _json(self, code: int, data: Any) -> None:

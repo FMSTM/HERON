@@ -264,6 +264,7 @@ Everything a template can use:
 | `cover_url(page, min_width=1200)` | absolute address of a cover no narrower than `min_width`; no cover - an empty string. There is also a filter: `{{ page|cover_url }}` |
 | `robots_meta` | the string for `<meta name="robots">`: large previews on an indexable page of a production build (prod), `noindex, nofollow` on a closed one |
 | `env` | the build environment: `env.indexable`, `env.analytics` |
+| `services` | embedded HERON services of this build: `services.chat.enabled`, `services.chat.ui` (`full` or `none`) - to hide or move your own contact button (`20` §5) |
 | `theme` | `theme.yaml` as a model: `theme.types`, `theme.images` |
 | `pages` | the whole site: all pages of all languages (`pages.of_lang('ru')`, `pages.of_type('article', 'ru')`, `pages.by_url`); a page by key is more convenient through `page_of` |
 | `absolute(url)` | an absolute address on the build domain; there is also a filter `{{ url|absolute }}` |

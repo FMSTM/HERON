@@ -264,6 +264,7 @@ images:
 | `cover_url(page, min_width=1200)` | абсолютный адрес обложки шириной не меньше `min_width`; обложки нет - пустая строка. Есть и фильтр: `{{ page|cover_url }}` |
 | `robots_meta` | строка для `<meta name="robots">`: крупные превью на индексируемой странице боевой сборки (prod), `noindex, nofollow` на закрытой |
 | `env` | окружение сборки: `env.indexable`, `env.analytics` |
+| `services` | встраиваемые сервисы HERON этой сборки: `services.chat.enabled`, `services.chat.ui` (`full` или `none`) - спрятать или сдвинуть свою кнопку связи (`20` §5) |
 | `theme` | `theme.yaml` моделью: `theme.types`, `theme.images` |
 | `pages` | весь сайт: все страницы всех языков (`pages.of_lang('ru')`, `pages.of_type('article', 'ru')`, `pages.by_url`); страница по ключу удобнее через `page_of` |
 | `absolute(url)` | абсолютный адрес на домене сборки; есть и фильтр `{{ url|absolute }}` |

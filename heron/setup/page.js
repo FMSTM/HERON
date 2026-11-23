@@ -101,6 +101,11 @@ const T = {
     prices: "Показывать цены в разметке", prices_h: "Если включить, уровень цен и цены из страниц попадут в разметку schema.org, и поисковик может показать их в выдаче. Выключено по умолчанию: устаревшая цена в выдаче хуже, чем никакой. Включайте, только если цены на сайте актуальны и вы готовы их публиковать.",
     g_an: "Аналитика", g_an_about: "Счётчики посещаемости. Это публичные номера, не пароли: они видны в коде страницы. Счётчики работают только в рабочей сборке (prod) и только после согласия посетителя.",
     ga4: "Google Analytics", ga4_h: "Идентификатор потока: G-XXXXXXX.", gtm: "Google Tag Manager", gtm_h: "Идентификатор контейнера: GTM-XXXXXX.", metrika: "Яндекс Метрика", metrika_h: "Номер счётчика: только цифры.",
+    g_srv: "Сервисы HERON", g_srv_about: "Встраиваемые сервисы HERON: движок сам вставляет их скрипт в страницы и открывает для них политику безопасности (CSP) - тема ничего не делает. Чат - функциональный сервис: грузится сразу, без согласия на cookie; упомяните его в политике конфиденциальности.",
+    chat_key: "Ключ HERON Chat", chat_key_h: "Из кабинета HERON Chat: hcw_ и 26 знаков. Пусто - чата нет. Домен сайта (и дев-домен) добавьте в разрешённые адреса чата в кабинете, иначе виджет не откроется.", chat_key_bad: "Не похоже на ключ HERON Chat: hcw_ и 26 знаков (цифры и латиница без I, L, O, U).",
+    chat_adv: "Расширенные настройки чата", chat_host: "Хост чата", chat_host_h: "Откуда грузить виджет и куда он ходит. Пусто - боевой хост HERON Chat; для дев-хаба: https://dev-hub.heron.software. Только https и без пути.", chat_host_bad: "Только https и только адрес, без пути: https://hub.example.com",
+    chat_ui: "Своя кнопка чата", chat_ui_full: "Да", chat_ui_full_s: "Виджет рисует свою кнопку справа внизу.", chat_ui_none: "Нет", chat_ui_none_s: "Кнопки нет: чат открывает тема.",
+    chat_dev: "В черновой сборке (dev)", chat_dev_s: "Предпросмотр и дев-домен.", chat_prod: "В рабочей сборке (prod)", chat_prod_s: "Рабочий домен сайта.",
     g_pub: "Где публикуете", g_pub_about: "Как хранить и публиковать сайт. Конфигуратор покажет только нужные этому способу поля и запишет его файлы.",
     way_github: "GitHub", way_github_s: "код в репозитории", way_hub: "Docker Hub", way_hub_s: "свой реестр образов", way_static: "Статические файлы", way_static_s: "сервер или GitHub Pages", way_none: "Пока не знаю", way_none_s: "только сборка и просмотр",
     repo: "Репозиторий", repo_h: "владелец/имя на GitHub: you/my-site.", branch: "Ветка", branch_h: "Отправка в эту ветку запускает сборку.",
@@ -183,6 +188,11 @@ const T = {
     prices: "Show prices in markup", prices_h: "When on, the price range and the prices from your pages go into schema.org markup, and a search engine may show them in results. Off by default: an outdated price in results is worse than none. Turn it on only if the prices on the site are current and you are ready to publish them.",
     g_an: "Analytics", g_an_about: "Visit counters. These are public IDs, not passwords: they are visible in the page code. Counters run only in the working build (prod) and only after the visitor agrees.",
     ga4: "Google Analytics", ga4_h: "Measurement ID: G-XXXXXXX.", gtm: "Google Tag Manager", gtm_h: "Container ID: GTM-XXXXXX.", metrika: "Yandex Metrica", metrika_h: "Counter number: digits only.",
+    g_srv: "HERON services", g_srv_about: "Embedded HERON services: the engine inserts their script into the pages and opens the security policy (CSP) for them - the theme does nothing. The chat is a functional service: it loads right away, without cookie consent; mention it in the privacy policy.",
+    chat_key: "HERON Chat key", chat_key_h: "From the HERON Chat dashboard: hcw_ and 26 characters. Empty - no chat. Add the site domain (and the dev domain) to the chat's allowed addresses in the dashboard, otherwise the widget does not open.", chat_key_bad: "This does not look like a HERON Chat key: hcw_ and 26 characters (digits and Latin letters without I, L, O, U).",
+    chat_adv: "Advanced chat settings", chat_host: "Chat host", chat_host_h: "Where the widget loads from and talks to. Empty - the production HERON Chat host; for the dev hub: https://dev-hub.heron.software. https only, no path.", chat_host_bad: "https only and the address only, no path: https://hub.example.com",
+    chat_ui: "Chat's own button", chat_ui_full: "Yes", chat_ui_full_s: "The widget draws its button at the bottom right.", chat_ui_none: "No", chat_ui_none_s: "No button: the theme opens the chat.",
+    chat_dev: "In the draft build (dev)", chat_dev_s: "Preview and the dev domain.", chat_prod: "In the working build (prod)", chat_prod_s: "The site's working domain.",
     g_pub: "Where you publish", g_pub_about: "How you store and publish the site. The configurator shows only the fields that way needs and writes the files it uses.",
     way_github: "GitHub", way_github_s: "code in a repository", way_hub: "Docker Hub", way_hub_s: "your own image registry", way_static: "Static files", way_static_s: "a server or GitHub Pages", way_none: "Not sure yet", way_none_s: "build and preview only",
     repo: "Repository", repo_h: "owner/name on GitHub: you/my-site.", branch: "Branch", branch_h: "Pushes to this branch start the build.",
@@ -697,6 +707,30 @@ function gAnalytics() {
       field(t("gtm"), "analytics.gtm", t("gtm_h"), "text", { placeholder: "GTM-XXXXXX" }),
       field(t("metrika"), "analytics.metrika", t("metrika_h"), "text", { placeholder: "00000000", inputmode: "numeric" })));
 }
+const CHAT_KEY = /^hcw_[0-9A-HJKMNP-TV-Z]{26}$/;
+const CHAT_HOST = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+(?::\d{1,5})?$/i;
+function checked(path, re, message) {
+  // проверка формата на лету: поле подсвечивается, под ним - что не так
+  const el = input(path, "text", { autocomplete: "off", spellcheck: "false" });
+  const bad = h("div", { class: "hint", role: "alert" }, message); bad.hidden = true;
+  const box = h("div", {}, el, bad);
+  const check = () => { const v = el.value.trim(); const wrong = !!v && !re.test(v); bad.hidden = !wrong; el.setAttribute("aria-invalid", String(wrong)); el.closest(".field")?.classList.toggle("bad", wrong); };
+  el.addEventListener("input", check); setTimeout(check);
+  return box;
+}
+function gServices() {
+  A.chat = Object.assign({ widget: "", host: "", ui: "full", envs: ["dev", "prod"] }, A.chat || {});
+  const c = A.chat;
+  const env = (name) => toggle("chat-" + name, c.envs.includes(name), t("chat_" + name), t("chat_" + name + "_s"), (v) => {
+    c.envs = v ? [...new Set([...c.envs, name])] : c.envs.filter((x) => x !== name); refresh();
+  });
+  const key = h("div", { class: "field wide" }, h("label", { for: "chat.widget" }, t("chat_key")), checked("chat.widget", CHAT_KEY, t("chat_key_bad")), hint(t("chat_key_h")), track("chat.widget"));
+  const host = h("div", { class: "field wide" }, h("label", { for: "chat.host" }, t("chat_host")), checked("chat.host", CHAT_HOST, t("chat_host_bad")), hint(t("chat_host_h")), track("chat.host"));
+  const ui = h("div", { class: "field wide" }, h("span", { class: "legend" }, t("chat_ui")), choices("chat.ui", [["full", t("chat_ui_full"), t("chat_ui_full_s")], ["none", t("chat_ui_none"), t("chat_ui_none_s")]], render));
+  return group("srv", "7", t("g_srv"), t("g_srv_about"), null,
+    h("div", { class: "grid" }, key, env("dev"), env("prod")),
+    h("details", { style: "margin-top:.75rem" }, h("summary", {}, t("chat_adv")), h("div", { class: "grid" }, host, ui)));
+}
 function imageOf(env) {
   const p = A.publish;
   if (p.way === "github") { const repo = (p.repo || ST.git_remote || "<owner>/<repo>").toLowerCase(); return "ghcr.io/" + repo + ":" + env; }
@@ -764,7 +798,7 @@ function gPublish() {
       field(t("cache_a"), "cache.assets", t("cache_a_h"), "text", { placeholder: "1d" }),
       field(t("cache_m"), "cache.media", t("cache_m_h"), "text", { placeholder: "1d" }))));
   body.push(gHsts(), gPermissions(), gLog());
-  return group("pub", "7", t("g_pub"), t("g_pub_about"), null, ...body);
+  return group("pub", "8", t("g_pub"), t("g_pub_about"), null, ...body);
 }
 // Заголовки безопасности и журнал - ключи nginx.hsts, nginx.permissions, nginx.log_ip.
 function gHsts() {
@@ -801,7 +835,7 @@ function gLog() {
   return h("div", { class: "subbox", id: "log", style: "margin-top:1rem" }, h("h3", {}, t("log_t")),
     h("div", { class: "grid" }, h("div", { class: "field" }, h("label", { for: "log_ip" }, t("log_ip")), sel, hint(t("log_ip_h")), track("log_ip", names))));
 }
-function gKeys() { return group("keys", "8", t("g_keys"), t("g_keys_about"), "dev"); }
+function gKeys() { return group("keys", "9", t("g_keys"), t("g_keys_about"), "dev"); }
 function gTheme() {
   const th = A.theme;
   if (!["keep", "name", "url", "file"].includes(th.source)) th.source = "keep";
@@ -830,7 +864,7 @@ function gTheme() {
     grid.append(h("div", { class: "field wide" }, file, hint(t("th_file_h"))));
   }
   body.push(grid);
-  return group("theme", "9", t("g_theme"), t("g_theme_about"), null, ...body);
+  return group("theme", "10", t("g_theme"), t("g_theme_about"), null, ...body);
 }
 
 function render() {
@@ -839,7 +873,7 @@ function render() {
   for (const b of document.querySelectorAll(".langswitch button")) b.setAttribute("aria-pressed", String(b.dataset.lang === L));
   const y = window.scrollY;
   TRACKS.length = 0;
-  const form = $("#form"); form.replaceChildren(schemaBanner(), gSite(), gLang(), gWho(), gSearch(), gAI(), gAnalytics(), gPublish(), gKeys(), gTheme());
+  const form = $("#form"); form.replaceChildren(schemaBanner(), gSite(), gLang(), gWho(), gSearch(), gAI(), gAnalytics(), gServices(), gPublish(), gKeys(), gTheme());
   $("#groups").replaceChildren(...[...form.querySelectorAll("section.group")].map((s) => h("a", { href: "#" + s.id }, h("span", { class: "n" }, $(".n", s).textContent), $(".title", s).textContent)));
   refresh();
   window.scrollTo(0, y);

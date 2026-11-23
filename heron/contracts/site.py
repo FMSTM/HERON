@@ -45,6 +45,7 @@ RESERVED = {
     "forms",
     "sinks",
     "analytics",
+    "services",
     "gone",
     "nginx",
     "urls",
@@ -251,6 +252,51 @@ class AnalyticsBlock(Strict):
     def _as_text(cls, v: Any) -> Any:
         # номер счётчика Метрики в YAML — число; шаблону нужна строка
         return str(v) if isinstance(v, int) else v
+
+
+class ChatOverride(Strict):
+    """Свои значения чата для одного окружения: `services.chat.env.prod: {widget: …}`."""
+
+    widget: str | None = None
+    host: str | None = None
+    api: str | None = None
+    ui: str | None = None
+
+
+class ChatService(Strict):
+    """HERON Chat - первый встраиваемый сервис HERON (`services.chat`, 20 §5).
+
+    Тип и наличие ключей проверяет модель (E011); формат ключа виджета, `host`
+    и `api` (https, только origin) и окружения - `heron.modules.services`
+    (E047 с подсказкой): так ошибка называет поле и что в него писать.
+    """
+
+    widget: str | None = None
+    host: str | None = None
+    api: str | None = None
+    ui: str = "full"
+    # В каких сборках чат включён: список имён окружений или карта имя ->
+    # свои значения ({} - как у блока). Нет ключа - во всех окружениях.
+    env: list[str] | dict[str, ChatOverride | None] | None = None
+
+    @field_validator("widget", "host", "api", "ui", mode="before")
+    @classmethod
+    def _text(cls, v: Any) -> Any:
+        return v.strip() if isinstance(v, str) else v
+
+
+class ServicesBlock(Strict):
+    """Встраиваемые сервисы HERON (`services:`, 20 §5).
+
+    Каждый сервис объявляет, что вставить в страницу и какие origin ему нужны
+    в CSP; движок собирает политику только из включённых в этой сборке. Пока
+    сервис один - чат; `shop` зарезервирован (E047), счётчики `analytics`
+    остаются своим блоком и переедут сюда отдельным решением.
+    """
+
+    chat: ChatService | None = None
+    # зарезервировано за магазином из CRM: место вставки и хосты картинок
+    shop: Any = None
 
 
 class BuildBlock(Strict):
@@ -683,6 +729,7 @@ class SiteConfig(BaseModel):
     nav: NavBlock = Field(default_factory=NavBlock)
     build: BuildBlock = Field(default_factory=BuildBlock)
     analytics: AnalyticsBlock = Field(default_factory=AnalyticsBlock)
+    services: ServicesBlock = Field(default_factory=ServicesBlock)
     nginx: NginxBlock = Field(default_factory=NginxBlock)
     urls: UrlsBlock = Field(default_factory=UrlsBlock)
     plugins: list[str] = Field(default_factory=list)

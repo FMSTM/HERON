@@ -192,6 +192,20 @@ The certificate of the mirrors must cover their names too (one certificate for a
 
 **The outer nginx adds no headers of its own and does not cache.** No `add_header Cache-Control`, `expires`, `Content-Security-Policy`, `Strict-Transport-Security`, `Permissions-Policy`, `X-Frame-Options`, `Cross-Origin-Opener-Policy`, `X-Content-Type-Options`, `Referrer-Policy` or `proxy_cache` in these blocks, and no `gzip` for them either: the site image gives the headers and the compression, and a second set from the outer nginx would double them or override them, while a cache on the proxy would serve an old page after a deployment. The `proxy_set_header` lines of the sample are needed: by `X-Forwarded-For` the image learns the visitor address for its log. The inner config, in turn, knows nothing about domains: mirrors and https live only here.
 
+### The HERON Chat chat on the site <a id="heron-chat"></a>
+
+The chat is connected with one block in `site.yaml` or in the configurator (the "HERON services" group), the theme does nothing for it:
+
+```yaml
+services:
+  chat:
+    widget: hcw_DTTQXXFWX2X8F6XHB1RQXBRN8G   # the key from the HERON Chat dashboard
+    host: https://dev-hub.heron.software      # for the dev hub; without the line - the production host
+    env: [dev]                                # first only on the dev build
+```
+
+The engine itself inserts the chat script into the pages of that build and opens the browser security policy for it. Check two places outside the site: in the HERON Chat dashboard add every domain where the chat must work to the chat's allowed addresses (the working domain with `www.` is there by default, the dev domain is not, and without it the widget does not open), and mention the chat in the privacy policy: it keeps a visitor id in the browser and loads without cookie consent, as a functional part of the site. When everything works on dev, add `prod` to `env`. Details - `20` §5, "The `services` block".
+
 ### Security headers, methods and the log <a id="security-headers"></a>
 
 Every response of the site image - a page, 301, 404, 410, 405, a theme file, an image, `/healthz` - carries the same set of headers, each exactly once:

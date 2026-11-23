@@ -57,6 +57,7 @@ from heron.core.render import pages as renderer
 from heron.core.render import themeref
 from heron.messages import Msg
 from heron.modules import feed, jsonld, llms, nginx, redirects, robots, sitemap
+from heron.modules import services as services_module
 from heron.schemaorg import policy
 from heron.schemaorg.images import source_exists
 
@@ -265,6 +266,10 @@ def run(
     rooted(site_root, theme_dir)
     strict = strict or config.build.fail_on_warning
     for_env(config, env)
+    # встраиваемые сервисы: ключ, адрес, окружения (E047); чат на дев-домене -
+    # сведение про разрешённые адреса в кабинете
+    services_module.verify(config, collector)
+    services_module.cors_notes(config, env.name, collector)
     # адрес без слеша: относительная ссылка шаблона уходит от папки страницы (E046)
     templates_check.relative_links(theme_dir, site_root, config, collector)
     say.done("done_config", theme=config.site.theme, langs=len(config.site.languages))
@@ -405,7 +410,7 @@ def run(
         claim(llms.generate(site, config), "generator", Msg("build_owner_llms"))
         moves = redirects.collect(site, collector, config)
         claim(redirects.files(moves), "generator", Msg("build_owner_redirects"))
-        claim(nginx.generate(config, moves), "generator", Msg("build_owner_nginx"))
+        claim(nginx.generate(config, moves, env.name), "generator", Msg("build_owner_nginx"))
         claim(feed.generate(site, config), "generator", Msg("build_owner_feed"))
         if seen is not None:
             # Справка темы - только в черновой сборке: в боевую, в карту сайта
@@ -1280,6 +1285,8 @@ def check(
     # уронит сборку (E033), видно и по разбору шаблона — говорим заранее
     templates_check.mutations(site_root, theme_dir, config, collector, hooks)
     env = env or BuildEnv.resolve(None)
+    services_module.verify(config, collector)
+    services_module.cors_notes(config, env.name, collector)
     site = content(site_root, config, theme, theme_dir, hooks, collector, drafts, env.is_prod)
     templates_check.missing_templates(site, theme, theme_dir, config, collector, hooks)
     templates_check.inline_scripts(theme_dir, site_root, collector)

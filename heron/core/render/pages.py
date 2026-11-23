@@ -180,6 +180,12 @@ def render_site(
     if len(strings) < len(config.site.languages):
         return {}
 
+    from heron.modules import services as services_module
+
+    # Встраиваемые сервисы HERON (`services:`): тег перед </body> на каждой
+    # странице сборки, где сервис включён. Не на 404: её получают и боты на
+    # каждый несуществующий адрес, а чату там делать нечего (20 §5).
+    embedded = services_module.active(config, (build_env or BuildEnv()).name)
     out: dict[str, str] = {}
     for index, page in enumerate(site.pages, 1):
         if progress is not None:
@@ -201,6 +207,8 @@ def render_site(
                 html = pending_banner(html, page, config)
             if hooks is not None:
                 html = hooks.pipe("on_page_rendered", page, html)
+            if embedded and page.type != "404":
+                html = services_module.insert(html, page.lang, embedded)
             if config.build.generator:
                 html = signature.sign(html)
             out[page.url] = html

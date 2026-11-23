@@ -358,7 +358,7 @@ RU_TOKENS = {
     "Google", "Analytics", "Tag", "Manager", "Docker", "Hub", "NUL", "engine", "prod", "beta",
     "helpers", "user", "host", "main", "release", "heron", "new", "true", "false", "https",
     "digest", "sha", "you", "site", "example", "com", "pt", "br", "en", "de", "AT",
-    "none", "self", "masked", "full", "off", "preload",
+    "none", "self", "masked", "full", "off", "preload", "HERON", "Chat",
 }  # fmt: skip
 
 
@@ -413,6 +413,10 @@ def _cases():
         "ga4_bad": {"analytics": {"ga4": "UA-1"}},
         "gtm_bad": {"analytics": {"gtm": "x"}},
         "metrika_bad": {"analytics": {"metrika": "abc"}},
+        "chat_widget_bad": {"chat": {"widget": "hcw_short"}},
+        "chat_host_bad": {"chat": {"widget": "hcw_" + "0" * 26, "host": "http://hub.example"}},
+        "chat_ui_bad": {"chat": {"widget": "hcw_" + "0" * 26, "ui": "half"}},
+        "chat_env_bad": {"chat": {"widget": "hcw_" + "0" * 26, "envs": ["Dev"]}},
         "cache_bad": {"cache": {"assets": "1 day"}},
         "urls_bad": {"urls": {"trailing_slash": "sometimes"}},
         "hsts_bad": {"hsts": {"max_age": "1 year"}},

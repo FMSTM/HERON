@@ -485,6 +485,11 @@ def context(
         "languages": config.site.languages,
         "env": build_env or BuildEnv(),
     }
+    # Встраиваемые сервисы этой сборки (20 §5): `services.chat.enabled`,
+    # `services.chat.ui` - тема прячет или сдвигает свою кнопку связи.
+    from heron.modules import services as services_module
+
+    shared["services"] = services_module.theme_flags(config, shared["env"].name)
     # Страница по ключу, на языке текущей: `page_of('services')`,
     # `page_of('/')` — главная. Нет такой — None, тема решает сама.
     shared["page_of"] = lambda key, lang=None: site.page(key, lang or page.lang)

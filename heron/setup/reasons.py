@@ -48,6 +48,17 @@ TEXT: dict[str, dict[str, str]] = {
         "ga4_bad": "Google Analytics {value}: ожидается G-XXXXXXX",
         "gtm_bad": "Tag Manager {value}: ожидается GTM-XXXXXX",
         "metrika_bad": "Яндекс Метрика {value}: только цифры",
+        # HERON Chat
+        "chat_widget_bad": (
+            "ключ HERON Chat {value}: ожидается hcw_ и 26 знаков, "
+            "например hcw_DTTQXXFWX2X8F6XHB1RQXBRN8G"
+        ),
+        "chat_host_bad": (
+            "хост HERON Chat {value}: только https и только адрес сайта, без пути - "
+            "https://dev-hub.heron.software"
+        ),
+        "chat_ui_bad": "вид чата {value}: full или none",
+        "chat_env_bad": "окружение чата {value}: строчная латиница, цифры и дефис",
         # кэш браузера
         "cache_bad": (
             "nginx.cache.{field} {value}: число секунд или число с единицей s, m, h, d, w, y - "
@@ -173,6 +184,16 @@ TEXT: dict[str, dict[str, str]] = {
         "ga4_bad": "Google Analytics {value}: expected G-XXXXXXX",
         "gtm_bad": "Tag Manager {value}: expected GTM-XXXXXX",
         "metrika_bad": "Yandex Metrica {value}: digits only",
+        "chat_widget_bad": (
+            "HERON Chat key {value}: expected hcw_ and 26 characters, "
+            "e.g. hcw_DTTQXXFWX2X8F6XHB1RQXBRN8G"
+        ),
+        "chat_host_bad": (
+            "HERON Chat host {value}: https only and the site address only, no path - "
+            "https://dev-hub.heron.software"
+        ),
+        "chat_ui_bad": "chat look {value}: full or none",
+        "chat_env_bad": "chat environment {value}: lowercase Latin letters, digits and hyphens",
         "cache_bad": (
             "nginx.cache.{field} {value}: a number of seconds or a number with a unit "
             "s, m, h, d, w, y - for example 3600, 12h, 1d, 7d, 1y"

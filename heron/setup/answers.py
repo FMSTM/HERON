@@ -435,6 +435,44 @@ class AnalyticsAnswers(Model):
         return self
 
 
+class ChatAnswers(Model):
+    """HERON Chat (`services.chat`): ключ виджета, хост, вид и окружения.
+
+    Пустой ключ - чата нет, блок `services.chat` из site.yaml убирается.
+    Пустой хост - хост HERON Chat по умолчанию. `envs` - в каких сборках
+    включать; окружения, которых конфигуратор не показывает (stage, свои
+    значения прода), при сохранении не теряются.
+    """
+
+    widget: str = ""
+    host: str = ""
+    ui: str = "full"
+    envs: list[str] = Field(default_factory=lambda: ["dev", "prod"])
+
+    @field_validator("widget", "host", "ui", mode="before")
+    @classmethod
+    def _text(cls, value: Any) -> str:
+        return str(value).strip() if value is not None else ""
+
+    @model_validator(mode="after")
+    def _shape(self) -> ChatAnswers:
+        from heron.modules import services
+
+        if self.widget and not services.CHAT_KEY.match(self.widget):
+            raise Reason("chat_widget_bad", value=repr(self.widget))
+        if self.host:
+            found = services.origin(self.host)
+            if found is None:
+                raise Reason("chat_host_bad", value=repr(self.host))
+            self.host = found
+        if self.ui not in services.CHAT_UI:
+            raise Reason("chat_ui_bad", value=repr(self.ui))
+        bad = [e for e in self.envs if not re.match(r"^[a-z][a-z0-9-]*\Z", str(e))]
+        if bad:
+            raise Reason("chat_env_bad", value=repr(bad[0]))
+        return self
+
+
 class CacheAnswers(Model):
     """Сроки кэша браузера - ключи nginx.cache в site.yaml (22 §5)."""
 
@@ -618,6 +656,7 @@ class Answers(Model):
     about: AboutAnswers = Field(default_factory=AboutAnswers)
     search: SearchAnswers = Field(default_factory=SearchAnswers)
     analytics: AnalyticsAnswers = Field(default_factory=AnalyticsAnswers)
+    chat: ChatAnswers = Field(default_factory=ChatAnswers)
     publish: PublishAnswers = Field(default_factory=PublishAnswers)
     cache: CacheAnswers = Field(default_factory=CacheAnswers)
     urls: UrlsAnswers = Field(default_factory=UrlsAnswers)
@@ -755,6 +794,16 @@ def read(data: dict[str, Any]) -> Answers:
         "allow_prices": bool(seo.get("allow_prices")),
     }
     out["analytics"] = {key: str(analytics.get(key) or "") for key in ("ga4", "gtm", "metrika")}
+    chat = _get(data, "services.chat")
+    if isinstance(chat, dict):
+        env = chat.get("env")
+        envs = [str(e) for e in env] if isinstance(env, (list, dict)) else ["dev", "prod"]
+        out["chat"] = {
+            "widget": str(chat.get("widget") or ""),
+            "host": str(chat.get("host") or ""),
+            "ui": str(chat.get("ui") or "full"),
+            "envs": envs,
+        }
     publish = data.get("publish") or {}
     if isinstance(publish, dict):
         known = PublishAnswers.model_fields
@@ -780,7 +829,17 @@ def read(data: dict[str, Any]) -> Answers:
         # Сырой конфиг не повод отказать в конфигураторе: он и нужен, чтобы
         # конфиг поправить. Берём то, что проходит по отдельности.
         answers = Answers()
-        for block in ("site", "about", "search", "analytics", "publish", "cache", "urls", "hsts"):
+        for block in (
+            "site",
+            "about",
+            "search",
+            "analytics",
+            "chat",
+            "publish",
+            "cache",
+            "urls",
+            "hsts",
+        ):
             with contextlib.suppress(ValueError):
                 setattr(
                     answers,
@@ -1205,6 +1264,52 @@ def _clean_value(spec: dict[str, Any], value: Any) -> Any:
     return value.strip() if isinstance(value, str) else value
 
 
+SHOWN_ENVS = ("dev", "prod")
+
+
+def _merge_chat(out: dict[str, Any], chat: ChatAnswers) -> None:
+    """`services.chat` по ответам: только то, что показывает конфигуратор.
+
+    Ключ пуст - блока чата нет (прочие сервисы не трогаются). Окружения: dev и
+    prod - по переключателям; прочие имена и свои значения окружения (карта
+    `env`) остаются как были. Все известные включены, а блока `env` не было -
+    его и нет (во всех сборках).
+    """
+    services = out.get("services")
+    if not chat.widget:
+        if isinstance(services, dict):
+            services.pop("chat", None)
+            if not services:
+                out.pop("services", None)
+        return
+    services = out.setdefault("services", {})
+    block = services.get("chat") if isinstance(services.get("chat"), dict) else {}
+    block["widget"] = chat.widget
+    if chat.host:
+        block["host"] = chat.host
+    else:
+        block.pop("host", None)
+    if chat.ui == "none":
+        block["ui"] = "none"
+    else:
+        block.pop("ui", None)
+    wanted = [e for e in SHOWN_ENVS if e in chat.envs]
+    env = block.get("env")
+    if isinstance(env, dict):
+        for name in SHOWN_ENVS:
+            if name in wanted:
+                env.setdefault(name, None)
+            else:
+                env.pop(name, None)
+    else:
+        others = [e for e in (env or []) if e not in SHOWN_ENVS] if isinstance(env, list) else []
+        if env is None and set(wanted) == set(SHOWN_ENVS):
+            pass  # во всех сборках - как было
+        else:
+            block["env"] = [*wanted, *others]
+    services["chat"] = block
+
+
 def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
     """Новый site.yaml: прежний конфиг с ответами поверх.
 
@@ -1360,6 +1465,7 @@ def merge(data: dict[str, Any], answers: Answers, spec: str) -> dict[str, Any]:
         seo["allow_prices"] = True
     else:
         seo.pop("allow_prices", None)
+    _merge_chat(out, answers.chat)
     analytics = out.setdefault("analytics", {})
     for key in ("ga4", "gtm", "metrika"):
         value = getattr(answers.analytics, key)
@@ -1580,6 +1686,7 @@ ORDER = (
     "seo",
     "nav",
     "analytics",
+    "services",
     "publish",
     "build",
     "plugins",

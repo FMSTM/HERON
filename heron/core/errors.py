@@ -97,6 +97,10 @@ class HeronError(Exception):
         return text
 
 
+# Вид сведений отчёта в `check --json` (`notes`): координаты, картинка из static/ и прочее.
+REPORT_NOTE = "отчёт"
+
+
 @dataclass(slots=True)
 class Warning_:
     """Предупреждение. Не останавливает сборку, попадает в отчёт check.

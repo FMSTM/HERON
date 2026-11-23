@@ -635,6 +635,7 @@ def _check_json(
     schema = None
     old_section = None
     pending: list[dict] = []
+    notes: list[dict] = []
     try:
         result = pipeline.check(
             path,
@@ -673,6 +674,7 @@ def _check_json(
             }
             for w in result.collector.warnings
         ]
+        notes = report_module.notes_json(result.collector, result.report, lang)
         strict = result.strict
         pages = len(result.site.pages) if getattr(result, "site", None) is not None else None
         if result.report is not None:
@@ -700,6 +702,7 @@ def _check_json(
                 "kit": kit.as_json(),
                 "schema": schema,
                 "pending": pending,
+                "notes": notes,
                 **({"old_urls": old_section} if old_section is not None else {}),
             },
             indent=2,
@@ -733,6 +736,7 @@ def _no_site_json(path: Path, strict: bool, lang: str) -> None:
                 "warnings": [],
                 "kit": kit.as_json(),
                 "schema": None,
+                "notes": [],
             },
             indent=2,
         )

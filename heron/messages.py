@@ -958,6 +958,11 @@ TEXT["ru"].update(
             "подставляет, и файл по этому адресу кэшируется на срок nginx.cache.assets; "
             "передайте адрес из шаблона атрибутом data-…=\"{{{{ asset('…') }}}}\""
         ),
+        "check_crumb_label": (
+            "крошки подписаны {used}, а BreadcrumbList - crumb_name (nav_title, иначе h1): "
+            "на страницах с nav_title видимая крошка разойдётся с разметкой; замените на "
+            "crumb.crumb_name (и page.crumb_name у текущей страницы)"
+        ),
         "theme_inline_script": (
             "инлайн-скрипт в строке {line} заблокирует CSP сайта (script-src 'self'): "
             "вынесите код в файл темы, см. docs guide/04-theme"
@@ -1009,6 +1014,12 @@ TEXT["en"].update(
             "substitute hashed names, and the file at this address is cached for "
             "nginx.cache.assets; pass the address from the template in an attribute "
             "data-…=\"{{{{ asset('…') }}}}\""
+        ),
+        "check_crumb_label": (
+            "breadcrumbs are labelled with {used}, but BreadcrumbList uses crumb_name "
+            "(nav_title, otherwise h1): on pages with nav_title the visible crumb differs from "
+            "the markup; replace it with crumb.crumb_name "
+            "(and page.crumb_name for the current page)"
         ),
         "theme_inline_script": (
             "the inline script on line {line} will be blocked by the site CSP (script-src 'self'): "
@@ -1075,6 +1086,7 @@ TEXT["ru"].update(
         "report_orphans": "На эти страницы никто не ссылается: {urls}",
         "report_schema": "Разметка schema.org - {by_kind}",
         "report_unused_media": "Файлы в media, которых никто не ждёт - {count}:",
+        "report_withheld_media_one": "{src}: исходник не поехал в сборку - на него нет ссылок",
         "report_withheld_media": (
             "Исходники media/ не поехали в сборку - на них нет ссылок, в сайте только "
             "их нарезки (это не ошибка) - {count}:"
@@ -1090,6 +1102,7 @@ TEXT["ru"].update(
             "но Google просит не меньше 5):"
         ),
         "report_geo_short_line": "  site.yaml: {key}: {value}",
+        "report_geo_short_note": "меньше 5 знаков после точки, Google просит 5+",
         "report_geo_short_fix": (
             "  как поправить: впишите 5 и больше знаков; с нулями на конце - строкой "
             '("50.50900"), иначе YAML их потеряет'
@@ -1142,6 +1155,7 @@ TEXT["en"].update(
         "report_orphans": "No page links to these: {urls}",
         "report_schema": "schema.org markup - {by_kind}",
         "report_unused_media": "Files in media nothing expects - {count}:",
+        "report_withheld_media_one": "{src}: the source is not shipped - nothing links to it",
         "report_withheld_media": (
             "media/ sources not shipped in the build - nothing links to them, the site "
             "uses only their renditions (not an error) - {count}:"
@@ -1157,6 +1171,7 @@ TEXT["en"].update(
             "but Google asks for at least 5):"
         ),
         "report_geo_short_line": "  site.yaml: {key}: {value}",
+        "report_geo_short_note": "fewer than 5 decimals, Google asks for 5+",
         "report_geo_short_fix": (
             "  how to fix: write 5 or more decimals; with trailing zeros - as a string "
             '("50.50900"), otherwise YAML drops them'
@@ -1249,6 +1264,7 @@ KINDS: dict[str, dict[str, str]] = {
         "переводы": "translations",
         "языки": "languages",
         "разметка": "markup",
+        "отчёт": "report",
         "прочее": "other",
         "нет перевода": "not translated",
         "даты": "dates",

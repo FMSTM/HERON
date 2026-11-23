@@ -506,3 +506,83 @@ def relative_links(
                 line=line,
                 hint=Msg("tree_relative_link_hint"),
             )
+
+
+# Чем тема подписывала крошки до 0.3.1: `crumb.h1`, `crumb.title`,
+# `crumb.nav_title`, `crumb.meta.nav_title`. Подпись в разметке - `crumb_name`.
+_OLD_CRUMB_LABELS = frozenset({"h1", "title", "nav_title"})
+
+
+def _is_attr(node: nodes.Node, var: str, *chain: str) -> bool:
+    """`node` - это `var.<chain…>`: `_is_attr(n, "crumb", "meta", "nav_title")`."""
+    for name in reversed(chain):
+        if not (isinstance(node, nodes.Getattr) and node.attr == name):
+            return False
+        node = node.node
+    return isinstance(node, nodes.Name) and node.name == var
+
+
+def _crumb_loops(tree: nodes.Template) -> list[tuple[int, str]]:
+    """Циклы по `….breadcrumbs`, которые подписывают пункт не `crumb_name`: (строка, поле)."""
+    found: list[tuple[int, str]] = []
+    for loop in tree.find_all(nodes.For):
+        it = loop.iter
+        if not (isinstance(it, nodes.Getattr) and it.attr == "breadcrumbs"):
+            continue
+        if not isinstance(loop.target, nodes.Name):
+            continue
+        var = loop.target.name
+        old: str | None = None
+        # `crumb.meta.nav_title or crumb.h1` - то же, что crumb_name
+        named = any(
+            _is_attr(o.left, var, "meta", "nav_title") and _is_attr(o.right, var, "h1")
+            for item in loop.body
+            for o in item.find_all(nodes.Or)
+        )
+        for item in loop.body:
+            for attr in item.find_all(nodes.Getattr):
+                owner = attr.node
+                if isinstance(owner, nodes.Name) and owner.name == var:
+                    if attr.attr == "crumb_name":
+                        named = True
+                    elif attr.attr in _OLD_CRUMB_LABELS and old is None:
+                        old = attr.attr
+                elif (
+                    isinstance(owner, nodes.Getattr)
+                    and owner.attr == "meta"
+                    and isinstance(owner.node, nodes.Name)
+                    and owner.node.name == var
+                    and attr.attr == "nav_title"
+                    and old is None
+                ):
+                    old = "meta.nav_title"
+        if old is not None and not named:
+            found.append((loop.lineno, f"{var}.{old}"))
+    return found
+
+
+def breadcrumb_labels(theme_dir: Path, site_root: Path | None, collector: Collector) -> None:
+    """Сведение: тема подписывает крошки не `crumb_name`, а разметка - им (0.3.1).
+
+    Тема, скопированная со стартовой до 0.3.1, рисует `crumb.h1`; имя пункта
+    `BreadcrumbList` - `crumb_name` (`nav_title`, иначе `h1`), и на страницах с
+    `nav_title` видимая крошка расходится с разметкой. Не предупреждение:
+    сайт собирается как раньше. Ловятся только циклы по `….breadcrumbs`, где
+    пункт выводится старым полем и ни разу - `crumb_name`.
+    """
+    theme_dir = Path(theme_dir)
+    if not theme_dir.is_dir():
+        return
+    root = Path(site_root).resolve() if site_root is not None else None
+    env = Environment()
+    for rel in _candidates(theme_dir):
+        tree = _parse(env, theme_dir, rel)
+        if tree is None:
+            continue
+        for line, used in _crumb_loops(tree):
+            collector.note(
+                Msg("check_crumb_label", used=used),
+                path=_shown(theme_dir, rel, root),
+                line=line,
+                kind="разметка",
+            )

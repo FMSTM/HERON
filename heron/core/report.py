@@ -26,7 +26,7 @@ from heron.contracts.theme import ThemeConfig
 from heron.core import links as links_module
 from heron.core import media, notes, versions, yamlsafe
 from heron.core import urls as urls_module
-from heron.core.errors import Collector, HeronError, Warning_
+from heron.core.errors import REPORT_NOTE, Collector, HeronError, Warning_
 from heron.core.models import Site
 from heron.messages import Msg, rendered
 from heron.modules.sitemap import indexable
@@ -809,6 +809,57 @@ ORDER = [
 
 # Сколько примеров показывать в каждой группе. Остальное — в файле.
 EXAMPLES = 6
+
+
+def notes_json(collector: Collector, report: Report | None, lang: str) -> list[dict]:
+    """Сведения для `check --json`: то, что не ошибка и не предупреждение.
+
+    `code` - ключ сообщения (`media_small_cover`, `markup_placeholder_empty`,
+    `report_geo_short` …): по нему сведения различают, текст - на языке
+    сообщений. `--strict` их не считает, `ok` от них не зависит.
+    """
+    out: list[dict] = []
+    for note in getattr(collector, "notes", []) or []:
+        out.append(
+            {
+                "code": getattr(note.message, "key", None),
+                "kind": note.kind,
+                "path": rendered(note.path, lang),
+                "line": note.line,
+                "message": rendered(note.message, lang),
+            }
+        )
+    if report is None:
+        return out
+    from heron.messages import say
+
+    def add(code: str, path: str | None, message: str) -> None:
+        out.append(
+            {"code": code, "kind": REPORT_NOTE, "path": path, "line": None, "message": message}
+        )
+
+    for key, value in report.geo_short:
+        add(
+            "report_geo_short",
+            "site.yaml",
+            f"{key}: {value} - {say(lang, 'report_geo_short_note')}",
+        )
+    for owner, key, src, suggested in report.static_social:
+        add(
+            "report_static_social",
+            rendered(owner, lang),
+            say(
+                lang,
+                "report_static_social_line",
+                owner=owner,
+                key=key,
+                src=src,
+                suggested=suggested,
+            ).strip(),
+        )
+    for src in report.withheld_media:
+        add("report_withheld_media", src, say(lang, "report_withheld_media_one", src=src))
+    return out
 
 
 def summary(collector: Collector, full: Path | None = None, lang: str = "en") -> str:

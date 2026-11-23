@@ -1283,6 +1283,7 @@ def check(
     site = content(site_root, config, theme, theme_dir, hooks, collector, drafts, env.is_prod)
     templates_check.missing_templates(site, theme, theme_dir, config, collector, hooks)
     templates_check.inline_scripts(theme_dir, site_root, collector)
+    templates_check.breadcrumb_labels(theme_dir, site_root, collector)
     templates_check.asset_paths(theme_dir, site_root, collector)
     templates_check.relative_links(theme_dir, site_root, config, collector)
     svg_files(site_root, theme_dir, collector)

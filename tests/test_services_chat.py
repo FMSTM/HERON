@@ -69,7 +69,7 @@ def test_good_chat_has_no_errors():
     [
         {"widget": "hcw_short"},
         {"widget": "hcw_DTTQXXFWX2X8F6XHB1RQXBRN8I"},  # I не из base32 Крокфорда
-        {},
+        {"host": "http://dev-hub.heron.software"},  # ключа нет, а хост кривой - всё равно E047
         {"widget": KEY, "host": "http://dev-hub.heron.software"},
         {"widget": KEY, "host": "https://dev-hub.heron.software/chat"},
         {"widget": KEY, "host": "https://*.heron.software"},
@@ -269,9 +269,16 @@ def test_configurator_writes_and_reads_services_chat():
     assert out["services"] == {"chat": {"widget": KEY, "host": DEV_HUB, "env": ["dev"]}}
     back = setup_answers.read(out)
     assert back.chat.widget == KEY and back.chat.envs == ["dev"]
-    # пустой ключ - блока чата нет
-    empty = setup_answers.merge(out, setup_answers.Answers(), ">=0.3,<0.4")
-    assert "services" not in empty
+    # ключ стёрли: ключа нет, блок с хостом и окружениями остаётся, сборка зелёная
+    cleared = setup_answers.Answers.model_validate(
+        {"chat": {"widget": "", "host": DEV_HUB, "envs": ["dev"]}}
+    )
+    empty = setup_answers.merge(out, cleared, ">=0.3,<0.4")
+    assert empty["services"] == {"chat": {"host": DEV_HUB, "env": ["dev"]}}
+    config = SiteConfig.model_validate(empty)
+    assert _errors(config) == [] and services.active(config, "dev") == []
+    # чата не было и ключа нет - блок не заводится
+    assert "services" not in setup_answers.merge(dict(BASE), setup_answers.Answers(), ">=0.3")
 
 
 def test_configurator_keeps_other_envs_and_values():
@@ -296,3 +303,42 @@ def test_configurator_keeps_other_envs_and_values():
 def test_configurator_rejects_bad_values(chat):
     with pytest.raises(ValueError):
         setup_answers.Answers.model_validate({"chat": chat})
+
+
+# --- пустой ключ - чат выключен (0.3.3) ------------------------------------------------
+
+
+@pytest.mark.parametrize("chat", [{}, {"widget": ""}, {"widget": None, "host": DEV_HUB}])
+def test_empty_key_means_off_not_an_error(chat):
+    config = _config(chat)
+    assert _errors(config) == []
+    assert services.active(config, "dev") == [] and services.active(config, "prod") == []
+    plain = _csp(nginx.generate(_config())[nginx.NAME])
+    assert _csp(nginx.generate(config, env="dev")[nginx.NAME]) == plain
+    collector = Collector()
+    services.key_notes(config, "dev", collector)
+    assert [n.message.key for n in collector.notes] == ["services_chat_no_key"]
+    assert collector.warnings == []
+
+
+def test_empty_override_does_not_override_the_base_key():
+    config = _config({"widget": KEY, "host": DEV_HUB, "env": {"dev": {"widget": ""}, "prod": None}})
+    assert KEY in services.active(config, "dev")[0].tag("en")
+    assert _errors(config) == []
+
+
+def test_override_key_turns_on_one_env_only():
+    config = _config({"host": DEV_HUB, "env": {"dev": {"widget": KEY}, "prod": {}}})
+    assert services.active(config, "dev") and services.active(config, "prod") == []
+    assert _errors(config) == []
+
+
+def test_build_with_empty_key_is_green_without_tag(site, tmp_path):
+    _add_chat(site, {"widget": "", "host": DEV_HUB})
+    check = CliRunner().invoke(main, ["check", str(site), "--strict", "--notes", "en"])
+    assert check.exit_code == 0, check.output
+    assert "no key - it is not connected" in check.output
+    built = pipeline.run(site, dist=tmp_path / "d", strict=True)
+    assert not built.failed, [str(e) for e in built.collector.errors]
+    assert all(not found for found in _tags(tmp_path / "d").values())
+    assert DEV_HUB not in _csp((tmp_path / "d" / ".heron-nginx.conf").read_text("utf-8"))

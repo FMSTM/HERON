@@ -270,6 +270,7 @@ def run(
     # сведение про разрешённые адреса в кабинете
     services_module.verify(config, collector)
     services_module.cors_notes(config, env.name, collector)
+    services_module.key_notes(config, env.name, collector)
     # адрес без слеша: относительная ссылка шаблона уходит от папки страницы (E046)
     templates_check.relative_links(theme_dir, site_root, config, collector)
     say.done("done_config", theme=config.site.theme, langs=len(config.site.languages))
@@ -1287,6 +1288,7 @@ def check(
     env = env or BuildEnv.resolve(None)
     services_module.verify(config, collector)
     services_module.cors_notes(config, env.name, collector)
+    services_module.key_notes(config, env.name, collector)
     site = content(site_root, config, theme, theme_dir, hooks, collector, drafts, env.is_prod)
     templates_check.missing_templates(site, theme, theme_dir, config, collector, hooks)
     templates_check.inline_scripts(theme_dir, site_root, collector)

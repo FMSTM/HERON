@@ -204,7 +204,7 @@ services:
     env: [dev]                                # first only on the dev build
 ```
 
-The engine itself inserts the chat script into the pages of that build and opens the browser security policy for it. Check two places outside the site: in the HERON Chat dashboard add every domain where the chat must work to the chat's allowed addresses (the working domain with `www.` is there by default, the dev domain is not, and without it the widget does not open), and mention the chat in the privacy policy: it keeps a visitor id in the browser and loads without cookie consent, as a functional part of the site. When everything works on dev, add `prod` to `env`. Details - `20` §5, "The `services` block".
+The engine itself inserts the chat script into the pages of that build and opens the browser security policy for it. Check two places outside the site: in the HERON Chat dashboard add every domain where the chat must work to the chat's allowed addresses (the working domain with `www.` is there by default, the dev domain is not, and without it the widget does not open), and mention the chat in the privacy policy: it keeps a visitor id in the browser and loads without cookie consent, as a functional part of the site. The key appears in the dashboard after the domain is bound: until then the block can live without `widget` - the chat is simply not connected, the build is green. Clearing the key in the studio turns the chat off. When everything works on dev, add `prod` to `env`. Details - `20` §5, "The `services` block".
 
 ### Security headers, methods and the log <a id="security-headers"></a>
 

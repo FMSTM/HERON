@@ -109,7 +109,12 @@ class ChatSettings:
 
 
 def _chat_for(chat: ChatService, env_name: str) -> ChatSettings | None:
-    """Чат этого окружения или None, если в нём он выключен."""
+    """Значения чата этого окружения или None, если окружения нет в `env`.
+
+    Пустое значение окружения (`widget: ""`, `null`) значение блока не
+    перебивает: перебивает только заданное. Пустой ключ в итоге - чат в этой
+    сборке выключен (`active`), это не ошибка.
+    """
     override: ChatOverride | None = None
     env = chat.env
     if env is not None:
@@ -133,9 +138,10 @@ def _chat_for(chat: ChatService, env_name: str) -> ChatSettings | None:
 
 def _chat_problems(settings: ChatSettings, where: str) -> list[tuple[Msg, Msg]]:
     out: list[tuple[Msg, Msg]] = []
-    if not settings.widget:
-        out.append((Msg("services_chat_no_widget", where=where), Msg("services_chat_widget_hint")))
-    elif not CHAT_KEY.match(settings.widget):
+    # Ключа нет - чат не подключается, это не ошибка (0.3.3): ключ появляется
+    # после привязки домена в кабинете чата, а блок может жить и до этого.
+    # Кривой непустой ключ, host, api, ui - ошибка всегда.
+    if settings.widget and not CHAT_KEY.match(settings.widget):
         out.append(
             (
                 Msg("services_chat_bad_widget", where=where, value=settings.widget),
@@ -187,7 +193,7 @@ def _chat_tag(settings: ChatSettings) -> Any:
 
 def _chat_active(chat: ChatService, env_name: str) -> Active | None:
     settings = _chat_for(chat, env_name)
-    if settings is None or _chat_problems(settings, "chat"):
+    if settings is None or not settings.widget or _chat_problems(settings, "chat"):
         return None
     host = origin(settings.host)
     api = origin(settings.api) if settings.api else host
@@ -300,6 +306,16 @@ def cors_notes(config: SiteConfig, env_name: str, collector: Collector) -> None:
         path="site.yaml",
         kind="прочее",
     )
+
+
+def key_notes(config: SiteConfig, env_name: str, collector: Collector) -> None:
+    """Сведение: чат включён для этой сборки, а ключа нет - он не подключается."""
+    chat = config.services.chat
+    if chat is None:
+        return
+    settings = _chat_for(chat, env_name)
+    if settings is not None and not settings.widget:
+        collector.note(Msg("services_chat_no_key", env=env_name), path="site.yaml", kind="прочее")
 
 
 def theme_flags(config: SiteConfig, env_name: str) -> dict[str, dict[str, Any]]:

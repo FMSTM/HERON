@@ -291,9 +291,9 @@ EN: dict[str, tuple[str, str]] = {
         "The chat's own values for one environment: `services.chat.env.prod: {widget: …}`.",
     ),
     "setup.schema.json#/$defs/ChatAnswers/description": (
-        "2342dd9cdf",
+        "051a016897",
         "HERON Chat (`services.chat`): widget key, host, look and environments.\n\n"
-        "An empty key - no chat, the `services.chat` block is removed from site.yaml.\n"
+        "An empty key - the chat is not connected: no key in `services.chat`, the block stays.\n"
         "An empty host - the default HERON Chat host. `envs` - in which builds to turn it\n"
         "on; environments the configurator does not show (stage, prod's own values) are\n"
         "not lost on saving.",

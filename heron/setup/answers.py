@@ -438,7 +438,7 @@ class AnalyticsAnswers(Model):
 class ChatAnswers(Model):
     """HERON Chat (`services.chat`): ключ виджета, хост, вид и окружения.
 
-    Пустой ключ - чата нет, блок `services.chat` из site.yaml убирается.
+    Пустой ключ - чат не подключается: ключа в `services.chat` нет, блок остаётся.
     Пустой хост - хост HERON Chat по умолчанию. `envs` - в каких сборках
     включать; окружения, которых конфигуратор не показывает (stage, свои
     значения прода), при сохранении не теряются.
@@ -1270,21 +1270,24 @@ SHOWN_ENVS = ("dev", "prod")
 def _merge_chat(out: dict[str, Any], chat: ChatAnswers) -> None:
     """`services.chat` по ответам: только то, что показывает конфигуратор.
 
-    Ключ пуст - блока чата нет (прочие сервисы не трогаются). Окружения: dev и
+    Ключ пуст - ключа в блоке нет, чат не подключается, а блок с хостом и
+    окружениями остаётся; блока не было - не заводится. Окружения: dev и
     prod - по переключателям; прочие имена и свои значения окружения (карта
     `env`) остаются как были. Все известные включены, а блока `env` не было -
     его и нет (во всех сборках).
     """
     services = out.get("services")
-    if not chat.widget:
-        if isinstance(services, dict):
-            services.pop("chat", None)
-            if not services:
-                out.pop("services", None)
-        return
+    had = isinstance(services, dict) and isinstance(services.get("chat"), dict)
+    if not chat.widget and not had and not chat.host:
+        return  # чата не было и нет: блок не заводится
     services = out.setdefault("services", {})
     block = services.get("chat") if isinstance(services.get("chat"), dict) else {}
-    block["widget"] = chat.widget
+    if chat.widget:
+        block["widget"] = chat.widget
+    else:
+        # ключ стёрли: чат не подключается, а блок (хост, окружения) остаётся -
+        # ключ вставят, когда домен привяжут в кабинете чата
+        block.pop("widget", None)
     if chat.host:
         block["host"] = chat.host
     else:

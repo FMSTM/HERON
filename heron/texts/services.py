@@ -2,7 +2,7 @@
 
 TEXT: dict[str, dict[str, str]] = {
     "ru": {
-        "services_chat_no_widget": "{where}: нет ключа виджета (widget)",
+        "services_chat_no_key": "чат в сборке {env}: ключ не задан - не подключается; ключ появится в кабинете HERON Chat после привязки домена",
         "services_chat_bad_widget": "{where}: ключ виджета {value!r} не похож на ключ HERON Chat",
         "services_chat_widget_hint": "ключ из кабинета HERON Chat: hcw_ и 26 знаков (цифры и латиница без I, L, O, U), например hcw_DTTQXXFWX2X8F6XHB1RQXBRN8G",
         "services_chat_bad_host": "{where}: {field} {value!r} - не адрес https без пути",
@@ -16,7 +16,7 @@ TEXT: dict[str, dict[str, str]] = {
         "services_chat_cors": "чат включён в сборке {env}: добавьте {domain} в разрешённые адреса чата в кабинете HERON Chat, иначе виджет не откроется (хаб отвечает 403)",
     },
     "en": {
-        "services_chat_no_widget": "{where}: no widget key (widget)",
+        "services_chat_no_key": "the chat in the {env} build: no key - it is not connected; the key appears in the HERON Chat dashboard after the domain is bound",
         "services_chat_bad_widget": "{where}: the widget key {value!r} does not look like a HERON Chat key",
         "services_chat_widget_hint": "the key from the HERON Chat dashboard: hcw_ and 26 characters (digits and Latin letters without I, L, O, U), e.g. hcw_DTTQXXFWX2X8F6XHB1RQXBRN8G",
         "services_chat_bad_host": "{where}: {field} {value!r} is not an https address without a path",

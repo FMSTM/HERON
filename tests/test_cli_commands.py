@@ -38,11 +38,23 @@ def test_new_then_build(run):
     assert "Files written" in built.output
 
 
-def test_new_refuses_to_overwrite_a_busy_folder(run):
+def test_new_refuses_to_overwrite_a_busy_folder(run, monkeypatch):
+    # подсказка зависит от того, где запущен движок: здесь - на машине человека
+    monkeypatch.setattr("heron.cli.in_container", lambda: False)
     run(main, ["new", "demo"])
     again = run(main, ["new", "demo"])
     assert again.exit_code == 1
     assert "heron init" in again.output
+
+
+def test_new_in_a_container_hints_the_docker_command(run, monkeypatch):
+    monkeypatch.setattr("heron.cli.in_container", lambda: True)
+    run(main, ["new", "demo"])
+    again = run(main, ["new", "demo"])
+    assert again.exit_code == 1
+    assert "docker run" in again.output and "ghcr.io/fmstm/heron" in again.output
+    assert " init demo" in again.output
+    assert "heron init" not in again.output
 
 
 def test_init_adopts_existing_content(run):

@@ -45,6 +45,7 @@ import hmac
 import http.server
 import json
 import mimetypes
+import os
 import re
 import secrets
 import socketserver
@@ -58,8 +59,40 @@ from heron.core.errors import HeronError
 from heron.messages import rendered
 from heron.setup.reasons import plain, run_lang, say
 
+# Потолок любого запроса - как раньше (архив темы). Но в память целиком
+# читается только JSON (ответы конфигуратора, правка страницы) - до MAX_JSON;
+# загрузки (архив темы, картинка) пишутся во временный файл кусками по CHUNK.
 MAX_BODY = 210 * 1024 * 1024
-LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "[::1]", "::1"}
+MAX_JSON = 8 * 1024 * 1024
+CHUNK = 64 * 1024
+# Имена, под которыми браузер обращается к студии на этой машине. `0.0.0.0` -
+# адрес «все интерфейсы» для bind, а не имя хоста: в Host его не пускаем.
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "[::1]", "::1"}
+UPLOADS = ("/api/upload", "/api/studio/upload")
+
+
+def spool(stream, length: int, folder: Path, chunk: int = CHUNK) -> Path:
+    """Тело запроса во временный файл кусками: в памяти не больше `chunk`.
+
+    Пришло меньше `length` (соединение оборвалось) - ValueError, файл убран.
+    """
+    fd, name = tempfile.mkstemp(dir=folder, suffix=".part")
+    path = Path(name)
+    left = length
+    try:
+        with os.fdopen(fd, "wb") as out:
+            while left > 0:
+                piece = stream.read(min(chunk, left))
+                if not piece:
+                    raise ValueError("short body")
+                out.write(piece)
+                left -= len(piece)
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
+    return path
+
+
 PREVIEW_COOKIE = "heron-preview"
 ASSETS = {
     "/_studio/setup.js": ("setup", "application/javascript; charset=utf-8"),
@@ -236,19 +269,40 @@ def run(
             if not self._allowed():
                 self._json(403, {"error": say(lang, "srv_token")})
                 return
-            length = int(self.headers.get("Content-Length") or 0)
-            if length > MAX_BODY:
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                length = -1
+            route, query = self._route()
+            upload = route in UPLOADS
+            ceiling = MAX_BODY
+            if route == "/api/studio/upload":
+                ceiling = studio.MAX_IMAGE
+            elif not upload:
+                ceiling = MAX_JSON
+            if length < 0 or length > ceiling:
+                self.close_connection = True
                 self._json(413, {"error": say(lang, "srv_too_large")})
                 return
-            body = self.rfile.read(length)
-            route, query = self._route()
-            if route == "/api/upload":
-                ident = secrets.token_hex(8)
-                path = Path(workdir.name) / f"{ident}.archive"
-                path.write_bytes(body)
-                uploads[ident] = path
-                self._json(200, {"ok": True, "upload": ident})
-                return
+            if upload:
+                try:
+                    part = spool(self.rfile, length, Path(workdir.name))
+                except ValueError:
+                    self._json(400, {"error": say(lang, "srv_too_large")})
+                    return
+                if route == "/api/upload":
+                    ident = secrets.token_hex(8)
+                    path = Path(workdir.name) / f"{ident}.archive"
+                    os.replace(part, path)
+                    uploads[ident] = path
+                    self._json(200, {"ok": True, "upload": ident})
+                    return
+                try:
+                    body = part.read_bytes()  # картинка - до studio.MAX_IMAGE
+                finally:
+                    part.unlink(missing_ok=True)
+            else:
+                body = self.rfile.read(length)
             if route == "/api/stop":
                 self._json(200, {"ok": True})
                 done.set()

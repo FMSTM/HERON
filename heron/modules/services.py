@@ -201,8 +201,11 @@ def _chat_active(chat: ChatService, env_name: str) -> Active | None:
     return Active(
         name="chat",
         # загрузчик - со своего хоста; fetch, long-poll и маяк /seen - на api (по
-        # умолчанию тот же origin). img-src, font-src и frame-src виджету не нужны;
-        # style-src 'unsafe-inline' (его <style> в Shadow DOM) у сайта уже есть.
+        # умолчанию тот же origin). img-src, font-src и frame-src виджету не нужны.
+        # style-src чат не трогает: стили он ставит таблицей из скрипта
+        # (adoptedStyleSheets + replaceSync), 'unsafe-inline' ему не нужен; только
+        # запасной <style> в Shadow DOM у старых браузеров живёт под 'unsafe-inline',
+        # который у сайта и так есть.
         csp={"script-src": (host,), "connect-src": connect},
         insert="body-end",
         tag=_chat_tag(settings),

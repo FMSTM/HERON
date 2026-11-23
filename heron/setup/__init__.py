@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import time
@@ -251,13 +252,23 @@ def props_by_spec() -> dict[str, list[str]]:
 
     Только пары, где набор отличается от набора самого вида: страница скрывает
     поля без запроса к серверу. Берутся лишь свойства, которые есть у полей конфигуратора.
+
+    Ответ зависит только от данных пакета (словарь schema.org, классификатор,
+    поля конфигуратора) и считается один раз на процесс: студия зовёт его на
+    каждое `state` и сохранение, а обход графа без кэша - сотни тысяч шагов
+    и секунды ожидания в однопоточном сервере (PERF-01).
     """
+    return {key: list(value) for key, value in _props_by_spec().items()}
+
+
+@functools.cache
+def _props_by_spec() -> dict[str, tuple[str, ...]]:
     from heron.schemaorg import vocab as schema_vocab
     from heron.setup.answers import AboutAnswers, final_types, prop_head
 
     heads = {prop_head(f["prop"]) for f in vocab()["fields"].values() if f.get("prop")}
     sv = schema_vocab()
-    out: dict[str, list[str]] = {}
+    out: dict[str, tuple[str, ...]] = {}
     for kind in ("LocalBusiness", "Organization"):  # по impl_be задачи; остальные - fields_of(вид)
         base = sorted(heads & set(sv.properties_of(kind)))
         for item in classifier():
@@ -265,7 +276,7 @@ def props_by_spec() -> dict[str, list[str]]:
                 about = AboutAnswers(type=kind, specialization=entry["id"])
                 props = sorted(heads & set(sv.properties_of(final_types(about))))
                 if props != base:
-                    out[f"{kind}|{entry['id']}"] = props
+                    out[f"{kind}|{entry['id']}"] = tuple(props)
     return out
 
 

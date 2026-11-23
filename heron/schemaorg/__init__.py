@@ -10,7 +10,7 @@ import difflib
 import functools
 import json
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
@@ -41,6 +41,10 @@ class Vocab:
     enums: dict[str, list[str]]
     members_of: dict[str, list[str]]
     datatypes: dict[str, list[str]]
+    # Ответы на запросы к неизменному словарю: предки типа и свойства набора
+    # типов. Конфигуратор и проверка разметки спрашивают одно и то же тысячи
+    # раз; обход графа без кэша - сотни тысяч шагов на одно сохранение студии.
+    _memo: dict[Any, Any] = field(default_factory=dict, compare=False, repr=False)
 
     def is_type(self, name: str) -> bool:
         n = short(name)
@@ -58,6 +62,13 @@ class Vocab:
         return list(self.datatypes.get(name, []))
 
     def ancestors(self, name: str) -> frozenset[str]:
+        key = ("ancestors", name)
+        found = self._memo.get(key)
+        if found is None:
+            found = self._memo[key] = self._ancestors(name)
+        return found
+
+    def _ancestors(self, name: str) -> frozenset[str]:
         start = short(name)
         if not self.is_type(start):
             return frozenset()
@@ -90,7 +101,13 @@ class Vocab:
         return bool(domain & union)
 
     def properties_of(self, types: str | list[str]) -> list[str]:
-        return sorted(p for p in self.properties if self.allows(types, p))
+        key = ("properties_of", tuple(_as_list(types)))
+        found = self._memo.get(key)
+        if found is None:
+            found = self._memo[key] = tuple(
+                sorted(p for p in self.properties if self.allows(types, p))
+            )
+        return list(found)
 
     def ranges(self, prop: str) -> list[str]:
         meta = self.properties.get(short(prop))

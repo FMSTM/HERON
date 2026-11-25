@@ -29,7 +29,7 @@
       {% endfor %}
     </ul>
     {% endif %}
-    {% if env.analytics and (site.analytics.ga4 or site.analytics.gtm or site.analytics.metrika) %}
+    {% if (env.analytics and (site.analytics.ga4 or site.analytics.gtm or site.analytics.metrika)) or services.heron.enabled %}
     <p class="consent-open"><button type="button" class="quiet" data-consent-open>{{ t.consent_settings }}</button></p>
     {% endif %}
     <p class="powered"><a href="https://github.com/FMSTM/HERON">{% include "partials/mark.html" %}<span>{{ t.powered_by }} HERON</span></a></p>

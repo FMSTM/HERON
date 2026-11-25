@@ -21,8 +21,23 @@
     });
   }
 
+  function heronConsent(value, onlyIfDiffers) {
+    if (!data.heron) return;
+    if (onlyIfDiffers) {
+      var known = null;
+      try { known = localStorage.getItem("heron:c"); } catch (e) {}
+      if (known === (value ? "1" : "0")) return;
+    }
+    function send() {
+      var h = window.heron;
+      if (h && h.analytics && h.analytics.consent) { h.analytics.consent(value); return true; }
+      return false;
+    }
+    if (!send()) document.addEventListener("heron:ready", send, { once: true });
+  }
+
   function consent() {
-    if (!data.gtm && !data.ga4 && !data.metrika) return;
+    if (!data.gtm && !data.ga4 && !data.metrika && !data.heron) return;
     var KEY = "heron-consent";
     var box = document.querySelector("[data-consent]");
     function read() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
@@ -58,13 +73,14 @@
     function show() { if (box) box.hidden = false; }
     function hide() { if (box) box.hidden = true; }
     var choice = read();
-    if (choice === "yes") load();
-    else if (choice !== "no") show();
+    if (choice === "yes") { load(); heronConsent(true, true); }
+    else if (choice === "no") heronConsent(false, true);
+    else show();
     document.addEventListener("click", function (event) {
       var target = event.target;
       if (!(target instanceof Element)) return;
-      if (target.closest("[data-consent-accept]")) { write("yes"); hide(); load(); }
-      else if (target.closest("[data-consent-decline]")) { write("no"); hide(); }
+      if (target.closest("[data-consent-accept]")) { write("yes"); hide(); load(); heronConsent(true, false); }
+      else if (target.closest("[data-consent-decline]")) { write("no"); hide(); heronConsent(false, false); }
       else if (target.closest("[data-consent-open]")) { show(); }
     });
   }

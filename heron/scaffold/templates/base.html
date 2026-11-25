@@ -32,7 +32,7 @@
 {# heron:note base.scheme #}
 {% set a = site.analytics %}
 {# heron:note base.asset #}
-<script src="{{ asset('site.js') }}"{% if env.analytics %}{% if a.gtm %} data-gtm="{{ a.gtm }}"{% endif %}{% if a.ga4 %} data-ga4="{{ a.ga4 }}"{% endif %}{% if a.metrika %} data-metrika="{{ a.metrika }}"{% endif %}{% endif %}></script>
+<script src="{{ asset('site.js') }}"{% if env.analytics %}{% if a.gtm %} data-gtm="{{ a.gtm }}"{% endif %}{% if a.ga4 %} data-ga4="{{ a.ga4 }}"{% endif %}{% if a.metrika %} data-metrika="{{ a.metrika }}"{% endif %}{% endif %}{% if services.heron.enabled %} data-heron="1"{% endif %}></script>
 <link rel="stylesheet" href="{{ asset('site.css') }}">
 {% set ld = jsonld() %}
 {% if ld %}<script type="application/ld+json">{{ ld }}</script>{% endif %}
@@ -44,6 +44,6 @@
 {% block content %}{% endblock %}
 </main>
 {% include "partials/footer.html" %}
-{% if env.analytics %}{% include "partials/analytics.html" %}{% endif %}
+{% if env.analytics or services.heron.enabled %}{% include "partials/analytics.html" %}{% endif %}
 </body>
 </html>

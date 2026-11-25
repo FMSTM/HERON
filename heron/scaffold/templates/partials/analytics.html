@@ -1,5 +1,5 @@
 {# heron:note analytics #}
-{% if site.analytics.gtm or site.analytics.ga4 or site.analytics.metrika %}
+{% if (env.analytics and (site.analytics.gtm or site.analytics.ga4 or site.analytics.metrika)) or services.heron.enabled %}
 <div class="consent" data-consent hidden role="dialog" aria-live="polite" aria-label="{{ t.consent_title }}">
   <p>{{ t.consent_text }}</p>
   <div class="consent-actions">

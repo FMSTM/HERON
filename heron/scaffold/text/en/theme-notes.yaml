@@ -38,7 +38,10 @@ analytics: |-
      (heron-consent: yes | no); the button in the footer changes it.
      Counter numbers come from site.yaml (analytics.*) and reach the
      <script src> tag as data-gtm, data-ga4, data-metrika attributes, and the
-     theme file reads them: they are data, not markup. #}
+     theme file reads them: they are data, not markup.
+     HERON analytics (services.heron) uses the same banner: the choice goes to
+     `heron.analytics.consent(true | false)`; before consent the hub script sends
+     only anonymous page views and keeps nothing in the browser. #}
 css.tokens: |-
   /* HERON starter - white, plain, readable. Change the tokens below and it is yours. */
 css.dark: |-

@@ -13,14 +13,20 @@
 - флаги для темы (`services.<имя>` в контексте шаблона): включён ли сервис и
   как, чтобы тема убрала или сдвинула свою кнопку.
 
-Первый сервис - HERON Chat (`services.chat`). Магазин (`services.shop`)
+Сервисы: один скрипт HERON (`services.heron`, `l.js` хаба с номером сайта -
+хаб сам подгружает аналитику и чат по настройкам кабинета) и прежний тег
+HERON Chat (`services.chat`, совместимость). Включены оба в одной сборке -
+главнее `heron`, чат пропускается с предупреждением: иначе виджет пришёл бы
+дважды (своим тегом и через `l.js`). Магазин (`services.shop`)
 зарезервирован: ключ есть, сборка на нём останавливается с E047. Счётчики
 `analytics` - пока свой блок (их CSP строит `modules/nginx`), сюда переедут
 отдельным решением; механизм под это готов: у сервиса может быть согласие.
 
 Чат - функциональный сервис: грузится сразу, без согласия посетителя (он
 кладёт id посетителя в localStorage, как корзина или выбранный язык); это
-упоминается в политике конфиденциальности сайта (guide/05).
+упоминается в политике конфиденциальности сайта (guide/05). Аналитика `l.js`
+без согласия шлёт только обезличенные просмотры и ничего не хранит; согласие
+передаёт плашка белой темы - `heron.analytics.consent(true|false)`.
 """
 
 from __future__ import annotations
@@ -31,7 +37,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlsplit
 
-from heron.contracts.site import ChatOverride, ChatService, SiteConfig
+from heron.contracts.site import ChatOverride, ChatService, HeronOverride, HeronService, SiteConfig
 from heron.core.errors import Collector
 from heron.messages import Msg
 
@@ -46,6 +52,12 @@ CHAT_LOADER = "/chat/l.js"
 # перебивает его ключом `services.chat.host` (дев - https://dev-hub.heron.software).
 # chat.heron.software - сайт продукта, не хост виджета: оттуда не грузить.
 CHAT_HOST = "https://hub.heron.software"
+# Хаб HERON для `services.heron` - тот же боевой хост (перебивает `services.heron.hub`).
+HUB_HOST = CHAT_HOST
+# Номер сайта из кабинета: hs_ и 26 знаков Crockford base32 - та же регулярка,
+# что в загрузчике хаба (Heron.Site.Script, SITE_RE).
+SITE_KEY = re.compile(r"^hs_[0-9A-HJKMNP-TV-Z]{26}\Z")
+HERON_LOADER = "/l.js"
 
 # Директивы, в которые сервис вправе добавить origin.
 DIRECTIVES = ("script-src", "connect-src", "frame-src", "img-src")
@@ -55,9 +67,10 @@ ORIGIN = re.compile(
     r"^https://[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+(?::\d{1,5})?\Z"
 )
 RESERVED = ("shop",)
-# Где вставлять: `body-end` - перед последним `</body>`; `marker` - место в
-# контенте или шаблоне (зарезервировано за магазином, сейчас не делается).
-INSERTS = ("body-end", "marker")
+# Где вставлять: `head-end` - перед первым `</head>`; `body-end` - перед
+# последним `</body>`; `marker` - место в контенте или шаблоне (зарезервировано
+# за магазином, сейчас не делается).
+INSERTS = ("head-end", "body-end", "marker")
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,10 +226,86 @@ def _chat_active(chat: ChatService, env_name: str) -> Active | None:
     )
 
 
+# --- один скрипт HERON (l.js) ---------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class HeronSettings:
+    """Значения `services.heron` для одной сборки: блок плюс свои значения окружения."""
+
+    site: str
+    hub: str
+
+
+def _heron_for(service: HeronService, env_name: str) -> HeronSettings | None:
+    """Значения этого окружения или None, если окружения нет в `env` (как у чата)."""
+    override: HeronOverride | None = None
+    env = service.env
+    if env is not None:
+        if env_name not in env:
+            return None
+        if isinstance(env, dict):
+            override = env[env_name]
+    base = {"site": service.site, "hub": service.hub}
+    if override is not None:
+        base.update({k: v for k, v in override.model_dump().items() if v not in (None, "")})
+    return HeronSettings(site=base["site"] or "", hub=base["hub"] or HUB_HOST)
+
+
+def _heron_problems(settings: HeronSettings, where: str) -> list[tuple[Msg, Msg]]:
+    out: list[tuple[Msg, Msg]] = []
+    # Пустой номер - скрипт не подключается (как пустой ключ чата), не ошибка.
+    if settings.site and not SITE_KEY.match(settings.site):
+        out.append(
+            (
+                Msg("services_heron_bad_site", where=where, value=settings.site),
+                Msg("services_heron_site_hint"),
+            )
+        )
+    if origin(settings.hub) is None:
+        out.append(
+            (
+                Msg("services_heron_bad_hub", where=where, value=settings.hub),
+                Msg("services_heron_hub_hint"),
+            )
+        )
+    return out
+
+
+def _heron_tag(settings: HeronSettings) -> Any:
+    hub = origin(settings.hub)
+
+    def render(lang: str) -> str:
+        # data-api не нужен: загрузчик берёт хаб из origin своего src.
+        # data-lang - язык страницы, загрузчик передаёт его виджету чата.
+        return (
+            f'<script async src="{html.escape(hub + HERON_LOADER)}" '
+            f'data-site="{html.escape(settings.site)}" data-lang="{html.escape(lang)}"></script>'
+        )
+
+    return render
+
+
+def _heron_active(service: HeronService, env_name: str) -> Active | None:
+    settings = _heron_for(service, env_name)
+    if settings is None or not settings.site or _heron_problems(settings, "heron"):
+        return None
+    hub = origin(settings.hub)
+    return Active(
+        name="heron",
+        # l.js, a.js и виджет чата (/chat/l.js) - с хаба; config, collect и API
+        # чата - на хаб же: один origin в script-src и connect-src, как у чата.
+        csp={"script-src": (hub,), "connect-src": (hub,)},
+        insert="head-end",
+        tag=_heron_tag(settings),
+        flags={"enabled": True},
+    )
+
+
 # --- общее ----------------------------------------------------------------------------
 
 
-def _envs(chat: ChatService) -> list[str] | None:
+def _envs(chat: ChatService | HeronService) -> list[str] | None:
     env = chat.env
     if env is None:
         return None
@@ -237,6 +326,9 @@ def verify(config: SiteConfig, collector: Collector) -> None:
             path="site.yaml",
             hint=Msg("services_reserved_hint"),
         )
+    heron = _heron(config)
+    if heron is not None:
+        _verify_heron(heron, collector)
     chat = services.chat
     if chat is None:
         return
@@ -266,15 +358,73 @@ def verify(config: SiteConfig, collector: Collector) -> None:
             collector.error(CODE, message, path="site.yaml", hint=hint)
 
 
+def _heron(config: SiteConfig) -> HeronService | None:
+    """`services.heron` блоком: короткую запись (строку) модель уже развернула."""
+    value = config.services.heron
+    return value if isinstance(value, HeronService) else None
+
+
+def _bad_env(name: Any) -> bool:
+    return not re.match(r"^[a-z][a-z0-9-]*\Z", str(name))
+
+
+def _verify_heron(heron: HeronService, collector: Collector) -> None:
+    names = _envs(heron)
+    checks: list[tuple[str, HeronSettings]] = []
+    if names is None:
+        checks.append(("services.heron", _heron_for(heron, "")))  # type: ignore[arg-type]
+    else:
+        for name in names:
+            if _bad_env(name):
+                collector.error(
+                    CODE,
+                    Msg("services_bad_env", where="services.heron.env", value=str(name)),
+                    path="site.yaml",
+                    hint=Msg("services_env_hint"),
+                )
+                continue
+            settings = _heron_for(heron, name)
+            if settings is not None:
+                checks.append((f"services.heron (env {name})", settings))
+    seen: set[str] = set()
+    for where, settings in checks:
+        for message, hint in _heron_problems(settings, where):
+            if str(message) in seen:
+                continue
+            seen.add(str(message))
+            collector.error(CODE, message, path="site.yaml", hint=hint)
+
+
 def active(config: SiteConfig, env_name: str) -> list[Active]:
-    """Сервисы, включённые в сборке этого окружения, в постоянном порядке."""
+    """Сервисы, включённые в сборке этого окружения, в постоянном порядке.
+
+    `heron` включён - прежнего тега чата нет: чат приходит через `l.js`
+    (предупреждение - `conflict_warnings`).
+    """
     out: list[Active] = []
+    heron = _heron(config)
+    if heron is not None:
+        got = _heron_active(heron, env_name)
+        if got is not None:
+            out.append(got)
     chat = config.services.chat
-    if chat is not None:
+    if chat is not None and not out:
         got = _chat_active(chat, env_name)
         if got is not None:
             out.append(got)
     return out
+
+
+def conflict_warnings(config: SiteConfig, env_name: str, collector: Collector) -> None:
+    """Предупреждение: в этой сборке включены и `heron`, и `chat` - чат пропущен."""
+    heron, chat = _heron(config), config.services.chat
+    if heron is None or chat is None:
+        return
+    if _heron_active(heron, env_name) is None:
+        return
+    if _chat_active(chat, env_name) is None:
+        return
+    collector.warn(Msg("services_heron_over_chat", env=env_name), path="site.yaml", kind="прочее")
 
 
 def csp(config: SiteConfig, env_name: str) -> dict[str, list[str]]:
@@ -312,7 +462,14 @@ def cors_notes(config: SiteConfig, env_name: str, collector: Collector) -> None:
 
 
 def key_notes(config: SiteConfig, env_name: str, collector: Collector) -> None:
-    """Сведение: чат включён для этой сборки, а ключа нет - он не подключается."""
+    """Сведение: сервис включён для этой сборки, а ключа (номера) нет - не подключается."""
+    heron = _heron(config)
+    if heron is not None:
+        found = _heron_for(heron, env_name)
+        if found is not None and not found.site:
+            collector.note(
+                Msg("services_heron_no_key", env=env_name), path="site.yaml", kind="прочее"
+            )
     chat = config.services.chat
     if chat is None:
         return
@@ -323,18 +480,23 @@ def key_notes(config: SiteConfig, env_name: str, collector: Collector) -> None:
 
 def theme_flags(config: SiteConfig, env_name: str) -> dict[str, dict[str, Any]]:
     """`services` в контексте шаблона: у каждого известного сервиса `enabled` и свои флаги."""
-    flags: dict[str, dict[str, Any]] = {"chat": {"enabled": False, "ui": None}}
+    # `services.heron.enabled` - на страницах скрипт хаба: плашка согласия белой
+    # темы передаёт выбор посетителя аналитике. Чат через `l.js` включает кабинет,
+    # сборка о нём не знает: `services.chat.enabled` - только прежний тег.
+    flags: dict[str, dict[str, Any]] = {
+        "heron": {"enabled": False},
+        "chat": {"enabled": False, "ui": None},
+    }
     for service in active(config, env_name):
         flags[service.name] = dict(service.flags)
     return flags
 
 
 _BODY_END = re.compile(r"</body\s*>", re.I)
+_HEAD_END = re.compile(r"</head\s*>", re.I)
 
 
-def insert(text: str, lang: str, services: list[Active]) -> str:
-    """Теги сервисов перед последним `</body>`; нет его - в конец документа."""
-    tags = [s.tag(lang) for s in services if s.insert == "body-end" and s.tag is not None]
+def _body_end(text: str, tags: list[str]) -> str:
     if not tags:
         return text
     block = "\n".join(tags) + "\n"
@@ -343,3 +505,21 @@ def insert(text: str, lang: str, services: list[Active]) -> str:
         return text + ("" if text.endswith("\n") else "\n") + block
     at = found[-1].start()
     return text[:at] + block + text[at:]
+
+
+def insert(text: str, lang: str, services: list[Active]) -> str:
+    """Теги сервисов: `head-end` - перед первым `</head>`, `body-end` - перед последним `</body>`.
+
+    Нет `</head>` - тег `head-end` идёт туда же, куда `body-end`; нет и
+    `</body>` - в конец документа.
+    """
+    head = [s.tag(lang) for s in services if s.insert == "head-end" and s.tag is not None]
+    body = [s.tag(lang) for s in services if s.insert == "body-end" and s.tag is not None]
+    if head:
+        found = _HEAD_END.search(text)
+        if found is None:
+            body = head + body
+        else:
+            at = found.start()
+            text = text[:at] + "\n".join(head) + "\n" + text[at:]
+    return _body_end(text, body)

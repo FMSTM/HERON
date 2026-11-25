@@ -285,18 +285,54 @@ class ChatService(Strict):
         return v.strip() if isinstance(v, str) else v
 
 
+class HeronOverride(Strict):
+    """Свои значения скрипта HERON для одного окружения: `services.heron.env.dev: {hub: …}`."""
+
+    site: str | None = None
+    hub: str | None = None
+
+
+class HeronService(Strict):
+    """Один скрипт HERON на сайт (`services.heron`, 20 §5): `l.js` хаба с `data-site`.
+
+    Хаб сам решает, что подгрузить (аналитику, чат); сайт знает только номер.
+    Короткая запись - строка: `services.heron: hs_…`. Формат номера и `hub`
+    (https, только origin) проверяет `heron.modules.services` (E047).
+    """
+
+    site: str | None = None
+    hub: str | None = None
+    # как у чата: список имён окружений или карта имя -> свои значения
+    env: list[str] | dict[str, HeronOverride | None] | None = None
+
+    @field_validator("site", "hub", mode="before")
+    @classmethod
+    def _text(cls, v: Any) -> Any:
+        return v.strip() if isinstance(v, str) else v
+
+
 class ServicesBlock(Strict):
     """Встраиваемые сервисы HERON (`services:`, 20 §5).
 
     Каждый сервис объявляет, что вставить в страницу и какие origin ему нужны
-    в CSP; движок собирает политику только из включённых в этой сборке. Пока
-    сервис один - чат; `shop` зарезервирован (E047), счётчики `analytics`
-    остаются своим блоком и переедут сюда отдельным решением.
+    в CSP; движок собирает политику только из включённых в этой сборке.
+    `heron` - один скрипт хаба на сайт (аналитика и чат по настройкам в
+    кабинете), главнее `chat`; `chat` - прежний тег виджета (совместимость);
+    `shop` зарезервирован (E047).
     """
 
+    # строка в типе - ради схемы (короткая запись); после проверки здесь всегда
+    # HeronService: `_heron_short` превращает строку в блок
+    heron: HeronService | str | None = None
     chat: ChatService | None = None
     # зарезервировано за магазином из CRM: место вставки и хосты картинок
     shop: Any = None
+
+    @field_validator("heron", mode="before")
+    @classmethod
+    def _heron_short(cls, v: Any) -> Any:
+        # `services.heron: hs_…` - то же, что `services.heron: {site: hs_…}`
+        return {"site": v} if isinstance(v, str) else v
 
 
 class BuildBlock(Strict):

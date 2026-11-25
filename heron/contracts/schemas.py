@@ -272,12 +272,24 @@ EN: dict[str, tuple[str, str]] = {
         "Browser cache times - the nginx.cache keys in site.yaml (22 §5).",
     ),
     "site.schema.json#/$defs/ServicesBlock/description": (
-        "6e63673e90",
+        "61eacb67ca",
         "Embedded HERON services (`services:`, 20 §5).\n\n"
         "Each service declares what to insert into the page and which origins it needs\n"
         "in the CSP; the engine builds the policy only from those enabled in this build.\n"
-        "So far there is one service - the chat; `shop` is reserved (E047), the `analytics`\n"
-        "counters stay their own block and will move here by a separate decision.",
+        "`heron` is one hub script per site (analytics and the chat by the dashboard\n"
+        "settings), it wins over `chat`; `chat` is the former widget tag (compatibility);\n"
+        "`shop` is reserved (E047).",
+    ),
+    "site.schema.json#/$defs/HeronService/description": (
+        "2beed402c1",
+        "One HERON script per site (`services.heron`, 20 §5): the hub `l.js` with `data-site`.\n\n"
+        "The hub decides what to load (analytics, the chat); the site knows only the number.\n"
+        "The short form is a string: `services.heron: hs_…`. The number format and `hub`\n"
+        "(https, origin only) are checked by `heron.modules.services` (E047).",
+    ),
+    "site.schema.json#/$defs/HeronOverride/description": (
+        "8fef585b28",
+        "The HERON script's own values for one environment: `services.heron.env.dev: {hub: …}`.",
     ),
     "site.schema.json#/$defs/ChatService/description": (
         "a8561d1fd6",

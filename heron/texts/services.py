@@ -2,6 +2,12 @@
 
 TEXT: dict[str, dict[str, str]] = {
     "ru": {
+        "services_heron_no_key": "скрипт HERON в сборке {env}: номер сайта не задан - не подключается; номер (hs_…) - в кабинете HERON, раздел «Сайты»",
+        "services_heron_bad_site": "{where}: номер сайта {value!r} не похож на номер HERON",
+        "services_heron_site_hint": "номер из кабинета HERON: hs_ и 26 знаков (цифры и латиница без I, L, O, U), например hs_01JDX8Q7M2K9V4T6R3N5P8W1ZC",
+        "services_heron_bad_hub": "{where}: hub {value!r} - не адрес https без пути",
+        "services_heron_hub_hint": "только https и только origin, без пути и слеша в конце: https://dev-hub.heron.software; без hub - боевой хаб HERON",
+        "services_heron_over_chat": "в сборке {env} включены и services.heron, и services.chat: подключается только скрипт HERON, тег чата пропущен (чат включается в кабинете HERON); уберите services.chat или ограничьте его окружения",
         "services_chat_no_key": "чат в сборке {env}: ключ не задан - не подключается; ключ появится в кабинете HERON Chat после привязки домена",
         "services_chat_bad_widget": "{where}: ключ виджета {value!r} не похож на ключ HERON Chat",
         "services_chat_widget_hint": "ключ из кабинета HERON Chat: hcw_ и 26 знаков (цифры и латиница без I, L, O, U), например hcw_DTTQXXFWX2X8F6XHB1RQXBRN8G",
@@ -16,6 +22,12 @@ TEXT: dict[str, dict[str, str]] = {
         "services_chat_cors": "чат включён в сборке {env}: добавьте {domain} в разрешённые адреса чата в кабинете HERON Chat, иначе виджет не откроется (хаб отвечает 403)",
     },
     "en": {
+        "services_heron_no_key": 'the HERON script in the {env} build: no site number - it is not connected; the number (hs_…) is in the HERON dashboard, the "Sites" section',
+        "services_heron_bad_site": "{where}: the site number {value!r} does not look like a HERON number",
+        "services_heron_site_hint": "the number from the HERON dashboard: hs_ and 26 characters (digits and Latin letters without I, L, O, U), e.g. hs_01JDX8Q7M2K9V4T6R3N5P8W1ZC",
+        "services_heron_bad_hub": "{where}: hub {value!r} is not an https address without a path",
+        "services_heron_hub_hint": "https only and origin only, no path and no trailing slash: https://dev-hub.heron.software; without hub - the production HERON hub",
+        "services_heron_over_chat": "both services.heron and services.chat are on in the {env} build: only the HERON script is connected, the chat tag is skipped (the chat is turned on in the HERON dashboard); remove services.chat or limit its environments",
         "services_chat_no_key": "the chat in the {env} build: no key - it is not connected; the key appears in the HERON Chat dashboard after the domain is bound",
         "services_chat_bad_widget": "{where}: the widget key {value!r} does not look like a HERON Chat key",
         "services_chat_widget_hint": "the key from the HERON Chat dashboard: hcw_ and 26 characters (digits and Latin letters without I, L, O, U), e.g. hcw_DTTQXXFWX2X8F6XHB1RQXBRN8G",

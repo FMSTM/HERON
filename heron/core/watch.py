@@ -19,7 +19,7 @@ from pathlib import Path
 import click
 
 from heron.core import build as pipeline
-from heron.core import notes
+from heron.core import notes, paths
 from heron.core import report as report_module
 from heron.core.errors import HeronError
 from heron.messages import say
@@ -156,9 +156,11 @@ def not_found(dist: Path, path: str) -> Path | None:
     Локальный просмотр должен показывать то же, что покажет сеть, иначе
     нарисованную 404 никто не увидит до самого прода.
     """
+    path = urllib.parse.urlsplit(path).path
     lang = path.strip("/").split("/", 1)[0]
     for candidate in (dist / lang / "404" / "index.html", dist / "404.html"):
-        if candidate.is_file():
+        # `..` и прочее, что уводит из dist, не проверяется даже на существование
+        if paths.inside(dist, candidate) and candidate.is_file():
             return candidate
     return None
 
@@ -209,6 +211,9 @@ def no_slash_route(dist: Path, route: str) -> tuple[str, str] | None:
         return None
     stem = route.rstrip("/")
     target = dist / stem.lstrip("/")
+    if not paths.inside(dist, target):
+        # за пределы dist не смотрим: ни файл, ни папка там не наши
+        return "missing", route
     page = target.is_dir() and (target / "index.html").is_file()
     if route.endswith("/"):
         files = stem.startswith(("/media/", "/assets/")) or stem in ("/media", "/assets")
@@ -223,7 +228,7 @@ def no_slash_route(dist: Path, route: str) -> tuple[str, str] | None:
 
 
 def _send_404(handler: http.server.SimpleHTTPRequestHandler, dist: Path) -> bool:
-    page = not_found(dist, handler.path)
+    page = not_found(dist, urllib.parse.unquote(urllib.parse.urlsplit(handler.path).path))
     if page is None:
         return False
     body = page.read_bytes()

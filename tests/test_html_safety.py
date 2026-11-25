@@ -123,6 +123,7 @@ def test_forbidden_attrs_reports_the_line():
     assert error.value.line == 7
 
 
+@pytest.mark.browser
 def test_browser_runs_no_injected_script(tmp_path):
     # В обязательном задании CI (HERON_REQUIRE_BROWSER=1) браузер обязан
     # быть: без него тест падает, а не пропускается. Локально — пропуск.

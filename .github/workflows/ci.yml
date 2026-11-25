@@ -77,12 +77,12 @@ jobs:
         # в первый же день — и расходились.
         run: bash scripts/check.sh
 
-  # Браузерные тесты (XSS, согласие на счётчики): Chromium ставится только здесь и только на время
-  # задания (`uv run --with`), в зависимости движка он не попадает.
+  # Браузерные тесты (XSS, согласие на счётчики, e2e студии): Chromium ставится только здесь и
+  # только на время задания (`uv run --with`), в зависимости движка он не попадает.
   # HERON_REQUIRE_BROWSER=1 — без браузера тест падает, а не пропускается.
   browser:
     name: браузер (Chromium)
-    timeout-minutes: 20
+    timeout-minutes: 30
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
@@ -120,10 +120,11 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: uv run --with playwright==1.63.0 playwright install-deps chromium
 
-      - name: JSON-LD, заголовки и согласие на счётчики в браузере
+      # Маркер browser, а не `-k browser`: по имени находился 1 из 6 e2e студии.
+      - name: JSON-LD, заголовки, согласие на счётчики и e2e студии в браузере
         env:
           HERON_REQUIRE_BROWSER: "1"
-        run: uv run --with playwright==1.63.0 pytest tests -k browser -rs
+        run: uv run --with playwright==1.63.0 pytest tests -m browser -rs
 
   # Сборка и дымовая проверка образа не зависят от quality и browser, поэтому
   # идут параллельно с ними. Здесь ничего не публикуется: права только на чтение.

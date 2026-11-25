@@ -74,3 +74,6 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+    "browser: в настоящем браузере (Playwright, Chromium); в CI - pytest -m browser",
+]

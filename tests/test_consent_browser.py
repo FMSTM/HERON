@@ -50,6 +50,7 @@ def test_counters_absent_from_html_before_consent(tmp_path):
     assert "data-consent" in html and "G-TEST000001" in html  # номер — данными
 
 
+@pytest.mark.browser
 def test_browser_consent_gates_counters(tmp_path):
     sync_api = _sync_api()
     dist = _built(tmp_path)

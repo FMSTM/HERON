@@ -8,7 +8,9 @@
 `script-src 'self'` ничего не блокирует, ошибок скриптов нет.
 
 Браузер ведёт tests/studio_e2e_driver.py отдельным процессом - тем Python, у
-которого есть Playwright. Нет Playwright или Chromium - тест пропускается.
+которого есть Playwright. Нет Playwright или Chromium - тест пропускается, а в
+обязательном задании CI (`HERON_REQUIRE_BROWSER=1`) падает. Все тесты модуля
+помечены `browser`: CI берёт их `pytest -m browser`.
 Снимки экрана - в папку из HERON_E2E_SHOTS, если она задана.
 """
 
@@ -34,6 +36,14 @@ from tests.test_setup_access import _free_port, _stop
 
 DRIVER = Path(__file__).with_name("studio_e2e_driver.py")
 LANGS = ["ru", "en", "de"]
+pytestmark = pytest.mark.browser
+
+
+def _no_browser(reason: str) -> None:
+    """Нет браузера: локально - пропуск, в CI с HERON_REQUIRE_BROWSER=1 - падение."""
+    if os.environ.get("HERON_REQUIRE_BROWSER"):
+        pytest.fail(f"HERON_REQUIRE_BROWSER=1: {reason}")
+    pytest.skip(reason)
 
 
 def _python() -> str | None:
@@ -63,7 +73,7 @@ def _front(path: Path) -> dict:
 def test_studio_in_a_browser(tmp_path, monkeypatch):
     python = _python()
     if python is None:
-        pytest.skip("нет Playwright для Python: e2e студии пропущен")
+        _no_browser("нет Playwright для Python: e2e студии пропущен")
     monkeypatch.delenv("HERON_NOTES", raising=False)
     root = tmp_path / "site"
     create(root, name="Demo", languages=LANGS, notes="ru", demo=True)
@@ -99,7 +109,7 @@ def test_studio_in_a_browser(tmp_path, monkeypatch):
     finally:
         _stop(port, box["token"], thread)
     if done.returncode == 77:
-        pytest.skip("Chromium для Playwright не запускается: e2e студии пропущен")
+        _no_browser("Chromium для Playwright не запускается: e2e студии пропущен")
     assert done.returncode == 0, done.stdout + done.stderr
     result = json.loads(done.stdout.strip().splitlines()[-1])
 
@@ -148,7 +158,7 @@ ATTACK = (Path(__file__).parent / "fixtures" / "studio_attack.js").read_text("ut
 def test_theme_script_in_the_preview_cannot_reach_the_studio(tmp_path, monkeypatch):
     python = _python()
     if python is None:
-        pytest.skip("нет Playwright для Python: e2e студии пропущен")
+        _no_browser("нет Playwright для Python: e2e студии пропущен")
     monkeypatch.delenv("HERON_NOTES", raising=False)
     root = tmp_path / "site"
     create(root, name="Demo", languages=LANGS, notes="ru", demo=True)
@@ -183,7 +193,7 @@ def test_theme_script_in_the_preview_cannot_reach_the_studio(tmp_path, monkeypat
     finally:
         _stop(port, box["token"], thread)
     if done.returncode == 77:
-        pytest.skip("Chromium для Playwright не запускается: e2e студии пропущен")
+        _no_browser("Chromium для Playwright не запускается: e2e студии пропущен")
     assert done.returncode == 0, done.stdout + done.stderr
     result = json.loads(done.stdout.strip().splitlines()[-1])
     # файлы не тронуты: ни одной записи из скрипта темы
@@ -255,7 +265,7 @@ def test_studio_behind_remapped_ports_finds_its_preview(tmp_path, monkeypatch):
     """
     python = _python()
     if python is None:
-        pytest.skip("нет Playwright для Python: e2e студии пропущен")
+        _no_browser("нет Playwright для Python: e2e студии пропущен")
     monkeypatch.delenv("HERON_NOTES", raising=False)
     root = tmp_path / "site"
     create(root, name="Demo", languages=["en"], notes="en", demo=True)
@@ -303,7 +313,7 @@ def test_studio_behind_remapped_ports_finds_its_preview(tmp_path, monkeypatch):
             proxy.close()
         _stop(inner, box["token"], thread)
     if done.returncode == 77:
-        pytest.skip("Chromium для Playwright не запускается: e2e студии пропущен")
+        _no_browser("Chromium для Playwright не запускается: e2e студии пропущен")
     assert done.returncode == 0, done.stdout + done.stderr
     result = json.loads(done.stdout.strip().splitlines()[-1])
     assert result["origin"] == f"http://localhost:{outer_preview}", result
@@ -327,7 +337,7 @@ def test_typing_while_the_form_reloads_is_not_lost(tmp_path, monkeypatch):
     """
     python = _python()
     if python is None:
-        pytest.skip("нет Playwright для Python: e2e студии пропущен")
+        _no_browser("нет Playwright для Python: e2e студии пропущен")
     monkeypatch.delenv("HERON_NOTES", raising=False)
     root = tmp_path / "site"
     create(root, name="Demo", languages=LANGS, notes="ru", demo=True)
@@ -358,7 +368,7 @@ def test_typing_while_the_form_reloads_is_not_lost(tmp_path, monkeypatch):
     finally:
         _stop(port, box["token"], thread)
     if done.returncode == 77:
-        pytest.skip("Chromium для Playwright не запускается: e2e студии пропущен")
+        _no_browser("Chromium для Playwright не запускается: e2e студии пропущен")
     assert done.returncode == 0, done.stdout + done.stderr
     result = json.loads(done.stdout.strip().splitlines()[-1])
     assert result["locked"] is True, result
@@ -381,7 +391,7 @@ def test_dragging_a_page_into_a_0_2_folder_asks_before_hiding_pages(tmp_path, mo
     """
     python = _python()
     if python is None:
-        pytest.skip("нет Playwright для Python: e2e студии пропущен")
+        _no_browser("нет Playwright для Python: e2e студии пропущен")
     monkeypatch.delenv("HERON_NOTES", raising=False)
     root = tmp_path / "site"
     create(root, name="Demo", languages=LANGS, notes="ru", demo=True)
@@ -421,7 +431,7 @@ def test_dragging_a_page_into_a_0_2_folder_asks_before_hiding_pages(tmp_path, mo
     finally:
         _stop(port, box["token"], thread)
     if done.returncode == 77:
-        pytest.skip("Chromium для Playwright не запускается: e2e студии пропущен")
+        _no_browser("Chromium для Playwright не запускается: e2e студии пропущен")
     assert done.returncode == 0, done.stdout + done.stderr
     result = json.loads(done.stdout.strip().splitlines()[-1])
     first, second = result["first"], result["second"]
@@ -446,7 +456,7 @@ def test_site_tab_offers_to_add_a_main_language_missing_from_the_list(tmp_path, 
     """
     python = _python()
     if python is None:
-        pytest.skip("нет Playwright для Python: e2e студии пропущен")
+        _no_browser("нет Playwright для Python: e2e студии пропущен")
     monkeypatch.delenv("HERON_NOTES", raising=False)
     root = tmp_path / "site"
     create(root, name="Demo", languages=["ru", "de"], notes="ru")
@@ -482,7 +492,7 @@ def test_site_tab_offers_to_add_a_main_language_missing_from_the_list(tmp_path, 
     finally:
         _stop(port, box["token"], thread)
     if done.returncode == 77:
-        pytest.skip("Chromium для Playwright не запускается: e2e студии пропущен")
+        _no_browser("Chromium для Playwright не запускается: e2e студии пропущен")
     assert done.returncode == 0, done.stdout + done.stderr
     result = json.loads(done.stdout.strip().splitlines()[-1])
     before, after = result["before"], result["after"]

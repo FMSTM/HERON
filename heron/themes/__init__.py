@@ -39,6 +39,7 @@ import shutil
 import tarfile
 import tempfile
 import time
+import urllib.parse
 import urllib.request
 import zipfile
 import zlib
@@ -61,6 +62,19 @@ MAX_TOTAL = 200 * 1024 * 1024
 MAX_FILE = 50 * 1024 * 1024
 MAX_FILES = 5000
 TIMEOUT = 20
+# перенаправления при скачивании: не больше стольких, только https и только эти
+# хосты (плюс хост самой ссылки и каталога); свои - через HERON_THEMES_HOSTS
+MAX_REDIRECTS = 5
+HOSTS_ENV = "HERON_THEMES_HOSTS"
+TRUSTED_HOSTS = {
+    "github.com",
+    "codeload.github.com",
+    "raw.githubusercontent.com",
+    "objects.githubusercontent.com",
+    "release-assets.githubusercontent.com",
+}
+# записей в архиве всего (с папками): читать заголовки бесконечно не будем
+MAX_ENTRIES = 2 * MAX_FILES
 FORBIDDEN_PARTS = {"plugins", ".git", "__pycache__"}
 FORBIDDEN_SUFFIXES = {".py", ".pyc", ".sh", ".exe", ".bat", ".cmd", ".ps1", ".so", ".dll"}
 DEMO_FOLDERS = ("content", "media", "data")
@@ -140,13 +154,63 @@ def _entry(name: str) -> dict[str, Any]:
     )
 
 
+def _host(url: str) -> str:
+    try:
+        return (urllib.parse.urlsplit(url).hostname or "").lower()
+    except ValueError:
+        return ""
+
+
+def _allowed_hosts(url: str) -> set[str]:
+    """Куда можно перенаправить: хост ссылки, хост каталога, GitHub и HERON_THEMES_HOSTS."""
+    extra = {h.strip().lower() for h in os.environ.get(HOSTS_ENV, "").split(",") if h.strip()}
+    catalog_host = _host(os.environ.get(CATALOG_ENV, CATALOG_URL))
+    return {h for h in {_host(url), catalog_host, *TRUSTED_HOSTS, *extra} if h}
+
+
+class _Redirects(urllib.request.HTTPRedirectHandler):
+    """Каждое перенаправление проверяется заново: https, хост из списка, предел числа."""
+
+    max_redirections = MAX_REDIRECTS
+    max_repeats = 2
+
+    def __init__(self, allowed: set[str]) -> None:
+        super().__init__()
+        self.allowed = allowed
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        target = urllib.parse.urljoin(req.full_url, newurl)
+        if not target.startswith("https://") or _host(target) not in self.allowed:
+            raise _fail(
+                Msg("themes_redirect_refused", url=req.full_url, target=target),
+                Msg("themes_redirect_refused_hint", env=HOSTS_ENV),
+            )
+        return super().redirect_request(req, fp, code, msg, headers, target)
+
+    def http_error_302(self, req, fp, code, msg, headers):
+        visited = getattr(req, "redirect_dict", {})
+        if sum(visited.values()) >= self.max_redirections:
+            raise _fail(Msg("themes_too_many_redirects", url=req.full_url, limit=MAX_REDIRECTS))
+        return super().http_error_302(req, fp, code, msg, headers)
+
+    http_error_301 = http_error_303 = http_error_307 = http_error_308 = http_error_302
+
+
+def _opener(url: str) -> urllib.request.OpenerDirector:
+    return urllib.request.build_opener(_Redirects(_allowed_hosts(url)))
+
+
 def _download(url: str) -> bytes:
     if not url.startswith("https://"):
         raise _fail(Msg("themes_only_https", url=url), Msg("themes_only_https_hint"))
     request = urllib.request.Request(url, headers={"User-Agent": "heron-theme"})
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:  # noqa: S310
+        with _opener(url).open(request, timeout=TIMEOUT) as response:
+            if not str(response.geturl()).startswith("https://"):
+                raise _fail(Msg("themes_only_https", url=response.geturl()))
             body = response.read(MAX_TOTAL + 1)
+    except HeronError:
+        raise
     except Exception as error:
         raise _fail(Msg("themes_download_failed", url=url, error=error)) from error
     if len(body) > MAX_TOTAL:
@@ -158,11 +222,20 @@ def _members(blob: bytes) -> list[tuple[str, bytes]]:
     """Файлы архива (zip или tar.gz) с проверкой каждого пути."""
     files: list[tuple[str, bytes]] = []
     total = 0
+    entries = 0
+
+    def count() -> None:
+        nonlocal entries
+        entries += 1
+        if entries > MAX_ENTRIES:
+            raise _fail(Msg("themes_archive_limits"))
 
     def take(name: str, size: int, read) -> None:
+        """Проверить путь и прочитать запись не больше пределов, что бы ни писал заголовок."""
         nonlocal total
         path = PurePosixPath(name.replace("\\", "/"))
-        if path.is_absolute() or ".." in path.parts or not path.parts:
+        leaves = path.is_absolute() or ".." in path.parts or not path.parts
+        if leaves or "\x00" in name or re.match(r"^[A-Za-z]:", path.as_posix()):
             raise _fail(Msg("themes_entry_leaves", name=name))
         if any(part in FORBIDDEN_PARTS for part in path.parts):
             raise _fail(Msg("themes_entry_code", name=name))
@@ -170,34 +243,54 @@ def _members(blob: bytes) -> list[tuple[str, bytes]]:
             raise _fail(Msg("themes_entry_script", name=name))
         if size > MAX_FILE:
             raise _fail(Msg("themes_entry_big", name=name, mb=MAX_FILE // (1024 * 1024)))
-        total += size
-        if total > MAX_TOTAL or len(files) >= MAX_FILES:
+        if len(files) >= MAX_FILES or total + size > MAX_TOTAL:
             raise _fail(Msg("themes_archive_limits"))
-        files.append((path.as_posix(), read()))
+        # заголовку размера не верим: читаем не больше предела записи и остатка архива
+        limit = min(MAX_FILE, MAX_TOTAL - total)
+        data = read(limit + 1)
+        if len(data) > MAX_FILE:
+            raise _fail(Msg("themes_entry_big", name=name, mb=MAX_FILE // (1024 * 1024)))
+        if len(data) > limit:
+            raise _fail(Msg("themes_archive_limits"))
+        total += len(data)
+        files.append((path.as_posix(), data))
+
+    def zip_read(archive: zipfile.ZipFile, info: zipfile.ZipInfo):
+        def read(limit: int) -> bytes:
+            with archive.open(info) as handle:
+                return handle.read(limit)
+
+        return read
 
     try:
         if blob[:4] == b"PK\x03\x04":
             with zipfile.ZipFile(io.BytesIO(blob)) as archive:
                 for info in archive.infolist():
+                    count()
                     if info.is_dir():
                         continue
                     mode = (info.external_attr >> 16) & 0o170000
                     if mode and mode != 0o100000:
                         raise _fail(Msg("themes_entry_link", name=info.filename))
-                    take(info.filename, info.file_size, lambda i=info: archive.read(i))
+                    take(info.filename, info.file_size, zip_read(archive, info))
             return files
         try:
             archive = tarfile.open(fileobj=io.BytesIO(blob), mode="r:*")  # noqa: SIM115
         except tarfile.TarError as error:
             raise _fail(Msg("themes_not_archive")) from error
         with archive:
-            for member in archive.getmembers():
+            for member in archive:  # по одной записи, без списка всех заголовков
+                count()
                 if member.isdir():
                     continue
                 if not member.isfile():
                     raise _fail(Msg("themes_entry_link", name=member.name))
                 handle = archive.extractfile(member)
-                take(member.name, member.size, lambda h=handle: h.read() if h else b"")
+                take(
+                    member.name,
+                    member.size,
+                    lambda limit, h=handle: h.read(limit) if h else b"",
+                )
     except (
         zipfile.BadZipFile,
         tarfile.TarError,

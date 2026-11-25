@@ -14,8 +14,15 @@ SVG из `media/`, `static/` и темы сайт отдаёт как есть, 
 2. ElementTree - элементы и атрибуты: script/foreignObject/iframe/embed/object,
    медиа HTML (video/audio/source/track) в любом пространстве имён,
    любой атрибут on*, ссылки со схемой (`javascript:`, `data:`, `http:`…) и `//`,
-   анимация, которая подменяет ссылку или обработчик, внешние `url(…)` и
-   `@import` в стилях.
+   анимация, которая подменяет ссылку, стиль или обработчик, внешние `url(…)` и
+   `@import` в стилях и в любом атрибуте.
+
+Значения анимации (`from`, `to`, `by`, `values`) - это значения того, что она
+меняет: каждое (через `;`) сверяется как CSS и как ссылка, так что
+`to="url(https://…)"` и `values="#ok;url(https://…)"` не проходят. `#` годится
+только как чистая ссылка на фрагмент, без `;` и `url(`. `<image>` и `<feImage>`
+берут только `#id` или растр внутри файла: относительный путь (`/x.svg`,
+`x.svg`) - тоже чужой файл.
 
 Что обычный редактор пишет сам, проходит: `url(#id)` в `style` и `<style>`
 (градиенты Inkscape и Illustrator), `href="#id"`, картинка внутри файла
@@ -37,7 +44,7 @@ from pathlib import Path
 from xml.parsers import expat
 
 # Версия правил: кэш годных файлов (`.heron-cache/svg-safe.json`) другой версии не годится.
-RULES = 4
+RULES = 5
 ELEMENTS = {
     *("script", "foreignobject", "iframe", "frame", "frameset", "embed", "object", "applet"),
     *("portal", "handler", "listener", "meta", "link", "base"),
@@ -45,10 +52,15 @@ ELEMENTS = {
     *("video", "audio", "source", "track"),
 }
 ANIMATE = {"set", "animate", "animatetransform", "animatemotion", "animatecolor"}
-LINKS = {
-    *("href", "src", "xlink:href", "action", "formaction", "from", "to", "values", "base"),
-    "poster",
-}
+LINKS = {"href", "src", "xlink:href", "action", "formaction", "base", "poster"}
+# значения анимации: CSS того, что она меняет, и при этом возможная ссылка
+ANIMATE_VALUES = {"from", "to", "by", "values"}
+# что анимация менять не может: ссылки, стиль целиком (обработчики on* - отдельно)
+ANIMATE_FORBIDDEN = {"href", "src", "action", "formaction", "poster", "style", "base"}
+# элементы, которые грузят картинку по ссылке: только `#id` или растр внутри файла
+IMAGES = {"image", "feimage"}
+# чистая ссылка на фрагмент своего файла: без `;`, скобок, кавычек и косых
+FRAGMENT = re.compile(r"^#[^;()'\"\\/<>]*$")
 # ссылка со схемой (`javascript:`, `blob:`, `https:`…) или на другой хост (`//`, `\\`)
 SCHEMES = re.compile(r"^[a-z][a-z0-9+.\-]*:|^[/\\]{2}")
 # что можно в `<a>`: обычная ссылка и почта
@@ -151,15 +163,35 @@ def _css(css: str, where: str) -> None:
 def _link(tag: str, name: str, plain: str) -> None:
     """Ссылка элемента: `#id` - всегда; `<a>` - ещё http(s) и почта; `<image>` - растр внутри."""
     if plain.startswith("#"):
-        return
-    if tag == "use" and name in ("href", "xlink:href"):
+        if FRAGMENT.match(plain):
+            return
+        raise _Unsafe(f"not a plain #fragment in {name}")
+    href = name in ("href", "xlink:href")
+    if tag == "use" and href:
         raise _Unsafe("<use> outside this file")
-    if tag == "a" and name in ("href", "xlink:href") and A_SCHEMES.match(plain):
+    if tag == "a" and href and A_SCHEMES.match(plain):
         return
-    if tag == "image" and name in ("href", "xlink:href") and DATA_IMAGE.match(plain):
-        return
+    if tag in IMAGES and href:
+        if DATA_IMAGE.match(plain):
+            return
+        raise _Unsafe(f"<{tag}> outside this file")
     if SCHEMES.search(plain):
         raise _Unsafe(f"link in {name}")
+    if CSS_URL.search(plain):
+        raise _Unsafe(f"url( in {name}")
+
+
+def _animation_values(tag: str, name: str, value: str) -> None:
+    """`from`/`to`/`by`/`values`: каждое значение через `;` - и как CSS, и как ссылка."""
+    for part in value.split(";"):
+        plain = _plain_value(part)
+        if not plain:
+            continue
+        _css(part, f"attribute {name}")
+        if plain.startswith("#"):
+            _link(tag, name, plain)
+        elif SCHEMES.search(plain):
+            raise _Unsafe(f"link in {name}")
 
 
 def _structure(data: bytes) -> None:
@@ -223,14 +255,16 @@ def _elements(data: bytes) -> None:
                 raise _Unsafe(f"attribute {name}")
             if "javascript:" in plain or "vbscript:" in plain:
                 raise _Unsafe(f"script link in {name}")
-            if name in LINKS:
+            if name in ANIMATE_VALUES:
+                _animation_values(tag, name, value)
+            elif name in LINKS:
                 _link(tag, name, plain)
             else:
                 # style и атрибуты оформления (fill, filter, mask, clip-path) - это CSS
                 _css(value, "style" if name == "style" else f"attribute {name}")
             if tag in ANIMATE and name == "attributename":
                 target = plain.split(":")[-1]
-                if target.startswith("on") or target in ("href", "src"):
+                if target.startswith("on") or target in ANIMATE_FORBIDDEN:
                     raise _Unsafe(f"<{tag}> changes {target}")
 
 

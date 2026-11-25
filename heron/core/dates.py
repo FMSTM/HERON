@@ -38,8 +38,9 @@ STAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}([+-]\d{2}:\d{2}|Z)$")
 
 # Гит отказывается работать в папке, которой владеет кто-то другой. В нашем
 # случае «кто-то другой» — хозяин папки сайта, а мы внутри контейнера с
-# чужим uid, и это норма, а не подозрительная ситуация.
-SAFE = ["-c", "safe.directory=*"]
+# чужим uid, и это норма, а не подозрительная ситуация. Доверяем ровно одному
+# репозиторию - тому, где лежит сайт (`_safe()`), а не любому (`*`): иначе
+# чужой `.git/config` где угодно (fsmonitor, diff.external, фильтры) исполнялся бы.
 
 # Сорок файлов, записанных в одну минуту, — это копирование, а не правка.
 # Время файла говорит, когда его записали на диск, а не когда изменили
@@ -76,11 +77,29 @@ def _mtime(path: Path) -> date | None:
         return None
 
 
+def _top(site_root: Path) -> Path | None:
+    """Корень репозитория сайта: ближайшая папка вверх, где есть `.git`."""
+    try:
+        start = site_root.resolve()
+    except OSError:
+        return None
+    for folder in (start, *start.parents):
+        if (folder / ".git").exists():
+            return folder
+    return None
+
+
+def _safe(site_root: Path) -> list[str]:
+    """`safe.directory` только на репозиторий сайта; репозитория нет - ничего."""
+    top = _top(site_root)
+    return ["-c", f"safe.directory={top.as_posix()}"] if top is not None else []
+
+
 def _git(site_root: Path, *args: str) -> str | None:
     """Позвать гит. Не вышло — вернуть ничего, а не уронить сборку."""
     try:
         done = subprocess.run(
-            ["git", "-C", str(site_root), *SAFE, *args],
+            ["git", "-C", str(site_root), *_safe(site_root), *args],
             capture_output=True,
             text=True,
             timeout=TIMEOUT,

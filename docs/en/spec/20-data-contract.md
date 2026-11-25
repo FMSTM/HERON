@@ -883,7 +883,33 @@ analytics:
 
 ### The `services` block: embedded HERON services <a id="services"></a>
 
-A HERON service is a script foreign to the site that the engine connects itself (0.3.3): the theme writes nothing, and the browser security policy (CSP) opens exactly for this service and exactly in the builds where it is on. The first service is the HERON Chat chat.
+A HERON service is a script foreign to the site that the engine connects itself (0.3.3): the theme writes nothing, and the browser security policy (CSP) opens exactly for this service and exactly in the builds where it is on. There are two services: one HERON script per site (`services.heron`) and the former HERON Chat tag (`services.chat`, compatibility).
+
+#### `services.heron` - one script per site <a id="services-heron"></a>
+
+```yaml
+services:
+  heron: hs_01JDX8Q7M2K9V4T6R3N5P8W1ZC       # the short form: just the site number
+```
+
+```yaml
+services:
+  heron:
+    site: hs_01JDX8Q7M2K9V4T6R3N5P8W1ZC     # the site number from the HERON dashboard
+    hub: https://dev-hub.heron.software      # optional: the hub, the production one by default
+    env: [dev, prod]                         # in which builds; no key - in all of them
+```
+
+- the engine inserts one tag `<script async src="<hub>/l.js" data-site="<number>" data-lang="<page language>">` before `</head>` of every page of an enabled build, except the 404 page (as with the chat). The `l.js` loader asks the hub itself what is on for the site in the dashboard and loads analytics and, if on, the chat (the current widget). The "Connect chat/CRM" button in the dashboard turns the chat on without rebuilding the site;
+- `site` - `hs_` and 26 characters (digits and Latin letters without I, L, O, U), the same check as in the loader. Not a secret: the number is visible in the page code. Empty or missing - the script is not connected in that build, a "no site number" note, not an error. A non-empty one in the wrong format is `E047`;
+- `hub` - where `l.js` loads from: `https` only and origin only, no path and no slash; missing - `https://hub.heron.software` (the same host as the chat's, written in one place). `data-api` is not written: the loader takes the hub from its own `src`. A bad `hub` is `E047` even without a number;
+- `env` - as with the chat: a list of environment names or a map name → own values (`env: {dev: {hub: https://dev-hub.heron.software}, prod: {}}`); an empty environment value does not override the block's value;
+- the nginx CSP of that build and of the studio preview port: `hub` goes to `script-src` and `connect-src` (`l.js`, the analytics module, the chat widget, the config and collect requests - all on the hub). Nothing else is opened;
+- **wins over `chat`**: if both `heron` and `chat` are on in one build, only `l.js` is connected, the chat tag is skipped, `check` and the build print a warning (with `--strict` it stops the build). Otherwise the widget would come twice. With `heron` the chat is turned on in the dashboard. Environments that do not overlap (`chat` in dev, `heron` in prod) - each works in its own, without a warning. `services.chat` without `heron` works as before;
+- the theme sees `services.heron.enabled`. `services.chat.enabled` is only about the former tag: whether the dashboard turns the chat on through `l.js`, the build does not know;
+- **consent**: without the visitor's consent `l.js` writes nothing to the browser storage and sends only anonymous page views; the site passes consent by calling `heron.analytics.consent(true)`, refusal - `consent(false)`. In the starter theme with `services.heron` there is the same "Accept / Decline" banner as for the `analytics` counters (also in the dev build, where there are no counters): the choice goes to `heron.analytics.consent`; `l.js` loads `async` and may come later - then the call waits for the `heron:ready` event. A custom theme does the same if it promises the visitor consent. The site consent mode (`required` or `not_required`) is in the dashboard.
+
+#### `services.chat` - the HERON Chat tag <a id="services-chat"></a>
 
 ```yaml
 services:
@@ -905,8 +931,8 @@ services:
 - the theme sees `services.chat.enabled` and `services.chat.ui` in its context - to hide or move its own contact button (the chat button is at the bottom right, `right: 20px; bottom: 20px`);
 - the chat is a **functional service**: it loads right away, without the visitor's consent, like a cart or a language choice. It keeps a visitor id in the browser `localStorage` and `sessionStorage`; mention the chat in the site's privacy policy. The `analytics` counters need consent, the chat does not;
 - the chat hub answers only the addresses from the widget settings in the HERON Chat dashboard (the site domain and the `www.` domain by default, up to 10 addresses), the rest get `403`. Add the dev domain (`site.domains.dev`) there by hand, otherwise the widget does not open; a build with the chat outside `prod` prints a note about it (not a warning);
-- `services.shop` is **reserved** for the shop from the CRM (a site page with an insertion point where the shop script draws the catalogue, and the hosts of product pictures in `img-src`): for now it is `E047`. The `analytics` counters stay their own block for now.
-- in the configurator (`heron setup`, the "Site" tab of the studio) - the "HERON services" group: the key with a live format check, dev and prod switches, the host and the button look in the advanced settings; saving writes `services.chat` and does not touch other environments and the environments' own values; an empty key field removes `widget` and keeps the block with the host and the environments.
+- `services.shop` is **reserved** for the shop from the CRM (a site page with an insertion point where the shop script draws the catalogue, and the hosts of product pictures in `img-src`): for now it is `E047`. The `analytics` counters stay their own block for now;
+- in the configurator (`heron setup`, the "Site" tab of the studio) - the "HERON services" group: the key with a live format check, dev and prod switches, the host and the button look in the advanced settings; saving writes `services.chat` and does not touch other environments and the environments' own values; an empty key field removes `widget` and keeps the block with the host and the environments. The configurator does not show `services.heron` yet and does not touch it on saving.
 
 ### `seo.llms_note` - facts about the site for AI models
 

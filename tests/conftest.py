@@ -1,11 +1,24 @@
 """Общие заготовки конфигов для тестов контрактов."""
 
+import os
 from pathlib import Path
 
 import pytest
 import yaml
 
 from heron import __version__
+from heron.cli import IGNORE_DOCKERENV_ENV
+
+
+def pytest_configure(config):
+    """Тесты не наследуют режим образа от машины: `/.dockerenv` в docker-прогоне не в счёт.
+
+    Ставится в окружение процесса до сбора тестов, поэтому видно и дочерним
+    процессам (CLI через subprocess). Режим образа тест включает сам:
+    `HERON_IN_CONTAINER=1` или подмена `heron.cli.in_container`.
+    """
+    os.environ.setdefault(IGNORE_DOCKERENV_ENV, "1")
+
 
 _MAJOR, _MINOR = __version__.split(".")[:2]
 # Требование под текущий движок: тесты не должны падать от подъёма версии.

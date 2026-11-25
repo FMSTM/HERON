@@ -424,6 +424,10 @@ def rendered(value: str | None, lang: str) -> str | None:
 
 
 CONTAINER_ENV = "HERON_IN_CONTAINER"
+# Для тестов: `1` - файл `/.dockerenv` не считается признаком образа. Тесты идут
+# и внутри docker, где он есть всегда; режим образа они включают явно
+# (`HERON_IN_CONTAINER=1`), а не наследуют от машины, на которой запущены.
+IGNORE_DOCKERENV_ENV = "HERON_IGNORE_DOCKERENV"
 
 
 # --- язык и окружение ---------------------------------------------------------
@@ -462,7 +466,11 @@ def _notes_env(notes: str | None) -> Iterator[None]:
 
 def in_container() -> bool:
     """Движок запущен в образе: там пути с компьютера человека не видны."""
-    return os.environ.get(CONTAINER_ENV) == "1" or Path("/.dockerenv").exists()
+    if os.environ.get(CONTAINER_ENV) == "1":
+        return True
+    if os.environ.get(IGNORE_DOCKERENV_ENV) == "1":
+        return False
+    return Path("/.dockerenv").exists()
 
 
 def can_ask() -> bool:

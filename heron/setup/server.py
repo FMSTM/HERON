@@ -294,7 +294,10 @@ def run(
                     ident = secrets.token_hex(8)
                     path = Path(workdir.name) / f"{ident}.archive"
                     os.replace(part, path)
-                    uploads[ident] = path
+                    with lock:
+                        for old_id in list(uploads):
+                            uploads.pop(old_id).unlink(missing_ok=True)
+                        uploads[ident] = path
                     self._json(200, {"ok": True, "upload": ident})
                     return
                 try:

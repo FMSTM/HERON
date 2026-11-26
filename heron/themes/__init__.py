@@ -121,8 +121,11 @@ def _catalog(url: str, timeout: float) -> list[dict[str, Any]]:
             "builtin": True,
         }
     ]
+    if not url.startswith("https://"):
+        return out
+    request = urllib.request.Request(url, headers={"User-Agent": "heron-theme"})
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as response:  # noqa: S310
+        with _opener(url).open(request, timeout=timeout) as response:
             data = json.loads(response.read(2 * 1024 * 1024).decode("utf-8"))
     except Exception:
         return out
@@ -135,9 +138,14 @@ def _catalog(url: str, timeout: float) -> list[dict[str, Any]]:
 
 def _entry(name: str) -> dict[str, Any]:
     url = os.environ.get(CATALOG_ENV, CATALOG_URL)
+    if not url.startswith("https://"):
+        raise _fail(Msg("themes_only_https", url=url), Msg("themes_only_https_hint"))
+    request = urllib.request.Request(url, headers={"User-Agent": "heron-theme"})
     try:
-        with urllib.request.urlopen(url, timeout=TIMEOUT) as response:  # noqa: S310
+        with _opener(url).open(request, timeout=TIMEOUT) as response:
             data = json.loads(response.read(2 * 1024 * 1024).decode("utf-8"))
+    except HeronError:
+        raise
     except Exception as error:
         raise _fail(
             Msg("themes_catalog_unreachable", error=error), Msg("themes_catalog_unreachable_hint")

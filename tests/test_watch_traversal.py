@@ -48,3 +48,10 @@ def test_not_found_ignores_the_query(tmp_path):
         "en/404/index.html"
     )
     assert not_found(dist, "/?x=/en").read_text(encoding="utf-8") == "404.html"
+
+
+def test_no_slash_route_collapses_double_leading_slashes(tmp_path):
+    dist = _tree(tmp_path)
+    assert no_slash_route(dist, "//en/page/") == ("redirect", "/en/page")
+    assert no_slash_route(dist, "///en/page") == ("file", "/en/page/index.html")
+    assert no_slash_route(dist, "///") is None

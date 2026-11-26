@@ -207,7 +207,8 @@ def no_slash_route(dist: Path, route: str) -> tuple[str, str] | None:
     `/media/` и `/assets/` nginx отдаёт как файлы, без 301: форма со слешем
     там - 404 сразу.
     """
-    if route == "/" or not route:
+    route = "/" + route.lstrip("/")
+    if route == "/":
         return None
     stem = route.rstrip("/")
     target = dist / stem.lstrip("/")

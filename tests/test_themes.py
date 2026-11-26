@@ -358,3 +358,14 @@ def test_install_takes_notes_or_reads_the_site(site: Path, monkeypatch):
     assert "# Что тема ждёт от site.yaml" in theme_yaml()
     install(site, "starter", languages=["en"], notes="en")
     assert "# What the theme expects from site.yaml" in theme_yaml()
+
+
+def test_catalog_and_entry_require_https(monkeypatch):
+    from heron import themes
+
+    url = "http://example.com/catalog.json"
+    monkeypatch.setenv("HERON_THEMES_CATALOG", url)
+    assert [entry["name"] for entry in themes._catalog(url, 0.1)] == ["starter"]
+    with pytest.raises(HeronError) as err:
+        themes._entry("starter")
+    assert err.value.code == "E032"
